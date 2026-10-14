@@ -3,76 +3,177 @@ title: "JSON output"
 description: "Machine-readable output of lif commands: payloads, errors and exit codes."
 ---
 
-## Purpose
-Reference page for everything scripts and agents read from the JSON output of the commands: which commands have `--json`, what success and error payloads look like, and which exit codes apply. What FACTS does not show stays marked as open.
+**State of this page:** shapes measured on 2026-10-14 against Lif 0.14 (development build `135e76e`).
 
-## Audience
-Script authors and agents that process Lif output programmatically. The page is limited to documented shapes; missing schemas are filled in from the code in phase 5.
+:::caution[No stable interface promised]
+The JSON shapes can change with any release, and this page can be out of date. The repository publishes no schema files for the `--json` output (only an internal findings schema exists). No stable interface is promised until schema files exist; tracked as [z9e6]. If you need certainty, run the command against your own version.
+:::
 
-## Required sections
+## Using `--json`
 
-### Using `--json`
-- Shows the commands with `--json`: `archive`, `check`, `complete`, `create`, `delete`, `graphql`, `init`, `list`, `milestones`, `next`, `order`, `progress`, `promote`, `rename`, `roadmap`, `scrap`, `show`, `start`, `tag`, `update`, `version`.
-- Shows the commands without `--json`: `graph` (uses `--format json`), `path`, `pick`, `prime`, `tui`.
-- Explains: with `--json` the human-readable lines are omitted; `lif delete --json` implies `--force` (no confirmation prompt); `lif graphql --json` turns off colors.
-- Explains: `lif list --json` includes the body only with `--full`.
-- Source: FACTS.md §1.0, §1.1 (flags per command), §6.8, §7.5
+Commands with `--json`: `archive`, `check`, `complete`, `create`, `delete`, `graphql`, `init`, `list`, `milestones`, `next`, `order`, `progress`, `promote`, `rename`, `roadmap`, `scrap`, `show`, `start`, `tag`, `update`, `version`.
 
-### Success payloads
-- Explains the three families: item objects (domain model), responses with the affected item, command-specific shapes (e.g. `check`, `graph`, `version`).
-- Table per command: root shape (object or list), fields, example (TODO: verify)
-- Explains the simple success object with a success flag and a message (e.g. `lif next` without a ready item); the JSON key names cannot be read from FACTS (TODO: verify)
-- Shows `lif version --json` (TODO: verify)
-- Link to `reference/item-file-format` (Front matter fields) for the meaning of the item fields.
-- Source: FACTS.md §5.2 (`next --json`), §1.1 (`lif version`); `TODO: verify` for item and version payload: see `internal/output/output.go` and the `--json` paths of the commands, then run each command once
+Commands without it: `graph` (uses `--format json`), `path`, `pick`, `prime`, `tui`.
 
-### Error payload and codes
-- Table of error codes: `NOT_FOUND`, `NO_LIF_DIR`, `INVALID_STATUS`, `FILE_ERROR`, `VALIDATION_ERROR`, `CONFLICT`, `POLICY_VIOLATION`, one line each on when it occurs (mapping per code → TODO: verify).
-- Shows the missing Store: with `--json` error code `NO_LIF_DIR` (not `NO_BEANS_DIR`).
-- Shows examples of errors with a code: unknown item (`NOT_FOUND`), `lif graph --format` invalid or `--depth` without an ID (validation error in JSON format).
-- Shows the shape of the error object (field names) (TODO: verify)
-- Source: FACTS.md §1.0, §5.5; `TODO: verify` for error object and mapping of the codes: see `internal/output/output.go`
+- With `--json` the human-readable lines are omitted.
+- `lif delete --json` implies `--force`: there is no confirmation prompt.
+- `lif graphql --json` turns off colors. Output is indented with two spaces.
+- `lif list --json` includes the body only with `--full`.
 
-### Without `--json`
-- Explains: without `--json` Lif prints text; errors appear once as text, the process exits with code 1, the Cobra usage is suppressed.
-- Explains: `lif show` prints styled output on a terminal, and the raw Markdown of the source file when piped or redirected to a file.
-- Shows exit codes: 0 on success, 1 on error; `lif check` returns 1 on at least one finding (policy warnings count only with `--strict`, legacy notices never); no exit code 2; `lif next` without a ready item exits with 0.
-- Source: FACTS.md §1.0, §1.1 (`lif show`), §5.2, §6.8, §6.11
+## Success payloads
 
-### `lif check --json`
-- Table of fields: `success` (always; `true` exactly when there are no findings, with `--strict` including policy warnings), `config_errors` (list, `null` when empty), `item_issues` with `broken_links`, `self_links`, `cycles` (`link_type`, `path`), `fixed` (count; absent at 0), `policy_warnings`, `attachment_orphans`, `legacy_names` (only when present).
-- Explains: output is indented with two spaces; exit code 1 on findings also with `--json`.
-- Explains: old keys `bean_id` and `bean_issues` are now called `item_id` and `item_issues`.
-- Shows an example with a broken link (TODO: verify)
-- Field names of the entries in `broken_links` and `self_links`, and whether `cycles` entries also carry `item_id` (FACTS mentions both) (TODO: verify)
-- Source: FACTS.md §6.8, §5.3, §6.11; `TODO: verify` for entry fields and example: see `internal/commands/check.go` and `pkg/itemcore/links.go`, run `lif check --json` once
+There are three families: item objects (`list`, `show`, `next`), responses that carry the affected item (`create`, `update`, `complete`, ...), and command-specific shapes (`check`, `graph`, `version`). For the meaning of the item fields see [Item file format](../item-file-format/#front-matter-fields).
 
-### `lif graph --json`
-- Explains: invoke with `--format json`, not `--json`.
-- Shows the shape: `{"nodes":[{"id","title","status","type"}],"edges":[{"from","to","relation"}]}`; `type` is absent for an empty type; `edges` is `[]` without edges; indentation two spaces.
-- Explains `relation`: `parent` (parent to child) or `blocks` (blocking to blocked item); `blocking` and `blocked_by` are merged into one edge.
-- Explains: errors (invalid `--format`, `--relation`, `--depth`) appear in JSON format as a JSON error object.
-- Shows an example (TODO: verify)
-- Source: FACTS.md §5.5; `TODO: verify` for example output: run once in phase 5
+A new item, `lif create "Write notes" -t task --parent <epic> -p high --tag docs --json`:
 
-### `lif next --json` message
-- Explains: if no item is ready, `lif next --json` prints a success object with the message `no ready items found`, with an active filter `no ready items found matching <flags>`; exit code 0.
-- Explains: if an item is ready, the output equals that of `lif show --json` (`next` delegates to `show`).
-- Explains: a query error appears as the validation error `querying items: ...`.
-- Source: FACTS.md §5.2
+```json
+{
+  "id": "f014j-ix1n",
+  "slug": "write-notes",
+  "path": "f014j-ix1n--write-notes.md",
+  "title": "Write notes",
+  "status": "todo",
+  "type": "task",
+  "priority": "high",
+  "tags": [
+    "docs"
+  ],
+  "created_at": "2026-10-14T18:54:05Z",
+  "updated_at": "2026-10-14T18:54:05Z",
+  "parent": "f014j-uzgy",
+  "etag": "3c75a4149f169b2a"
+}
+```
 
-### Findings schema for `lif promote`
-- Explains: `lif promote <artifact> <finding-id>...` checks the chosen finding records against an embedded findings schema and creates one item per record (fixed mapping from code to type).
-- Explains: if a chosen record is invalid, the command writes nothing; findings already promoted are skipped.
-- Shows the schema with all fields (TODO: verify)
-- Shows the mapping from code to type (TODO: verify)
-- Source: FACTS.md §1.1 (`lif promote`); `TODO: verify` for schema and mapping: see `internal/commands/findings-schema.json` and `internal/commands/promote.go`
+- `lif list --json` and `lif show --json` use the same object; `list` returns an array. `priority` is `normal` when the file has none.
+- `etag` is the value for `--if-match`. `blocking` and `blocked_by` appear when set.
+- `lif list --json` has no `body`; add `--full`.
 
-### Stability and date of this page
-- Prints a visible "State of this page" line near the top with the date the shapes were measured and the Lif version they were measured against (taken from `lif version` at writing time). The date is part of the page, not hidden metadata.
-- Shows a warning box: the JSON shapes can change with any release, this page can be out of date, and no stable interface is promised until schema files exist (D69). Readers who need certainty run the command against their own version.
-- States that the repository publishes no schema files for `--json` output; only the internal findings schema exists (FACTS.md §11.10). Links to the tracking item as `[z9e6]` (D65).
-- Every example on the page is a real output pasted from FACTS.md §11, not a hand-written one.
-- Recipe with `jq`: extract the IDs of open items from `lif list --json` (FACTS.md §11.9–§11.11; run it before publishing).
-- Recipe: evaluate the exit code and `success` of `lif check --json` in CI (FACTS.md §11.9–§11.11; run it before publishing).
-- Source: FACTS.md §11.10, §11.9–§11.11, §22.1; DESIGN.md D65, D69
+`lif version --json`:
+
+```json
+{
+  "version": "dev",
+  "commit": "135e76e-dirty",
+  "date": "2026-10-14T18:41:07Z",
+  "custom_front_matter": true
+}
+```
+
+A plain success with a message, for example `lif next --json` when nothing is ready (exit code 0):
+
+```json
+{
+  "success": true,
+  "message": "no ready items found"
+}
+```
+
+With a filter the message is `no ready items found matching <flags>`. If an item is ready, the output equals `lif show --json`.
+
+## Error payload and codes
+
+With `--json` an error is one JSON object on stdout and the exit code is 1:
+
+```json
+{
+  "success": false,
+  "error": "item not found: nope",
+  "code": "NOT_FOUND"
+}
+```
+
+| Code | When |
+|---|---|
+| `NOT_FOUND` | Item ID unknown. |
+| `NO_LIF_DIR` | No store found (not `NO_BEANS_DIR`). |
+| `INVALID_STATUS` | Status not in the configured table. |
+| `VALIDATION_ERROR` | Invalid input: unknown blocker, invalid `--format` or `--depth`, bad filter. |
+| `FILE_ERROR` | Writing or reading the file failed, also a refused parent (`failed to create item: epic items can only have milestone as parent, not task`). |
+| `CONFLICT` | ETag mismatch (`--if-match`). |
+| `POLICY_VIOLATION` | A required field of `require_fields_on` is missing. See [Configuration](../configuration/#status-dependent-required-fields). |
+
+The mapping above is from the code of the commands, not every code was triggered in this measurement. Observed: `NOT_FOUND`, `NO_LIF_DIR`, `VALIDATION_ERROR` (`blocker item not found: zzzz`, `invalid status: bogus (must be in-progress, todo, draft, completed, scrapped)`), `FILE_ERROR`.
+
+`lif graphql` and `lif list --search` do not use this envelope. A failing GraphQL call prints `Error: graphql: <message>` on stderr, a failing search `Error: querying items: <message>`. Both exit with 1.
+
+## Without `--json`
+
+- Text output. An error appears once as text, the process exits with 1, Cobra's usage text is suppressed.
+- `lif show` prints styled output on a terminal and the raw Markdown of the file when piped or redirected.
+- Exit codes: 0 on success, 1 on error. `lif check` returns 1 on at least one finding (policy warnings count only with `--strict`, legacy notices never). There is no exit code 2. `lif next` without a ready item exits with 0.
+
+## `lif check --json`
+
+```json
+{
+  "success": true,
+  "config_errors": null,
+  "item_issues": {
+    "broken_links": [],
+    "self_links": [],
+    "cycles": []
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `success` | `true` exactly when there are no findings; with `--strict` policy warnings count. |
+| `config_errors` | List of configuration problems, `null` when empty. |
+| `item_issues` | `broken_links`, `self_links`, `cycles` (`link_type`, `path`). Formerly `bean_issues`. |
+| `fixed` | Count of repaired links (`--fix`); absent at 0. |
+| `policy_warnings`, `attachment_orphans`, `legacy_names` | Only when present. |
+
+The exit code is 1 on findings also with `--json`. The 0.14 `check` also reports item field problems: unknown status or priority, invalid tags, a parent of the wrong type rank. The entry fields of those findings were not measured for this page.
+
+Recipe: fail a CI job on findings.
+
+```sh
+lif check --json > check.json || { echo "lif check found issues"; exit 1; }
+jq -e '.success' check.json
+```
+
+## `lif graph --format json`
+
+Use `--format json`, not `--json`.
+
+```json
+{
+  "nodes": [
+    { "id": "f014j-ix1n", "title": "Write notes", "status": "todo", "type": "task" },
+    { "id": "f014j-uzgy", "title": "Ship release", "status": "todo", "type": "epic" }
+  ],
+  "edges": [
+    { "from": "f014j-uzgy", "to": "f014j-ix1n", "relation": "parent" }
+  ]
+}
+```
+
+(Compacted here; Lif prints one field per line.) `relation` is `parent` (parent to child) or `blocks` (blocking to blocked item); `blocking` and `blocked_by` merge into one edge. `type` is absent for an empty type, `edges` is `[]` without edges. Invalid `--format`, `--relation` or `--depth` produce the JSON error object.
+
+## GraphQL output
+
+`lif graphql --json` prints the `data` object without the envelope:
+
+```json
+{
+  "createItem": {
+    "id": "f014j-dsdd",
+    "status": "todo",
+    "type": "task"
+  }
+}
+```
+
+See [GraphQL](../graphql/).
+
+## `lif promote` findings
+
+`lif promote <artifact> <finding-id>...` checks the chosen finding records against an embedded findings schema and creates one item per record, with a fixed mapping from finding code to item type. If a chosen record is invalid, the command writes nothing. Findings already promoted are skipped. The schema is internal and not published ([z9e6]). A known problem of this command is tracked as [z69m].
+
+## Recipe: open item IDs
+
+```sh
+lif list --json -s todo,in-progress | jq -r '.[].id'
+```

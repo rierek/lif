@@ -3,11 +3,22 @@ title: "Surface independence"
 description: "Use the terminal, the board or your editor: all of them work on the same files."
 ---
 
+import ScreenshotSlot from '../../../site/src/components/ScreenshotSlot.astro';
 import { Card, CardGrid, Badge, Aside } from '@astrojs/starlight/components';
 
 **Use the terminal, the board or your editor.** The CLI, the TUI, the Web UI and direct editing of the Markdown files all work on the same items. Agents use the CLI or GraphQL. People use an editor, the TUI or a browser.
 
 ## How it looks
+
+Four paths to the same files:
+
+<div class="shots not-content">
+  <ScreenshotSlot caption="CLI: lif show and lif list in a terminal" />
+  <ScreenshotSlot caption="TUI: lif tui, browsing and editing items" />
+  <ScreenshotSlot caption="Web UI: the board in lif-serve" />
+  <ScreenshotSlot caption="Editor: an item file open in a Markdown editor" />
+</div>
+
 
 The same item through two paths. `lif show` in the terminal:
 
@@ -30,6 +41,10 @@ parent: ft-igeu
 The file in your editor holds the same front matter. If you change `status: todo` to `in-progress` there, the CLI, the TUI and the Web UI show the new status on the next load. The Web UI updates by itself through the file watcher.
 
 In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../reference/tui/views/) and [Editing items](../../reference/tui/editing-items/).
+
+<Aside type="tip" title="Why it matters">
+Nobody has to switch tools. A person edits in an editor while an agent uses the CLI, and both change the same files.
+</Aside>
 
 ## What you get
 
@@ -70,10 +85,6 @@ In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../refer
 - Expect fixed value lists and a fixed theme in the TUI: it ignores `display.theme` [179g].
 
 See [Known limitations](../../known-limitations/) for [9r10], [8h4v] and [179g].
-
-<Aside type="tip" title="Why it matters">
-Nobody has to switch tools. A person edits in an editor while an agent uses the CLI, and both change the same files.
-</Aside>
 
 ## Reference
 

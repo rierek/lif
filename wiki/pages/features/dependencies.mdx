@@ -3,11 +3,14 @@ title: "Dependencies"
 description: "Know what you can start now: blocking links, ready work and the dependency graph."
 ---
 
+import DepChain from '../../../site/src/components/DepChain.astro';
 import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
 **Know what you can start now.** Items can block each other. Lif works out what is blocked and what is ready, and `lif next` answers "What now?" for people and for agents without their own planning logic.
 
 ## How it looks
+
+<DepChain />
 
 Task `ft-o87g` ("Reset page") waits for `ft-957g` ("Send reset mail"):
 
@@ -48,6 +51,10 @@ ft-o87g
 
 The ready list contains containers (the feature `ft-igeu`, the epic, the milestone). `lif next` can return a container too [g5dn]. In this store it returned the feature, because it has priority `high`.
 
+<Aside type="tip" title="Why it matters">
+Blocked work stays out of the ready list, so you and your agents start with what is unblocked.
+</Aside>
+
 ## What you get
 
 <CardGrid>
@@ -74,10 +81,6 @@ The ready list contains containers (the feature `ft-igeu`, the epic, the milesto
 - Order ready items yourself, or use `lif roadmap`. `lif next` ignores dependency order among ready items. A blocker that does not exist in the store is ignored, and a blocker blocks by its own status only, not by its parents.
 
 See [Known limitations](../../known-limitations/) for [et2a] and [g5dn].
-
-<Aside type="tip" title="Why it matters">
-Blocked work stays out of the ready list, so you and your agents start with what is unblocked.
-</Aside>
 
 ## Reference
 

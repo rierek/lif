@@ -3,11 +3,21 @@ title: "Markdown-native"
 description: "Your backlog is plain Markdown: read it, diff it and edit it in any editor."
 ---
 
+import demo from '../../../site/src/data/demo.json';
+import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
 **Your backlog is plain Markdown.** An item is one Markdown file with YAML front matter. You read it, diff it and edit it in any editor. There is no database and no export step.
 
 ## How it looks
+
+The item on disk, and the same item printed by `lif show`:
+
+<div class="pair not-content">
+  <TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} />
+  <TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={64} />
+</div>
+
 
 `lif complete --commit HEAD --summary "Mail sent"` changed this item. Excerpt of the real `git diff` (context lines left out):
 
@@ -28,6 +38,10 @@ import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 - The body gains a `## Summary of Changes` section.
 
 `lif show <id>` prints the same data in the terminal.
+
+<Aside type="tip" title="Why it matters">
+Your backlog outlives any tool. If you stop using Lif, your items stay readable Markdown files with no database to export.
+</Aside>
 
 ## What you get
 
@@ -85,10 +99,6 @@ Useful options: `--no-links`, `--link-prefix`, `--depth`, `--tags`, `--include-d
 - Fix or remove a broken `.md` file before you run other commands. One unparsable file aborts the whole load (`loading <path>: ...`) and Lif then returns no items.
 - Keep file names equal to IDs and IDs unique. `lif check` reports neither a differing file name nor a duplicate ID. With a duplicate ID, the file loaded later silently overwrites the other.
 - Test Obsidian Bases yourself before you rely on it. Compatibility is unclear: nothing in the code or the docs says anything about it. See [Surface independence](../surface-independence/#editors-such-as-obsidian).
-
-<Aside type="tip" title="Why it matters">
-Your backlog outlives any tool. If you stop using Lif, your items stay readable Markdown files with no database to export.
-</Aside>
 
 ## Reference
 

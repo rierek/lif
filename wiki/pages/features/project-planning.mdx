@@ -3,18 +3,16 @@ title: "Flexible planning"
 description: "Shape the plan to your project: types, ranks, statuses and presets you configure."
 ---
 
+import PresetTrees from '../../../site/src/components/PresetTrees.astro';
 import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
 **Shape the plan to your project.** Types, ranks, status, priority and parents model the structure of your work. Lif enforces the configured rules when it writes. Presets are examples, not a fixed template.
 
 ## How it looks
 
-| Preset | Types (rank) |
-|---|---|
-| `classic` | `milestone` (1), `epic` (2), `feature` (3), `bug` (4), `task` (4) |
-| `todo` | `task` |
-| `simple` | `milestone`, `bucket`, `epic`, `feature`, `bug`, `task` |
-| `complex` | `release`, `bucket`, `feature`, `improvement`, `chore`, `story`, `bug`, `task` |
+The four presets as type hierarchies. Each row is one level:
+
+<PresetTrees />
 
 `bucket` has `roadmap: false`. It does not appear in `lif roadmap` or `lif milestones`. Full definitions with all ranks: [Configuration, Presets](../../reference/configuration/#presets).
 
@@ -36,6 +34,10 @@ Roadmap of a small `classic` store, as Markdown (excerpt, `--depth 2`):
 
 ### Epic: Login flow ([ft-txrv](.lif/ft-txrv--login-flow.md))
 ```
+
+<Aside type="tip" title="Why it matters">
+The structure comes from your configuration, not from the tool. A flat to-do list and a milestone-to-task tree are the same Lif with different presets.
+</Aside>
 
 ## What you get
 
@@ -88,10 +90,6 @@ If a value is missing, `lif create` and `lif update` fail with a policy violatio
 - Run `lif check` after manual edits. It verifies rank of parent and child, status values, priority values and tags (since 0.14). It also reports unknown types, broken links, self-references, cycles, missing required fields and orphaned attachment directories. It does not report duplicate IDs, a file name that differs from the ID, a `blocking`/`blocked_by` mismatch or mixed-field cycles.
 - Filter with `-t task,bug` when you want leaf work. `lif next` does not exclude containers, and the hint on type `epic` ("do not work on directly") is not enforced [g5dn].
 - Use the CLI for custom status, types and priorities. The TUI offers only the built-in lists [179g]. See [Known limitations](../../known-limitations/).
-
-<Aside type="tip" title="Why it matters">
-The structure comes from your configuration, not from the tool. A flat to-do list and a milestone-to-task tree are the same Lif with different presets.
-</Aside>
 
 ## Reference
 

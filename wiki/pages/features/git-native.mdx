@@ -3,9 +3,10 @@ title: "Git-native"
 description: "Your backlog travels with your code: items are files that Git versions, diffs and merges."
 ---
 
+import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
-**Your backlog travels with your code.** The `.lif/` directory lives inside your repository. Items are files, so Git versions, diffs and merges them with the code. You need no separate ticket system.
+**Your backlog travels with your code.** The `.lif/` directory lives inside your repository. Branches, worktrees and commits carry the backlog along with the code. You need no separate ticket system.
 
 ## How it looks
 
@@ -23,10 +24,15 @@ A status change touches only front matter lines. This is `lif start` on one item
 
 With `lif.anchor: repo-root`, two worktrees read the same store:
 
-```text
-repo/                  main worktree, holds .lif/ and .lif.yml
-worktrees/feature-x/   second worktree, reads repo/.lif/
-```
+<TerminalWindow title="Two worktrees, one store" cols={64} html={`<span style="color:var(--ctp-blue)">repo/</span>                     main worktree
+├── .lif.yml              lif.anchor: repo-root
+└── <span style="color:var(--ctp-blue)">.lif/</span>                 the one shared store
+<span style="color:var(--ctp-blue)">worktrees/</span>                
+└── <span style="color:var(--ctp-blue)">feature-x/</span>            second worktree, reads repo/.lif/`} />
+
+<Aside type="tip" title="Why it matters">
+Backlog changes get the same review as code: they appear in the diff of the branch that makes them.
+</Aside>
 
 ## What you get
 
@@ -80,10 +86,6 @@ lif check || exit 1
 - Run `lif check` after a merge, and read the result with care. A merge can combine edits into a state `lif check` does not catch, for example mixed-field cycles [et2a]. See [Known limitations](../../known-limitations/).
 - Stop `lif-serve` and remove active worktrees before `lif rename --prefix`. It refuses while they exist.
 - Keep IDs unique. With a duplicate ID the file loaded later wins, without a message. See [Flexible planning](../project-planning/#limits) for the gaps of `lif check`.
-
-<Aside type="tip" title="Why it matters">
-Backlog changes get the same review as code: they appear in the diff of the branch that makes them.
-</Aside>
 
 ## Reference
 

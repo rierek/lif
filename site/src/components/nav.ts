@@ -1,7 +1,7 @@
 // Header navigation (usememos.com style). Groups with `items` become drop-downs with a one-line description per
 // entry. Hrefs are site-relative and must match page slugs in wiki/pages (chapters: see sidebar in astro.config.mjs).
 // "Resources" lists Blog, Releases, Contribute and About. In the sidebar (D57) Blog is its own chapter, while
-// Releases, Contribute and About form the chapter "Resources".
+// Releases, Known limitations, Contribute and About form the chapter "Resources".
 export interface NavItem {
 	title: string;
 	description: string;
@@ -50,7 +50,8 @@ export const nav: NavEntry[] = [
 		items: [
 			{ title: 'Blog', description: 'Experiments and field notes', href: '/blog/' },
 			{ title: 'Releases', description: 'What changed in each version', href: '/releases/' },
-			{ title: 'Contribute', description: 'Repo layout and where to change what', href: '/contribute/' },
+			{ title: 'Known limitations', description: 'Open defects, by short ID', href: '/known-limitations/' },
+			{ title: 'Contribute', description: 'Report bugs, build from source, send pull requests', href: '/contribute/' },
 			{ title: 'About', description: 'What Lif is and where it comes from', href: '/about/' },
 		],
 	},

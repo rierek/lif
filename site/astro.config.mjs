@@ -99,7 +99,7 @@ export default defineConfig({
 				{ label: 'Blog', items: [{ autogenerate: { directory: 'blog' } }] },
 				{
 					label: 'Resources',
-					items: [{ label: 'Releases', items: [{ autogenerate: { directory: 'releases' } }] }, 'contribute', 'about'],
+					items: [{ label: 'Releases', items: [{ autogenerate: { directory: 'releases' } }] }, 'known-limitations', 'contribute', 'about'],
 				},
 			],
 		}),

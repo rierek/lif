@@ -53,21 +53,74 @@ Next, run `lif init` in your project folder. [First steps](../first-steps/) take
 
 ## All install methods
 
-| Method | Command | Use it when |
-|---|---|---|
-| Homebrew | `brew install xRiErOS/lif/lif` | You are on macOS. Installs `lif` and `lif-serve`. |
-| Install script | `curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh \| sh` | You are on Linux or macOS and want no package manager. Installs both binaries. |
-| Nix | `nix profile install github:xRiErOS/lif` | You use Nix. `nix run github:xRiErOS/lif -- version` tries it without installing. Installs both binaries, and `lif-serve` serves the web UI. |
-| Release archive | Download `lif_<Os>_<arch>.tar.gz` (`.zip` on Windows) from the Releases page | You are on Windows or want to pin a file. Installs both binaries. |
-| `go install` | `go install github.com/xRiErOS/lif/cmd/lif@latest` | You only need the CLI. Installs `lif` only. |
-| Build from source | `git clone https://github.com/xRiErOS/lif.git`, then `mise install`, `mise run setup`, `mise run build` | You want an unreleased build. |
+Open the method that fits you.
 
-- Homebrew installs a cask from the tap `xRiErOS/homebrew-lif`. On macOS it removes the quarantine attribute from both binaries.
-- The install script downloads the release archive and verifies it against `checksums.txt` when `sha256sum` or `shasum` exists. It only warns, and still installs, if `checksums.txt` cannot be downloaded or neither tool exists. It runs `lif version` at the end.
-- Script variables: `LIF_VERSION` (default: latest release), `LIF_BIN_DIR` (default: `$HOME/.local/bin`), `LIF_REPO` (default: `xRiErOS/lif`). The script prints a note when `LIF_BIN_DIR` is not on `PATH`.
-- Archive names use title-cased OS and the arch names `x86_64`, `arm64`, `i386`, for example `lif_Linux_x86_64.tar.gz`. Verify the archive against `checksums.txt`, then put `lif` and `lif-serve` on your `PATH`.
-- After a source build, install the binaries from the repository root, for example `install -m 755 lif lif-serve "$HOME/.local/bin/"`.
-- A `lif-serve` built by `go install` of the module source embeds no web assets and returns 404 for the browser UI. Use Homebrew, the script or an archive for a working `lif-serve`.
+<details>
+<summary>Homebrew (macOS)</summary>
+
+```sh
+brew install xRiErOS/lif/lif
+```
+
+Installs `lif` and `lif-serve` as a cask from the tap `xRiErOS/homebrew-lif`. On macOS it removes the quarantine attribute from both binaries.
+
+</details>
+
+<details>
+<summary>Install script (Linux, macOS)</summary>
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
+```
+
+Use it when you want no package manager. It installs both binaries, downloads the release archive and verifies it against `checksums.txt` when `sha256sum` or `shasum` exists. It only warns, and still installs, if `checksums.txt` cannot be downloaded or neither tool exists. It runs `lif version` at the end.
+
+Variables: `LIF_VERSION` (default: latest release), `LIF_BIN_DIR` (default: `$HOME/.local/bin`), `LIF_REPO` (default: `xRiErOS/lif`). The script prints a note when `LIF_BIN_DIR` is not on `PATH`.
+
+</details>
+
+<details>
+<summary>Nix (Linux, macOS)</summary>
+
+```sh
+nix profile install github:xRiErOS/lif
+```
+
+`nix run github:xRiErOS/lif -- version` tries Lif without installing it. Installs both binaries, and `lif-serve` from this channel serves the web UI.
+
+</details>
+
+<details>
+<summary>Release archive (Windows, or to pin a file)</summary>
+
+Download `lif_<Os>_<arch>.tar.gz` (`.zip` on Windows) from the Releases page. Archive names use title-cased OS and the arch names `x86_64`, `arm64`, `i386`, for example `lif_Linux_x86_64.tar.gz`. Verify the archive against `checksums.txt`, then put `lif` and `lif-serve` on your `PATH`.
+
+</details>
+
+<details>
+<summary>go install (CLI only)</summary>
+
+```sh
+go install github.com/xRiErOS/lif/cmd/lif@latest
+```
+
+Installs `lif` only. A `lif-serve` built this way embeds no web assets and returns 404 for the browser UI. Use Homebrew, the script, Nix or an archive for a working `lif-serve`.
+
+</details>
+
+<details>
+<summary>Build from source (unreleased builds)</summary>
+
+```sh
+git clone https://github.com/xRiErOS/lif.git
+mise install
+mise run setup
+mise run build
+```
+
+Then install the binaries from the repository root, for example `install -m 755 lif lif-serve "$HOME/.local/bin/"`.
+
+</details>
 
 ## The binaries
 

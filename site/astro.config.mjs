@@ -18,7 +18,7 @@ export default defineConfig({
 			},
 		}],
 	},
-	site: 'https://xrieros.github.io',
+	site: 'https://rierek.github.io',
 	base: '/lif',
 	integrations: [
 		starlight({

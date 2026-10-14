@@ -1,52 +1,83 @@
 ---
 title: "Dependencies"
-description: "Model blockers between items and see what is ready next."
+description: "Blocking and blocked-by links, ready work, and the dependency graph."
 ---
 
-## Purpose
-Explains how blockers between items are modeled, how Lif determines "blocked" and "ready", and how to view dependencies. Describes exactly where the model has gaps (no symmetry check, fixed definition of "done").
+Items can block each other. Lif works out what is blocked, what is ready and what to start next. Measured on Lif 0.14, 2026-10-14.
 
-## Audience
-People and agents who want to decide what to start next, and planners who maintain dependencies between epics and tasks. They need the exact semantics before relying on `lif next`.
+## What
 
-## Required sections
+- Two fields: `blocking` (items this item blocks) and `blocked_by` (items that block this one). Lif stores an edge on one side only: on the item you just changed.
+- On read, Lif merges both directions. Deleting an item removes all references to it.
+- An item is **blocked** if a direct blocker is still active, or if an ancestor in the parent chain is blocked.
+- An item is **ready** if it is not blocked, its status is not `in-progress`, `draft` or an archive status, and no ancestor is `completed` or `scrapped`.
+- Commands: `lif next` (highest priority among the ready items), `lif list --ready`, `--is-blocked`, `--unblocked`, and `lif graph` (formats `dot`, `ascii`, `mermaid`, `json`).
 
-### What
-- Two fields: `blocking` (items that this item blocks) and `blocked_by` (items that block this one); an edge is stored on one side only, namely on the item that was just changed.
-- On read, Lif merges both directions; deleting an item removes all incoming references.
-- Blocked means: a direct active blocker or a blocked ancestor in the parent chain (explicit versus implicit).
-- "Ready" = not blocked, status not `in-progress`, `draft` or an archive status, and no ancestor with status `completed` or `scrapped`.
-- Commands: `lif next` (highest priority among the ready items), `lif list --ready`, `--is-blocked`, `--unblocked`, `lif graph` (formats dot, ascii, mermaid, json).
-- Source: FACTS.md §5.1, §5.2, §5.4, §5.5
+## Why
 
-### Why
-- Complex relations become explicit and manageable; blockers are visible before anyone starts.
-- `lif next` answers "What now?" even for agents without their own planning logic.
-- Supports structured workflows without being a workflow engine.
-- Source: CONCEPT.md §4.3; FACTS.md §5.2
+- Relations become explicit. You see blockers before you start.
+- `lif next` answers "What now?" for people and for agents without their own planning logic.
+- You get structured workflows without a workflow engine.
 
-### How it looks
-- Command loop: `lif create --blocked-by <id>` or `lif update A --blocking B`; afterwards `lif next` returns the blocker A, not B.
-- Observed behavior: `lif update B --blocking A` is rejected with a cycle message (`adding blocking relationship would create cycle: [B A B]`).
-- Comparison of `lif list --ready`, `--is-blocked`, `--unblocked`; `--ready` and `--is-blocked` are mutually exclusive.
-- A blocked parent makes all children implicitly blocked; generate example output in phase 5 (TODO: verify).
-- `lif graph --format mermaid` with example; option `--depth` and `--relation parent|blocks`.
-- Source: FACTS.md §5.2, §5.3, §5.5, §5.6; (TODO: verify) for concrete outputs: run in phase 5 with `lif list --ready` and `lif graph --format mermaid`
+## How it looks
 
-### Limits
-- No symmetry check: `A.blocking=[B]` and `B.blocked_by=[A]` can both be present or only one side; `lif check` does not report the mismatch.
-- "Done" is hard-coded: only `completed` and `scrapped` resolve a blocker; `draft`, `todo`, `in-progress` and custom archive status keep blocking.
-- Cycle detection follows one link type at a time; it may not detect mixed cycles across `blocking` and `blocked_by` (TODO: verify)
-- `lif check` reports cycles from manual edits; `lif check --fix` removes only broken links and self-references, never cycles.
-- `lif next` ignores dependency order, `lif roadmap` uses it; containers can be returned as ready.
-- Blockers that do not exist in the store are ignored; a blocker blocks only by its own status, not by its parents.
-- Source: FACTS.md §5.1, §5.2, §5.3, §5.6, §6.7; (TODO: verify) for mixed cycles: FACTS gives this only as a conclusion (INFERENCE), test in phase 5
+Task `ft-o87g` ("Reset page") waits for `ft-957g` ("Send reset mail"):
 
-### Reference links
-- `lif next` (`reference/commands/lif-next`): filters, sorting, behavior without matches.
-- `lif list` (`reference/commands/lif-list`): `--ready`, `--is-blocked`, `--unblocked`, `--has-blocking`.
-- `lif graph` (`reference/commands/lif-graph`): formats and depth.
-- `lif check` (`reference/commands/lif-check`): check links and cycles.
-- `lif create` and `lif update` (`reference/commands/lif-create`, `reference/commands/lif-update`): options `--blocking`, `--blocked-by`.
-- GraphQL (`reference/graphql`): `addBlocking`, `addBlockedBy`, `ItemFilter`.
-- Source: DESIGN.md D24, D25, D27 and Open (page cut phase 4: dependency semantics canonical here plus generated command pages)
+```text
+$ lif update ft-o87g --blocked-by ft-957g
+Updated ft-o87g ft-o87g--reset-page.md
+$ lif list --is-blocked -q
+ft-o87g
+$ lif list --ready -q
+ft-igeu
+ft-2gae
+ft-txrv
+ft-957g
+```
+
+`lif graph --format mermaid --relation blocks` draws the edge (node styling left out):
+
+```text
+ft-957g -->|blocks| ft-o87g
+```
+
+`--ready` and `--is-blocked` exclude each other. `lif graph` takes `--depth` and `--relation parent|blocks`.
+
+A cycle is refused when you add the link:
+
+```text
+$ lif update ft-957g --blocked-by ft-o87g
+Error: adding blocked-by relationship would create cycle: [ft-957g ft-o87g ft-957g]
+```
+
+After you complete the blocker with `lif complete ft-957g`, `ft-o87g` is ready:
+
+```text
+$ lif list --ready -q
+ft-igeu
+ft-2gae
+ft-txrv
+ft-o87g
+```
+
+Note that the ready list contains containers (the feature `ft-igeu`, the epic, the milestone). `lif next` can return a container too. In this store it returned the feature, because it has priority `high`.
+
+## Limits
+
+- No symmetry check. `A.blocking=[B]` and `B.blocked_by=[A]` can both be present, or only one side. `lif check` does not report a mismatch.
+- "Done" is fixed in the code. Only `completed` and `scrapped` release a blocker. `draft`, `todo`, `in-progress` and custom archive status keep blocking.
+- Cycle detection follows one field at a time. A cycle of three or more items whose path mixes `blocking` and `blocked_by` is accepted without a message, and `lif check` stays green. All items in it stay blocked [et2a]. Cycles of two items, and cycles whose edges all use one field, are refused.
+- `lif check` reports cycles that come from manual edits. `lif check --fix` removes broken links and self-references, never cycles.
+- `lif next` ignores dependency order among ready items. `lif roadmap` uses it.
+- A blocker that does not exist in the store is ignored. A blocker blocks by its own status only, not by its parents.
+
+See [Known limitations](../../known-limitations/) for [et2a].
+
+## Reference links
+
+- [`lif next`](../../reference/commands/lif-next/): filters, sorting, behavior without matches.
+- [`lif list`](../../reference/commands/lif-list/): `--ready`, `--is-blocked`, `--unblocked`, `--has-blocking`.
+- [`lif graph`](../../reference/commands/lif-graph/): formats and depth.
+- [`lif check`](../../reference/commands/lif-check/): links and cycles.
+- [`lif create`](../../reference/commands/lif-create/) and [`lif update`](../../reference/commands/lif-update/): `--blocking`, `--blocked-by`.
+- [GraphQL](../../reference/graphql/): `addBlocking`, `addBlockedBy`, `ItemFilter`.

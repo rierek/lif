@@ -30,4 +30,5 @@ const tui = cap(TW, 26, `${LIF} tui ${flags}`, /Browse/, ['Right', 'Down', 'Righ
 const ed = cap(64, 22, `nvim -u ${here}init.lua -n .lif/app-0aqa--password-reset.md`, /Acceptance/);
 const out = { cliCols: W, tuiCols: TW, list: toHtml(list), show: toHtml(show), tui: toHtml(tui), editor: toHtml(ed) };
 fs.writeFileSync(fileURLToPath(new URL('../../src/data/surface-media.json', import.meta.url)), JSON.stringify(out, null, 1) + '\n');
-for (const k of ['list','show','tui','editor']) console.log('=== ' + k + '\n' + out[k].replace(/<[^>]+>/g, '').replace(/&gt;/g,'>').replace(/&lt;/g,'<').replace(/&amp;/g,'&'));
+const raw = { list, show, tui, editor };
+for (const k of Object.keys(raw)) console.log('=== ' + k + '\n' + raw[k]);

@@ -53,10 +53,19 @@ func setupCreateTest(t *testing.T) {
 // sharing the createCmd package-level flag vars.
 func resetCreateFlags(t *testing.T) {
 	t.Helper()
-	oldType, oldSet, oldUnset, oldOrder, oldJSON := createType, createSet, createUnset, createOrder, createJSON
-	createType, createSet, createUnset, createOrder, createJSON = "", nil, nil, "", false
+	old := struct {
+		status, typ, priority, body, bodyFile, parent, prefix, order string
+		tag, blocking, blockedBy, set, unset                         []string
+		json, interactive                                            bool
+	}{createStatus, createType, createPriority, createBody, createBodyFile, createParent, createPrefix, createOrder,
+		createTag, createBlocking, createBlockedBy, createSet, createUnset, createJSON, createInteractive}
+	createStatus, createType, createPriority, createBody, createBodyFile, createParent, createPrefix, createOrder = "", "", "", "", "", "", "", ""
+	createTag, createBlocking, createBlockedBy, createSet, createUnset = nil, nil, nil, nil, nil
+	createJSON, createInteractive = false, false
 	t.Cleanup(func() {
-		createType, createSet, createUnset, createOrder, createJSON = oldType, oldSet, oldUnset, oldOrder, oldJSON
+		createStatus, createType, createPriority, createBody, createBodyFile, createParent, createPrefix, createOrder = old.status, old.typ, old.priority, old.body, old.bodyFile, old.parent, old.prefix, old.order
+		createTag, createBlocking, createBlockedBy, createSet, createUnset = old.tag, old.blocking, old.blockedBy, old.set, old.unset
+		createJSON, createInteractive = old.json, old.interactive
 	})
 }
 

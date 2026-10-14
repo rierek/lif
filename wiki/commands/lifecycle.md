@@ -16,6 +16,20 @@ lif --lif-path ./demo/.lif create "Fix login bug" -t bug -p high -s todo
 lif --lif-path ./demo/.lif create "Design auth flow" -t feature --parent lif-vvat --tag auth
 ```
 
+### Guided form: `-i`/`--interactive`
+
+`lif create -i [title]` opens a guided form with four steps in this order: title, type, priority, parent. The form is drawn on the controlling terminal (`/dev/tty`), so stdout carries only the result: the `Created <id> <path>` line, or with `--json` the item exactly as `lif create --json` prints it.
+
+- **Terminal requirement.** Without a terminal on stdin the command exits non-zero at once with a message naming the missing terminal and never waits for input, so agents and scripts are safe. `lif create` without `-i` never opens a form, on a terminal or not.
+- **Pre-fill order.** A field takes its flag (title argument, `--type`, `--priority`, `--parent`, `--tag`, `--status`), else its config default (`lif.default_type`, `lif.default_priority`, `lif.default_tags`, `lif.default_status`), else stays empty. There is no parent default. Whatever you enter in the form overrides every pre-fill. An empty priority pre-selects `(none)`, and the item then carries no priority of its own, as with plain `lif create`.
+- **Parent step.** It lists the valid parents for the type chosen in the form as a roadmap tree, one row per item, with a context panel for the highlighted row; press `/` to filter by ID fragment or title. A pre-filled `--parent` that is no valid parent for the chosen type is dropped. A type without a valid parent type offers only `(no parent)`.
+- **Cancel.** `Ctrl+C` in any step writes nothing and exits non-zero with no stderr line. `Esc` never cancels: in an active filter it ends filter entry.
+- **Other flags.** `--prefix`, `--set`, `--unset`, `--order`, `--body`, `--body-file`, `--blocking` and `--blocked-by` keep their plain-create meaning. The form colours follow the configured `display.theme` flavour.
+
+```
+lif create -i "Fix login bug" --type bug
+```
+
 ## `lif start`
 
 `lif start <id> [id...]` marks one or more existing items as in-progress. A single item is displayed in full, the same as `lif show` would; several items each get one confirmation line instead, since printing many full bodies on one screen helps nobody. Every ID in the call is resolved before the first item is written, so an unknown ID leaves the whole batch untouched. Flags: `--json` returns the result as JSON.

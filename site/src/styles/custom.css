@@ -46,3 +46,9 @@ pre.mermaid svg .arrowMarkerPath { fill: var(--ctp-overlay1) !important; stroke:
 pre.mermaid svg :is(.nodeLabel, .cluster-label, .edgeLabel, text) { color: var(--ctp-text) !important; fill: var(--ctp-text) !important; }
 pre.mermaid svg :is(.edgeLabel, .edgeLabel p, .labelBkg) { background-color: var(--ctp-base) !important; }
 pre.mermaid svg .edgeLabel rect { fill: var(--ctp-base) !important; }
+
+/* Features pages: side-by-side windows / screenshot slots. */
+.pair, .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-block: 1.5rem; }
+.pair > *, .shots > * { min-width: 0; }
+.sl-markdown-content td svg { display: inline; vertical-align: -0.25em; }
+.pair > .window, .shots > * { width: 100%; margin: 0; }

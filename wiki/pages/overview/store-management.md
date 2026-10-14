@@ -12,7 +12,7 @@ Users who run Lif in more than one repository, use Git worktrees, keep the store
 ## Required sections
 
 ### One project, one store
-- Shows the default: `lif init` creates `.lif.yml` and the store directory `.lif/` in the project folder; the store is plain files and is committed together with the code (link to Git-native, `features/git-native`).
+- Shows the default: `lif init` creates `.lif.yml` and the store directory `.lif/` in the project folder; the store is plain files and is committed together with the code (link to Files in your repo, `features/files-in-your-repo`).
 - Explains how Lif finds it: the config file is searched upward from the current directory; the store is the directory the config names (`lif.path`), by default `.lif/` next to the config.
 - Shows `lif path` to print the resolved store directory.
 - Source: FACTS.md §1.1 (`init`, `path`), §2.4, §4.1, §4.2
@@ -64,5 +64,5 @@ Users who run Lif in more than one repository, use Git worktrees, keep the store
 
 ### Related pages
 - Links to Reference: Configuration (`reference/configuration`) for the full precedence and all keys, and to Reference: Command overview (`reference/commands/index`) for the global flags.
-- Links to Features: Git-native (`features/git-native`), Reference: TUI start (`reference/tui/start-and-repositories`) and the Glossary (`reference/glossary`).
+- Links to Features: Files in your repo (`features/files-in-your-repo`), Reference: TUI start (`reference/tui/start-and-repositories`) and the Glossary (`reference/glossary`).
 - Source: DESIGN.md D56

@@ -35,7 +35,7 @@ People who evaluate or recommend Lif, and agents that use web search to find out
 - Source: FACTS.md §2.1, §2.4, §4.1, §1.0 (store is loaded before every command)
 
 ### What makes it different
-- Six features, one line each plus slug in backticks: Markdown-native (`features/markdown-native`), Flexible planning (`features/project-planning`), Dependencies (`features/dependencies`), Surface independence (`features/surface-independence`), Automation and agents (`features/automation`), Git-native (`features/git-native`).
+- Five features, one line each plus slug in backticks: Files in your repo (`features/files-in-your-repo`), Automation and agents (`features/automation`), Dependencies (`features/dependencies`), Flexible planning (`features/project-planning`), Surface independence (`features/surface-independence`).
 - One value promise per line, no details; details are on the feature pages.
 - Link to the features index (`features/index`).
 - Source: DESIGN.md D30, D32; CONCEPT.md §3.3 (Feature Overview must not duplicate features)

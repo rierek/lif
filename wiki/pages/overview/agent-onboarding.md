@@ -60,7 +60,7 @@ flowchart LR
 - Problem: after context compaction an agent forgets the rules or edits files in the store by hand; the store drifts from what is intended.
 - Recommendation 1, re-priming: a session hook that runs `lif prime` at session start and before context compaction (`PreCompact`). Shows the snippet.
 - Recommendation 2, pre-commit: a Git hook that runs `lif check`; exit code 1 on a finding aborts the commit. Shows the snippet (a script with `lif check`, executable as `.git/hooks/pre-commit` or through the project's usual hook manager).
-- Nothing is shipped: the docs only show the snippets, every project sets them up itself (D41). Links to Git-native (`features/git-native`).
+- Nothing is shipped: the docs only show the snippets, every project sets them up itself (D41). Links to Files in your repo (`features/files-in-your-repo`).
 - Known limit (D40): `lif check` checks the config, unknown types, broken links, self-references, cycles, required fields (warning only), unknown commit SHAs (warning) and orphaned attachment directories. It does not check parent/child ranks, status and priority values, tag format, duplicate IDs or file name/ID mismatches.
 - Consequence: the pre-commit hook only partly catches drift from manual edits; warnings only count with `lif check --strict`; the docs follow once the extended check ships.
 - Source: FACTS.md §6.8, §6.9, §6.10, §6.11, §9(e), §9(f); DESIGN.md D40, D41. The hook snippets themselves are to be built and tested in phase 5 (test: a commit with a deliberately broken link).

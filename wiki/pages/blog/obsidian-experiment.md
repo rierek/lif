@@ -57,6 +57,6 @@ Obsidian users who want to manage Lif files with a Markdown editor that supports
 
 ### Reference links
 - Item file format (`reference/item-file-format`), Configuration (`reference/configuration`), `lif check` (`reference/commands`).
-- Features: Markdown-native (`features/markdown-native`), Surface independence (`features/surface-independence`).
+- Features: Files in your repo (`features/files-in-your-repo`), Surface independence (`features/surface-independence`).
 - Blog overview (`blog`).
 - Source: DESIGN.md D34, D42

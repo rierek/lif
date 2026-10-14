@@ -190,6 +190,26 @@ func TestUnknownTypeItemsAcceptsAConfiguredType(t *testing.T) {
 	}
 }
 
+func TestItemFieldIssuesFlagsHandEditedFields(t *testing.T) {
+	prev := cfg
+	cfg = &config.Config{}
+	defer func() { cfg = prev }()
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Status: "todo"},
+		{ID: "ok", Type: "task", Status: "todo", Priority: "normal", Parent: "m1", Tags: []string{"fine"}},
+		{ID: "rank", Type: "milestone", Status: "todo", Parent: "ok"},
+		{ID: "st", Type: "task", Status: "bogus"},
+		{ID: "pr", Type: "task", Status: "todo", Priority: "urgentest"},
+		{ID: "tg", Type: "task", Status: "todo", Tags: []string{"Bad Tag!"}},
+	}
+
+	got := itemFieldIssues(items)
+	if len(got) != 4 {
+		t.Fatalf("got %d issues, want 4: %v", len(got), got)
+	}
+}
+
 // TestCheckValidatesConfiguredColoursNotOnlyDefaults pins the fix for the
 // final review's config finding. The colour checks iterated
 // config.DefaultStatuses and config.DefaultTypes -- compile-time constants

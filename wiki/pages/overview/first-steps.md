@@ -3,68 +3,97 @@ title: "First steps"
 description: "Create a store, pick a preset and work your first items."
 ---
 
-# First steps
+## Purpose
+Walks through the first hour: create a store, choose a preset, create first items, view, edit and complete them. The same walk-through is also offered as a prompt that a coding agent runs together with the user. Scope boundary: everything that is configurable is in Reference: Configuration (`reference/configuration`).
 
-## Zweck
-Führt durch die erste Stunde: Store anlegen, Preset wählen, erste Items erzeugen, ansehen, bearbeiten und abschließen. Abgrenzung: Alles, was konfigurierbar ist, steht in Reference: Configuration (`reference/configuration`).
+## Audience
+New users right after installation. They want a working workflow in the terminal without prior knowledge.
 
-## Zielgruppe
-Neue Nutzer direkt nach der Installation. Sie wollen ohne Vorwissen einen funktionierenden Arbeitsablauf im Terminal.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Initialise a store
-- Zeigt `lif init` im Projektordner; legt `.lif.yml` und das Store-Verzeichnis `.lif/` an.
-- Erklärt, was `init` schreibt: `lif.prefix` = `<Ordnername>-`, `project.name` = Ordnername, `.gitignore` im Store mit `.conversations/`.
-- Erklärt, dass `init` ohne vorhandenen Store läuft, alle anderen Befehle brauchen einen.
-- Fehlermeldung ohne Store zeigen: `no .lif directory found at <path> (run 'lif init' to create one)`.
-- Zeigt `lif path` zur Kontrolle des aufgelösten Store-Verzeichnisses.
-- Quelle: FACTS.md §1.1 (`init`, `path`), §1.0 (Bootstrap-Skip), §2.4, §4.2
+- Shows `lif init` in the project folder; creates `.lif.yml` and the store directory `.lif/`.
+- Explains what `init` writes: `lif.prefix` = `<folder name>-`, `project.name` = folder name, `.gitignore` in the store with `.conversations/`.
+- Explains that `init` runs without an existing store; all other commands need one.
+- Shows the error without a store: `no .lif directory found at <path> (run 'lif init' to create one)`.
+- Shows `lif path` to check the resolved store directory.
+- Links to Store management (`overview/store-management`) for several projects, worktrees and a shared store.
+- Source: FACTS.md §1.1 (`init`, `path`), §1.0 (bootstrap skip), §2.4, §4.2
 
 ### Choose a preset
-- Tabelle der vier Presets für `lif init --profile`: `classic`, `todo`, `simple`, `complex` mit Typen und Ranks.
-- `classic`: milestone, epic, feature, bug, task (bis zu vier Ranks); `todo`: nur `task`.
-- `simple` und `complex`: Ranks 1, 2 und 4 (drei Ebenen); `bucket`-Typ ist aus der Roadmap ausgeblendet (`roadmap: false`).
-- Hinweis: `init --profile` setzt `types_exclusive` und schreibt die Typen in `.lif.yml`; spätere Änderung per Hand möglich.
-- Hinweis: Ohne `--profile` gelten die eingebauten Typen. (TODO: verify: ob `init` ohne `--profile` eine Typtabelle schreibt.)
-- Verweis auf Reference: Configuration (`reference/configuration`) für die vollständigen Preset-Definitionen.
-- Quelle: FACTS.md §1.1 (`init`), §3, §9(a), §9(b). `init` ohne `--profile` ist `TODO: verify` (prüfen mit `lif init` in leerem Ordner in Phase 5).
+- Table of the four presets for `lif init --profile`: `classic`, `todo`, `simple`, `complex` with types and ranks.
+- `classic`: milestone, epic, feature, bug, task (up to four ranks); `todo`: only `task`.
+- `simple` and `complex`: ranks 1, 2 and 4 (three levels); the `bucket` type is hidden from the roadmap (`roadmap: false`).
+- Note: `init --profile` sets `types_exclusive` and writes the types into `.lif.yml`; later changes by hand are possible.
+- Note: without `--profile` the built-in types apply. (TODO: verify whether `init` without `--profile` writes a type table.)
+- Links to Reference: Configuration (`reference/configuration`) for the full preset definitions.
+- Source: FACTS.md §1.1 (`init`), §3, §9(a), §9(b). `init` without `--profile` is `TODO: verify` (check with `lif init` in an empty folder in phase 5).
 
 ### Create your first items
-- Zeigt `lif create "Titel" -t epic` und `lif create "Titel" -t task --parent <id>` mit Beispielausgabe (Phase 5 echt laufen lassen).
-- Erklärt Standardwerte: Status `todo`, Typ `task`, kein Standard für `priority`; Titel ohne Argument = "Untitled".
-- Flags kurz: `--status`, `--type`, `--priority`, `--tag`, `--parent`, `--blocked-by`, `--body`/`--body-file`.
-- Erklärt Item-IDs: Präfix plus 4 Zeichen aus `0-9a-z`; Kurz-ID ohne Präfix wird überall akzeptiert.
-- Zeigt die Regelverletzung: Task unter Task wird abgelehnt (`task items can only have milestone, epic, or feature as parent, not task`).
-- Quelle: FACTS.md §1.0 (Kurz-IDs), §1.1 (`create`), §2.3, §2.4, §3, §3.1
+- Shows `lif create "Title" -t epic` and `lif create "Title" -t task --parent <id>` with example output (phase 5: run for real).
+- Explains the built-in defaults: status `todo`, type `task`, no default for `priority`; a title without an argument becomes "Untitled".
+- Flags in short: `--status`, `--type`, `--priority`, `--tag`, `--parent`, `--blocked-by`, `--body`/`--body-file`.
+- Explains item IDs: prefix plus 4 characters from `0-9a-z`; the short ID without the prefix is accepted everywhere.
+- Shows the rule violation: a task under a task is rejected (`task items can only have milestone, epic, or feature as parent, not task`).
+- Source: FACTS.md §1.0 (short IDs), §1.1 (`create`), §2.3, §2.4, §3, §3.1
+
+### Define your defaults
+- Explains that the defaults for new items can be defined in `.lif.yml` and changed at any time: `lif.default_status` (built-in `todo`) and `lif.default_type` (built-in `task`; if the type table has no `task`, the first type is used).
+- Names the ID defaults in the same section: `lif.prefix` (`init` writes `<folder name>-`) and `lif.id_length` (built-in 4).
+- Shows a short excerpt of the `lif:` section of `.lif.yml` (phase 5: copy it from a fresh `lif init`).
+- Explains that flags on `lif create` (`--status`, `--type`) override the defaults for one item.
+- Known limit: there is no setting for a default priority; a new item gets none and is loaded as `normal`.
+- Links to Reference: Configuration (`reference/configuration`) for all keys.
+- Source: FACTS.md §4.3 (`lif.default_status`, `lif.default_type`, `lif.prefix`, `lif.id_length`), §2.3 (defaults); `pkg/config/config.go:452-453, 470-471, 725-755`; DESIGN.md D54
 
 ### Look at them
-- `lif list` (Tabelle) und `lif list --view tree`; wichtige Filter: `--status`, `--type`, `--tag`, `--ready`, `--search`.
-- `lif show <id>`: formatiert im Terminal, roher Markdown-Text bei Pipe oder `--raw`.
-- `lif roadmap` und `lif milestones` für Überblick; `lif progress` für Zähler und Prozent.
-- `lif next`: höchstpriorisiertes bereites Item (Definition "ready" steht in Concepts, `overview/concepts`).
-- `--json` an `list`, `show`, `next` für Skripte; Verweis auf JSON schemas (`reference/json-schemas`).
-- Quelle: FACTS.md §1.1 (`list`, `show`, `roadmap`, `milestones`, `progress`, `next`), §5.2
+- `lif list` (table) and `lif list --view tree`; important filters: `--status`, `--type`, `--tag`, `--ready`, `--search`.
+- `lif show <id>`: formatted in the terminal, raw Markdown text when piped or with `--raw`.
+- `lif roadmap` and `lif milestones` for an overview; `lif progress` for counts and percentages.
+- `lif next`: the highest-priority ready item (the definition of "ready" is in Concepts, `overview/concepts`).
+- `--json` on `list`, `show`, `next` for scripts; link to JSON schemas (`reference/json-schemas`).
+- Source: FACTS.md §1.1 (`list`, `show`, `roadmap`, `milestones`, `progress`, `next`), §5.2
 
 ### Work an item
-- Lebenszyklus als kleine Befehlsfolge: `lif start <id>` → `lif complete <id> --summary "..."` oder `lif scrap <id> --reason "..."`.
-- `complete --commit HEAD` speichert die Commit-SHA; `--summary` hängt den Abschnitt "## Summary of Changes" an; `scrap --reason` ist Pflicht.
-- Mehrere IDs in einem Aufruf möglich; alle werden vor dem ersten Schreiben geprüft.
-- `lif archive` verschiebt abgeschlossene und verworfene Items nach `archive/`; sie bleiben adressierbar.
-- Nützlich: `lif update <id> --priority high`, `lif tag <id> --tag x`.
-- Quelle: FACTS.md §1.1 (`start`, `complete`, `scrap`, `archive`, `update`, `tag`), §2.3, §2.4
+- Lifecycle as a short command sequence: `lif start <id>` → `lif complete <id> --summary "..."` or `lif scrap <id> --reason "..."`.
+- `complete --commit HEAD` stores the commit SHA; `--summary` appends the section "## Summary of Changes"; `scrap --reason` is required.
+- Several IDs in one call are possible; all are checked before the first write.
+- `lif archive` moves completed and scrapped items to `archive/`; they stay addressable.
+- Useful: `lif update <id> --priority high`, `lif tag <id> --tag x`.
+- Source: FACTS.md §1.1 (`start`, `complete`, `scrap`, `archive`, `update`, `tag`), §2.3, §2.4
 
 ### Open the Liff in your editor
-- Führt das Wort "Liff" ein Mal im Fließtext ein und verweist auf Reference: Item file format (`reference/item-file-format`) als Definition.
-- Zeigt `lif path` und eine Item-Datei mit Front-Matter (Dateiname `<id>--<slug>.md`).
-- Per Hand bearbeiten ist erlaubt; `lif check` danach ausführen.
-- Ehrliche Grenze: Handänderungen an `parent:`, `type:`, `status:` werden beim Laden nicht geprüft; `lif check` meldet Rang-, Status-, Prioritäts- und Tag-Fehler nicht (D40).
-- Was `lif check` fängt: unbekannter Typ, kaputte Links, Selbstverweise, Zyklen, verwaiste Anhang-Ordner; Exit-Code 1 bei Fund.
-- Quelle: FACTS.md §2.1, §2.4, §3.2, §6.8, §6.9, §9(d), §9(e); DESIGN.md D40, D47
+- Introduces the word "Liff" once in running text and links to Reference: Item file format (`reference/item-file-format`) as the definition.
+- Shows `lif path` and an item file with front matter (file name `<id>--<slug>.md`).
+- Editing by hand is allowed; run `lif check` afterwards.
+- Known limit: manual changes to `parent:`, `type:` and `status:` are not checked on load; `lif check` does not report rank, status, priority and tag errors (D40).
+- What `lif check` catches: unknown type, broken links, self-references, cycles, orphaned attachment directories; exit code 1 on a finding.
+- Source: FACTS.md §2.1, §2.4, §3.2, §6.8, §6.9, §9(d), §9(e); DESIGN.md D40, D47
+
+### Agent prompt template
+- A prompt the user pastes into a coding agent (Claude Code, OpenCode, others). The agent walks the user through the same steps as this page: init, preset choice, first items, defaults.
+- Prerequisites: Lif is installed (`overview/installation`) and the agent can run shell commands. The agent learns the presets from `lif init --help` and the commands from `lif prime`.
+- Rules inside the prompt: one step at a time, say what is about to happen, ask for a decision where there is one, wait for the answer, change nothing before the user agrees.
+- Order matters: `lif prime` prints nothing before `lif init` (see Agent onboarding), so it comes right after the init step.
+- Shows the prompt in a code block with a copy button; the draft below is the working proof, phase 5 tests the final wording with a real agent run (`TODO: verify`).
+- Links to Agent onboarding (`overview/agent-onboarding`) for session hooks and the skill `use-lif`.
+- Source: FACTS.md §1.1 (`version`, `init`, `prime`, `create`, `list`, `check`, `next`), §4.3; `internal/commands/prime.go:71-104` (silent without a config); DESIGN.md D54
+
+```text
+Help me set up Lif, a Markdown-native work tracker, in this project. Work through the steps one at a time. Before each step tell me what you are about to do, ask for my decision where there is one, and wait for my answer. Change nothing before I agree.
+
+1. Run `lif version`. If the command is missing, stop and tell me to install Lif first.
+2. Run `lif init --help`, then ask me which preset fits this project: classic, todo, simple or complex. Explain each in one line. Run `lif init --profile <preset>` in the project root and show me `lif path`.
+3. Run `lif prime` (it prints nothing before `lif init`) and follow it for every command from now on.
+4. Show me the `lif:` section of `.lif.yml`. Ask whether new items should get another default status (`lif.default_status`) or default type (`lif.default_type`), another ID prefix (`lif.prefix`) or another ID length (`lif.id_length`). Apply my answers and run `lif check`.
+5. Ask me what this project is about. Create a first item for it with `lif create`, then two or three smaller items below it with `--parent` (plain items if the preset has one level only). Show the result with `lif list --view tree`.
+6. Run `lif next`, tell me in five lines how I work with Lif from here, and ask me what to start with.
+```
 
 ### Next steps
-- Concepts (`overview/concepts`) für das mentale Modell.
-- Features (`features/index`) und Use cases (`use-cases/index`) für Arbeitsabläufe.
-- Reference: Commands (`reference/commands/index`) für alle Befehle, Reference: Configuration (`reference/configuration`) für Einstellungen.
-- TUI: Start and repositories (`reference/tui/start-and-repositories`) als Alternative zur CLI.
-- Quelle: DESIGN.md D29, D44
+- Concepts (`overview/concepts`) for the mental model.
+- Features (`features/index`) and Use cases (`use-cases/index`) for workflows.
+- Reference: Commands (`reference/commands/index`) for all commands, Reference: Configuration (`reference/configuration`) for settings.
+- Agent onboarding (`overview/agent-onboarding`) to wire a coding agent to the store; Store management (`overview/store-management`) for several projects.
+- TUI: Start and repositories (`reference/tui/start-and-repositories`) as an alternative to the CLI.
+- Source: DESIGN.md D29, D44

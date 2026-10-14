@@ -3,57 +3,57 @@ title: "Glossary"
 description: "Short definitions of the terms Lif uses."
 ---
 
-# Glossary
+## Purpose
+Short definitions of the terms Lif uses in commands, files, JSON and documentation. Every entry names the page that owns the detail. Together with `reference/item-file-format`, this page introduces the term Liff.
 
-## Zweck
-Kurze Definitionen der Begriffe, die Lif in Befehlen, Dateien, JSON und Dokumentation benutzt. Jeder Eintrag nennt die Seite, die das Detail besitzt. Hier wird neben `reference/item-file-format` der Begriff Liff eingeführt.
+## Audience
+New users who look up a term, and agents that should use the same words as the code. Anyone coming from earlier versions (`beans`) finds the mapping from old to new names.
 
-## Zielgruppe
-Neue Nutzer, die einen Begriff nachschlagen, und Agenten, die dieselben Wörter wie der Code benutzen sollen. Wer von früheren Versionen (`beans`) kommt, findet die Zuordnung alter zu neuen Namen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### How to read the glossary
-- Erklärt: Die Begriffe folgen dem Code (item, type, rank, status, priority, tag, parent, blocking / blocked_by, preset, store).
-- Erklärt: "level" ist in Fließtext nur ein Synonym für rank, nie ein Feldname.
-- Erklärt Liff: Name für die Markdown-Datei, die ein Item speichert; Feldnamen, Befehle, JSON und GraphQL behalten `item`.
-- Erklärt das Format der Einträge: Begriff, eine Zeile Definition, Seite mit Details in Backticks; Gruppen: Core terms, Store and files, Planning terms, Interface terms, Legacy terms.
-- Quelle: DESIGN.md D45, D47
+- Explains: the terms follow the code (item, type, rank, status, priority, tag, parent, blocking / blocked_by, preset, store).
+- Explains: "level" is only a synonym for rank in running text, never a field name.
+- Explains Liff: the name for the Markdown file that stores an item; field names, commands, JSON and GraphQL keep `item`.
+- Explains the entry format: term, one line of definition, page with details in backticks; groups: Core terms, Store and files, Planning terms, Interface terms, Legacy terms.
+- Source: DESIGN.md D45, D47
 
 ### Core terms
-- item, Liff: Item = Einheit der Arbeit (Aufgabe, Feature, Epic, Meilenstein …); Liff = die Markdown-Datei dazu. Details: `reference/item-file-format`.
-- type, rank: Typ benennt die Art des Items; `rank` ist eine ganze Zahl, die bestimmt, welcher Typ unter welchem stehen darf (Kind-Rank strikt größer als Parent-Rank). Details: `reference/configuration` (Types, ranks and hierarchy rules).
-- status, priority: Status = Stand der Arbeit (`in-progress`, `todo`, `draft`, `completed`, `scrapped`); Priorität = Dringlichkeit (`critical` bis `deferred`). Details: `reference/item-file-format` (Allowed values and defaults), `reference/configuration`.
-- tag, parent: Tag = Etikett in Kleinbuchstaben mit Bindestrichen; `parent` = die ID des einen übergeordneten Items. Details: `reference/item-file-format`.
-- blocking, blocked_by: zwei Listen von IDs; `blocking` nennt, was dieses Item blockiert, `blocked_by` nennt, was es blockiert; Speicherung nur auf einer Seite. Details: `features/dependencies`, `reference/item-file-format` (Relationships).
-- preset: eine mit `lif init --profile` einmal in `.lif.yml` ausgeschriebene Typtabelle (`classic`, `todo`, `simple`, `complex`). Details: `reference/configuration` (Presets).
-- Quelle: FACTS.md §2.1, §2.2, §2.3, §3, §5.1, §9(b); DESIGN.md D45, D47
+- item, Liff: item = unit of work (task, feature, epic, milestone ...); Liff = the Markdown file for it. Details: `reference/item-file-format`.
+- type, rank: type names the kind of item; `rank` is an integer that decides which type may sit under which (child rank strictly greater than parent rank). Details: `reference/configuration` (Types, ranks and hierarchy rules).
+- status, priority: status = state of the work (`in-progress`, `todo`, `draft`, `completed`, `scrapped`); priority = urgency (`critical` to `deferred`). Details: `reference/item-file-format` (Allowed values and defaults), `reference/configuration`.
+- tag, parent: tag = label in lower case with hyphens; `parent` = the ID of the one item above. Details: `reference/item-file-format`.
+- blocking, blocked_by: two lists of IDs; `blocking` names what this item blocks, `blocked_by` names what blocks it; stored on one side only. Details: `features/dependencies`, `reference/item-file-format` (Relationships).
+- preset: a type table written out once into `.lif.yml` by `lif init --profile` (`classic`, `todo`, `simple`, `complex`). Details: `reference/configuration` (Presets).
+- Source: FACTS.md §2.1, §2.2, §2.3, §3, §5.1, §9(b); DESIGN.md D45, D47
 
 ### Store and files
-- store, archive: Store = das Verzeichnis mit den Liffs (Standard `.lif/`); `archive/` = Unterverzeichnis für Items mit Archiv-Status, sie bleiben geladen und ansprechbar. Details: `reference/item-file-format` (Where files live).
-- attachments: `attachments/<item-id>/` mit Belegen je Item. Details: `reference/item-file-format` (Where files live).
-- ID, prefix, slug: ID = Präfix plus Zufallssuffix; Slug = Titelkurzform im Dateinamen `<id>--<slug>.md`; Kurz-ID = ID ohne Präfix. Details: `reference/item-file-format` (File name and ID).
-- anchor: `lif.anchor: repo-root` lässt alle Git-Worktrees eines Repositories einen Store teilen. Details: `reference/configuration` (Store resolution).
-- ETag: Hash der Dateibytes für `--if-match` und GraphQL `ifMatch`. Details: `reference/item-file-format` (Body).
-- Quelle: FACTS.md §2.1, §2.4, §4.2, §5.4
+- store, archive: store = the directory with the Liffs (default `.lif/`); `archive/` = subdirectory for items with an archive status, they stay loaded and addressable. Details: `reference/item-file-format` (Where files live), `overview/store-management`.
+- store location: where Lif looks for the store directory: `--lif-path`, then the config file (`lif.path` or the default directory next to it), then `LIF_PATH`, then `.lif/` in the current directory; `lif path` prints the result. Details: `reference/configuration` (Store resolution), `overview/store-management`.
+- attachments: `attachments/<item-id>/` with evidence per item. Details: `reference/item-file-format` (Where files live).
+- ID, prefix, slug: ID = prefix plus random suffix; slug = short form of the title in the file name `<id>--<slug>.md`; short ID = ID without the prefix. Details: `reference/item-file-format` (File name and ID), `overview/store-management` (ID prefix).
+- anchor: `lif.anchor: repo-root` lets all Git worktrees of a repository share one store. Details: `reference/configuration` (Store resolution), `overview/store-management`.
+- ETag: hash of the file bytes for `--if-match` and GraphQL `ifMatch`. Details: `reference/item-file-format` (Body).
+- Source: FACTS.md §2.1, §2.4, §4.2, §5.4; DESIGN.md D56
 
 ### Planning terms
-- container, leaf: Container = Item auf Rank 1 bis 3, Leaf = Item auf Rank 4 (eingebaute Skala); eigene Typen können andere Ranks haben. Details: `reference/configuration` (Types, ranks and hierarchy rules).
-- ready: nicht blockiert (direkt oder über einen Vorfahren), Status nicht `in-progress`, `draft` oder Archiv-Status, kein Vorfahr `completed` oder `scrapped`. Details: `features/dependencies`, `reference/commands/index` (generierte Seiten `lif next`, `lif list`).
-- blocked, explizit und implizit: explizit = hat selbst aktive Blocker; implizit = ein Vorfahr hat aktive Blocker; aktiv heißt Status nicht `completed` oder `scrapped`. Details: `features/dependencies`.
-- roadmap: Baumansicht aus Meilensteinen, Epics und Kindern; Typen mit `roadmap: false` erscheinen nicht. Details: `lif roadmap` (generierte Seite), `reference/configuration` (Presets).
-- Quelle: FACTS.md §3, §5.1, §5.2
+- container, leaf: container = item on rank 1 to 3, leaf = item on rank 4 (built-in scale); custom types can have other ranks. Details: `reference/configuration` (Types, ranks and hierarchy rules).
+- order: the manual order key (`order` in the front matter, a base62 fractional index) that places an item among its siblings; set with `lif order`. Details: `overview/concepts` (Order), `reference/item-file-format`.
+- ready: not blocked (directly or through an ancestor), status not `in-progress`, `draft` or an archive status, no ancestor `completed` or `scrapped`. Details: `features/dependencies`, `reference/commands/index` (generated pages `lif next`, `lif list`).
+- blocked, explicit and implicit: explicit = has active blockers itself; implicit = an ancestor has active blockers; active means status not `completed` or `scrapped`. Details: `features/dependencies`.
+- roadmap: tree view of milestones, epics and children; types with `roadmap: false` do not appear. Details: `lif roadmap` (generated page), `reference/configuration` (Presets).
+- Source: FACTS.md §2.2, §3, §5.1, §5.2; DESIGN.md D52
 
 ### Interface terms
-- CLI, `lif prime`: CLI = die Binary `lif`; `lif prime` gibt einen Prompt aus, der einen Coding-Agenten in die Nutzung von Lif einführt. Details: `reference/commands/index`, `overview/agent-onboarding`.
-- TUI: Terminal-Oberfläche, gestartet mit `lif tui`. Details: `reference/tui/*`.
-- `lif-serve`: eigene Binary für den Web-Server. Details: `reference/web-server`.
-- GraphQL: Abfrage- und Änderungsschnittstelle; im Prozess mit `lif graphql` (Alias `lif query`) oder per HTTP über `lif-serve`. Details: `reference/graphql`.
-- Quelle: FACTS.md §1.0, §1.1 (`lif prime`, `lif tui`, `lif-serve`, `lif graphql`), §7.5
+- CLI, `lif prime`: CLI = the binary `lif`; `lif prime` prints a prompt that introduces a coding agent to the use of Lif. Details: `reference/commands/index`, `overview/agent-onboarding`.
+- TUI: terminal interface, started with `lif tui`. Details: `reference/tui/*`.
+- `lif-serve`: separate binary for the web server. Details: `reference/web-server`.
+- GraphQL: query and mutation interface; in process with `lif graphql` (alias `lif query`) or over HTTP through `lif-serve`. Details: `reference/graphql`.
+- Source: FACTS.md §1.0, §1.1 (`lif prime`, `lif tui`, `lif-serve`, `lif graphql`), §7.5
 
 ### Legacy terms
-- bean: früherer Name für item; heute Item oder Liff (D47). JSON-Felder `bean_id` und `bean_issues` heißen jetzt `item_id` und `item_issues`. Details: `reference/json-schemas`.
-- `.beans/`, `.beans.yml`, `beans:`: alter Store-Ordner, alte Config-Datei, alter Config-Schlüssel; werden an Ort und Stelle gelesen, nie umbenannt; `lif check` meldet sie unter "Legacy names". Details: `reference/configuration`.
-- `BEANS_PATH`: alte Umgebungsvariable; wird gelesen, wenn `LIF_PATH` nicht gesetzt ist; beide zugleich gesetzt ist ein Fehler. Details: `reference/configuration` (Store resolution).
-- `beans-`-Präfix: alter ID-Präfix; Zuordnung zu `lif rename --prefix` (TODO: verify)
-- Quelle: FACTS.md §2.4, §4.1, §4.2, §6.6, §6.8; `TODO: verify` für den `beans-`-Präfix: in FACTS nicht belegt, `lif rename --help` und Migrationshinweise im Repository prüfen
+- bean: former name for item; today item or Liff (D47). The JSON fields `bean_id` and `bean_issues` are now `item_id` and `item_issues`. Details: `reference/json-schemas`.
+- `.beans/`, `.beans.yml`, `beans:`: old store folder, old config file, old config key; they are read in place and never renamed; `lif check` reports them under "Legacy names". Details: `reference/configuration`.
+- `BEANS_PATH`: old environment variable; read when `LIF_PATH` is not set; setting both is an error. Details: `reference/configuration` (Store resolution), `overview/store-management`.
+- `beans-` prefix: old ID prefix; mapping to `lif rename --prefix` (TODO: verify)
+- Source: FACTS.md §2.4, §4.1, §4.2, §6.6, §6.8; `TODO: verify` for the `beans-` prefix: not backed by FACTS, check `lif rename --help` and the migration notes in the repository

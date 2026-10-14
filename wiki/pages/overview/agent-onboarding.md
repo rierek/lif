@@ -3,70 +3,93 @@ title: "Agent onboarding"
 description: "Teach a coding agent to use Lif: lif prime, hooks and a few rules."
 ---
 
-# Agent onboarding
+## Purpose
+Gets a coding agent productive with Lif quickly and keeps it from drifting away from the store. Recommends hooks (re-priming and pre-commit); the docs only show snippets, nothing is shipped.
 
-## Zweck
-Bringt einen Coding-Agenten schnell zum produktiven Umgang mit Lif und hält ihn davon ab, vom Store abzudriften. Empfiehlt Hooks (Re-Priming und Pre-Commit), die Doku zeigt nur Snippets; es wird nichts mitgeliefert.
+## Audience
+People who set up a coding agent (Claude Code, OpenCode, others) with Lif, and agents that orient themselves. Basic knowledge of items and `lif` from Concepts (`overview/concepts`) helps.
 
-## Zielgruppe
-Menschen, die einen Coding-Agenten (Claude Code, OpenCode, andere) mit Lif einrichten, und Agenten, die sich selbst orientieren. Grundkenntnisse zu Items und `lif` aus Concepts (`overview/concepts`) helfen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### How an agent learns Lif
-- Reihenfolge: `lif prime` zuerst, dann `lif --help`, dann Skills; keine Website nötig. (TODO: verify)
-- `prime` und `--help` laufen ohne geladenen Store; alle anderen Befehle brauchen einen.
-- Zeigt die Tagline "A file-based issue tracker for AI-first workflows" als Leitidee.
-- Diagramm: prime → help → skills als drei Stufen. (TODO: verify)
-- Quelle: FACTS.md §1.0 (Root-Texte, Bootstrap-Skip), §1.1 (`prime`). Die Stufenfolge prime → help → skills ist `TODO: verify` (Prüfung: `wiki/agent-integration.md`, Skill-Ort siehe Abschnitt "Skills").
+- **The skill `use-lif` is part of the Lif installation.** Install it together with the `lif` binary: it gives the agent the working conventions that `lif prime` does not carry (see Skills). (TODO: verify where the skill ships and how it is installed.)
+- No website needed: an agent learns Lif from the binary alone. `lif prime` prints a usage guide generated for the project at hand, `lif --help` documents every command, and the prime guide contains no web links. This site is for humans.
+- Order: `lif prime` first, then `lif --help` for syntax details, then the conventions of the skill. (TODO: verify)
+- `prime` and `--help` run without a loaded store; all other commands need one.
+- Shows the tagline "A file-based issue tracker for AI-first workflows" as the guiding idea.
+- Includes a Mermaid diagram of the onboarding steps: install Lif, install the skill, add a session hook or rule, then per session `lif prime`, work, `lif check`, and `lif prime` again after context compaction. The diagram below is the working proof; phase 5 refines it.
+- Source: FACTS.md §1.0 (root texts, bootstrap skip), §1.1 (`prime`); DESIGN.md D24, D53; `internal/commands/prompt.tmpl` (no web links); `wiki/agent-integration.md` (prime is generated from the project's configuration). The order prime → help → skill is `TODO: verify` (check `wiki/agent-integration.md`, skill location see Skills).
+
+```mermaid
+flowchart LR
+    subgraph setup ["Once per project"]
+        direction TB
+        install["Install Lif"] --> skill["Install the skill use-lif"]
+        %% TODO: verify where the skill ships and how it is installed (it is not part of this repository)
+        skill --> wire["Add a session hook or a rule"]
+        %% TODO: verify the Claude Code rule in .claude/rules/ (the hook is documented in wiki/agent-integration.md)
+    end
+    subgraph session ["Every session"]
+        direction TB
+        start["Session starts"] --> prime["lif prime"]
+        prime --> work["lif next, lif start, work, lif complete"]
+        work --> check["lif check"]
+    end
+    setup --> session
+    work -.->|"context compaction"| prime
+```
 
 ### lif prime
-- `lif prime` gibt einen Prompt aus, der Agenten in die Nutzung von Lif einweist; es hat keine Flags.
-- Zeigt `lif prime` mit gekürzter Beispielausgabe (Phase 5 echt laufen lassen).
-- Erklärt: Text kommt aus einer Vorlage im Code (`internal/commands/prompt.tmpl`) und enthält Befehlsfakten; er erwähnt auch `lif check --strict`.
-- Inhalt der Ausgabe im Einzelnen (Abschnittsliste) (TODO: verify).
-- Quelle: FACTS.md §1.1 (`prime`), §6.10 (Verweis auf `prompt.tmpl:203`). Die Inhaltsübersicht der Ausgabe ist `TODO: verify` (prüfen mit `lif prime` in Phase 5).
+- `lif prime` prints a prompt that instructs agents in the use of Lif; it has no flags.
+- Shows `lif prime` with shortened example output (phase 5: run it for real).
+- Explains: the text comes from a template in the code (`internal/commands/prompt.tmpl`) and contains command facts; it also mentions `lif check --strict`.
+- Explains: outside a Lif project (no config file found) `lif prime` prints nothing and exits without an error, so it only helps once `lif init` has run.
+- Lists the sections of the output as in the template: Recipes, CLI Commands, Relationships, Item Types, Statuses, Priorities, Modifying Item Body Content, Custom Front Matter, Required Fields on Status Transitions, Review Findings and Attachments, Manual Ordering, Display Configuration, Output Flags, Failure Output, Concurrency Control, GraphQL Queries. (TODO: verify against a real run, the template fills some sections from the configuration.)
+- Source: FACTS.md §1.1 (`prime`), §6.10 (reference to `prompt.tmpl:203`); `internal/commands/prompt.tmpl:2-341` (section headings); `internal/commands/prime.go:71-104` (silent without a config; not yet in FACTS.md). The rendered contents are `TODO: verify` (check with `lif prime` in phase 5).
 
 ### Session hooks
-- Idee: Der Agent liest `lif prime` automatisch, statt sich auf Erinnerung zu verlassen.
-- Claude Code: Hooks auf `SessionStart` und `PreCompact` führen `lif prime` aus.
-- Zeigt kurzes Snippet der Hook-Konfiguration (Phase 5 aus der vorhandenen Konfiguration übernehmen und prüfen).
-- Agenten ohne Hooks: Prompt einmal einfügen oder in der Agent-Anweisungsdatei auf `lif prime` verweisen. (TODO: verify)
-- Quelle: FACTS.md §6.10, §9(f) (Claude Code Hooks führen `lif prime` aus, `.claude/settings.json`, `extras/claude/plugins/lif-prime/hooks/hooks.json`). Hook-Snippet und Verhalten ohne Hooks sind `TODO: verify` (prüfen in `extras/claude/plugins/lif-prime`, `wiki/agent-integration.md`).
+- Idea: the agent reads `lif prime` automatically instead of relying on memory.
+- Claude Code: hooks on `SessionStart` and `PreCompact` run `lif prime`.
+- Shows a short snippet of the hook configuration (phase 5: take it from the existing configuration and test it).
+- Alternative to a hook: a Claude Code rule in `.claude/rules/` that tells the agent to run `lif prime` before anything else. A rule only instructs the agent; a hook runs the command itself. (TODO: verify how Claude Code loads `.claude/rules/` and whether the rule still applies after compaction.)
+- Agents without hooks: paste the prompt once, or point to `lif prime` in the agent instruction file. (TODO: verify)
+- Source: FACTS.md §6.10, §9(f) (Claude Code hooks run `lif prime`, `.claude/settings.json`, `extras/claude/plugins/lif-prime/hooks/hooks.json`); DESIGN.md D53. Hook snippet and behaviour without hooks are `TODO: verify` (check in `extras/claude/plugins/lif-prime`, `wiki/agent-integration.md`); the `.claude/rules/` alternative is not documented in the repository.
 
 ### Drift prevention hook
-- Problem: Ein Agent vergisst nach Kontext-Kompaktierung die Regeln oder ändert Dateien im Store per Hand; der Store driftet vom Soll ab.
-- Empfehlung 1, Re-Priming: Session-Hook, der `lif prime` bei Sitzungsbeginn und vor der Kontext-Kompaktierung (`PreCompact`) ausführt. Snippet zeigen.
-- Empfehlung 2, Pre-Commit: Git-Hook, der `lif check` ausführt; Exit-Code 1 bei Fund bricht den Commit ab. Snippet zeigen (Skript mit `lif check`, ausführbar unter `.git/hooks/pre-commit` oder über den üblichen Hook-Manager des Projekts).
-- Nichts wird mitgeliefert: Die Doku zeigt nur die Snippets, jedes Projekt richtet sie selbst ein (D41). Verweis auf Git-native (`features/git-native`).
-- Ehrliche Grenze (D40): `lif check` prüft Config, unbekannten Typ, kaputte Links, Selbstverweise, Zyklen, Pflichtfelder (nur Warnung), unbekannte Commit-SHAs (Warnung), verwaiste Anhang-Ordner. Es prüft nicht: Parent-/Kind-Ranks, Status- und Prioritätswerte, Tag-Format, doppelte IDs, Dateiname/ID-Abweichung.
-- Folge: Der Pre-Commit-Hook fängt Handänderungs-Drift nur teilweise; Warnungen nur mit `lif check --strict`; Doku folgt, sobald die Erweiterung der Prüfung geliefert ist.
-- Quelle: FACTS.md §6.8, §6.9, §6.10, §6.11, §9(e), §9(f); DESIGN.md D40, D41. Die Hook-Snippets selbst sind in Phase 5 zu bauen und zu testen (Prüfung: Commit mit absichtlich kaputtem Link).
+- Problem: after context compaction an agent forgets the rules or edits files in the store by hand; the store drifts from what is intended.
+- Recommendation 1, re-priming: a session hook that runs `lif prime` at session start and before context compaction (`PreCompact`). Shows the snippet.
+- Recommendation 2, pre-commit: a Git hook that runs `lif check`; exit code 1 on a finding aborts the commit. Shows the snippet (a script with `lif check`, executable as `.git/hooks/pre-commit` or through the project's usual hook manager).
+- Nothing is shipped: the docs only show the snippets, every project sets them up itself (D41). Links to Git-native (`features/git-native`).
+- Known limit (D40): `lif check` checks the config, unknown types, broken links, self-references, cycles, required fields (warning only), unknown commit SHAs (warning) and orphaned attachment directories. It does not check parent/child ranks, status and priority values, tag format, duplicate IDs or file name/ID mismatches.
+- Consequence: the pre-commit hook only partly catches drift from manual edits; warnings only count with `lif check --strict`; the docs follow once the extended check ships.
+- Source: FACTS.md §6.8, §6.9, §6.10, §6.11, §9(e), §9(f); DESIGN.md D40, D41. The hook snippets themselves are to be built and tested in phase 5 (test: a commit with a deliberately broken link).
 
 ### Rules for agents
-- Lesen über `--json` (`lif list --json`, `lif show --json`, `lif next --json`), nicht Text parsen.
-- Schreiben über die CLI (`lif create`, `lif update`, `lif start`, `lif complete`), weil nur diese Wege Regeln erzwingen.
-- IDs nie per Hand umbenennen, sondern `lif rename` nutzen (aktualisiert Verweise). (TODO: verify)
-- Nach jeder Handänderung `lif check` ausführen und den Exit-Code prüfen.
-- Kurz- oder Voll-ID sind beide gültig.
-- Fehler als JSON: Codes wie `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`.
-- Quelle: FACTS.md §1.0, §1.1 (`rename`, `check`, `list`, `show`, `next`), §3.1, §3.2, §6.8. Die Aussage "`lif rename` aktualisiert Verweise" ist `TODO: verify` (prüfen mit `lif rename --help` und `internal/commands/rename.go`).
+- Read through `--json` (`lif list --json`, `lif show --json`, `lif next --json`), do not parse text.
+- Write through the CLI (`lif create`, `lif update`, `lif start`, `lif complete`), because only these paths enforce the rules.
+- Never rename IDs by hand, use `lif rename` (updates references). (TODO: verify)
+- Run `lif check` after every manual edit and check the exit code.
+- Short ID and full ID are both valid.
+- Errors as JSON: codes such as `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`.
+- Source: FACTS.md §1.0, §1.1 (`rename`, `check`, `list`, `show`, `next`), §3.1, §3.2, §6.8. The statement "`lif rename` updates references" is `TODO: verify` (check with `lif rename --help` and `internal/commands/rename.go`).
 
 ### Skills
-- Was ein Skill über `lif prime` hinaus bringt: stabile, projektspezifische Arbeitsanweisungen und Beispiele.
-- Wo ein Skill liegt und wie er geladen wird, je Agent.
-- Abgrenzung: `prime` liefert Fakten aus den Befehlen, ein Skill liefert Arbeitsweise.
-- Quelle: `TODO: verify` — FACTS.md enthält nichts zu Skills; prüfen in `extras/claude/plugins/lif-prime`, `.opencode`, `wiki/agent-integration.md`.
+- What a skill adds beyond `lif prime`: stable, project-specific working instructions and examples.
+- **`use-lif` is the Lif skill and part of the installation** (D53); names what it covers (conventions for types, epics and milestones, the work loop). (TODO: verify)
+- Where a skill lives and how it is loaded, per agent.
+- Demarcation: `prime` delivers facts from the commands, a skill delivers the way of working.
+- Source: `TODO: verify`. FACTS.md has nothing on skills, and the repository does not ship a skill named `use-lif` (`extras/` holds only `claude/plugins/lif-prime` and `zsh/lif-pick.zsh`); decide where it is distributed before phase 5 (check `extras/claude/plugins/lif-prime`, `.opencode`, `wiki/agent-integration.md`).
 
 ### Setup per agent
-- Claude Code: Plugin `lif-prime` mit Hooks für `SessionStart` und `PreCompact` (Installationsbefehle ergänzen).
-- OpenCode: Plugin im Verzeichnis `.opencode` (Installationsschritte ergänzen).
-- Andere Agenten: `lif prime` einmal einfügen oder als Befehl aufrufen lassen.
-- Tabelle: Agent · Mechanismus · Befehle.
-- Quelle: FACTS.md §6.10 (Claude Code Hooks nachgewiesen). OpenCode- und Plugin-Installationsschritte sind `TODO: verify` (prüfen in `extras/claude/plugins/lif-prime/README.md`, `.opencode/plugin`, `wiki/agent-integration.md`).
+- All agents: install the `lif` binary and the skill `use-lif` first, then add one of the mechanisms below.
+- Claude Code: plugin `lif-prime` with hooks for `SessionStart` and `PreCompact` (add the install commands), or a rule in `.claude/rules/`.
+- OpenCode: plugin in the `.opencode` directory (add the installation steps).
+- Other agents: paste `lif prime` once or let the agent call it as a command.
+- Table: agent · mechanism · commands.
+- Source: FACTS.md §6.10 (Claude Code hooks confirmed). OpenCode and plugin installation steps are `TODO: verify` (check in `extras/claude/plugins/lif-prime/README.md`, `.opencode/plugin`, `wiki/agent-integration.md`).
 
 ### Example first session
-- Beispielablauf als Transkript: `lif prime` → `lif next` → `lif start` → Arbeit → `lif complete --summary` → `lif check`.
-- Kommentiert jeden Schritt in einer Zeile.
-- Zeigt `--json`-Ausgaben dort, wo ein Agent sie parst.
-- Quelle: FACTS.md §1.1 (`prime`, `next`, `start`, `complete`, `check`), §6.8. Das Transkript ist in Phase 5 mit echtem Lauf zu erzeugen (`TODO: verify`).
+- Example flow as a transcript: `lif prime` → `lif next` → `lif start` → work → `lif complete --summary` → `lif check`.
+- Comments each step in one line.
+- Shows `--json` output where an agent parses it.
+- Source: FACTS.md §1.1 (`prime`, `next`, `start`, `complete`, `check`), §6.8. The transcript is to be produced with a real run in phase 5 (`TODO: verify`).

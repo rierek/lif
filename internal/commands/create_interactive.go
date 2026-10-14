@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
@@ -86,6 +87,17 @@ func newCreateDraft(args []string) createDraft {
 	return d
 }
 
+// cancelHintLayout appends the cancel hint to the footer of every step. huh
+// binds Ctrl+C but lists it in no field's help line.
+type cancelHintLayout struct{ huh.Layout }
+
+func (l cancelHintLayout) View(f *huh.Form) string {
+	hint := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ui.ActiveTheme().Hex("overlay1"))).
+		Render("ctrl+c cancel")
+	return l.Layout.View(f) + "\n" + hint
+}
+
 // runCreateForm builds and runs one wizard form: the single place that sets
 // theme, keymap and the input/output pair.
 func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*huh.Group) error {
@@ -95,7 +107,7 @@ func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*
 	f := huh.NewForm(groups...).
 		WithInput(in()).
 		WithOutput(out).
-		WithLayout(layout).
+		WithLayout(cancelHintLayout{layout}).
 		WithKeyMap(huh.NewDefaultKeyMap()).
 		WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
 	if err := f.Run(); err != nil {

@@ -1,0 +1,98 @@
+---
+title: "Markdown-native"
+description: "Your backlog is plain Markdown: read it, diff it and edit it in any editor."
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+**Your backlog is plain Markdown.** An item is one Markdown file with YAML front matter. You read it, diff it and edit it in any editor. There is no database and no export step.
+
+## How it looks
+
+`lif complete --commit HEAD --summary "Mail sent"` changed this item. Excerpt of the real `git diff` (context lines left out):
+
+```diff
+-status: todo
++status: completed
++priority: normal
+-updated_at: 2026-10-14T19:17:18Z
++updated_at: 2026-10-14T19:17:23Z
++commit: 22b4b97e63ce8e8bdf836c6aa509adfeb1cca41b
++## Summary of Changes
++
++Mail sent
+```
+
+- `status` and `updated_at` are known fields. Lif rewrites them in place.
+- `commit` is an extra key. Lif writes it after the known fields.
+- The body gains a `## Summary of Changes` section.
+
+`lif show <id>` prints the same data in the terminal.
+
+## What you get
+
+<CardGrid>
+  <Card title="You own your data">The files are readable, diffable and editable in any editor.</Card>
+  <Card title="An open format">Scripts and agents read the files without Lif.</Card>
+  <Card title="Small diffs">Lif writes fields in a fixed order and keeps unknown keys, so a change touches few lines.</Card>
+  <Card title="Evidence next to the item">An item can have a directory `attachments/<item-id>/` for a design note or a screenshot.</Card>
+</CardGrid>
+
+<details>
+<summary>How to use attachments</summary>
+
+- On load, Lif skips the `attachments/` directory. It never looks for items there.
+- `lif check` reports a directory without a matching item as a problem (`attachments/<id> has no item <id>`, exit 1). An item in the archive counts as present.
+- Lif does not create the directory for you. Create it yourself and mention the file in the item body. This is a convention, not enforced by Lif.
+
+</details>
+
+<details>
+<summary>How to link items from a README</summary>
+
+Keep the README as the entry point and let the items hold the work state. Do not copy status into the README. Generate a roadmap instead:
+
+```bash
+lif roadmap --format markdown
+```
+
+Real output (excerpt):
+
+```markdown
+# Roadmap
+
+## Milestone: Ship v1 ([ft-2gae](.lif/ft-2gae--ship-v1.md))
+
+### Epic: Login flow ([ft-txrv](.lif/ft-txrv--login-flow.md))
+```
+
+Useful options: `--no-links`, `--link-prefix`, `--depth`, `--tags`, `--include-done`. See [`lif roadmap`](../../reference/commands/lif-roadmap/).
+
+</details>
+
+## Details
+
+- Layout: `---`, YAML front matter, `---`, then the Markdown body.
+- File name: `<id>--<slug>.md`. ID and slug are not front matter fields. Lif derives them from the file name.
+- Field order: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`. The first front matter line is a YAML comment `# <id>`.
+- Unknown keys stay. Lif writes them in alphabetical order after the known fields.
+- A **Liff** is the Markdown file of an item. See the [glossary](../../reference/glossary/).
+
+## Limits
+
+- Edit by hand, then run `lif check`. Lif does not check manual edits on load. See [Flexible planning](../project-planning/#limits) for what `lif check` covers.
+- Write within the limits that apply when you write through Lif: body at most 1 MiB, title at most 1000 characters, tags in lower case, starting with a letter, hyphens only between characters.
+- Fix or remove a broken `.md` file before you run other commands. One unparsable file aborts the whole load (`loading <path>: ...`) and Lif then returns no items.
+- Keep file names equal to IDs and IDs unique. `lif check` reports neither a differing file name nor a duplicate ID. With a duplicate ID, the file loaded later silently overwrites the other.
+- Test Obsidian Bases yourself before you rely on it. Compatibility is unclear: nothing in the code or the docs says anything about it. See [Surface independence](../surface-independence/#editors-such-as-obsidian).
+
+:::tip[Why it matters]
+Your backlog outlives any tool. If you stop using Lif, your items stay readable Markdown files with no database to export.
+:::
+
+## Reference
+
+- [Item file format](../../reference/item-file-format/): all fields, values, file names, manual edits.
+- [Configuration](../../reference/configuration/): store path, ID prefix, types, status.
+- [`lif check`](../../reference/commands/lif-check/): what is checked and what is not.
+- [`lif roadmap`](../../reference/commands/lif-roadmap/): Markdown output and link options.

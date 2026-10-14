@@ -8,7 +8,7 @@ import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 **Track a thesis or book in your own words, not software words.** Chapters, sections, sources and questions are your item types. Each is a Markdown file next to the text.
 
 <div class="not-content">
-<TerminalWindow title="~/thesis" command="lif list --view tree" cols={96} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
+<TerminalWindow title="~/thesis" command="lif list --view tree" label="Tree of the thesis: chapters Methods and Results with their sections, questions and sources, each with status and ID." cols={96} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
 <span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────────────────────</span>
 chapter         Methods                                                <span style="color:var(--ctp-green);font-weight:700">todo     </span>     thesis-xf0t
 <span style="color:var(--ctp-surface2)">├─ </span>section      Sampling                                               <span style="color:var(--ctp-green);font-weight:700">todo     </span>     thesis-ox0n
@@ -57,7 +57,7 @@ Place the blocker outside the item it blocks. Lif treats a blocked parent as blo
 `lif progress` counts the items below a chapter:
 
 <div class="not-content">
-<TerminalWindow title="~/thesis" command="lif progress thesis-xf0t" cols={80} html={`thesis-xf0t Methods
+<TerminalWindow title="~/thesis" command="lif progress thesis-xf0t" label="Progress of the chapter Methods: 0 in progress, 3 todo, 0 draft, 2 completed, 40 percent complete." cols={80} html={`thesis-xf0t Methods
 
 <span style="color:var(--ctp-peach);font-weight:700">In Progress</span>: 0
 <span style="color:var(--ctp-green);font-weight:700">Todo</span>: 3

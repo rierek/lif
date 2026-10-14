@@ -14,8 +14,8 @@ import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 An item is one Markdown file with YAML front matter. Here is the item on disk, and the same item printed by `lif show`:
 
 <div class="pair not-content">
-  <TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} />
-  <TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={64} />
+  <TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} label="The item Password reset as a Markdown file: YAML front matter, then description and acceptance criteria." />
+  <TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={64} label="The same item rendered by lif show: title, status, priority, tags, parent, timestamps and the acceptance criteria." />
 </div>
 
 The `.lif/` directory lives inside your repository, so Git versions the backlog with the code. `lif complete --commit HEAD --summary "Mail sent"` changed this item. Excerpt of the real `git diff` (context lines left out):
@@ -38,7 +38,7 @@ The `.lif/` directory lives inside your repository, so Git versions the backlog 
 
 With `lif.anchor: repo-root`, two worktrees read the same store:
 
-<TerminalWindow title="Two worktrees, one store" cols={64} html={`<span style="color:var(--ctp-blue)">repo/</span>                     main worktree
+<TerminalWindow title="Two worktrees, one store" cols={64} label="Directory tree: the main worktree repo holds .lif.yml with lif.anchor repo-root and the one shared .lif store; a second worktree feature-x reads repo/.lif." html={`<span style="color:var(--ctp-blue)">repo/</span>                     main worktree
 ├── .lif.yml              lif.anchor: repo-root
 └── <span style="color:var(--ctp-blue)">.lif/</span>                 the one shared store
 <span style="color:var(--ctp-blue)">worktrees/</span>                

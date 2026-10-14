@@ -8,7 +8,7 @@ import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 **See which chores wait on others before you touch a server.** A home lab has many systems and a fixed order: back up first, then update. Put each chore in a file, link the order, and Lif lists what still waits.
 
 <div class="not-content">
-<TerminalWindow title="~/homelab" command="lif list --is-blocked" cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
+<TerminalWindow title="~/homelab" command="lif list --is-blocked" label="Table of two blocked todo tasks: Move DHCP to new router and Update NAS firmware." cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
 <span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>
 <span style="color:var(--ctp-overlay1)">TYPE  ID        TITLE                                                  STATUS  P</span>
 task  lab-wcdl  Move DHCP to new router                                <span style="color:var(--ctp-green);font-weight:700">todo  </span>
@@ -53,7 +53,7 @@ flowchart LR
 A blocker releases its dependants only when it is `completed` or `scrapped`. Complete the backup. The firmware chore is now ready:
 
 <div class="not-content">
-<TerminalWindow title="~/homelab" command="lif list --ready --tag nas" cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
+<TerminalWindow title="~/homelab" command="lif list --ready --tag nas" label="Table with one ready task tagged nas: Update NAS firmware." cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
 <span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>
 <span style="color:var(--ctp-overlay1)">TYPE  ID        TITLE                                                  STATUS  P</span>
 task  lab-5vqc  Update NAS firmware                                    <span style="color:var(--ctp-green);font-weight:700">todo  </span>

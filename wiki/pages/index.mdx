@@ -29,7 +29,7 @@ export const epic = demo.board.find((i) => i.title === 'Accounts and sign-in').i
 Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that sits next to your code. Humans edit it, AI agents query it, scripts automate it.
 
 <div slot="visual">
-  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} />
+  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} narrowHtml={demo.roadmap.narrow} narrowCols={demo.roadmap.narrowCols} label="Roadmap tree of the demo project: milestone v1.0 launch with epics Accounts and sign-in and Dashboard and their features, bugs and tasks, then milestone v1.1 polish; each row shows status, priority, ID and tags." />
 </div>
 
 </HeroSplit>
@@ -44,17 +44,18 @@ Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that
       { id: 'markdown', label: 'Markdown', icon: FileText, caption: 'Every item is one Markdown file with YAML front matter. Read it, edit it by hand, diff it like code.' },
     ]}
   >
-    <div slot="cli"><TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={80} /></div>
-    <div slot="tui"><TerminalWindow title="~/app — lif tui" html={demo.tui.html} cols={110} /></div>
+    <div slot="cli"><TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={80} label="Details of the item Password reset: a feature in progress with high priority, tags backend and security, its parent epic, timestamps and the acceptance criteria checklist." /></div>
+    <div slot="tui"><TerminalWindow title="~/app · lif tui" html={demo.tui.html} cols={110} label="Lif terminal UI: filter bar, the item tree with the feature Password reset selected, and its fields on the right: title, status in-progress, type feature, priority high, parent and tags." /></div>
     {/* TODO: verify: the web board view is not in FACTS.md (source: frontend BoardView.svelte, columns todo, in-progress, completed). */}
     <div slot="web"><TerminalWindow variant="browser" title="localhost:8080"><WebBoard items={demo.board} project="app" /></TerminalWindow></div>
-    <div slot="markdown"><TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} /></div>
+    <div slot="markdown"><TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} label="The item Password reset as a Markdown file: YAML front matter with title, status, priority, tags and timestamps, then the description and acceptance criteria." /></div>
   </FeatureTabs>
 </Section>
 
 <Section eyebrow="Start" title="One command, one Markdown file." link={{ text: 'Create your first items', href: '/overview/first-steps/' }}>
   <AnnotatedTerminal
-    title="Create an item"
+    title="~/app · lif create"
+    label="Command that creates a feature item named Rate-limit logins, placed under an epic and tagged security."
     lines={['lif create "Rate-limit logins" \\', '  --type feature \\', `  --parent ${epic} \\`, '  --tag security']}
     notes={[
       { line: 0, side: 'left', text: 'One command, one file' },

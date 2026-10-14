@@ -8,11 +8,11 @@ import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 **Close every item with the commit that did the work, and let `lif check` confirm that the commit exists.** The `complex` preset keeps the release apart from the work in it. `lif complete --commit` writes the commit SHA into the item file.
 
 <div class="not-content">
-  <TerminalWindow title="~/shop" command={`lif complete r-dbho --commit HEAD --summary "Cells are quoted per RFC 4180."`} html={`<span style="color:var(--ctp-green)">Completed </span><span style="color:var(--ctp-subtext0);font-weight:700">r-dbho</span> Export drops rows with commas`} cols={80} />
+  <TerminalWindow title="~/shop" label="Confirmation that item r-dbho, Export drops rows with commas, is completed." command={`lif complete r-dbho --commit HEAD --summary "Cells are quoted per RFC 4180."`} html={`<span style="color:var(--ctp-green)">Completed </span><span style="color:var(--ctp-subtext0);font-weight:700">r-dbho</span> Export drops rows with commas`} cols={80} />
 </div>
 
 <div class="not-content">
-  <TerminalWindow title="~/shop" command={`git rev-parse HEAD; grep '^commit:' .lif/r-dbho--export-drops-rows-with-commas.md`} html={`11a01091d8d90b717396ea2f5c3b5dfad41e47e1
+  <TerminalWindow title="~/shop" label="The current commit hash and the matching commit field stored in the item file, both 11a0109." command={`git rev-parse HEAD; grep '^commit:' .lif/r-dbho--export-drops-rows-with-commas.md`} html={`11a01091d8d90b717396ea2f5c3b5dfad41e47e1
 commit: 11a01091d8d90b717396ea2f5c3b5dfad41e47e1`} cols={80} />
 </div>
 
@@ -47,7 +47,7 @@ Rank 3 is unused. The rank rule allows gaps, so the preset has three levels.
 `lif promote` turns selected records of a review artifact into items. A finding with code `B` becomes a `bug`, and code `I` becomes a `task` tagged `improvement`. Lif writes nothing if one selected record is malformed. A finding that was promoted before is skipped, not duplicated:
 
 <div class="not-content">
-  <TerminalWindow title="~/shop" command={`lif promote review.json B01`} html={`skipped B01: already promoted from review.json`} cols={80} />
+  <TerminalWindow title="~/shop" label="Message that finding B01 was skipped because it was already promoted from review.json." command={`lif promote review.json B01`} html={`skipped B01: already promoted from review.json`} cols={80} />
 </div>
 
 The promoted item records `review`, `finding` and `axis` in its front matter and has no parent. Attach it with `lif update <id> --parent <feature-id>`. The artifact format is not documented yet [nhcz].
@@ -72,7 +72,7 @@ Error: status "completed" requires front matter field(s) commit: supply them in 
 `--commit` takes a branch, tag, SHA or `HEAD` and stores the full 40-character SHA. The key is `commit` unless `lif.commit_field` names another. With the requirement in place, `lif check` looks up every stored SHA in the repository. It reports a SHA that does not exist as a policy warning, and `--strict` turns the warning into exit code 1. In this capture the SHA in the item file was changed by hand to one that does not exist:
 
 <div class="not-content">
-  <TerminalWindow title="~/shop" command={`lif check --strict`} html={`<span style="font-weight:700">Configuration</span>
+  <TerminalWindow title="~/shop" label="Result of the strict store check: a list of passed configuration and item checks, each marked with a check mark." command={`lif check --strict`} html={`<span style="font-weight:700">Configuration</span>
   <span style="color:var(--ctp-green)">✓</span> Statuses defined (5 hardcoded)
   <span style="color:var(--ctp-green)">✓</span> Default status 'todo' exists
   <span style="color:var(--ctp-green)">✓</span> Default type 'task' is valid

@@ -1,5 +1,5 @@
-// Header navigation (trial of the usememos.com style). Groups with `items` become drop-downs with a one-line
-// description per entry. Hrefs are site-relative; /features/, /use-cases/ and /blog/ are placeholders (no pages yet).
+// Header navigation (usememos.com style). Groups with `items` become drop-downs with a one-line description per
+// entry. Hrefs are site-relative and must match page slugs in wiki/pages (chapters: see sidebar in astro.config.mjs).
 export interface NavItem {
 	title: string;
 	description: string;
@@ -8,7 +8,7 @@ export interface NavItem {
 export type NavEntry = { label: string; href: string } | { label: string; items: NavItem[] };
 
 export const nav: NavEntry[] = [
-	{ label: 'Overview', href: '/getting-started/' },
+	{ label: 'Overview', href: '/overview/' },
 	{
 		label: 'Features',
 		items: [

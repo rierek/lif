@@ -22,7 +22,7 @@ export const epic = demo.board.find((i) => i.title === 'Accounts and sign-in').i
   title="Plan in Markdown."
   accent="Keep it in Git."
   checks={['Plain Markdown files', 'CLI, TUI and web UI', 'Made for AI agents']}
-  primary={{ text: 'Install Lif', href: '/getting-started/installation/' }}
+  primary={{ text: 'Install Lif', href: '/overview/installation/' }}
   secondary={{ text: 'Explore features', href: '/features/' }}
 >
 
@@ -52,7 +52,7 @@ Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that
   </FeatureTabs>
 </Section>
 
-<Section eyebrow="Start" title="One command, one Markdown file." link={{ text: 'Create your first items', href: '/getting-started/your-first-items/' }}>
+<Section eyebrow="Start" title="One command, one Markdown file." link={{ text: 'Create your first items', href: '/overview/first-steps/' }}>
   <AnnotatedTerminal
     title="Create an item"
     lines={['lif create "Rate-limit logins" \\', '  --type feature \\', `  --parent ${epic} \\`, '  --tag security']}

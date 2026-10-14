@@ -96,7 +96,7 @@ Profiles are expanded into the repository's `.lif.yml` when `lif init --profile`
 
 ## Installation
 
-Pick the channel that matches your platform. All four install the same two binaries: `lif` (CLI and terminal UI, started with `lif tui`) and `lif-serve` (web UI and GraphQL API).
+Pick the channel that matches your platform. All five install the same two binaries: `lif` (CLI and terminal UI, started with `lif tui`) and `lif-serve` (web UI and GraphQL API).
 
 ### Homebrew (macOS)
 
@@ -110,13 +110,21 @@ brew install xRiErOS/lif/lif
 curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
 ````
 
+### Nix (Linux, macOS)
+
+````sh
+nix profile install github:xRiErOS/lif
+````
+
+Run it without installing with `nix run github:xRiErOS/lif -- version`, or open a temporary shell with `nix shell github:xRiErOS/lif`. The flake builds the frontend as part of the package, so `lif-serve` from this channel serves the web UI.
+
 ### go install (Linux, macOS, Windows)
 
 ````sh
 go install github.com/xRiErOS/lif/cmd/lif@latest
 ````
 
-A `lif-serve` built this way has no embedded web assets (only a placeholder is tracked in the source tree) and serves 404 for the browser UI. Use Homebrew, the install script, or a release archive if you need `lif-serve` with the web UI.
+A `lif-serve` built this way has no embedded web assets (only a placeholder is tracked in the source tree) and serves 404 for the browser UI. Use Homebrew, the install script, Nix, or a release archive if you need `lif-serve` with the web UI.
 
 ### Build from source
 

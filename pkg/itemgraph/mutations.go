@@ -114,6 +114,7 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 	if err != nil {
 		return nil, err
 	}
+	oldType := b.Type
 
 	if err := r.validateUpdateInput(input); err != nil {
 		return nil, err
@@ -217,6 +218,14 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 	// Handle parent relationship
 	if input.Parent != nil {
 		if err := r.ValidateAndSetParent(b, *input.Parent); err != nil {
+			return nil, err
+		}
+	}
+
+	// A type change re-checks the existing hierarchy: the parent only gets
+	// validated above when it changes, and children never.
+	if b.Type != oldType {
+		if err := r.ValidateTypeChange(b); err != nil {
 			return nil, err
 		}
 	}

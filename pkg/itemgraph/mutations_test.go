@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xRiErOS/lif/pkg/config"
@@ -93,4 +94,70 @@ func TestCreateItemDefaultsStatusFromConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func createTyped(t *testing.T, r *CoreResolver, id, typ, parent string) {
+	t.Helper()
+	b := &item.Item{ID: id, Slug: item.Slugify(id), Title: id, Status: "todo", Type: typ, Parent: parent}
+	if err := r.Core.Create(b); err != nil {
+		t.Fatalf("core.Create(%s): %v", id, err)
+	}
+}
+
+// TestUpdateItemTypeChangeValidatesHierarchy: a type change must be checked
+// against the existing parent and all children, and a rejected change writes
+// nothing.
+func TestUpdateItemTypeChangeValidatesHierarchy(t *testing.T) {
+	ctx := context.Background()
+	change := func(typ string) model.UpdateItemInput { return model.UpdateItemInput{Type: strptr(typ)} }
+
+	t.Run("child no longer allowed under new type", func(t *testing.T) {
+		r := newTestResolver(t)
+		createTyped(t, r, "beans-ep01", "epic", "")
+		createTyped(t, r, "beans-ft01", "feature", "beans-ep01")
+
+		_, err := r.UpdateItem(ctx, "beans-ep01", change("task"))
+		if err == nil {
+			t.Fatal("epic with feature child accepted type task")
+		}
+		if !strings.Contains(err.Error(), "beans-ft01") {
+			t.Fatalf("error should name the violating child, got %v", err)
+		}
+		got, _ := r.Core.Get("beans-ep01")
+		if got.Type != "epic" {
+			t.Fatalf("type = %q after rejected change, want epic", got.Type)
+		}
+	})
+
+	t.Run("existing parent no longer allows new type", func(t *testing.T) {
+		r := newTestResolver(t)
+		createTyped(t, r, "beans-ep02", "epic", "")
+		createTyped(t, r, "beans-ft02", "feature", "beans-ep02")
+
+		_, err := r.UpdateItem(ctx, "beans-ft02", change("milestone"))
+		if err == nil {
+			t.Fatal("feature under epic accepted type milestone")
+		}
+		if !strings.Contains(err.Error(), "beans-ft02") {
+			t.Fatalf("error should name the violating item, got %v", err)
+		}
+		got, _ := r.Core.Get("beans-ft02")
+		if got.Type != "feature" {
+			t.Fatalf("type = %q after rejected change, want feature", got.Type)
+		}
+	})
+
+	t.Run("valid change still works", func(t *testing.T) {
+		r := newTestResolver(t)
+		createTyped(t, r, "beans-ep03", "epic", "")
+		createTyped(t, r, "beans-tk03", "task", "beans-ep03")
+
+		got, err := r.UpdateItem(ctx, "beans-tk03", change("feature"))
+		if err != nil {
+			t.Fatalf("task under epic rejected type feature: %v", err)
+		}
+		if got.Type != "feature" {
+			t.Fatalf("type = %q, want feature", got.Type)
+		}
+	})
 }

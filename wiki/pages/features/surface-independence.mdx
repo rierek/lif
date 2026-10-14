@@ -3,7 +3,7 @@ title: "Surface independence"
 description: "Use the terminal, the board or your editor: all of them work on the same files."
 ---
 
-import { Card, CardGrid, Badge } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Aside } from '@astrojs/starlight/components';
 
 **Use the terminal, the board or your editor.** The CLI, the TUI, the Web UI and direct editing of the Markdown files all work on the same items. Agents use the CLI or GraphQL. People use an editor, the TUI or a browser.
 
@@ -71,9 +71,9 @@ In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../refer
 
 See [Known limitations](../../known-limitations/) for [9r10], [8h4v] and [179g].
 
-:::tip[Why it matters]
+<Aside type="tip" title="Why it matters">
 Nobody has to switch tools. A person edits in an editor while an agent uses the CLI, and both change the same files.
-:::
+</Aside>
 
 ## Reference
 

@@ -3,7 +3,7 @@ title: "Dependencies"
 description: "Know what you can start now: blocking links, ready work and the dependency graph."
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
 **Know what you can start now.** Items can block each other. Lif works out what is blocked and what is ready, and `lif next` answers "What now?" for people and for agents without their own planning logic.
 
@@ -75,9 +75,9 @@ The ready list contains containers (the feature `ft-igeu`, the epic, the milesto
 
 See [Known limitations](../../known-limitations/) for [et2a] and [g5dn].
 
-:::tip[Why it matters]
+<Aside type="tip" title="Why it matters">
 Blocked work stays out of the ready list, so you and your agents start with what is unblocked.
-:::
+</Aside>
 
 ## Reference
 

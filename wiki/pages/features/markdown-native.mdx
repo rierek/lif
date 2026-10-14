@@ -3,7 +3,7 @@ title: "Markdown-native"
 description: "Your backlog is plain Markdown: read it, diff it and edit it in any editor."
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
 **Your backlog is plain Markdown.** An item is one Markdown file with YAML front matter. You read it, diff it and edit it in any editor. There is no database and no export step.
 
@@ -86,9 +86,9 @@ Useful options: `--no-links`, `--link-prefix`, `--depth`, `--tags`, `--include-d
 - Keep file names equal to IDs and IDs unique. `lif check` reports neither a differing file name nor a duplicate ID. With a duplicate ID, the file loaded later silently overwrites the other.
 - Test Obsidian Bases yourself before you rely on it. Compatibility is unclear: nothing in the code or the docs says anything about it. See [Surface independence](../surface-independence/#editors-such-as-obsidian).
 
-:::tip[Why it matters]
+<Aside type="tip" title="Why it matters">
 Your backlog outlives any tool. If you stop using Lif, your items stay readable Markdown files with no database to export.
-:::
+</Aside>
 
 ## Reference
 

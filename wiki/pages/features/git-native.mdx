@@ -3,7 +3,7 @@ title: "Git-native"
 description: "Your backlog travels with your code: items are files that Git versions, diffs and merges."
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
 **Your backlog travels with your code.** The `.lif/` directory lives inside your repository. Items are files, so Git versions, diffs and merges them with the code. You need no separate ticket system.
 
@@ -81,9 +81,9 @@ lif check || exit 1
 - Stop `lif-serve` and remove active worktrees before `lif rename --prefix`. It refuses while they exist.
 - Keep IDs unique. With a duplicate ID the file loaded later wins, without a message. See [Flexible planning](../project-planning/#limits) for the gaps of `lif check`.
 
-:::tip[Why it matters]
+<Aside type="tip" title="Why it matters">
 Backlog changes get the same review as code: they appear in the diff of the branch that makes them.
-:::
+</Aside>
 
 ## Reference
 

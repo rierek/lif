@@ -3,7 +3,7 @@ title: "Flexible planning"
 description: "Shape the plan to your project: types, ranks, statuses and presets you configure."
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
 **Shape the plan to your project.** Types, ranks, status, priority and parents model the structure of your work. Lif enforces the configured rules when it writes. Presets are examples, not a fixed template.
 
@@ -89,9 +89,9 @@ If a value is missing, `lif create` and `lif update` fail with a policy violatio
 - Filter with `-t task,bug` when you want leaf work. `lif next` does not exclude containers, and the hint on type `epic` ("do not work on directly") is not enforced [g5dn].
 - Use the CLI for custom status, types and priorities. The TUI offers only the built-in lists [179g]. See [Known limitations](../../known-limitations/).
 
-:::tip[Why it matters]
+<Aside type="tip" title="Why it matters">
 The structure comes from your configuration, not from the tool. A flat to-do list and a milestone-to-task tree are the same Lif with different presets.
-:::
+</Aside>
 
 ## Reference
 

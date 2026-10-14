@@ -1,0 +1,118 @@
+---
+title: "Plan, implement, check with Lif"
+description: "One idea item grows into an epic with child items, gets implemented and checked, and ends with a review verdict in the item."
+date: 2026-10-14
+tags: ["workflow", "planning"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Every step of plan, implement and check leaves a trace in one item file: the plan as child items, the code as commit SHAs, the verdict as text in the body.** This post follows one idea through the cycle with real `lif` output from a throwaway store.
+
+## The cycle
+
+We borrow the shape from the PIV loop: plan, implement, validate. Cole Medin names the three steps the PIV loop (plan, implement, validate) in his skills repository, which builds around a loop he runs on nearly every ticket: [coleam00/skills](https://github.com/coleam00/skills) (README, checked 2026-10-14). We do not use his skills here. We map the three steps onto Lif items by hand or by any agent.
+
+<Aside type="note" title="Third-party source">
+Statements about the PIV loop come from the public repository linked above, checked 2026-10-14. They can change. No warranty for statements about third-party software.
+</Aside>
+
+| Step | What happens in Lif |
+|---|---|
+| Plan | A draft item becomes an epic with child items. Each has numbered criteria. |
+| Implement | `lif start`, code, commit, `lif complete --commit`. |
+| Validate | Check the criteria, run `lif check`, append a review verdict to the epic. |
+
+## From idea to epic
+
+The start is one `draft` item with one sentence:
+
+```bash
+lif create "Share dashboards by link" -t task -s draft \
+  -d "Idea: let a user send a read-only dashboard to a colleague without an account."
+```
+
+Planning changes it in place. The idea gets a type, a status and a body with a plan and criteria in [EARS form](../acceptance-criteria-ears/). The two features hang below it:
+
+```bash
+lif update p-6ll0 --type epic -s todo --body-file epic.md
+lif create "Create and revoke share links" -t feature --parent p-6ll0 --body-file a.md
+lif create "View a shared dashboard"       -t feature --parent p-6ll0 --body-file b.md
+lif list --view tree
+```
+
+```text
+epic        Share dashboards by link          todo   p-6ll0
+├─ feature  Create and revoke share links     todo   p-1boy
+└─ feature  View a shared dashboard           todo   p-zcok
+```
+
+(Columns trimmed. The item IDs `p-…` belong to the throwaway store.) An epic ranks above a feature, so the hierarchy allows this. See [Concepts](../../overview/concepts/).
+
+## Implement
+
+One child at a time. `lif start` sets `in-progress`. After the code commit, `lif complete --commit HEAD` records the SHA in the item:
+
+```bash
+lif start p-1boy
+git commit -m "feat(p-1boy): create and revoke share links"
+lif complete p-1boy --commit HEAD --summary "Tokens are 32 random characters; revoke deletes the token."
+```
+
+The item now carries `commit: 03c0e38…` in its front matter and a `## Summary of Changes` section. The commit title names the item ID, a branch-per-container habit goes with it: convention, not enforced by Lif.
+
+## Check and append the verdict
+
+Checking means comparing the epic's criteria with what the children cover. In the run, criterion 3 of the epic (HTTP 410 for an expired link) had no child. The verdict goes into the epic body:
+
+```bash
+lif update p-6ll0 --body-append "
+## Review verdict 2026-10-14
+
+Changes requested. Criterion 3 (HTTP 410 for an expired link) has no child item
+and no implementation. Criteria 1 and 2 are covered by the two features."
+```
+
+A third child, a task, closed the gap. Then a second `--body-append` records the approval, and the epic is completed:
+
+```bash
+lif complete p-6ll0 --summary "Dashboards can be shared by link."
+lif check
+```
+
+```text
+All checks passed
+```
+
+The end of the epic file reads:
+
+```text
+## Review verdict 2026-10-14
+
+Changes requested. Criterion 3 (HTTP 410 for an expired link) has no child item and no implementation. Criteria 1 and 2 are covered by the two features.
+
+Re-review 2026-10-14: approved. All three epic criteria map to a completed child.
+
+## Summary of Changes
+
+Dashboards can be shared by link.
+```
+
+## Publish
+
+Lif has no publish step. The items are files in the repository, so publishing is what you do with the code: commit item and code changes together, push the branch, merge it. Reviewers see the plan, the verdict and the code in one diff. See [Files in your repo](../../features/files-in-your-repo/).
+
+## Limits and open points
+
+- Lif does not know about the cycle. It stores items, status and text. "Plan", "implement" and "validate" are names we use, not states Lif enforces.
+- `lif check` validates the store (links, types, cycles), not the criteria. Whether an item meets its criteria is a judgment, by a person, a test or a reviewing agent.
+- The code in the demo store is two stub files. The post shows the item flow, not a real implementation.
+- The review verdict is free text. Lif does not parse it.
+- `lif complete --commit HEAD` records the SHA that `HEAD` points to at that moment, which is the commit before the item-file change.
+
+## Reference
+
+- [`lif create`](../../reference/commands/lif-create/), [`lif update`](../../reference/commands/lif-update/), [`lif complete`](../../reference/commands/lif-complete/), [`lif check`](../../reference/commands/lif-check/).
+- [Item file format](../../reference/item-file-format/).
+- [Concepts](../../overview/concepts/) for types, ranks and status.
+- [Software projects use case](../../use-cases/software-projects/) for the general workflow.

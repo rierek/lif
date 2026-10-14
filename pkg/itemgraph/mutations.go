@@ -27,6 +27,7 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 	if input.Type != nil {
 		b.Type = *input.Type
 	}
+	b.Status = r.Core.Config().GetDefaultStatus()
 	if input.Status != nil {
 		b.Status = *input.Status
 	}

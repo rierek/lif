@@ -64,3 +64,33 @@ func TestUpdateItemWritesTagsInDeterministicOrder(t *testing.T) {
 		}
 	}
 }
+
+// TestCreateItemDefaultsStatusFromConfig pins the shared-core default: callers
+// that omit status (GraphQL createItem) must not persist an empty status.
+func TestCreateItemDefaultsStatusFromConfig(t *testing.T) {
+	ctx := context.Background()
+	explicit := "in-progress"
+	tests := []struct {
+		name          string
+		defaultStatus string
+		status        *string
+		want          string
+	}{
+		{"configured default", "draft", nil, "draft"},
+		{"fallback without config value", "", nil, "todo"},
+		{"explicit status wins", "draft", &explicit, "in-progress"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newTestResolver(t)
+			r.Core.Config().Items.DefaultStatus = tt.defaultStatus
+			b, err := r.CreateItem(ctx, model.CreateItemInput{Title: "Default status", Status: tt.status})
+			if err != nil {
+				t.Fatalf("CreateItem: %v", err)
+			}
+			if b.Status != tt.want {
+				t.Fatalf("status = %q, want %q", b.Status, tt.want)
+			}
+		})
+	}
+}

@@ -81,7 +81,7 @@ EARS Validation PASSED
 
 ## The idea
 
-EARS (Easy Approach to Requirements Syntax) gives a criterion one of a few fixed shapes. The keyword `SHALL` is the only modal verb, and keywords are uppercase:
+EARS (Easy Approach to Requirements Syntax) was created by Alistair Mavin and colleagues; [his EARS page](https://alistairmavin.com/ears/) is the primary source (link checked 2026-10-14, a third-party site, not part of Lif). EARS gives a criterion one of a few fixed shapes. The keyword `SHALL` is the only modal verb, and keywords are uppercase:
 
 | Pattern | Shape |
 |---|---|
@@ -108,7 +108,7 @@ It is published as a [public Gist](https://gist.github.com/xRiErOS/5abdbeaa3aadc
 node ears-validator.js path/to/item.md
 ```
 
-The script reads the numbered list under a heading called `Acceptance Criteria` (levels 1 to 4; the German `Akzeptanzkriterien` also works). It exits with 0 when all criteria pass and with 1 otherwise, so it fits a hook or a CI step. Its success message ends with a pointer to a command of another workflow. Lif has no such command; ignore that line.
+The script reads the numbered list under a heading called `Acceptance Criteria` (levels 1 to 4; the German `Akzeptanzkriterien` also works). It exits with 0 when all criteria pass and with 1 otherwise, so it fits a hook or a CI step.
 
 ## Limits and open points
 

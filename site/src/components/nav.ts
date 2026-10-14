@@ -26,11 +26,11 @@ export const nav: NavEntry[] = [
 		items: [
 			{ title: 'All features', description: 'Everything Lif does, at a glance', href: '/features/' },
 			{ title: 'Markdown-native', description: 'Plain files you read, diff and edit', href: '/features/markdown-native/' },
-			{ title: 'Flexible planning', description: 'Types, statuses and hierarchy presets', href: '/features/project-planning/' },
-			{ title: 'Dependencies', description: 'Blockers and what is ready next', href: '/features/dependencies/' },
-			{ title: 'Surface independence', description: 'CLI, TUI, web UI or any editor', href: '/features/surface-independence/' },
-			{ title: 'Automation and agents', description: 'JSON, GraphQL and lif prime', href: '/features/automation/' },
 			{ title: 'Git-native', description: 'Items versioned with your code', href: '/features/git-native/' },
+			{ title: 'Automation and agents', description: 'JSON, GraphQL and lif prime', href: '/features/automation/' },
+			{ title: 'Dependencies', description: 'Blockers and what is ready next', href: '/features/dependencies/' },
+			{ title: 'Flexible planning', description: 'Types, statuses and hierarchy presets', href: '/features/project-planning/' },
+			{ title: 'Surface independence', description: 'CLI, TUI, web UI or any editor', href: '/features/surface-independence/' },
 		],
 	},
 	{

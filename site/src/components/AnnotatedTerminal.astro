@@ -1,0 +1,115 @@
+---
+// Terminal block with callouts on both sides and curved arrows pointing at lines, like the Docker block on
+// usememos.com. The card has a fixed width, so the arrows are static SVG computed here (no JS besides the copy
+// button). Below 66rem the callouts collapse to a numbered list under the block; the lines carry number badges.
+import { Check, Copy, SquareTerminal } from '@lucide/astro';
+
+interface Note {
+	line: number; // 0-based index into `lines`
+	side: 'left' | 'right';
+	text: string;
+}
+interface Props {
+	title?: string; // caption: directory and command, e.g. `~/app · lif create`
+	label?: string; // accessible description of the block
+	lines: string[];
+	notes: Note[];
+}
+const { title = 'Terminal', label, lines, notes } = Astro.props;
+
+const W = 416; // card width (px)
+const BAR = 44; // title bar height
+const PAD = 18; // code padding (top and bottom)
+const LH = 28; // line height
+const GAP = 56; // card edge to callout text
+const SPREAD = 22; // callouts sit above/below their line so the arrows curve
+const H = BAR + 2 * PAD + LH * lines.length;
+const lineY = (i: number) => BAR + PAD + LH * i + LH / 2;
+
+const sorted = [...notes].sort((a, b) => a.line - b.line).map((n, i) => ({ ...n, num: i + 1 }));
+const placed = sorted.map((n) => {
+	const side = sorted.filter((m) => m.side === n.side);
+	const k = side.indexOf(n);
+	const off = side.length === 1 ? 0 : -SPREAD + (2 * SPREAD * k) / (side.length - 1);
+	return { ...n, y: lineY(n.line) + off };
+});
+const arrow = (n: (typeof placed)[number]) => {
+	const left = n.side === 'left';
+	const [x0, x1] = left ? [-GAP + 8, -6] : [W + GAP - 8, W + 6];
+	const y1 = lineY(n.line);
+	const cx = x0 + (x1 - x0) * 0.44;
+	const cy = n.y + (y1 - n.y) * 0.9;
+	const a = Math.atan2(y1 - cy, x1 - cx);
+	const tip = (d: number) => `${(x1 - 8 * Math.cos(a + d)).toFixed(1)} ${(y1 - 8 * Math.sin(a + d)).toFixed(1)}`;
+	return { line: `M${x0} ${n.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x1} ${y1}`, head: `M${tip(0.5)} L${x1} ${y1} L${tip(-0.5)}` };
+};
+const numOf = new Map(sorted.map((n) => [n.line, n.num]));
+---
+
+<div class="anno not-content" data-pagefind-ignore style={`--w: ${W}px; --bar: ${BAR}px; --pad: ${PAD}px; --lh: ${LH}px; --gap: ${GAP}px`}>
+	<div class="stage">
+		<div class="card" role="group" aria-label={label}>
+			<div class="bar">
+				<span class="name"><SquareTerminal size={16} aria-hidden="true" />{title}</span>
+				<button type="button" class="copy" data-copy={lines.join('\n')} aria-label="Copy command">
+					<Copy size={16} class="i-copy" aria-hidden="true" /><Check size={16} class="i-done" aria-hidden="true" />
+				</button>
+			</div>
+			<pre tabindex="0"><code>{lines.map((l, i) => <span class="ln">{l}{numOf.has(i) && <b class="num" aria-hidden="true">{numOf.get(i)}</b>}</span>)}</code></pre>
+		</div>
+		{placed.map((n) => <p class="note" data-side={n.side} style={`top: ${n.y}px`}>{n.text}</p>)}
+		<svg class="arrows" viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+			{placed.map((n) => {
+				const { line, head } = arrow(n);
+				return <><path d={line} /><path d={head} /></>;
+			})}
+		</svg>
+	</div>
+	<ol class="list">{sorted.map((n) => <li>{n.text}</li>)}</ol>
+</div>
+
+<script>
+	document.querySelectorAll<HTMLButtonElement>('.anno [data-copy]').forEach((button) =>
+		button.addEventListener('click', async () => {
+			await navigator.clipboard.writeText(button.dataset.copy ?? '');
+			button.dataset.done = '';
+			button.setAttribute('aria-label', 'Copied');
+			setTimeout(() => {
+				delete button.dataset.done;
+				button.setAttribute('aria-label', 'Copy command');
+			}, 1500);
+		}),
+	);
+</script>
+
+<style>
+	.anno { margin-inline: auto; width: min(100%, 26rem); }
+	.stage { position: relative; }
+	.card { border: 1px solid var(--term-rule); border-radius: 0.75rem; overflow: hidden; background: var(--term-bg); box-shadow: var(--lif-shadow); }
+	.bar { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; height: var(--bar); padding: 0 0.9rem 0 1.1rem; background: var(--term-bar); border-bottom: 1px solid var(--term-rule); }
+	.name { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--sl-text-sm); font-weight: 400; color: var(--ctp-text); }
+	.name :global(svg) { color: var(--ctp-teal); }
+	.copy { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 0.4rem; background: none; color: var(--ctp-subtext0); cursor: pointer; }
+	.copy:hover { background: var(--ctp-surface0); color: var(--ctp-text); }
+	.copy:focus-visible { outline: 2px solid var(--ctp-teal); outline-offset: 1px; }
+	.copy :global(.i-done), .copy[data-done] :global(.i-copy) { display: none; }
+	.copy[data-done] :global(.i-done) { display: block; color: var(--ctp-green); }
+	pre { margin: 0; padding: var(--pad) 1.25rem; overflow-x: auto; font-family: var(--sl-font-mono); font-size: 0.9rem; line-height: var(--lh); white-space: pre; font-variant-ligatures: none; background: none; color: var(--ctp-text); }
+	pre:focus-visible { outline: 2px solid var(--ctp-teal); outline-offset: -2px; }
+	pre code { font: inherit; background: none; padding: 0; border: 0; color: inherit; }
+	.ln { position: relative; display: block; height: var(--lh); }
+	.num { display: none; position: absolute; right: 0; top: 50%; translate: 0 -50%; width: 1.25rem; height: 1.25rem; place-items: center; border: 1px solid var(--ctp-teal); border-radius: 50%; font-size: 0.7rem; font-weight: 700; line-height: 1; color: var(--ctp-teal); }
+	.note, .arrows { display: none; }
+	.list { margin: 1.25rem 0 0; padding-left: 1.5rem; display: grid; gap: 0.4rem; font-size: var(--sl-text-sm); color: var(--sl-color-gray-1); }
+	.list li::marker { color: var(--sl-color-accent-high); font-weight: 700; }
+	.list li { padding-left: 0.25rem; }
+	@media (max-width: 65.99rem) { .num { display: grid; } }
+	@media (min-width: 66rem) {
+		.anno { width: var(--w); }
+		.list { display: none; }
+		.note { display: block; position: absolute; margin: 0; translate: 0 -50%; white-space: nowrap; font-size: var(--sl-text-sm); font-weight: 400; color: var(--sl-color-accent-high); }
+		.note[data-side='left'] { right: calc(100% + var(--gap)); text-align: right; }
+		.note[data-side='right'] { left: calc(100% + var(--gap)); }
+		.arrows { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke: var(--sl-color-accent-high); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+	}
+</style>

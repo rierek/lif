@@ -1,6 +1,6 @@
 # Installation
 
-This page covers the four ways to install Lif and explains the difference between its two binaries. If you already run an install from an earlier release, follow the [upgrade guide](compatibility-and-upgrading.md) first.
+This page covers the five ways to install Lif and explains the difference between its two binaries. If you already run an install from an earlier release, follow the [upgrade guide](compatibility-and-upgrading.md) first.
 
 ## Origin
 
@@ -8,7 +8,7 @@ Lif is maintained at [xRiErOS/lif](https://github.com/xRiErOS/lif), and its Go m
 
 ## Installation channels
 
-All four channels install the same two binaries described below. Pick one:
+All five channels install the same two binaries described below. Pick one:
 
 ### Homebrew (macOS)
 
@@ -32,9 +32,37 @@ Configurable via environment variables: `LIF_VERSION` (default: latest release),
 go install github.com/xRiErOS/lif/cmd/lif@latest
 ```
 
-A `lif-serve` built this way embeds no web assets — the repository tracks only a placeholder (`internal/web/dist/.gitkeep`) so the `//go:embed` directive in `internal/web/embed.go` compiles, but the actual frontend build is not part of the module source. Requesting `/` returns 404. Use Homebrew, the install script, or a release archive for a working `lif-serve`.
+A `lif-serve` built this way embeds no web assets — the repository tracks only a placeholder (`internal/web/dist/.gitkeep`) so the `//go:embed` directive in `internal/web/embed.go` compiles, but the actual frontend build is not part of the module source. Requesting `/` returns 404. Use Homebrew, the install script, Nix, or a release archive for a working `lif-serve`.
 
 A binary installed this way still reports the correct release version (`lif version` shows the release tag, not `dev`): `internal/version/buildinfo.go` reads it from `runtime/debug.ReadBuildInfo()` when the build did not receive `-ldflags` (which `go install` never does). Commit and build date stay `unknown` for a `go install pkg@version` install, since module proxy downloads carry no `.git` history to stamp from; they are only populated when building from a local git checkout (`go build`/`go install` run inside the cloned repository).
+
+### Nix (Linux, macOS)
+
+```sh
+nix profile install github:xRiErOS/lif
+```
+
+Without installing: `nix run github:xRiErOS/lif -- version` runs the CLI, `nix run github:xRiErOS/lif#lif-serve` starts the server, and `nix shell github:xRiErOS/lif` opens a shell with both binaries on `PATH`.
+
+The flake builds the SvelteKit frontend with pnpm and copies it into `internal/web/dist` before the Go build, so `lif-serve` from this channel does serve the web UI. Version, commit, and date are stamped via `-ldflags`, as in the release build.
+
+To pin Lif in a system flake:
+
+```nix
+{
+  inputs.lif.url = "github:xRiErOS/lif";
+
+  outputs = { self, nixpkgs, lif }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [{
+        environment.systemPackages = [ lif.packages.x86_64-linux.default ];
+      }];
+    };
+  };
+}
+```
+
+A development shell with the Go and Node.js toolchain, `just`, and `mise` is available with `nix develop`.
 
 ### GitHub Releases
 
@@ -85,6 +113,17 @@ lif --help
 ```
 
 A plain local `go build` does not inject those linker values (it also has no embedded frontend, see the `go install` section above); use `mise run build` for a fully stamped binary with the web UI, or one of the release-artifact channels above.
+
+## Maintaining the Nix flake
+
+The flake pins the release version and two content hashes, so it needs an update after a release or a dependency change.
+
+1. Set `version` in `flake.nix` to the new release.
+2. If `go.mod` or `go.sum` changed, run `nix build --no-link`, take the `got:` hash from the failure, and write it into `vendorHash`.
+3. If `frontend/pnpm-lock.yaml` changed, run `nix build --no-link .#frontend` and write the `got:` hash into the `pnpmDeps` hash.
+4. Refresh the nixpkgs pin with `nix flake update` when you want a newer toolchain.
+5. Verify with `nix run . -- version`, `nix flake check`, and `nix develop -c go version`.
+6. Commit `flake.nix` and `flake.lock` together.
 
 ## License
 

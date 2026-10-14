@@ -1,0 +1,24 @@
+---
+// `lif show` style key/value list (D79). Wrap <KeyValueItem term="..."> children; renders a semantic <dl>.
+// Term and description sit side by side once the list is wide enough, stacked below that (container query).
+// `centered` limits the width and centers the list (home page, where the heading above is centered).
+interface Props {
+	centered?: boolean;
+}
+const { centered = false } = Astro.props;
+---
+
+<dl class:list={['kv', { centered }]}><slot /></dl>
+
+<style>
+	/* `.kv.kv` outranks the generic `.sl-markdown-content dl` rule in elements.css (two-column grid, 68ch). */
+	.kv.kv { container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; max-width: none; margin: 1.5rem 0 0; padding: 0; }
+	.kv.centered { max-width: 52rem; margin-inline: auto; }
+	.kv :global(.kv-row) { display: grid; gap: 0.25rem 1.5rem; margin: 0; }
+	.kv :global(.kv-term) { margin: 0; font-weight: 700; color: var(--lif-accent-ink); }
+	.kv :global(.kv-desc) { margin: 0; padding: 0; color: var(--lif-ink); min-width: 0; }
+	.kv :global(.kv-desc > p) { margin: 0; }
+	@container (min-width: 36rem) {
+		.kv :global(.kv-row) { grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr); }
+	}
+</style>

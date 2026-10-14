@@ -1,0 +1,29 @@
+---
+// Real capture of the lif-serve board (webp, 1280 px wide, light and dark). The matching image shows for the active theme.
+interface Props {
+	title: string;
+	alt: string;
+	light: string;
+	dark: string;
+	width?: number;
+	height?: number;
+}
+import TerminalWindow from './TerminalWindow.astro';
+const { title, alt, light, dark, width = 1280, height = 620 } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<TerminalWindow title={title} variant="browser">
+	<picture class="shot">
+		<img class="light" src={`${base}${light}`} alt={alt} width={width} height={height} loading="lazy" decoding="async" />
+		<img class="dark" src={`${base}${dark}`} alt={alt} width={width} height={height} loading="lazy" decoding="async" />
+	</picture>
+</TerminalWindow>
+
+<style is:global>
+	.window.browser .screen:has(> .shot) { padding: 0; overflow: hidden; }
+	.shot img { display: block; width: 100%; height: auto; }
+	.shot .light { display: none; }
+	:root[data-theme='light'] .shot .light { display: block; }
+	:root[data-theme='light'] .shot .dark { display: none; }
+</style>

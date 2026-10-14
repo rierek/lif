@@ -1,0 +1,83 @@
+---
+title: "Personal tasks"
+description: "Run your own to-do list as plain files."
+---
+
+import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
+
+**Ask your list what to do next, and get one answer.** Your tasks are Markdown files on your disk. No account, no app. `lif next` picks by priority.
+
+<div class="not-content">
+<TerminalWindow title="~/tasks" command="lif next" label="Next item to work on: the task Pay car insurance, todo, critical priority, due 2026-11-01, tagged admin." cols={80} html={`task  todo-n5gk
+Pay car insurance
+<span style="color:var(--ctp-green);font-weight:700">todo</span>  <span style="color:var(--ctp-red)">critical</span>
+<span style="color:var(--ctp-overlay1)">tags:</span> #admin
+<span style="color:var(--ctp-overlay1)">due:</span> 2026-11-01
+<span style="color:var(--ctp-overlay1)">created 2026-10-14 20:28 UTC  updated 2026-10-14 20:28 UTC</span>
+<span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>`} />
+</div>
+
+Example: five everyday tasks with tags `admin`, `health`, `home` and `family`. One task is `in-progress`, so it is not offered. The critical one wins:
+
+<div class="not-content">
+<TerminalWindow title="~/tasks" command="lif list --ready" label="Table of ready tasks: Pay car insurance (critical), Renew passport (high), Call mum, Fix bike brakes (low)." cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
+<span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>
+<span style="color:var(--ctp-overlay1)">TYPE  ID         TITLE                                          STATUS  PRIORITY</span>
+task  todo-n5gk  Pay car insurance                              <span style="color:var(--ctp-green);font-weight:700">todo  </span>  <span style="color:var(--ctp-red);font-weight:700">critical</span>
+task  todo-uzdu  Renew passport                                 <span style="color:var(--ctp-green);font-weight:700">todo  </span>  <span style="color:var(--ctp-yellow);font-weight:700">high    </span>
+task  todo-dqwj  Call mum                                       <span style="color:var(--ctp-green);font-weight:700">todo  </span>
+task  todo-iaa0  Fix bike brakes                                <span style="color:var(--ctp-green);font-weight:700">todo  </span>  <span style="color:var(--ctp-overlay0)">low     </span>`} />
+</div>
+
+## Set it up
+
+Start with the preset `todo`. It has one type, `task`, and no hierarchy. Group with tags.
+
+```sh
+lif init --profile todo
+lif create "Pay car insurance" --tag admin -p critical --set due=2026-11-01
+lif next
+lif start <id>
+lif complete <id> --summary "Paid"
+```
+
+Priorities are `critical`, `high`, `normal`, `low` and `deferred`. `lif order` sets a manual order. `lif scrap <id> --reason "..."` drops a task you will not do. Item ID arguments also accept the ID without the prefix.
+
+## Grow when you need structure
+
+Items do not depend on the preset. A preset only writes the `types` table into `.lif.yml`. To add a hierarchy, replace that table with the one `lif init --profile simple` writes. The example store passed `lif check` after the swap. A milestone then holds tasks:
+
+<div class="not-content">
+<TerminalWindow title="~/tasks" command="lif list --view tree" label="Tree of personal items: tasks Book dentist, Pay car insurance, Renew passport, Call mum and the milestone Move house with the child task Fix bike brakes." cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
+<span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>
+T     Book dentist                                     <span style="color:var(--ctp-peach);font-weight:700">in-progress</span>     todo-109t
+T     Pay car insurance                                <span style="color:var(--ctp-green);font-weight:700">todo       </span>  <span style="color:var(--ctp-red);font-weight:700">‼</span>  todo-n5gk
+T     Renew passport                                   <span style="color:var(--ctp-green);font-weight:700">todo       </span>  <span style="color:var(--ctp-yellow);font-weight:700">!</span>  todo-uzdu
+<span style="color:var(--ctp-mauve);font-weight:700">M</span>     <span style="color:var(--ctp-mauve);font-weight:700">Move house</span>                                       <span style="color:var(--ctp-green);font-weight:700">todo       </span>     <span style="color:var(--ctp-mauve);font-weight:700">todo-pwkk</span>
+<span style="color:var(--ctp-surface2)">└─ </span>T  Fix bike brakes                                  <span style="color:var(--ctp-green);font-weight:700">todo       </span>  <span style="color:var(--ctp-overlay0)">↓</span>  todo-iaa0
+T     Call mum                                         <span style="color:var(--ctp-green);font-weight:700">todo       </span>     todo-dqwj
+
+<span style="color:var(--ctp-overlay1)">type     </span><span style="color:var(--ctp-mauve);font-weight:700">M</span><span style="color:var(--ctp-overlay1)"> milestone · </span>K<span style="color:var(--ctp-overlay1)"> bucket · </span><span style="color:var(--ctp-blue);font-weight:700">E</span><span style="color:var(--ctp-overlay1)"> epic · </span><span style="color:var(--ctp-sapphire)">F</span><span style="color:var(--ctp-overlay1)"> feature · </span><span style="color:var(--ctp-maroon)">B</span><span style="color:var(--ctp-overlay1)"> bug · </span>T<span style="color:var(--ctp-overlay1)"> task</span>
+priority <span style="color:var(--ctp-red);font-weight:700">‼</span><span style="color:var(--ctp-overlay1)"> critical · </span><span style="color:var(--ctp-yellow);font-weight:700">!</span><span style="color:var(--ctp-overlay1)"> high · </span><span style="color:var(--ctp-overlay0)">↓</span><span style="color:var(--ctp-overlay1)"> low · </span><span style="color:var(--ctp-overlay0)">→</span><span style="color:var(--ctp-overlay1)"> deferred</span>`} />
+</div>
+
+[Configuration](../../reference/configuration/) shows the presets. [Flexible planning](../../features/project-planning/) explains ranks.
+
+## What you get
+
+- Plain files you can read, search and version.
+- One status and one priority are enough for `lif next`. No extra tool.
+- A path from a flat list to milestones without converting your tasks.
+
+## Limits
+
+- Lif has no typed due date. Store it as an extra key with `--set due=2026-11-01` and filter with `lif list --where due=2026-11-01`. Lif does not read it as a date.
+- Lif has no recurring tasks and no reminders. Use a calendar for those, and create the task when it is due.
+- After you add containers, `lif next` can return a milestone. Use `lif next -t task` `[g5dn]`.
+
+All open limits: [Known limitations](../../known-limitations/).
+
+## Reference
+
+- [First steps](../../overview/first-steps/), [Flexible planning](../../features/project-planning/), [Dependencies](../../features/dependencies/)
+- [`lif next`](../../reference/commands/lif-next/), [`lif list`](../../reference/commands/lif-list/), [`lif create`](../../reference/commands/lif-create/), [`lif complete`](../../reference/commands/lif-complete/), [`lif archive`](../../reference/commands/lif-archive/)

@@ -1,0 +1,83 @@
+---
+import config from 'virtual:starlight/user-config';
+import Search from 'virtual:starlight/components/Search';
+import SiteTitle from 'virtual:starlight/components/SiteTitle';
+import SocialIcons from 'virtual:starlight/components/SocialIcons';
+import ThemeSelect from 'virtual:starlight/components/ThemeSelect';
+import NavDropdown from './NavDropdown.astro';
+import { nav } from './nav';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const path = Astro.url.pathname;
+const active = (href: string) => path.startsWith(base + href);
+---
+
+<div class="header">
+	<div class="title-wrapper sl-flex"><SiteTitle /></div>
+	<nav class="top" aria-label="Top">
+		{nav.map((entry) =>
+			'items' in entry ? (
+				<NavDropdown label={entry.label} items={entry.items} current={entry.items.some((i) => active(i.href))} />
+			) : (
+				<a href={base + entry.href} aria-current={active(entry.href) ? 'true' : undefined}>{entry.label}</a>
+			),
+		)}
+	</nav>
+	<div class="sl-flex print:hidden search"><Search /></div>
+	<div class="sl-hidden md:sl-flex print:hidden right">
+		<SocialIcons />
+		<ThemeSelect />
+	</div>
+</div>
+
+<script>
+	// Keyboard navigation for the Pagefind dialog: ArrowDown/Up, Ctrl+J/K, Ctrl+N/P move a highlight; Enter opens it.
+	// Focus stays in the input, so plain j/k keep typing.
+	let active: HTMLAnchorElement | null = null;
+	const mark = (link: HTMLAnchorElement | null) => {
+		active?.closest('.kb-active')?.classList.remove('kb-active');
+		active = link;
+		const box = link && (link.closest('.pagefind-ui__result-nested') ?? link.closest('.pagefind-ui__result-title'));
+		box?.classList.add('kb-active');
+		box?.scrollIntoView({ block: 'nearest' });
+	};
+	window.addEventListener('keydown', (e) => {
+		if (!document.querySelector('site-search dialog[open]')) return;
+		const links = [...document.querySelectorAll<HTMLAnchorElement>('#starlight__search .pagefind-ui__result-link')];
+		let step = 0;
+		if (e.key === 'ArrowDown') step = 1;
+		else if (e.key === 'ArrowUp') step = -1;
+		else if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) step = { j: 1, n: 1, k: -1, p: -1 }[e.key] ?? 0;
+		if (step && links.length) {
+			const i = active ? links.indexOf(active) : -1;
+			mark(links[i < 0 ? (step > 0 ? 0 : links.length - 1) : (i + step + links.length) % links.length]);
+		} else if (e.key === 'Enter' && active?.isConnected) active.click();
+		else return;
+		e.preventDefault();
+		e.stopImmediatePropagation(); // Ctrl+K would otherwise close the dialog (Starlight's handler).
+	}, true);
+	// Reset on new query or dialog close.
+	document.addEventListener('input', () => mark(null));
+	document.addEventListener('close', () => mark(null), true);
+
+	// A table wider than the column scrolls; keyboard users need it focusable (WCAG 2.1.1, axe scrollable-region-focusable).
+	const focusWideTables = () => {
+		for (const t of document.querySelectorAll<HTMLTableElement>('.sl-markdown-content table')) {
+			if (t.scrollWidth > t.clientWidth) t.tabIndex = 0;
+			else t.removeAttribute('tabindex');
+		}
+	};
+	focusWideTables();
+	window.addEventListener('resize', focusWideTables);
+</script>
+
+<style>
+	.header { display: flex; gap: var(--sl-nav-gap); justify-content: space-between; align-items: center; height: 100%; }
+	.top { display: none; gap: 0.15rem; flex: 1; margin-inline-start: 0.75rem; align-items: center; white-space: nowrap; }
+	.search { margin-inline-start: auto; }
+	@media (min-width: 64rem) { .top { display: flex; } .search { margin-inline-start: 0; width: 33rem; max-width: 40vw; } }
+	.top > a { display: inline-flex; align-items: center; height: 2rem; padding: 0 0.6rem; border-radius: 0.4rem; color: var(--sl-color-gray-2); text-decoration: none; font-size: var(--sl-text-sm); transition: color 0.15s, background-color 0.15s; }
+	.top > a:hover { color: var(--sl-color-white); background: var(--sl-color-gray-5); }
+	.top > a[aria-current] { color: var(--sl-color-accent-high); }
+	.right { gap: 1rem; align-items: center; }
+</style>

@@ -1,0 +1,63 @@
+---
+// Window chrome (three dots + caption). `html` is captured lif output (site/src/data/demo.json); without it the
+// default slot is the body (browser mock). Caption = `title` (directory) plus `command` when given, so two
+// windows on a page never share a caption. `label` is the accessible description of what the output shows.
+// The font shrinks so `cols` columns fit the container; `narrowHtml` (captured at `narrowCols`) replaces the
+// wide capture when the container is narrower than 80 columns need. Output never wraps, it scrolls inside the window.
+interface Props {
+	title?: string;
+	command?: string;
+	html?: string;
+	narrowHtml?: string;
+	cols?: number;
+	narrowCols?: number;
+	label?: string;
+	variant?: 'terminal' | 'browser';
+}
+const { title = '', command, html, narrowHtml, cols = 80, narrowCols = 42, label, variant = 'terminal' } = Astro.props;
+const caption = command ? `${title} · ${command}` : title;
+const prompt = command && `<span class="prompt">$ </span><span class="cmd">${command.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>\n`;
+const screens = html === undefined ? [] : narrowHtml === undefined ? [{ html, cols, kind: '' }] : [{ html, cols, kind: 'wide' }, { html: narrowHtml, cols: narrowCols, kind: 'narrow' }];
+---
+
+<figure class:list={['window not-content', variant]} data-pagefind-ignore style={`--cols: ${cols}`} aria-label={html === undefined ? label : undefined}>
+	<figcaption class="bar">
+		<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+		<span class="title">{caption}</span>
+	</figcaption>
+	{screens.length ? screens.map((s) => (
+		<div class:list={['body', s.kind]}>
+			{/* role=img: screen readers read the label instead of box-drawing glyphs; the pre stays focusable for scrolling */}
+			<pre class="screen" tabindex="0" role={label ? 'img' : undefined} aria-label={label} style={`--cols: ${s.cols}`}><code><Fragment set:html={prompt} /><span class="out"><Fragment set:html={s.html} /></span></code></pre>
+		</div>
+	)) : (
+		<div class="screen"><slot /></div>
+	)}
+</figure>
+
+<style>
+	.window { margin: 0 auto; max-width: calc(var(--cols) * 0.48rem + 2.2rem + 2px); border: 1px solid var(--term-rule); border-radius: 0.75rem; overflow: hidden; background: var(--term-bg); container-type: inline-size; text-align: start; box-shadow: var(--lif-shadow); }
+	.window.browser { max-width: 52rem; }
+	.bar { display: grid; grid-template-columns: 2.9rem minmax(0, 1fr) 2.9rem; align-items: center; padding: 0.65rem 0.9rem; background: var(--term-bar); border-bottom: 1px solid var(--term-rule); }
+	.dots { display: flex; gap: 0.4rem; }
+	.dots i { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--ctp-red); }
+	.dots i:nth-child(2) { background: var(--ctp-peach); }
+	.dots i:nth-child(3) { background: var(--ctp-green); }
+	.title { font-size: var(--sl-text-xs); color: var(--ctp-subtext0); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.browser .title { grid-column: 2; justify-self: center; min-width: min(18rem, 60cqw); max-width: 100%; padding: 0.2rem 1rem; border-radius: 0.4rem; background: var(--ctp-surface0); }
+	.body { position: relative; }
+	/* Scroll hint: the right edge fades into the surface. It covers the end padding only, so text stays clear at rest. */
+	.body::after { content: ''; position: absolute; inset-block: 0; inset-inline-end: 0; width: 1.1rem; background: linear-gradient(to right, transparent, var(--term-bg)); pointer-events: none; }
+	.screen { margin: 0; padding: 1rem 1.1rem; overflow-x: auto; color: var(--ctp-text); }
+	pre.screen { font-family: var(--sl-font-mono); font-size: clamp(0.7rem, calc((100cqw - 2.2rem) / (var(--cols) * 0.6)), 0.8rem); line-height: 1.5; white-space: pre; font-variant-ligatures: none; tab-size: 4; background: none; }
+	pre.screen code { font: inherit; background: none; padding: 0; border: 0; color: inherit; }
+	.prompt { color: var(--ctp-green); }
+	.cmd { color: var(--ctp-text); }
+	pre.screen:focus-visible { outline: 2px solid var(--ctp-teal); outline-offset: -2px; }
+	.body.narrow { display: none; }
+	/* 80 columns at the smallest font (0.7rem * 0.6) plus padding and border. */
+	@container (max-width: 36rem) {
+		.body.wide { display: none; }
+		.body.narrow { display: block; }
+	}
+</style>

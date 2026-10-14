@@ -1,0 +1,82 @@
+---
+// Header drop-down: a button (disclosure pattern) that opens a panel of links, each with title + one-line
+// description. Click, Enter/Space and ArrowDown open it; Esc closes and returns focus; arrows move between
+// entries; clicking outside or tabbing out closes it.
+import { ChevronDown } from '@lucide/astro';
+import type { NavItem } from './nav';
+
+interface Props {
+	label: string;
+	items: NavItem[];
+	current?: boolean;
+}
+const { label, items, current } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const id = `nav-menu-${label.toLowerCase().replace(/\W+/g, '-')}`;
+---
+
+<nav-dropdown>
+	<button type="button" class="trigger" aria-expanded="false" aria-controls={id} aria-current={current ? 'true' : undefined}>
+		{label}<ChevronDown size={14} class="chevron" aria-hidden="true" />
+	</button>
+	<ul id={id} class="menu" hidden>
+		{items.map((item) => (
+			<li>
+				<a href={base + item.href}>
+					<span class="title">{item.title}</span>
+					<span class="description">{item.description}</span>
+				</a>
+			</li>
+		))}
+	</ul>
+</nav-dropdown>
+
+<script>
+	class NavDropdown extends HTMLElement {
+		connectedCallback() {
+			const trigger = this.querySelector<HTMLButtonElement>('.trigger')!;
+			const menu = this.querySelector<HTMLElement>('.menu')!;
+			const links = [...menu.querySelectorAll<HTMLAnchorElement>('a')];
+			const set = (open: boolean) => {
+				trigger.setAttribute('aria-expanded', String(open));
+				menu.hidden = !open;
+			};
+			trigger.addEventListener('click', () => set(menu.hidden));
+			// A click or Tab outside closes the menu; opening another drop-down is a click outside.
+			document.addEventListener('click', (e) => { if (!this.contains(e.target as Node)) set(false); });
+			this.addEventListener('focusout', (e) => { if (!this.contains(e.relatedTarget as Node | null)) set(false); });
+			document.addEventListener('keydown', (e) => {
+				if (e.key !== 'Escape' || menu.hidden) return;
+				const inside = this.contains(document.activeElement);
+				set(false);
+				if (inside) trigger.focus();
+			});
+			this.addEventListener('keydown', (e) => {
+				if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key) || (menu.hidden && e.key !== 'ArrowDown')) return;
+				e.preventDefault();
+				set(true);
+				const i = links.indexOf(document.activeElement as HTMLAnchorElement);
+				const down = e.key === 'ArrowDown';
+				links[e.key === 'Home' ? 0 : e.key === 'End' ? links.length - 1 : i < 0 ? (down ? 0 : links.length - 1) : (i + (down ? 1 : -1) + links.length) % links.length].focus();
+			});
+		}
+	}
+	customElements.define('nav-dropdown', NavDropdown);
+</script>
+
+<style>
+	nav-dropdown { position: relative; display: inline-flex; }
+	.trigger { display: inline-flex; align-items: center; gap: 0.3rem; height: 2rem; padding: 0 0.6rem; border: 0; border-radius: 0.4rem; background: none; font: inherit; font-size: var(--sl-text-sm); color: var(--sl-color-gray-2); cursor: pointer; transition: color 0.15s, background-color 0.15s; }
+	.trigger:hover, .trigger[aria-expanded='true'] { color: var(--sl-color-white); background: var(--sl-color-gray-5); }
+	.trigger[aria-current] { color: var(--sl-color-accent-high); }
+	.trigger:focus-visible { outline: 2px solid var(--lif-accent-ink); outline-offset: 2px; }
+	.trigger :global(.chevron) { transition: transform 0.15s; }
+	.trigger[aria-expanded='true'] :global(.chevron) { transform: rotate(180deg); }
+	.menu { position: absolute; z-index: 1; top: calc(100% + 0.6rem); inset-inline-start: 0; width: max-content; min-width: 17rem; max-width: 22rem; margin: 0; padding: 0.4rem; list-style: none; border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; background: var(--sl-color-gray-6); box-shadow: 0 1.25rem 2.5rem -1rem var(--sl-color-gray-7); }
+	.menu[hidden] { display: none; }
+	a { display: block; padding: 0.55rem 0.7rem; border-radius: 0.5rem; text-decoration: none; }
+	a:hover, a:focus-visible { background: var(--sl-color-gray-5); outline: none; }
+	a:focus-visible { box-shadow: inset 0 0 0 2px var(--sl-color-accent-high); }
+	.title { display: block; font-size: var(--sl-text-sm); font-weight: 700; color: var(--sl-color-white); }
+	.description { display: block; margin-top: 0.15rem; font-size: var(--sl-text-xs); line-height: 1.45; color: var(--sl-color-gray-2); }
+</style>

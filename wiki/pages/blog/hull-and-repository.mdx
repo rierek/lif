@@ -1,0 +1,99 @@
+---
+title: "Keep the backlog outside the repository"
+description: "We keep the Lif store in a folder next to the code repository, so every worktree and every agent reads one backlog. What that gives and what it costs."
+date: 2026-10-14
+tags: ["store", "worktrees", "agents"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**We keep the backlog in a folder next to the code repository, so every agent in every worktree reads and writes the same items.** The price: someone who clones only the code repository sees no backlog.
+
+## How it looks
+
+We call the parent folder the hull. It holds three things side by side: the store, the code repository and the worktrees. This is a generalised layout of our setup, with neutral names:
+
+```text
+hull/
+├── .backlog/          the Lif store: one .md file per item
+├── repo/              code repository (main worktree)
+│   └── .lif.yml       lif.path: ../.backlog, lif.anchor: repo-root
+└── worktrees/
+    └── demo-x1/       second worktree, branch wt/demo-x1
+```
+
+Two settings in `repo/.lif.yml` do the work:
+
+```yaml
+lif:
+  path: ../.backlog
+  anchor: repo-root
+  prefix: demo-
+```
+
+`lif.path` moves the store out of the repository. A relative path is resolved against the folder of the config file, so `../.backlog` is the folder next to `repo/`. `lif.anchor: repo-root` makes every secondary Git worktree resolve the store against the main worktree. Both are described in [Store management](../../overview/store-management/) and in the [Configuration](../../reference/configuration/) precedence table.
+
+Here is a real run in a throwaway hull. Main worktree first:
+
+```console
+$ cd hull/repo
+$ lif path
+/tmp/vh/hull/.backlog
+$ lif create 'Queue survives restart' -t task
+Created demo-ybk5 demo-ybk5--queue-survives-restart.md
+```
+
+Then the second worktree, created with `git worktree add ../worktrees/demo-x1 -b wt/demo-x1`. It has its own copy of `.lif.yml` and no store of its own:
+
+```console
+$ cd hull/worktrees/demo-x1
+$ lif path
+/private/tmp/vh/hull/.backlog
+$ lif create 'Retry on full disk' -t task
+Created demo-ma4u demo-ma4u--retry-on-full-disk.md
+$ cd ../../repo && lif list
+TYPE  ID         TITLE
+task  demo-ybk5  Queue survives restart
+task  demo-ma4u  Retry on full disk
+```
+
+Both paths name the same folder. macOS prints `/private/tmp` for a path under `/tmp`. The item created in the worktree shows up at once in the main worktree.
+
+## The idea
+
+By default the store lives inside the repository and every branch carries its own items. See [Files in your repo](../../features/files-in-your-repo/). That is right for most projects. We split the store off for a different case: several coding agents work in parallel, each in its own worktree on its own branch. They should all see the same plan, and a status change in one worktree should not wait for a merge.
+
+With the store outside the repository, there is one set of files and nothing to merge. Items do not follow branches any more: an item set to `completed` is completed for every worktree at once.
+
+The hull itself can be a Git repository too. Ours is. Its `.gitignore` lists `repo/` and `worktrees/`, so the hull's history holds the backlog and our notes, and the code repository keeps its own history.
+
+## Limits
+
+- **Collaborators without the hull see no backlog.** A fresh clone of the code repository holds only `.lif.yml`. Lif then looks for the store next to the clone and finds nothing:
+
+  ```console
+  $ git clone hull/repo clone && cd clone
+  $ ls -A
+  .git
+  .lif.yml
+  $ lif list
+  Error: no .backlog directory found at /tmp/vh/.backlog (run 'lif init' to create one)
+  ```
+
+  Whoever should see the backlog needs a copy of the hull, for example a clone of the hull repository.
+- **No item history in the code repository.** `git log` in `repo/` does not show item changes. Look in the hull for them.
+- **`anchor` is needed.** We removed `anchor` from the demo config and ran `lif path` in the second worktree. Lif resolved `../.backlog` against the worktree and reported a missing store at `hull/worktrees/.backlog`. Keep `lif.anchor: repo-root` whenever `lif.path` is relative.
+- **A legacy store keeps working.** Our own hull still uses the older names, `.beans/` as the store and a `beans:` section in the config. Lif reads these in place. See [Configuration](../../reference/configuration/).
+- **Prefixes.** If several projects share one store, give each its own ID prefix. See [Store management](../../overview/store-management/).
+
+<Aside type="note" title="Not measured">
+We did not measure how the hull setup behaves with a remote team, with several people writing to one store, or with a store on a network drive.
+</Aside>
+
+## Reference
+
+- [Store management](../../overview/store-management/): finding the store, `anchor`, one store for several projects.
+- [Configuration](../../reference/configuration/): store resolution and the `lif.path` and `lif.anchor` keys.
+- [`lif path`](../../reference/commands/lif-path/) and [`lif init`](../../reference/commands/lif-init/).
+- [Files in your repo](../../features/files-in-your-repo/): the default, store inside the repository.
+- Companion post: [Git worktrees with just](../worktrees-with-just/).

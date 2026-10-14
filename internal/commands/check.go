@@ -164,6 +164,7 @@ var checkCmd = &cobra.Command{
 	Short: "Validate configuration and item integrity",
 	Long: `Checks configuration and item integrity, including:
 - Configuration settings (colors, default type)
+- Item fields: unknown status or priority, invalid tags, parent of the wrong type rank
 - Broken links (links to non-existent items)
 - Self-references (items linking to themselves)
 - Circular dependencies (cycles in blocks/parent relationships)

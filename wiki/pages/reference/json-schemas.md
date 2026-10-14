@@ -68,8 +68,11 @@ Script authors and agents that process Lif output programmatically. The page is 
 - Shows the mapping from code to type (TODO: verify)
 - Source: FACTS.md §1.1 (`lif promote`); `TODO: verify` for schema and mapping: see `internal/commands/findings-schema.json` and `internal/commands/promote.go`
 
-### Schema files and recipes
-- Checks whether JSON schema files should be published (TODO: verify)
-- Recipe with `jq`: extract the IDs of open items from `lif list --json` (TODO: verify)
-- Recipe: evaluate the exit code and `success` of `lif check --json` in CI (TODO: verify)
-- Source: `TODO: verify` — build and run the recipes in phase 5; FACTS names no published schema files and no recipes
+### Stability and date of this page
+- Prints a visible "State of this page" line near the top with the date the shapes were measured and the Lif version they were measured against (taken from `lif version` at writing time). The date is part of the page, not hidden metadata.
+- Shows a warning box: the JSON shapes can change with any release, this page can be out of date, and no stable interface is promised until schema files exist (D69). Readers who need certainty run the command against their own version.
+- States that the repository publishes no schema files for `--json` output; only the internal findings schema exists (FACTS.md §11.10). Links to the tracking item as `[z9e6]` (D65).
+- Every example on the page is a real output pasted from FACTS.md §11, not a hand-written one.
+- Recipe with `jq`: extract the IDs of open items from `lif list --json` (FACTS.md §11.9–§11.11; run it before publishing).
+- Recipe: evaluate the exit code and `success` of `lif check --json` in CI (FACTS.md §11.9–§11.11; run it before publishing).
+- Source: FACTS.md §11.10, §11.9–§11.11, §22.1; DESIGN.md D65, D69

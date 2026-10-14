@@ -1,46 +1,36 @@
 ---
 title: "Contribute"
-description: "Repository layout, where to change what and how to build the docs."
+description: "Report bugs and requests, build Lif from source, license and credit."
 ---
 
 ## Purpose
-Helps new contributors find their way around the repository: layout, places to change, docs build and maintenance rules.
+Short page: tells readers where to report problems, how to build Lif from source with `just`, under which license Lif is distributed and whom the project credits. It makes no promise about pull requests or review times (D61).
 
 ## Audience
-Developers and documentation authors who change Lif or the docs; agents that make changes to the repository.
+Users who found a bug or want a feature; developers who build Lif from source.
 
 ## Required sections
 
-### Repository layout
-- Shows a tree sketch: `cmd/lif` (CLI), `cmd/lif-serve` (web server), `cmd/lif-docgen` (generates command reference pages), `internal/commands`, `pkg/item`, `wiki/pages`, `wiki/assets`, `site`, `.lif` store.
-- Explains each line in a half sentence.
-- Note: `lif-serve` is a separate binary; `lif serve` in the main binary is a hidden stub.
-- Source: FACTS.md §8.1 (binaries); directory tree `TODO: verify` — check checkout tree, `justfile` and `README.md` in phase 5
+### Report bugs and requests
+- Names the issue tracker `https://github.com/xRiErOS/lif/issues` as the place for bug reports and feature requests; reports about Lif go there, not to `hmans/beans`.
+- Lists what a good report contains: observed behavior, expected behavior, Lif version (`lif version`), smallest reproducible store shape.
+- Makes no statement about pull request acceptance, review times or response times.
+- Source: `wiki/fork-lineage.md` (section "How to reference Lif"); `README.md` (section "Project status"); DESIGN.md D61
 
-### Where to change what
-- Change a command: definition under `internal/commands`; help, completion and reference pages follow at build. (TODO: verify)
-- Change docs: pages under `wiki/pages`, media under `wiki/assets`.
-- TUI key bindings: single source is the `keyMap` in `internal/tui/keymap.go`; the help in the TUI and the Key bindings page (`reference/tui/key-bindings`) follow from it.
-- Item file format: `pkg/item`.
-- Source: FACTS.md §8.3 (keyMap), §2.1 (`pkg/item`); command→reference chain `TODO: verify` — check `cmd/lif-docgen` and `justfile`
-
-### Build and preview the docs
-- Shows `just docs-gen`, `just docs-build`, `just docs-dev` and what each does.
-- Explains prerequisites (Go, Node) and where the output goes.
-- Source: `TODO: verify` — check recipe names and prerequisites in `justfile` and `site/package.json`
-
-### Report issues and propose changes
-- Explains where to report bugs and propose changes (issue tracker, branch, pull request).
-- Links to the commit and branch conventions of the repository.
-- Source: `TODO: verify` — check `README.md`, `.github/` and process documents in the checkout
+### Build from source
+- Prerequisite: `mise` installs the toolchain declared in `mise.toml` (Go, Node.js, pnpm); the Go module requires Go 1.26.
+- Shows `git clone https://github.com/xRiErOS/lif.git`, `mise install`, `mise run setup`.
+- `just build` builds the stamped binaries `lif` and `lif-serve` (it runs `mise run build`).
+- `just test` runs the Go test suite (`go test -count=1 ./...`); `just test-race`, `just test-web` and `just check-web` run the race detector, the frontend unit tests and the frontend type check.
+- No `just lint` recipe exists in the justfile; the page does not mention one.
+- `just docs-gen`, `just docs-build` and `just docs-dev` generate the command pages, build the docs site and serve it with live reload.
+- Source: `justfile` (recipes `build`, `test`, `test-race`, `test-web`, `check-web`, `docs-gen`, `docs-build`, `docs-dev`); `mise.toml`; `go.mod`; `wiki/installation.md` (sections "Prerequisites", "Building from source")
 
 ### License
-- Names the license and links to the file `LICENSE`.
-- Links to the attribution to the upstream project (`about`).
-- Source: `TODO: verify` — check `LICENSE` in the checkout (trial draft names Apache-2.0)
+- Names the license Apache License 2.0 and links to the file `LICENSE` in the repository.
+- Source: `LICENSE`; `README.md` (section "License")
 
-### Maintenance rules
-- Checklist per command change: definition, help text, completion, generated reference, `lif prime`, tests, docs.
-- Rule: behavior statements in docs come from code or `lif --help`, never from assumptions.
-- Rule: documentation follows the terminology of the code (item, type, rank, status, priority, tag, parent, blocking / blocked_by, preset).
-- Source: DESIGN.md D45, D47; checklist and `lif prime` relationship `TODO: verify` — clarify the process with maintainers
+### Credit
+- Lif originated as a fork of `hmans/beans` by Hendrik Mans; the original idea and the first implementation come from that project.
+- Links to the About page (`about`) for the origin and the attribution.
+- Source: `README.md` (section "Acknowledgements"); `wiki/fork-lineage.md` (sections "Origin", "License and attribution")

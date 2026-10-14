@@ -147,3 +147,12 @@ func TestRealTree(t *testing.T) {
 		}
 	}
 }
+
+func TestIndentedExampleCommentsAreFencedNotHeadings(t *testing.T) {
+	in := "Examples:\n  # List all\n  lif list\n\n  # Get one\n  lif show x\n\n```\nlif y\n```\n"
+	got := fenceIndentedComments(in)
+	want := "Examples:\n```\n# List all\nlif list\n\n# Get one\nlif show x\n```\n\n```\nlif y\n```\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

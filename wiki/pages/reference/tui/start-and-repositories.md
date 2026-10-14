@@ -3,49 +3,72 @@ title: "Start and repositories"
 description: "Start lif tui and choose the repository to work in."
 ---
 
-## Purpose
-Explains how the TUI starts, which repository it opens and how to switch between repositories. Entry point to the TUI subsection of the reference.
+`lif tui` is the terminal UI of Lif, built into the `lif` binary. It is a companion to the CLI: every read and write runs `lif` as a subprocess. The command page is [`lif tui`](../../commands/lif-tui/). Measured on Lif 0.13; the TUI code is unchanged in 0.14 (checked 2026-10-14).
 
-## Audience
-Users who start `lif tui` for the first time or want to manage several projects in one interface.
+## Starting the TUI
 
-## Required sections
+```sh
+lif tui [repo-path]
+```
 
-### Starting the TUI
-- Shows `lif tui [repo-path]`: at most one argument (repo path, directory completion); no flags of its own besides the global ones.
-- Explains: `lif tui` is the TUI inside the `lif` binary (the former separate `lif-tui` binary no longer exists); it also runs without a loaded store.
-- Names `--lif-path` as a global flag that determines the store of the opened repository.
-- Describes the TUI as a companion to the CLI (one short sentence, link to `reference/commands/lif-tui`).
-- Source: FACTS.md §1.0, §1.1 (`lif tui`), §8.1, §8.2
+- At most one argument: the repository path. The command has no flags of its own.
+- The former separate `lif-tui` binary no longer exists.
+- The TUI starts without a loaded store. It does not read `.lif.yml`; it finds the repository itself.
+- The global flag `--lif-path` sets the store of the opened repository.
 
-### Which repository opens
-- Order as a numbered list: 1) explicit path argument, 2) repository found by searching upward from the current directory, 3) without a repository and with at least two entries in `repos` of the settings file, the repository picker (lobby), 4) otherwise the error message "not found".
-- Shows example commands for each case.
-- Note: With exactly one repository in the settings and outside a repository, no lobby appears (error).
-- Source: FACTS.md §8.1, §1.1 (`lif tui`)
+## Which repository opens
 
-### The repository picker
-- Explains the lobby as the list of repositories from the settings file; selecting one opens the repository.
-- Key `p` opens the picker also from an opened repository (for the shortcut see `reference/tui/key-bindings`).
-- Describes the prerequisite: at least two repositories in `repos`.
-- Screenshot `lobby.png` (see section "Screenshots").
-- Source: FACTS.md §8.1, §8.2, §8.3
+Lif decides in this order:
 
-### Settings that matter at start
-- Names `repos` (list of repository paths) and `repo_store_paths` (mapping of repository to store path) in `~/.config/lif/tui/config.yaml`.
-- Names `--lif-path` as a way to set the store once.
-- Links to `reference/tui/settings-and-themes` for all keys.
-- Shows how a repository is added to `repos`. (TODO: verify)
-- Source: FACTS.md §8.2, §1.1 (`lif tui`); adding new repositories — `TODO: verify` (Phase 5: check whether the TUI writes `repos` itself, `internal/tui/config/settings.go`)
+1. The path argument: `lif tui ~/code/app`.
+2. The repository found by searching upward from the current directory. A repository is a directory with `.lif.yml` (or legacy `.beans.yml`).
+3. No repository, and at least two entries in `repos` of the [settings file](../settings-and-themes/): the repository picker (lobby).
+4. Otherwise an error:
 
-### Quit and help
-- `q` and `ctrl+c` quit after confirmation; `esc` goes back.
-- `?` opens help; it is generated from the same key map (`keyMap`) as the page `reference/tui/key-bindings`.
+```text
+Error: no .lif.yml found above /tmp/outside
+Run 'lif tui --help' for usage.
+```
+
+With exactly one entry in `repos` and no repository above the current directory, no lobby appears. The error is the same as with no entries.
+
+## The repository picker
+
+The lobby lists the repositories from `repos`: a `lif` banner, a filter field, and one row per repository with the name, the path and `open/total`. `open` counts items with status `todo`, `in-progress` or `draft`; `total` counts all items.
+
+```text
+Repo-Picker
+▸ projA — /tmp/projA   15/17
+  projB — /tmp/projB   4/4
+```
+
+- `p` opens the picker from any view, also with fewer than two repositories. The "at least two" rule applies only to startup.
+- Typing filters the list (substring of the path). `↑`/`↓` move, `enter` opens, `esc` goes back.
+- The footer shows `i/k`, but `i` and `k` are typed into the filter in the lobby; use the arrow keys.
+- Config edits made while the TUI runs appear the next time you press `p`.
+- After each switch the TUI writes `last_repo` to `state.json`. Nothing reads it back.
+
+Screenshot follows.
+
+## Settings that matter at start
+
+Two keys in `~/.config/lif/tui/config.yaml`:
+
+- `repos`: list of repository paths.
+- `repo_store_paths`: maps a `repos` entry to a store path. The TUI passes it as `--lif-path` for that repository.
+
+A repository enters `repos` in one of three ways. There is no automatic discovery.
+
+- By hand in the file.
+- Command palette (`K`), entry `register project`: adds the current repository. A duplicate shows `already registered`.
+- Settings form (palette entry `go to settings`), field `repos`, one path per line.
+
+All keys: [Settings and themes](../settings-and-themes/).
+
+## Quit and help
+
+- `q` opens a `Quit?` dialog. `enter` goes to the lobby first when a repository is configured; a second `q` and `enter` quits. `esc` cancels.
+- `ctrl+c` quits at once, without confirmation.
+- `?` opens the help overlay, generated from the same key map as [Key bindings](../key-bindings/). The overlay is 54 rows high and is clipped on shorter terminals.
 - `K` opens the command palette.
-- Source: FACTS.md §8.3, §8.2
-
-### Screenshots
-- Plan: embed the existing image `wiki/screenshots/lobby.png` (lobby); further images on the pages `reference/tui/views`.
-- Media type per design: VHS GIF for the start (`lif tui`), screenshots as webp.
-- Check whether the images match the current interface (re-record if not). (TODO: verify)
-- Source: DESIGN.md D38, D44; currency of the images — `TODO: verify` (Phase 5: compare with a running TUI)
+- The dialog text says `Really quit bt?`: the old product name. Tracked as [179g].

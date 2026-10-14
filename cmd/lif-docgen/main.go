@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -77,6 +78,46 @@ func writeFile(path string, fill func(io.Writer) error) (err error) {
 	return fill(f)
 }
 
+// fenceIndentedComments turns help-text example blocks into code. Cobra copies the long help verbatim, and a line
+// like "  # List all items" is an ATX heading in Markdown. Every block that starts with such a line, up to the next
+// unindented line, becomes a fenced block with the indent removed. Existing fences are left alone.
+func fenceIndentedComments(md string) string {
+	var out []string
+	lines := strings.Split(md, "\n")
+	inFence := false
+	for i := 0; i < len(lines); i++ {
+		l := lines[i]
+		if strings.HasPrefix(l, "```") {
+			inFence = !inFence
+		}
+		if inFence || !isIndentedHeading(l) {
+			out = append(out, l)
+			continue
+		}
+		j := i
+		for j < len(lines) && (lines[j] == "" || strings.HasPrefix(lines[j], " ")) {
+			j++
+		}
+		end := j
+		for end > i && lines[end-1] == "" {
+			end--
+		}
+		out = append(out, "```")
+		for _, b := range lines[i:end] {
+			out = append(out, strings.TrimPrefix(b, "  "))
+		}
+		out = append(out, "```")
+		out = append(out, lines[end:j]...)
+		i = j - 1
+	}
+	return strings.Join(out, "\n")
+}
+
+func isIndentedHeading(l string) bool {
+	t := strings.TrimLeft(l, " ")
+	return len(l)-len(t) >= 1 && len(l)-len(t) <= 3 && strings.HasPrefix(t, "# ")
+}
+
 func slug(s string) string { return strings.TrimSuffix(strings.ReplaceAll(s, "_", "-"), ".md") }
 
 func pageName(c *cobra.Command) string { return strings.ReplaceAll(c.CommandPath(), " ", "-") }
@@ -109,12 +150,14 @@ func writePages(c *cobra.Command, out string) error {
 		if shared {
 			sections = append(sections, usableChildren(c)...)
 		}
+		var buf bytes.Buffer
 		for _, s := range sections {
-			if err := doc.GenMarkdownCustom(s, w, link); err != nil {
+			if err := doc.GenMarkdownCustom(s, &buf, link); err != nil {
 				return err
 			}
 		}
-		return nil
+		_, err := io.WriteString(w, fenceIndentedComments(buf.String()))
+		return err
 	})
 	if err != nil || c.Name() == "completion" {
 		return err

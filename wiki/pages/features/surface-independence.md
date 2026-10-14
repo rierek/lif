@@ -1,63 +1,76 @@
 ---
 title: "Surface independence"
-description: "Use the CLI, TUI, web UI or any editor on the same files."
+description: "CLI, TUI, Web UI and your editor all work on the same store."
 ---
 
-## Purpose
-Shows that the CLI, TUI, Web UI and direct editing of the Markdown files all use the same store. Clarifies which paths enforce rules and what `lif check` covers afterwards.
+Four paths lead to one store: the CLI, the TUI, the Web UI and direct editing of the Markdown files. Measured on Lif 0.14, 2026-10-14.
 
-## Audience
-People who want to choose and switch tools by preference, and teams with mixed usage (terminal, browser, editor, agent). They want to understand whether the data stays consistent on every path.
+## What
 
-## Required sections
+- CLI: `lif`. TUI: `lif tui`. Web UI: embedded in the separate program `lif-serve`. Editor: open the Markdown files.
+- All paths use the same store. Lif finds it by a fixed precedence: `--lif-path`, configuration, `LIF_PATH`, current directory. See [`lif path`](../../reference/commands/lif-path/).
+- The web server watches the store directory and pushes changes to subscribers. The TUI is a companion to the CLI.
+- The server has more capabilities (worktrees, agent sessions, terminal). They exist only in `lif-serve`.
 
-### What
-- Four paths to one Store: CLI (`lif`), TUI (`lif tui`), Web UI (embedded in the separate program `lif-serve`) and direct editing of the Markdown files.
-- All use the same store; the store path is determined by a fixed precedence (`--lif-path`, configuration, `LIF_PATH`, current directory).
-- The web server watches the store directory and pushes changes to subscribers; the TUI is a companion to the CLI.
-- The server has further capabilities (worktrees, agent sessions, terminal) that are only available through `lif-serve`.
-- Source: FACTS.md §4.2, §8.1, §8.2
+## Why
 
-### Why
-- No lock-in: the same information is reachable through different tools.
-- Everyone works in their own tool; agents use the CLI or GraphQL, people use an editor, the TUI or a browser.
-- Source: CONCEPT.md §4.4
+- No lock-in. The same information is reachable through different tools.
+- Everyone works in their own tool. Agents use the CLI or GraphQL. People use an editor, the TUI or a browser.
 
-### How it looks
-- Four-way comparison of the same item: file in the editor, `lif show`, TUI detail view, Web UI view.
-- Media plan: VHS GIFs for CLI and TUI, screenshots (webp) for the Web UI.
-- Shows the same change (for example status) through two paths and the effect on the file.
-- TUI: key `e` opens the body in `$EDITOR`.
-- Contents of the Web UI view (columns, board): FACTS says nothing about this (TODO: verify)
-- Source: DESIGN.md D38; FACTS.md §8.2, §8.3; (TODO: verify) for the Web UI view: take a screenshot in phase 5, check `frontend/` in the checkout
+## How it looks
 
-### Consistency and validation
-- Writing paths (CLI commands, GraphQL mutations, TUI, Web UI) go through the same item logic and enforce the same configured rules (rank rule for parents, valid values for type, status, priority).
-- Direct editing stays unrestricted; Lif loads the change without checking it and watches files only to reload.
-- Then run `lif check`. It checks: configuration, unknown types, broken links, self-references, cycles, missing required fields (warning), unknown commit SHAs (warning), orphaned attachment directories.
-- It does not check: rank of parent and child, status values, priority values, tags, duplicate IDs, file name against ID, syntax errors in the front matter (those already abort loading).
-- Concurrent changes: `--if-match` and GraphQL `ifMatch` protect via ETag; the configuration `require_if_match` makes it mandatory.
-- Extending the check is planned as an improvement; the page follows once it ships (D40).
-- Source: FACTS.md §2.1, §3.1, §3.2, §6.8, §6.9, §8.2; DESIGN.md D40
+The same item through two paths. `lif show` in the terminal:
 
-### Editors such as Obsidian
-- Any Markdown-capable editor can open item files; the format is front matter plus body.
-- Obsidian is an experiment and lives in the blog (`blog/obsidian-experiment`), no longer as a use case.
-- Bases compatibility is not proven: Obsidian does not appear in the code, the docs or the README.
-- Note: the first front matter line is a YAML comment `# <id>`; the store lives in a dot directory (`.lif/`) (effect on Obsidian: TODO: verify)
-- Source: FACTS.md §2.1, §2.4, §9(g); DESIGN.md D42; (TODO: verify) for Obsidian behavior: check in the experiment (blog)
+```text
+$ lif show ft-957g
+---
+# ft-957g
+title: Send reset mail
+status: todo
+type: task
+priority: normal
+tags:
+    - backend
+created_at: 2026-10-14T19:17:18Z
+updated_at: 2026-10-14T19:17:18Z
+parent: ft-igeu
+---
+```
 
-### Limits
-- Manual edits are not checked while editing but at most afterwards with `lif check`; its gaps are listed above.
-- The Web UI needs the separate program `lif-serve`; `lif serve` in the main program is a hidden stub.
-- A store applies to one path only: Without `lif.anchor: repo-root`, each Git worktree uses its own local store.
-- Concurrent editing without `--if-match` has no protection; an overwritten state is not reported (TODO: verify)
-- GraphQL `createItem` without `status` leaves the status empty (known bug); `lif create` sets `todo`.
-- Source: FACTS.md §4.2, §7.5, §8.1; DESIGN.md D43; (TODO: verify) for write conflicts: check the behavior of `Core.Update` without ETag
+The file in your editor holds the same front matter. If you change `status: todo` to `in-progress` there, the CLI, the TUI and the Web UI show the new status on the next load. The Web UI updates by itself through the file watcher.
 
-### Reference links
-- TUI: Start and repositories (`reference/tui/start-and-repositories`), Views (`reference/tui/views`), Editing items (`reference/tui/editing-items`).
-- Web server (`reference/web-server`): `lif-serve`, port, CORS.
-- `lif check` (`reference/commands/lif-check`): scope of checks.
-- `lif path` (`reference/commands/lif-path`) and Configuration (`reference/configuration`): Store resolution, `require_if_match`.
-- Source: DESIGN.md D28, D29, D44
+In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../reference/tui/views/) and [Editing items](../../reference/tui/editing-items/).
+
+## Consistency and validation
+
+- The writing paths (CLI commands, GraphQL mutations, TUI, Web UI) go through the same item logic. They enforce the same configured rules: the rank rule for parents and valid values for type, status and priority.
+- Direct editing is unrestricted. Lif loads the change without checking it. It watches files only to reload.
+- Run `lif check` afterwards. It checks configuration, unknown types, broken links, self-references, cycles, missing required fields (warning), unknown commit SHAs (warning) and orphaned attachment directories.
+- It does not check the rank of parent and child, status values, priority values, tags, duplicate IDs or file name against ID. Syntax errors in front matter already abort loading.
+- For concurrent changes, `--if-match` and GraphQL `ifMatch` protect with an ETag. The configuration `require_if_match` makes it mandatory. The check does not protect two simultaneous processes [9r10].
+
+## Editors such as Obsidian
+
+- Any Markdown-capable editor can open item files. The format is front matter plus body.
+- Obsidian is an experiment. It lives in the blog: [Obsidian experiment](../../blog/obsidian-experiment/).
+- Bases compatibility is not proven. Obsidian does not appear in the Lif code, docs or README.
+- The first front matter line is a YAML comment `# <id>`. The store lives in a dot directory (`.lif/`). Check how your editor treats both before you rely on it.
+
+## Limits
+
+- Lif does not check manual edits while you edit. At most `lif check` does afterwards, with the gaps listed above.
+- The Web UI needs the separate program `lif-serve`. `lif serve` in the main program is a hidden stub.
+- `lif-serve` has no authentication or TLS and exposes a terminal [8h4v]. Do not expose its port.
+- Without `lif.anchor: repo-root`, each Git worktree uses its own store.
+- Concurrent editing without `--if-match` has no protection. Lif does not report an overwritten state.
+- GraphQL `createItem` without `status` leaves the status empty. `lif create` sets `todo`.
+- The TUI ignores `display.theme` and offers fixed value lists [179g].
+
+See [Known limitations](../../known-limitations/) for [9r10], [8h4v] and [179g].
+
+## Reference links
+
+- TUI: [Start and repositories](../../reference/tui/start-and-repositories/), [Views](../../reference/tui/views/), [Editing items](../../reference/tui/editing-items/).
+- [Web server](../../reference/web-server/): `lif-serve`, port, CORS.
+- [`lif check`](../../reference/commands/lif-check/): scope of checks.
+- [`lif path`](../../reference/commands/lif-path/) and [Configuration](../../reference/configuration/): store resolution, `require_if_match`.

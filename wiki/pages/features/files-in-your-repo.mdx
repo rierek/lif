@@ -5,9 +5,9 @@ description: "Your backlog is a folder of files. Everything that reads files alr
 
 import demo from '../../../site/src/data/demo.json';
 import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
-import { Aside } from '@astrojs/starlight/components';
 import KeyValueList from '../../../site/src/components/KeyValueList.astro';
 import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../../site/src/components/WhyItMatters.astro';
 
 **Your backlog is a folder of files. Everything that reads files already speaks Lif.** You, your editor, Git and your coding agent need no plugin and no server. There is no database and no export step.
 
@@ -46,9 +46,9 @@ With `lif.anchor: repo-root`, two worktrees read the same store:
 <span style="color:var(--ctp-blue)">worktrees/</span>                
 └── <span style="color:var(--ctp-blue)">feature-x/</span>            second worktree, reads repo/.lif/`} />
 
-<Aside type="tip" title="Why it matters">
-Your backlog outlives any tool: if you stop using Lif, your items stay readable Markdown files. Backlog changes get the same review as code, because they appear in the diff of the branch that makes them.
-</Aside>
+<WhyItMatters>
+**Your backlog outlives any tool: if you stop using Lif, your items stay readable Markdown files.** Backlog changes get the same review as code, because they appear in the diff of the branch that makes them.
+</WhyItMatters>
 
 ## What you get
 

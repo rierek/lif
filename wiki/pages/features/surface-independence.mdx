@@ -4,9 +4,10 @@ description: "Use the terminal, the board or your editor: all of them work on th
 ---
 
 import ScreenshotSlot from '../../../site/src/components/ScreenshotSlot.astro';
-import { Badge, Aside } from '@astrojs/starlight/components';
+import { Badge } from '@astrojs/starlight/components';
 import KeyValueList from '../../../site/src/components/KeyValueList.astro';
 import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../../site/src/components/WhyItMatters.astro';
 
 **Use the terminal, the board or your editor.** The CLI, the TUI, the Web UI and direct editing of the Markdown files all work on the same items. Agents use the CLI or GraphQL. People use an editor, the TUI or a browser.
 
@@ -44,9 +45,9 @@ The file in your editor holds the same front matter. If you change `status: todo
 
 In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../reference/tui/views/) and [Editing items](../../reference/tui/editing-items/).
 
-<Aside type="tip" title="Why it matters">
-Nobody has to switch tools. A person edits in an editor while an agent uses the CLI, and both change the same files.
-</Aside>
+<WhyItMatters>
+**Nobody has to switch tools.** A person edits in an editor while an agent uses the CLI, and both change the same files.
+</WhyItMatters>
 
 ## What you get
 

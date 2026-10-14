@@ -6,6 +6,7 @@ description: "Built for scripts and coding agents: JSON output, GraphQL and lif 
 import { Aside } from '@astrojs/starlight/components';
 import KeyValueList from '../../../site/src/components/KeyValueList.astro';
 import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../../site/src/components/WhyItMatters.astro';
 
 **Built for scripts and coding agents.** Most commands print JSON, GraphQL runs from the command line, and `lif prime` teaches a coding agent how to use Lif. No server is needed: scripts and agents work on the files.
 
@@ -36,9 +37,9 @@ $ lif graphql '{ items { id title status } }'
 
 Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif graphql`](../../reference/commands/lif-graphql/).
 
-<Aside type="tip" title="Why it matters">
-With `lif prime`, `--json` and GraphQL, a script or coding agent works on your backlog without a server.
-</Aside>
+<WhyItMatters>
+**With `lif prime`, `--json` and GraphQL, a script or coding agent works on your backlog without a server.**
+</WhyItMatters>
 
 ## What you get
 

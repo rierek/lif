@@ -63,6 +63,23 @@ func (r *CoreResolver) ValidateAndSetParent(b *item.Item, parentID string) error
 	return nil
 }
 
+// ValidateTypeChange checks b, already carrying its new type, against the
+// type hierarchy: its parent must allow the new type and every child must be
+// allowed under it. The error names the violating item.
+func (r *CoreResolver) ValidateTypeChange(b *item.Item) error {
+	if err := r.Core.ValidateParent(b, b.Parent); err != nil {
+		return fmt.Errorf("%s: %w", b.ID, err)
+	}
+	for _, link := range r.Core.FindIncomingLinks(b.ID) {
+		child := link.FromItem
+		if link.LinkType != "parent" || itemcore.IsValidParentRank(r.Core.Config(), child.Type, b.Type) {
+			continue
+		}
+		return fmt.Errorf("%s: %s items cannot be a child of %s items (child %s)", b.ID, child.Type, b.Type, child.ID)
+	}
+	return nil
+}
+
 // ValidateAndAddBlocking validates and adds blocking relationships.
 func (r *CoreResolver) ValidateAndAddBlocking(b *item.Item, targetIDs []string) error {
 	for _, targetID := range targetIDs {

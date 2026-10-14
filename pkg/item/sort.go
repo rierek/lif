@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// SortByStatusPriorityAndType sorts items by status order, then priority, then type, then title.
+// SortByStatusPriorityAndType sorts items by status order, then manual order, then priority, then type, then title.
 // This is the default sorting used by both CLI and TUI.
 // Unrecognized statuses, priorities, and types are sorted last within their category.
 // Items without priority are treated as "normal" priority for sorting purposes.

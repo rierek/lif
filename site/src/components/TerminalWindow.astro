@@ -1,0 +1,42 @@
+---
+// Window chrome (three dots + title). `html` is captured lif output (site/src/data/demo.json); without it the
+// default slot is the body (browser mock). The font shrinks so `cols` columns fit the container without scrolling.
+interface Props {
+	title?: string;
+	command?: string;
+	html?: string;
+	cols?: number;
+	variant?: 'terminal' | 'browser';
+}
+const { title = '', command, html, cols = 80, variant = 'terminal' } = Astro.props;
+---
+
+<figure class:list={['window not-content', variant]} data-pagefind-ignore style={`--cols: ${cols}`}>
+	<figcaption class="bar">
+		<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+		<span class="title">{title}</span>
+	</figcaption>
+	{html !== undefined ? (
+		<pre class="screen" tabindex="0"><code>{command && <><span class="prompt">$ </span><span class="cmd">{command}</span>{'\n'}</>}<Fragment set:html={html} /></code></pre>
+	) : (
+		<div class="screen"><slot /></div>
+	)}
+</figure>
+
+<style>
+	.window { margin: 0 auto; max-width: calc(var(--cols) * 0.48rem + 2.2rem + 2px); border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; overflow: hidden; background: var(--term-bg); container-type: inline-size; text-align: start; box-shadow: 0 1.5rem 3rem -1.5rem var(--sl-color-gray-7); }
+	.window.browser { max-width: 52rem; }
+	.bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0.65rem 0.9rem; background: var(--term-bar); border-bottom: 1px solid var(--sl-color-gray-5); }
+	.dots { display: flex; gap: 0.4rem; }
+	.dots i { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--sl-color-red); }
+	.dots i:nth-child(2) { background: var(--sl-color-orange); }
+	.dots i:nth-child(3) { background: var(--sl-color-green); }
+	.title { font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+	.browser .title { min-width: min(18rem, 60cqw); text-align: center; padding: 0.2rem 1rem; border-radius: 0.4rem; background: var(--sl-color-gray-5); }
+	.screen { margin: 0; padding: 1rem 1.1rem; overflow-x: auto; color: var(--ctp-text); }
+	pre.screen { font-family: var(--sl-font-mono); font-size: clamp(0.7rem, calc((100cqw - 2.2rem) / (var(--cols) * 0.6)), 0.8rem); line-height: 1.5; white-space: pre; font-variant-ligatures: none; tab-size: 4; background: none; }
+	pre.screen code { font: inherit; background: none; padding: 0; border: 0; color: inherit; }
+	.prompt { color: var(--ctp-green); }
+	.cmd { color: var(--ctp-text); }
+	pre.screen:focus-visible { outline: 2px solid var(--sl-color-accent-high); outline-offset: -2px; }
+</style>

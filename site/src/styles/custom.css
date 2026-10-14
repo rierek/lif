@@ -12,3 +12,25 @@
 
 /* Keyboard-selected search result (set by Header.astro script). */
 #starlight__search .kb-active { outline: 1px solid var(--sl-color-accent-high); background-color: var(--sl-color-accent-low); }
+
+/* Home page: wider than Starlight's 67.5rem. Only pages with `hero` frontmatter carry data-has-hero. */
+:root[data-has-hero] { --sl-content-width: 75rem; }
+
+/* Catppuccin tones for captured lif output (site/scripts/capture-demo.mjs writes var(--ctp-<tone>)).
+   Starlight exposes only some tones as --sl-color-*. Keep these in step with the flavours in astro.config.mjs. */
+:root {
+  --ctp-rosewater: #f5e0dc; --ctp-flamingo: #f2cdcd; --ctp-pink: #f5c2e7; --ctp-mauve: #cba6f7; --ctp-red: #f38ba8; --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387; --ctp-yellow: #f9e2af; --ctp-green: #a6e3a1; --ctp-teal: #94e2d5; --ctp-sky: #89dceb; --ctp-sapphire: #74c7ec;
+  --ctp-blue: #89b4fa; --ctp-lavender: #b4befe; --ctp-text: #cdd6f4; --ctp-subtext1: #bac2de; --ctp-subtext0: #a6adc8;
+  --ctp-overlay2: #9399b2; --ctp-overlay1: #7f849c; --ctp-overlay0: #6c7086; --ctp-surface2: #585b70; --ctp-surface1: #45475a; --ctp-surface0: #313244; --ctp-base: #1e1e2e;
+  --term-bg: var(--sl-color-gray-7);
+  --term-bar: var(--sl-color-gray-6);
+}
+:root[data-theme='light'] {
+  --ctp-rosewater: #dc8a78; --ctp-flamingo: #dd7878; --ctp-pink: #ea76cb; --ctp-mauve: #8839ef; --ctp-red: #d20f39; --ctp-maroon: #e64553;
+  --ctp-peach: #fe640b; --ctp-yellow: #df8e1d; --ctp-green: #40a02b; --ctp-teal: #179299; --ctp-sky: #04a5e5; --ctp-sapphire: #209fb5;
+  --ctp-blue: #1e66f5; --ctp-lavender: #7287fd; --ctp-text: #4c4f69; --ctp-subtext1: #5c5f77; --ctp-subtext0: #6c6f85;
+  --ctp-overlay2: #7c7f93; --ctp-overlay1: #8c8fa1; --ctp-overlay0: #9ca0b0; --ctp-surface2: #acb0be; --ctp-surface1: #bcc0cc; --ctp-surface0: #ccd0da; --ctp-base: #eff1f5;
+  --term-bg: var(--sl-color-gray-6);
+  --term-bar: var(--sl-color-gray-7);
+}

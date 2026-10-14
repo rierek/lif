@@ -1,0 +1,68 @@
+---
+// Illustration of the lif-serve board (columns Todo / In Progress / Completed), built from the demo items in
+// site/src/data/demo.json. Not a screenshot: replace with a real capture once the frontend is built for the docs.
+interface Item {
+	id: string;
+	title: string;
+	type: string;
+	status: string;
+	priority: string;
+	tags: string[];
+}
+interface Props {
+	items: Item[];
+	project?: string;
+}
+const { items, project = 'app' } = Astro.props;
+const columns = [
+	['todo', 'Todo'],
+	['in-progress', 'In Progress'],
+	['completed', 'Completed'],
+] as const;
+const cards = (status: string) => items.filter((i) => i.status === status).slice(0, 4);
+---
+
+<div class="board" role="img" aria-label="Illustration of the Lif web board with items in the columns Todo, In Progress and Completed">
+	<div class="top"><strong>{project}</strong><span class="new">+ New Item</span></div>
+	<div class="cols">
+		{columns.map(([status, label]) => (
+			<div class="col">
+				<h4><span class={`pill ${status}`}>{label}</span><span class="count">{items.filter((i) => i.status === status).length}</span></h4>
+				{cards(status).map((i) => (
+					<div class={`card ${i.type}`}>
+						<div class="row"><span class="title">{i.title}</span>{i.priority && <span class={`prio ${i.priority}`}>{i.priority}</span>}</div>
+						<div class="meta"><code>{i.id.slice(-4)}</code><span class="badge type">{i.type}</span>{i.tags.map((t) => <span class="badge">{t}</span>)}</div>
+					</div>
+				))}
+			</div>
+		))}
+	</div>
+</div>
+
+<style>
+	.board { font-size: 0.78rem; line-height: 1.4; color: var(--ctp-text); }
+	.top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.9rem; font-size: var(--sl-text-sm); }
+	.new { padding: 0.25rem 0.7rem; border-radius: 0.4rem; background: var(--sl-color-gray-5); color: var(--sl-color-white); font-size: 0.72rem; }
+	.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; align-items: start; }
+	@media (max-width: 40rem) { .cols { grid-template-columns: repeat(3, 15rem); overflow-x: auto; } }
+	.col { display: grid; gap: 0.5rem; }
+	h4 { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.25rem; font-size: 0.72rem; }
+	.pill { padding: 0.1rem 0.55rem; border-radius: 0.3rem; font-weight: 700; color: var(--ctp-base); background: var(--ctp-overlay1); }
+	.pill.todo { background: var(--ctp-green); }
+	.pill.in-progress { background: var(--ctp-peach); }
+	.count { color: var(--ctp-overlay1); }
+	.card { padding: 0.55rem 0.7rem 0.6rem; border: 1px solid var(--sl-color-gray-5); border-left: 3px solid var(--sl-color-gray-4); border-radius: 0.4rem; background: var(--sl-color-black); }
+	.card.milestone { border-left-color: var(--ctp-mauve); }
+	.card.epic { border-left-color: var(--ctp-blue); }
+	.card.feature { border-left-color: var(--ctp-sapphire); }
+	.card.bug { border-left-color: var(--ctp-maroon); }
+	.row { display: flex; justify-content: space-between; gap: 0.5rem; }
+	.title { color: var(--ctp-text); }
+	.prio { flex: none; font-size: 0.68rem; color: var(--ctp-overlay1); }
+	.prio.critical { color: var(--ctp-red); }
+	.prio.high { color: var(--ctp-peach); }
+	.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.4rem; }
+	.meta code { font-size: 0.68rem; padding: 0; background: none; color: var(--ctp-overlay1); }
+	.badge { padding: 0 0.4rem; border-radius: 0.25rem; font-size: 0.66rem; color: var(--ctp-subtext0); background: var(--sl-color-gray-5); }
+	.badge.type { color: var(--ctp-text); background: var(--sl-color-gray-4); }
+</style>

@@ -2,23 +2,74 @@
 title: Lif
 description: Lightweight, Markdown-native work management for humans, AI agents and automation.
 template: splash
-hero:
-  tagline: Lightweight, Markdown-native work management for humans, AI agents and automation.
-  actions:
-    - text: Get started
-      link: getting-started/installation/
-      icon: right-arrow
-    - text: CLI reference
-      link: reference/commands/lif/
-      variant: minimal
+# `hero` (even empty) selects Starlight's hero layout without the page-title panel. The visible hero is HeroSplit below.
+hero: {}
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
-import { FileText, Terminal, Braces, SlidersHorizontal } from '@lucide/astro';
+import { Braces, FileText, Globe, LayoutPanelLeft, SlidersHorizontal, Terminal } from '@lucide/astro';
+import demo from '../../site/src/data/demo.json';
+import AnnotatedTerminal from '../../site/src/components/AnnotatedTerminal.astro';
+import FeatureTabs from '../../site/src/components/FeatureTabs.astro';
+import HeroSplit from '../../site/src/components/HeroSplit.astro';
+import Section from '../../site/src/components/Section.astro';
+import TerminalWindow from '../../site/src/components/TerminalWindow.astro';
+import WebBoard from '../../site/src/components/WebBoard.astro';
 
-<CardGrid>
-  <Card title="Markdown for humans"><FileText size={20} color="var(--sl-color-blue)" /> Items are plain Markdown files in your repo. Read, diff and review them like code.</Card>
-  <Card title="CLI for agents"><Terminal size={20} color="var(--sl-color-orange)" /> `lif prime` and `lif --help` give agents everything they need.</Card>
-  <Card title="JSON for programs"><Braces size={20} color="var(--sl-color-purple)" /> Structured output for scripts, Git hooks and release automation.</Card>
-  <Card title="Your workflow"><SlidersHorizontal size={20} color="var(--sl-color-green)" /> Four fixed levels, freely named. Presets are examples, not a method.</Card>
-</CardGrid>
+export const epic = demo.board.find((i) => i.title === 'Accounts and sign-in').id;
+
+<HeroSplit
+  title="Plan in Markdown."
+  accent="Keep it in Git."
+  checks={['Plain Markdown files', 'CLI, TUI and web UI', 'Made for AI agents']}
+  primary={{ text: 'Install Lif', href: '/getting-started/installation/' }}
+  secondary={{ text: 'Explore features', href: '/features/' }}
+>
+
+Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that sits next to your code. Humans edit it, AI agents query it, scripts automate it.
+
+<div slot="visual">
+  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} />
+</div>
+
+</HeroSplit>
+
+<Section eyebrow="Surfaces" title="One backlog, many surfaces">
+  <FeatureTabs
+    label="Lif surfaces"
+    tabs={[
+      { id: 'cli', label: 'CLI', icon: Terminal, caption: 'Create, query and update items from the shell. Most commands take <code>--json</code> for scripts.' },
+      { id: 'tui', label: 'TUI', icon: LayoutPanelLeft, caption: 'Browse the item tree, filter by type, status, priority or tag, and edit without leaving the terminal.' },
+      { id: 'web', label: 'Web', icon: Globe, caption: 'Run <code>lif-serve</code> and open <code>localhost:8080</code> for the same items as a board in your browser.' },
+      { id: 'markdown', label: 'Markdown', icon: FileText, caption: 'Every item is one Markdown file with YAML front matter. Read it, edit it by hand, diff it like code.' },
+    ]}
+  >
+    <div slot="cli"><TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={80} /></div>
+    <div slot="tui"><TerminalWindow title="~/app — lif tui" html={demo.tui.html} cols={110} /></div>
+    {/* TODO: verify: the web board view is not in FACTS.md (source: frontend BoardView.svelte, columns todo, in-progress, completed). */}
+    <div slot="web"><TerminalWindow variant="browser" title="localhost:8080"><WebBoard items={demo.board} project="app" /></TerminalWindow></div>
+    <div slot="markdown"><TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} /></div>
+  </FeatureTabs>
+</Section>
+
+<Section eyebrow="Start" title="One command, one Markdown file." link={{ text: 'Create your first items', href: '/getting-started/your-first-items/' }}>
+  <AnnotatedTerminal
+    title="Create an item"
+    lines={['lif create "Rate-limit logins" \\', '  --type feature \\', `  --parent ${epic} \\`, '  --tag security']}
+    notes={[
+      { line: 0, side: 'left', text: 'One command, one file' },
+      { line: 1, side: 'right', text: 'Pick the item type' },
+      { line: 2, side: 'left', text: 'Place it in the tree' },
+      { line: 3, side: 'right', text: 'Tag it for filters' },
+    ]}
+  />
+</Section>
+
+<Section eyebrow="Why Lif" title="Built for humans, agents and programs.">
+  <CardGrid>
+    <Card title="Markdown for humans"><FileText size={20} color="var(--sl-color-blue)" /> Items are plain Markdown files in your repo. Read, diff and review them like code.</Card>
+    <Card title="CLI for agents"><Terminal size={20} color="var(--sl-color-orange)" /> `lif prime` and `lif --help` give agents everything they need.</Card>
+    <Card title="JSON for programs"><Braces size={20} color="var(--sl-color-purple)" /> Structured output for scripts, Git hooks and release automation.</Card>
+    <Card title="Your workflow"><SlidersHorizontal size={20} color="var(--sl-color-green)" /> Four fixed levels, freely named. Presets are examples, not a method.</Card>
+  </CardGrid>
+</Section>

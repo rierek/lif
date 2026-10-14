@@ -23,8 +23,9 @@ export default defineConfig({
 		starlight({
 			title: 'Lif',
 			description: 'Lightweight, Markdown-native work management for humans, AI agents and automation.',
-			components: { Header: './src/components/Header.astro' },
+			components: { Header: './src/components/Header.astro', Hero: './src/components/Hero.astro' },
 			customCss: ['./src/styles/custom.css'],
+			// custom.css defines the --ctp-* tones for these two flavours (captured lif output); change both together.
 			plugins: [catppuccin({ dark: { flavor: 'mocha', accent: 'teal' }, light: { flavor: 'latte', accent: 'teal' } })],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/xRiErOS/lif' }],
 			sidebar: [

@@ -3,7 +3,7 @@ title: "Dependencies"
 description: "Blocking and blocked-by links, ready work, and the dependency graph."
 ---
 
-Items can block each other. Lif works out what is blocked, what is ready and what to start next. Measured on Lif 0.14, 2026-10-14.
+Items can block each other. Lif works out what is blocked, what is ready and what to start next.
 
 ## What
 

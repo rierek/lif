@@ -3,7 +3,7 @@ title: "Surface independence"
 description: "CLI, TUI, Web UI and your editor all work on the same store."
 ---
 
-Four paths lead to one store: the CLI, the TUI, the Web UI and direct editing of the Markdown files. Measured on Lif 0.14, 2026-10-14.
+Four paths lead to one store: the CLI, the TUI, the Web UI and direct editing of the Markdown files.
 
 ## What
 

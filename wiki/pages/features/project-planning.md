@@ -3,7 +3,7 @@ title: "Flexible planning"
 description: "Types, statuses and hierarchy presets that adapt to how you work."
 ---
 
-Types, ranks, status, priority and parents model the structure of a project. Lif enforces the configured rules when it writes. Measured on Lif 0.14, 2026-10-14.
+Types, ranks, status, priority and parents model the structure of a project. Lif enforces the configured rules when it writes.
 
 ## What
 

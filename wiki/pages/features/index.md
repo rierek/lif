@@ -3,7 +3,7 @@ title: "Features"
 description: "What Lif can do, with a page for each capability."
 ---
 
-Lif is a file-based item tracker for people and coding agents. Each feature below is a capability, not a command. Commands only show the capability. Measured on Lif 0.14, 2026-10-14.
+Lif is a file-based item tracker for people and coding agents. Each feature below is a capability, not a command. Commands only show the capability.
 
 ## What Lif can do
 

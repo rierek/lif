@@ -3,7 +3,7 @@ title: "Git-native"
 description: "Items live in your repository and travel with your code."
 ---
 
-The store lives inside your repository. Items are files, so Git versions, diffs and merges them with the code. Measured on Lif 0.14, 2026-10-14.
+The store lives inside your repository. Items are files, so Git versions, diffs and merges them with the code.
 
 ## What
 

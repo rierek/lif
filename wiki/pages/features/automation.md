@@ -3,7 +3,7 @@ title: "Automation and agents"
 description: "JSON output, GraphQL and lif prime for scripts and coding agents."
 ---
 
-Scripts and coding agents use Lif through `--json`, GraphQL, `lif prime` and `lif promote`. No server is needed. Measured on Lif 0.14, 2026-10-14.
+Scripts and coding agents use Lif through `--json`, GraphQL, `lif prime` and `lif promote`. No server is needed.
 
 ## What
 

@@ -3,7 +3,7 @@ title: "Markdown-native"
 description: "Items are plain Markdown files you can read, diff and edit anywhere."
 ---
 
-An item is one Markdown file. Measured on Lif 0.14, 2026-10-14.
+An item is one Markdown file.
 
 ## What
 

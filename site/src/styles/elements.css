@@ -201,7 +201,7 @@ h1#_top { font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: v
 	--lif-role: var(--lif-info-ink);
 	--sl-color-asides-text-accent: var(--lif-role);
 	display: grid;
-	grid-template-columns: 2ch 1fr;
+	grid-template-columns: 2ch minmax(0, 1fr);
 	column-gap: 1.25ch;
 	padding: 0.9rem 1.25rem 1rem 1rem;
 	border: 1px solid color-mix(in srgb, var(--lif-role) 40%, transparent);
@@ -220,7 +220,7 @@ h1#_top { font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: v
 .starlight-aside--danger::before { content: '‼'; }
 .starlight-aside__icon { display: none; }
 .starlight-aside__title { grid-column: 2; font-size: 1rem; font-weight: 700; line-height: 1.4; color: var(--lif-role); }
-.starlight-aside__content { grid-column: 2; }
+.starlight-aside__content { grid-column: 2; min-width: 0; }
 .starlight-aside__title + .starlight-aside__content { margin-top: 0.25rem; }
 .starlight-aside__content a { color: var(--lif-role); }
 .starlight-aside code { background: color-mix(in srgb, var(--lif-role) 14%, transparent) !important; }

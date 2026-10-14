@@ -53,8 +53,7 @@ export default defineConfig({
 					label: 'Features',
 					items: [
 						'features',
-						'features/markdown-native',
-						'features/git-native',
+						'features/files-in-your-repo',
 						'features/automation',
 						'features/dependencies',
 						'features/project-planning',

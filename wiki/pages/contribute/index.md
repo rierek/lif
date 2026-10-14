@@ -22,7 +22,6 @@ Users who found a bug or want a feature; developers who build Lif from source.
 - Shows `git clone https://github.com/xRiErOS/lif.git`, `mise install`, `mise run setup`.
 - `just build` builds the stamped binaries `lif` and `lif-serve` (it runs `mise run build`).
 - `just test` runs the Go test suite (`go test -count=1 ./...`); `just test-race`, `just test-web` and `just check-web` run the race detector, the frontend unit tests and the frontend type check.
-- No `just lint` recipe exists in the justfile; the page does not mention one.
 - `just docs-gen`, `just docs-build` and `just docs-dev` generate the command pages, build the docs site and serve it with live reload.
 - Source: `justfile` (recipes `build`, `test`, `test-race`, `test-web`, `check-web`, `docs-gen`, `docs-build`, `docs-dev`); `mise.toml`; `go.mod`; `wiki/installation.md` (sections "Prerequisites", "Building from source")
 

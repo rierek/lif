@@ -35,9 +35,9 @@ Each project keeps its backlog in its own repository. Branches, reviews and hist
 A Git worktree is a separate checkout. By default it has its own copy of the store, so each branch carries its own items. A new item created in the worktree stays there:
 
 ```bash
-cd ../app-wt && lif path        # /tmp/ov1-wt/.lif  (own store)
-```
 cd ../app-wt && lif path        # /Users/you/app-wt/.lif  (own store)
+```
+
 To make all worktrees of a repository use one store, set `anchor` in `.lif.yml`:
 
 ```yaml

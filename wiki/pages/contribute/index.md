@@ -18,7 +18,7 @@ Users who found a bug or want a feature; developers who build Lif from source.
 - Source: `wiki/fork-lineage.md` (section "How to reference Lif"); `README.md` (section "Project status"); DESIGN.md D61
 
 ### Build from source
-- Prerequisite: `mise` installs the toolchain declared in `mise.toml` (Go, Node.js, pnpm); the Go module requires Go 1.26.
+- Prerequisite: `mise` installs the toolchain declared in `mise.toml` (Go, Node.js, pnpm, each pinned to `latest`); the Go module requires Go 1.26 (`go.mod`).
 - Shows `git clone https://github.com/xRiErOS/lif.git`, `mise install`, `mise run setup`.
 - `just build` builds the stamped binaries `lif` and `lif-serve` (it runs `mise run build`).
 - `just test` runs the Go test suite (`go test -count=1 ./...`); `just test-race`, `just test-web` and `just check-web` run the race detector, the frontend unit tests and the frontend type check.

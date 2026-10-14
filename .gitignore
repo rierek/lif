@@ -12,3 +12,7 @@
 # Embedded frontend (generated from frontend/build)
 /internal/web/dist/*
 !/internal/web/dist/.gitkeep
+/site/node_modules/
+/site/dist/
+/site/.astro/
+/wiki/pages/reference/commands/lif*.md

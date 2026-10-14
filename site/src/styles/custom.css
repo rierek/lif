@@ -1,0 +1,6 @@
+@font-face { font-family: 'JetBrainsMono NF'; font-weight: 400; font-display: swap; src: url('/lif/fonts/JetBrainsMonoNF-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrainsMono NF'; font-weight: 700; font-display: swap; src: url('/lif/fonts/JetBrainsMonoNF-Bold.woff2') format('woff2'); }
+:root {
+  --sl-font: 'JetBrainsMono NF', ui-monospace, monospace;
+  --sl-font-mono: 'JetBrainsMono NF', ui-monospace, monospace;
+}

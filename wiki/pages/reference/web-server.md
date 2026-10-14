@@ -41,7 +41,7 @@ Startup output:
 [lif] Allowed origins: http://localhost:*, http://127.0.0.1:*
 ```
 
-The text says `localhost`, but the server listens on `:<port>`, all interfaces. SIGINT or SIGTERM prints `Shutting down...` and `Server stopped`.
+The text says `localhost`, but the server listens on `:<port>`, all interfaces [9a66]. SIGINT or SIGTERM prints `Shutting down...` and `Server stopped`.
 
 ## Network and CORS
 

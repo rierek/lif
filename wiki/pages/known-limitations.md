@@ -26,6 +26,8 @@ Limitations cited on Reference pages (Lif 0.14, measured 2026-10-14):
 
 | ID | Title | Effect | Workaround | Status |
 |---|---|---|---|---|
+| [et2a] | Mixed-field dependency cycles are accepted and not reported | A cycle that mixes `blocking` and `blocked_by` links is not found by `lif check`. | Keep dependencies in one field per chain. | Open |
+| [9r10] | The `--if-match` flag does not protect two simultaneous processes | Two writers can both pass the check and one overwrites the other. | Run writers one at a time. | Open |
 | [8h4v] | `lif-serve` has no authentication or TLS and exposes a terminal | Anyone who reaches the port can change items and open a shell as the server user. The server listens on all interfaces. | Convention, not enforced by Lif: block the port in a firewall and use an SSH tunnel or a VPN. | Open |
 | [xa2j] | AND, OR, NOT promised in search help and GraphQL schema do not work | `user AND login` is an OR of three terms. Parentheses do not group. | Use `+term` (required) and `-term` (excluded). | Open |
 | [z9e6] | Publish JSON schema files generated from the code | No schema files for `--json`; the shapes can change with any release. | Run the command against your own version. | Open |

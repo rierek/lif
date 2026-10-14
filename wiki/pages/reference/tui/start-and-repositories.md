@@ -44,7 +44,7 @@ Repo-Picker
 
 - `p` opens the picker from any view, also with fewer than two repositories. The "at least two" rule applies only to startup.
 - Typing filters the list (substring of the path). `↑`/`↓` move, `enter` opens, `esc` goes back.
-- The footer shows `i/k`, but `i` and `k` are typed into the filter in the lobby; use the arrow keys.
+- The footer shows `i/k`, but `i` and `k` are typed into the filter in the lobby; use the arrow keys [hh0o].
 - Config edits made while the TUI runs appear the next time you press `p`.
 - After each switch the TUI writes `last_repo` to `state.json`. Nothing reads it back.
 

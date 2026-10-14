@@ -1,0 +1,56 @@
+---
+// Split hero in the style of usememos.com: two-line headline (second line in accent), pitch, check-mark bullets,
+// two buttons, and a visual (terminal window) on the right. Default slot = pitch, slot "visual" = right side.
+import { ArrowRight, Check } from '@lucide/astro';
+
+interface Link {
+	text: string;
+	href: string;
+}
+interface Props {
+	title: string;
+	accent: string;
+	checks?: string[];
+	primary: Link;
+	secondary?: Link;
+}
+const { title, accent, checks = [], primary, secondary } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<section class="hero not-content">
+	<div class="copy">
+		<h1 id="_top"><span>{title}</span> <span class="accent">{accent}</span></h1>
+		<div class="pitch"><slot /></div>
+		{checks.length > 0 && (
+			<ul class="checks">{checks.map((c) => <li><Check size={16} aria-hidden="true" />{c}</li>)}</ul>
+		)}
+		<div class="actions">
+			<a class="btn primary" href={base + primary.href}>{primary.text}<ArrowRight size={16} aria-hidden="true" /></a>
+			{secondary && <a class="btn" href={base + secondary.href}>{secondary.text}</a>}
+		</div>
+	</div>
+	<div class="visual"><slot name="visual" /></div>
+</section>
+
+<style>
+	.hero { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2.5rem; align-items: center; padding-block: clamp(2rem, 6vw, 5rem) 0; }
+	.hero::before { content: ''; position: absolute; z-index: -1; inset: -5rem 0 auto; height: 34rem; background: radial-gradient(50% 60% at 50% 0%, color-mix(in srgb, var(--sl-color-accent) 18%, transparent), transparent); pointer-events: none; }
+	@media (min-width: 64rem) { .hero { grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 3rem; } }
+	h1 { margin: 0; font-size: clamp(2rem, 7vw, 2.75rem); line-height: 1.08; letter-spacing: -0.04em; font-weight: 700; color: var(--sl-color-white); }
+	h1 span { display: block; }
+	@media (min-width: 64rem) { h1 { font-size: clamp(2rem, 3.8vw, 2.75rem); } }
+	h1 .accent { color: var(--sl-color-accent-high); }
+	.pitch { margin-top: 1.5rem; font-size: var(--sl-text-base); line-height: 1.7; color: var(--sl-color-gray-2); max-width: 34rem; }
+	.pitch :global(p) { margin: 0; }
+	.checks { list-style: none; margin: 1.5rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; font-size: var(--sl-text-sm); color: var(--sl-color-gray-2); }
+	.checks li { display: flex; align-items: center; gap: 0.4rem; }
+	.checks :global(svg) { color: var(--sl-color-accent-high); flex: none; }
+	.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+	.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.7rem 1.25rem; border: 1px solid var(--sl-color-gray-4); border-radius: 0.6rem; font-size: var(--sl-text-sm); font-weight: 700; text-decoration: none; color: var(--sl-color-white); background: var(--sl-color-gray-6); transition: background-color 0.15s, border-color 0.15s; }
+	.btn:hover { border-color: var(--sl-color-gray-3); background: var(--sl-color-gray-5); }
+	.btn.primary { background: var(--sl-color-white); border-color: var(--sl-color-white); color: var(--sl-color-black); }
+	.btn.primary:hover { background: var(--sl-color-gray-1); border-color: var(--sl-color-gray-1); }
+	.btn:focus-visible { outline: 2px solid var(--sl-color-accent-high); outline-offset: 2px; }
+	@media (max-width: 30rem) { .btn { width: 100%; } }
+</style>

@@ -154,3 +154,15 @@ release-watch:
 # Remove local goreleaser snapshot output (dist/ is gitignored)
 release-clean:
     rm -rf dist
+
+# Generate command reference pages from the Cobra tree
+docs-gen:
+    go run ./cmd/lif-docgen wiki/pages/reference/commands
+
+# Build the public docs site into site/dist
+docs-build: docs-gen
+    cd site && npm ci && npm run build
+
+# Serve the docs site with live reload
+docs-dev: docs-gen
+    cd site && npm run dev

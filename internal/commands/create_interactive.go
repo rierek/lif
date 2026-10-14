@@ -89,9 +89,21 @@ func newCreateDraft(args []string) createDraft {
 
 // cancelHintLayout appends the cancel hint to the footer of every step. huh
 // binds Ctrl+C but lists it in no field's help line.
-type cancelHintLayout struct{ huh.Layout }
+type cancelHintLayout struct {
+	huh.Layout
+	groups []*huh.Group
+}
 
 func (l cancelHintLayout) View(f *huh.Form) string {
+	// huh sizes every group to the tallest one (the parent picker); give each
+	// its own content height so a one-line title is not padded.
+	for _, g := range l.groups {
+		h := lipgloss.Height(g.Content())
+		if foot := g.Footer(); foot != "" {
+			h += lipgloss.Height(foot)
+		}
+		g.WithHeight(h)
+	}
 	hint := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ui.ActiveTheme().Hex("overlay1"))).
 		Render("ctrl+c cancel")
@@ -107,7 +119,7 @@ func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*
 	f := huh.NewForm(groups...).
 		WithInput(in()).
 		WithOutput(out).
-		WithLayout(cancelHintLayout{layout}).
+		WithLayout(cancelHintLayout{layout, groups}).
 		WithKeyMap(huh.NewDefaultKeyMap()).
 		WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
 	if err := f.Run(); err != nil {

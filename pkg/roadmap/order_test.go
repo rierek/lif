@@ -18,10 +18,10 @@ func ids(items []*item.Item) []string {
 func TestSortSiblingsRankBuckets(t *testing.T) {
 	items := []*item.Item{
 		{ID: "t1", Type: "task", Status: "todo"},
-		{ID: "f1", Type: "feature", Status: "todo", Order: "2"},
-		{ID: "e1", Type: "epic", Status: "todo", Order: "3"},
+		{ID: "f1", Title: "c", Type: "feature", Status: "todo", Order: "2"},
+		{ID: "e1", Title: "a", Type: "epic", Status: "todo", Order: "3"},
 		{ID: "m1", Type: "milestone", Status: "todo"},
-		{ID: "f2", Type: "feature", Status: "todo", Order: "1"},
+		{ID: "f2", Title: "b", Type: "feature", Status: "todo", Order: "1"},
 	}
 	SortSiblings(config.Default(), items)
 	want := []string{"m1", "f2", "f1", "e1", "t1"}

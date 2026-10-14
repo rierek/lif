@@ -391,7 +391,7 @@ site-search button[data-open-modal]:hover { border-bottom-color: var(--lif-accen
 site-search button[data-open-modal] kbd, site-search button[data-open-modal] > kbd { background: transparent !important; border: 0; padding: 0; color: var(--lif-key-ink); }
 site-search button[data-open-modal] > kbd { gap: 0.4ch; }
 @media (min-width: 50rem) { site-search button[data-open-modal] { max-width: 33rem; width: 100%; } }
-@media (min-width: 72rem) { .right-sidebar-container { width: 15rem; } }
+@media (min-width: 72rem) { .main-pane ~ .right-sidebar-container, .right-sidebar-container.right-sidebar-container { width: 15rem; } }
 site-search dialog { border: 1px solid var(--lif-rule); border-radius: 0.75rem; background: var(--lif-page); box-shadow: var(--lif-shadow); }
 #starlight__search {
 	--pagefind-ui-border: var(--lif-rule);

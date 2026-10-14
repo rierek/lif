@@ -3,80 +3,185 @@ title: "Configuration"
 description: "The .lif.yml file: discovery, keys, defaults, types, statuses, priorities and presets."
 ---
 
-## Purpose
-Canonical page for the `.lif.yml` configuration file, for types, ranks and hierarchy rules, and for the shipped presets. It states exactly what Lif enforces on write and what `lif check` does not verify.
+Canonical page for the `.lif.yml` file, for types, ranks and hierarchy rules, and for the shipped presets. It states what Lif enforces on write and what `lif check` verifies. Measured on Lif 0.14, 2026-10-14.
 
-## Audience
-Users who set up or adapt a project (custom types, statuses, priorities, store path), and agents that need to know which rules reliably hold. Overview and Features link here instead of repeating the rules.
+## Config file and discovery
 
-## Required sections
-
-### Config file and discovery
-- File name `.lif.yml`; a legacy `.beans.yml` is read in place and never renamed.
-- Only one of the two files may exist per directory; otherwise the error `both .lif.yml and .beans.yml exist in <dir>; keep one of them`.
-- Discovery: `--config <path>` loads exactly that file; otherwise the search walks up directory by directory from the current directory to the filesystem root.
+- File name `.lif.yml`. A legacy `.beans.yml` is read in place and never renamed.
+- Only one of the two files may exist per directory. Otherwise: `both .lif.yml and .beans.yml exist in <dir>; keep one of them`.
+- `--config <path>` loads exactly that file. Otherwise Lif searches from the current directory upward to the filesystem root.
 - No file found: built-in defaults, anchored in the current directory.
-- Format: YAML; item settings live under the key `lif:` (legacy `beans:`; both in one file is an error); the other sections sit at top level.
-- `lif init` writes a file with commented keys (`project.name`, `lif.path`, `lif.prefix`, `lif.id_length`, `lif.default_status`, `lif.default_type`, `worktree.base_ref`/`setup`/`run`/`integrate`, `agent.enabled`/`default_mode`, `server.port`).
-- Source: FACTS.md §4.1, §1.1 (`lif init`)
+- Format: YAML. Item settings live under `lif:` (legacy `beans:`; both in one file is an error). The other sections sit at top level.
 
-### Store resolution
-- Precedence: (1) `--lif-path` (2) config file (its `lif.path` or the default store directory next to it) (3) `LIF_PATH` (4) default store directory in the current directory.
-- A discovered config file, and only a discovered one, demotes `LIF_PATH`; reason in the code: variables exported via direnv must not redirect unrelated repositories.
-- `LIF_PATH` and legacy `BEANS_PATH` both set: error; if only the legacy one is set, it is used.
-- A relative `lif.path` is resolved against the config directory; an absolute one is used unchanged.
-- `lif.anchor: repo-root`: all Git worktrees of a repository share one store; without `anchor` a worktree uses its own local store; any other value is a config load error.
-- Error messages for a missing directory: `no .lif directory found at <path> (run 'lif init' to create one)`; with an explicit path `store path does not exist or is not a directory: <path>`. `lif path` prints the result.
-- Task-oriented view of the same rules: Store management (`overview/store-management`), including worktrees, a shared store and the ID prefix; this section stays the canonical precedence table.
-- Source: FACTS.md §4.2, §1.1 (`lif path`); DESIGN.md D56
+## Store resolution
 
-### Keys and defaults
-- One table per group: key, type, default, effect; `lif check` reports invalid values for `agent.default_effort` and `display.theme`. `project`: `name` (default empty; `lif init` writes the directory name).
-- `lif`: `path` (empty = `.lif`), `anchor` (empty; only `repo-root`), `prefix` (empty; `lif init` writes `<directory name>-`), `id_length` (4), `default_status` (`todo`), `default_type` (`task`; without `task` in the type table, the first type), `require_if_match` (false), `require_fields_on` (none), `commit_field` (`commit`).
-- `worktree`: `base_ref` (`main`), `path` (`~/.lif/worktrees/<project>/`), `setup`, `run`, `integrate` (`local` or `pr`; default `local`), `fetch_timeout` (10 seconds, 0 disables the fetch).
-- `agent`: `enabled` (true), `default_mode` (`act` or `plan`; default `act`), `default_effort` (`low`, `medium`, `high`, `max`; default empty = no override).
-- `server`: `port` (8080), `cors_origins` (default `http://localhost:*`, `http://127.0.0.1:*`; `*` allows all).
-- `display`: `theme` (`latte`, `frappe`, `macchiato`, `mocha`; default `mocha`), `max_width` (0 = 110; -1 removes the limit; `--max-width` overrides per command).
-- Source: FACTS.md §4.3
+Where Lif looks for the store directory, highest priority first:
 
-### Statuses, types and priorities
-- Built-in tables: status (`in-progress`, `todo`, `draft`, `completed`, `scrapped`), types (`milestone`, `epic`, `feature`, `bug`, `task`), priorities (`critical`, `high`, `normal`, `low`, `deferred`); details on `reference/item-file-format` (Allowed values and defaults).
-- Custom entries under `statuses:`, `types:`, `priorities:` override built-in entries by name or are appended.
-- Fields: `statuses`: `name`, `color`, `archive`, `short`, `description`; `types`: `name`, `color`, `rank`, `emphasis`, `roadmap`, `short`, `description`; `priorities`: `name`, `color`, `symbol`, `description`. Omitting `archive` keeps the default of the built-in entry; `lif archive` moves items with an archive status to `archive/`.
-- `types_exclusive: true`: `types` is the complete table, built-in types are not added; `lif init --profile` sets it.
-- Caution, blocking logic: "resolved" is fixed to `completed` or `scrapped`; the flag `archive: true` does not count there, so a custom archive status keeps blocking. Ready logic (`ready`), in contrast, excludes every status with `archive: true`.
-- Accepted color values (TODO: verify)
-- Source: FACTS.md §2.3, §4.3, §5.1 ("Resolved" status), §5.2; `TODO: verify` for the color format: see `pkg/config/config.go` and the color check in `internal/commands/check.go`
+| # | Source |
+|---|---|
+| 1 | `--lif-path` |
+| 2 | The config file: its `lif.path`, or the default store directory next to it |
+| 3 | `LIF_PATH` |
+| 4 | The default store directory in the current directory |
 
-### Types, ranks and hierarchy rules
-- Rank scale: every type has an integer `rank`; a parent is valid if the child's rank is strictly greater than the parent's; types of equal rank do not nest ("level" is only a prose synonym for rank). Ranks 1 to 3 are container ranks, rank 4 is the leaf rank; a type without `rank` gets 4, an unknown type counts as 4; gaps are allowed.
-- Depth: with the built-in types and the preset `classic` there are four levels (`milestone` > `epic` > `feature` > `bug`/`task`); custom types can go deeper, there is no fixed upper limit (ranks 5 to 7 were accepted). The "four levels" are a property of the built-in scale, not an enforced maximum.
-- Where enforced: `Core.ValidateParent` checks on create with `--parent`, on `lif update --parent` and on the GraphQL mutations `createItem`, `updateItem`, `setParent`; all CLI write commands, the GraphQL mutations and the TUI parent picker go through the same resolver. Errors: `parent item not found: <id>`, `<type> items cannot have a parent`, `<type> items can only have <a, b, or c> as parent, not <type>`. Additionally a cycle check for `parent` (`would create cycle: [...]`).
-- Enforcement gap: changing only the `type` (`lif update -t`, `updateItem(type)`) does not re-trigger the rank check; an item can stay under a parent with an unsuitable rank and `lif check` stays green. Tracked as a bug (D43).
-- What is only validated: `lif check` verifies configuration (default type, colors, theme, effort, prefix consistency), the type of every item against the type table, broken links, self-references, cycles in `parent`, `blocking` and `blocked_by`, orphaned `attachments/<id>` directories, and required fields and commit SHAs as warnings.
-- What `lif check` does NOT verify (canonical statement for D40): rank rule of parent and child, status and priority values of items, tag format, duplicate IDs, mismatch between file name and ID, front matter syntax beyond loading; manual edits (`parent:`, `type:`, `status:`, `blocking:`) are accepted on load. Extending `lif check` is planned; this page follows once it ships.
-- Source: FACTS.md §3, §3.1, §3.2, §5.3, §6.9, §9(a), §9(c), §9(d), §9(e); DESIGN.md D39, D40, D43, D45
+- A discovered config file, and only a discovered one, demotes `LIF_PATH`. Reason in the code: variables exported with direnv must not redirect unrelated repositories.
+- `LIF_PATH` and legacy `BEANS_PATH` both set is an error. If only the legacy one is set, it is used.
+- A relative `lif.path` is resolved against the config directory. An absolute one is used as is.
+- `lif.anchor: repo-root`: all Git worktrees of a repository share one store. Without `anchor` a worktree uses its own store. Any other value is a config load error.
+- Missing directory: `no .lif directory found at <path> (run 'lif init' to create one)`. With an explicit path: `store path does not exist or is not a directory: <path>`. `lif path` prints the result.
 
-### Presets
-- Explains: a preset is a type table that `lif init --profile <name>` writes out once into `.lif.yml`; the file no longer refers to the preset name afterwards. `lif init --profile` sets `types_exclusive: true` and the default type `task`.
-- Table `classic`: `milestone` (1), `epic` (2), `feature` (3), `bug` (4), `task` (4); four levels. Table `todo`: only `task` (4); one level.
-- Table `simple`: `milestone` (1), `bucket` (1, `roadmap: false`), `epic` (2), `feature` (2), `bug` (4), `task` (4); three levels.
-- Table `complex`: `release` (1), `bucket` (1, `roadmap: false`), `feature` (2), `improvement` (2), `chore` (2), `story` (4), `bug` (4), `task` (4); three levels.
-- Explains `roadmap: false` on a type: hides the type from `lif roadmap` and `lif milestones`; on a container rank the whole subtree disappears. Mermaid diagram per preset (hierarchy; D38); an unknown profile gives `unknown profile "<x>" (must be classic, complex, simple, todo)`.
-- Open: whether a preset also changes statuses or priorities (TODO: verify)
-- Source: FACTS.md §9(b), §3, §1.1 (`lif init`); DESIGN.md D38, D39; `TODO: verify` for statuses and priorities of the presets: see `pkg/config/profiles.go`
+The task-oriented view, with worktrees, a shared store and the ID prefix, is [Store management](../../overview/store-management/). This section stays the canonical precedence table.
 
-### Status-dependent required fields
-- `lif.require_fields_on`: map of status to list of extra keys; an unknown status, an empty field name or a reserved field name is a config load error.
-- Writing an item into such a status without a non-empty value for every key fails on `create` and `update` with a policy violation (error code `POLICY_VIOLATION`).
-- `lif check` reports it as a warning (section "Policy"); with `--strict` the warning counts as a finding (exit code 1).
-- "Missing" means: key absent, null, or whitespace only.
-- `lif.commit_field` (default `commit`): extra key holding a Git SHA; `lif complete --commit <ref>` writes it, `lif check` verifies that the repository knows it (otherwise a warning; without a Git repository the check is skipped).
-- Source: FACTS.md §2.3, §4.3, §6.5, §1.0
+## Keys and defaults
 
-### Annotated example and recipes
-- Shows a commented `.lif.yml` as `lif init` generates it (TODO: verify)
-- Recipe: rename a type or add a custom type with a rank (TODO: verify)
-- Recipe: add a custom status, including `archive` (TODO: verify)
-- Recipe: set custom colors (TODO: verify)
-- Source: `TODO: verify` — build the examples in phase 5 with `lif init` and verify them with `lif check`; FACTS contains no example configuration
+`lif init` writes a file like this (excerpt, Lif 0.14):
+
+```yaml
+project:
+    # Human-readable project name (displayed in the UI)
+    name: myproject
+lif:
+    # Directory where item files are stored
+    path: .lif
+    # Prefix for item IDs (e.g., "myproject-abc1")
+    prefix: myproject-
+    # Length of the random ID suffix
+    id_length: 4
+    default_status: todo
+    default_type: task
+worktree:
+    base_ref: main
+agent:
+    enabled: true
+    default_mode: act
+server:
+    port: 8080
+```
+
+| Group | Key | Default |
+|---|---|---|
+| `project` | `name` | empty (`lif init` writes the directory name) |
+| `lif` | `path` | empty = `.lif` |
+| | `anchor` | empty; only `repo-root` |
+| | `prefix` | empty (`lif init` writes `<directory>-`) |
+| | `id_length` | 4 |
+| | `default_status` | `todo` |
+| | `default_type` | `task` (without `task` in the type table: the first type) |
+| | `require_if_match` | false |
+| | `require_fields_on` | none |
+| | `commit_field` | `commit` |
+| `worktree` | `base_ref` | `main` |
+| | `path` | `~/.lif/worktrees/<project>/` |
+| | `setup`, `run` | empty |
+| | `integrate` | `local` (or `pr`) |
+| | `fetch_timeout` | 10 seconds; 0 disables the fetch |
+| `agent` | `enabled` | true |
+| | `default_mode` | `act` (or `plan`) |
+| | `default_effort` | empty = no override (`low`, `medium`, `high`, `max`) |
+| `server` | `port` | 8080 |
+| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` allows all |
+| `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`) |
+| | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command |
+
+`lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/).
+
+## Statuses, types and priorities
+
+- Built-in statuses: `in-progress`, `todo`, `draft`, `completed`, `scrapped`. Types: `milestone`, `epic`, `feature`, `bug`, `task`. Priorities: `critical`, `high`, `normal`, `low`, `deferred`. See [Item file format](../item-file-format/#allowed-values-and-defaults).
+- Entries under `statuses:`, `types:` and `priorities:` override a built-in entry by name or are appended.
+- Fields. `statuses`: `name`, `color`, `archive`, `short`, `description`. `types`: `name`, `color`, `rank`, `emphasis`, `roadmap`, `short`, `description`. `priorities`: `name`, `color`, `symbol`, `description`. Omitting `archive` keeps the default of a built-in entry. `lif archive` moves items with an archive status to `archive/`.
+- `types_exclusive: true`: `types` is the complete table; built-in types are not added. `lif init --profile` sets it.
+- Colors: a Catppuccin color name (`sapphire`, `maroon`, `green`, `teal`) or a hex value (`#ff8800`). `lif check` reports an invalid one: `✗ invalid color 'notacolor' for type 'spike'`.
+- Blocking logic: "resolved" means `completed` or `scrapped`, fixed. The flag `archive: true` does not count there, so an item in a custom archive status keeps blocking. The ready logic, in contrast, excludes every status with `archive: true`.
+
+### Recipes
+
+Add a status and a type, set colors. Verified with `lif check` and `lif create` (Lif 0.14):
+
+```yaml
+statuses:
+    - name: review
+      color: "#ff8800"
+      description: Waiting for review
+    - name: shipped
+      color: green
+      archive: true
+types:
+    - name: spike
+      rank: 3
+      color: teal
+      description: Time-boxed research
+```
+
+```sh
+lif check
+lif create "Try it" -t spike -s review
+```
+
+To rename a type, add the new type, then change the old items: `lif update <id> -t <new-type>`. Lif does not rename types in existing files.
+
+## Types, ranks and hierarchy rules
+
+- Every type has an integer `rank`. A parent is valid if the child's rank is **strictly greater** than the parent's. Types of equal rank do not nest. "Level" is only a prose synonym for rank.
+- Ranks 1 to 3 are container ranks, rank 4 is the leaf rank. A type without `rank` gets 4, an unknown type counts as 4. Gaps are allowed.
+- Depth: the built-in types and the preset `classic` have four levels (`milestone` > `epic` > `feature` > `bug`/`task`). Custom types can go deeper; there is no upper limit (ranks 5 to 7 were accepted). "Four levels" describes the built-in scale, not a maximum.
+- Enforced on write: on `lif create --parent`, `lif update --parent`, `lif update --type` and the GraphQL mutations `createItem`, `updateItem`, `setParent`. The CLI, GraphQL and the TUI go through the same checks. Errors:
+
+```text
+parent item not found: <id>
+<type> items cannot have a parent
+<type> items can only have <a, b, or c> as parent, not <type>
+would create cycle: [...]
+```
+
+- A type change checks both directions (since 0.14): the parent must allow the new type, and every child must be allowed under it. `lif update` checks every target before it writes the first one. Example: `Error: <id>: task items cannot be a child of task items (child <id>)`.
+- Manual edits (`parent:`, `type:`, `status:`, `blocking:`) are accepted on load. `lif check` finds them afterwards.
+
+### What `lif check` verifies
+
+| Verified | Not verified |
+|---|---|
+| Configuration: default type, colors, theme, effort, prefix consistency | Duplicate IDs |
+| Type of every item against the type table | File name and ID that do not match |
+| Status and priority values, tag format | Front matter syntax beyond loading |
+| Parent of the wrong type rank: `✗ item <id> (epic) cannot sit under parent <id> (task): parent must rank higher` | |
+| Broken links, self-references, cycles in `parent`, `blocking`, `blocked_by` | |
+| Orphaned `attachments/<id>` directories | |
+| Required fields and commit SHAs (warnings) | |
+
+## Presets
+
+A preset is a type table that `lif init --profile <name>` writes once into `.lif.yml`. The file does not refer to the preset name afterwards. `lif init --profile` sets `types_exclusive: true` and the default type `task`. A preset changes only the type table; statuses and priorities stay the built-in ones. An unknown name gives `unknown profile "<x>" (must be classic, complex, simple, todo)`.
+
+`roadmap: false` on a type hides it from `lif roadmap` and `lif milestones`. On a container rank the whole subtree disappears.
+
+| Preset | Types (rank) | Levels |
+|---|---|---|
+| `classic` | `milestone` (1), `epic` (2), `feature` (3), `bug` (4), `task` (4) | 4 |
+| `todo` | `task` (4) | 1 |
+| `simple` | `milestone` (1), `bucket` (1, `roadmap: false`), `epic` (2), `feature` (2), `bug` (4), `task` (4) | 3 |
+| `complex` | `release` (1), `bucket` (1, `roadmap: false`), `feature` (2), `improvement` (2), `chore` (2), `story` (4), `bug` (4), `task` (4) | 3 |
+
+```mermaid
+flowchart TD
+  subgraph classic
+    m1[milestone 1] --> e1[epic 2] --> f1[feature 3] --> t1[bug / task 4]
+  end
+  subgraph complex
+    r2[release 1] --> f2[feature / improvement / chore 2] --> s2[story / bug / task 4]
+  end
+```
+
+## Status-dependent required fields
+
+- `lif.require_fields_on` maps a status to a list of extra keys. An unknown status, an empty field name or a reserved field name is a config load error.
+- Writing an item into such a status without a non-empty value for every key fails on `create` and `update` with error code `POLICY_VIOLATION`.
+- `lif check` reports it as a warning in the section "Policy". With `--strict` the warning counts as a finding (exit code 1).
+- "Missing" means: key absent, null, or only whitespace.
+- `lif.commit_field` (default `commit`) is the extra key that holds a Git SHA. `lif complete --commit <ref>` writes it. `lif check` verifies that the repository knows it (otherwise a warning; without a Git repository the check is skipped).
+
+```yaml
+lif:
+  require_fields_on:
+    completed: [commit]
+```

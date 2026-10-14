@@ -3,83 +3,165 @@ title: "GraphQL"
 description: "The GraphQL API for items: invoke it, read the schema, run queries and mutations."
 ---
 
-## Purpose
-Reference for the GraphQL interface for items: how to call it, what the schema contains, and what queries and mutations look like. In its final form the page consists of a hand-written introduction with examples plus the schema (SDL) embedded at build time.
+GraphQL is the third way to reach items, next to the Markdown files and the CLI. Measured on Lif 0.14, 2026-10-14. JSON shapes of other commands: [JSON output](../json-output/).
 
-## Audience
-Script and agent authors and developers who want to read or change items via JSON instead of the command line, and web server operators who use the HTTP interface.
+## What the API is and when to use it
 
-## Required sections
+- A script or an agent asks for exactly the fields it needs. One `items(filter)` call replaces several `lif list` calls.
+- Relationships (`parent`, `children`, `blocking`, `blockedBy`) come back in one request.
+- Two modes: **in-process** through `lif graphql` (no server needed) and **over HTTP** through `lif-serve` ([Web server](../web-server/)). The in-process mode has only the item operations.
 
-### What the API is and when to use it
-- Explains: GraphQL is structured access to the item store next to Markdown and the CLI (third access path: JSON + GraphQL).
-- Names use cases: scripts and agents that need exactly the fields (`items(filter)` instead of several `lif list` calls), relationships (`parent`, `children`, `blocking`, `blockedBy`) in one request.
-- Shows the two modes of operation: in-process via the CLI (no server needed) and over HTTP with `lif-serve`.
-- Links to `reference/web-server` and the generated command page `lif graphql` (`reference/commands/lif-graphql`).
-- Source: FACTS.md §7, §7.5, §1.1 (`lif graphql`); DESIGN.md D27
+The command page is [`lif graphql`](../commands/lif-graphql/).
 
-### Invoking it
-- Table or list of the two ways: CLI in-process and HTTP.
-- CLI: `lif graphql '<query>'`, alias `lif query`; query from the argument or, if none, from stdin (pipe or file); more than one argument is an error; empty stdin: `no query provided (pass as argument or pipe to stdin)`.
-- Flags: `--json` (without colors, both modes print indented), `-v`/`--variables` (JSON string), `-o`/`--operation` (operation name when there are several operations), `--schema` (print the schema and exit).
-- HTTP: `lif-serve` serves the full schema at `/api/graphql` (WebSocket, OPTIONS, GET, POST) and the GraphQL Playground at `/playground`; default port 8080.
-- Shows example calls: argument, stdin pipe, variables, `--schema` (the command help names: list items, get an item, filter by status, relationships, variables, stdin, schema).
-- Source: FACTS.md §7.5, §1.1 (`lif graphql`), §8.1
+## Invoking it
 
-### Schema overview
-- Explains: one schema (`internal/graph/schema.graphqls`, a single file) contains the core item operations and, next to them, operations for the web server only.
-- Core item operations: `item`, `items`, `createItem`, `updateItem`, `deleteItem`, `setParent`, `addBlocking`, `removeBlocking`, `addBlockedBy`, `removeBlockedBy`, `archiveItem`, `saveDirtyItems`, `saveItem`, subscription `itemChanged`.
-- Web server only: worktrees, agent sessions, terminal, file changes/diffs, run/stop, open in editor; in CLI mode mutations of this group return errors such as "agent manager not available".
-- Note: individual query-only fields of the server group can still respond in the CLI if they need no manager (observed: `{ agentEnabled }`).
-- Stresses: `status`, `type` and `priority` are plain `String` fields, not enums; valid values come from the configuration (`reference/configuration`). Scalars: `Time`, `Map`.
-- Shows the type `Item` (fields incl. derived `etag`, `isDirty`, `implicitStatus`, `implicitStatusFrom`, `extra`) in a compact table.
-- Source: FACTS.md §7, §7.1, §7.2, §7.3, §7.4
+| Mode | How |
+|---|---|
+| CLI | `lif graphql '<query>'` (alias `lif query`). Without an argument the query is read from stdin. |
+| HTTP | `lif-serve` serves `/api/graphql` (WebSocket, OPTIONS, GET, POST) and a playground at `/playground`. Default port 8080. |
 
-### Queries
-- `item(id: ID!)`: accepts a full or short ID without prefix, returns `null` if nothing is found.
-- `items(filter: ItemFilter)`: list of all matching items.
-- Table `ItemFilter`: `search`, `status`/`excludeStatus`, `type`/`excludeType`, `priority`/`excludePriority`, `tags`/`excludeTags`, parent filters (`hasParent`, `noParent`, `parentId`), blocking filters (`hasBlocking`, `noBlocking`, `blockingId`, `hasBlockedBy`, `noBlockedBy`, `blockedById`), blocked state (`isBlocked`, `isExplicitlyBlocked`, `isImplicitlyBlocked`), `excludeImplicitTerminal`.
-- Further fields: `projectName`, `mainBranch`; relationship fields on the item (`parent`, `children`, `blocking`, `blockedBy` with their own `filter`).
-- Shows one example each: item by ID, filter by status, children of a container.
-- Source: FACTS.md §7.1, §7.4
+Flags of `lif graphql`: `--json` (no colors; both modes print indented), `-v`/`--variables` (JSON string), `-o`/`--operation` (name, when the document has several operations), `--schema` (print the schema and exit). More than one argument is an error; empty stdin gives `no query provided (pass as argument or pipe to stdin)`.
 
-### Mutations
-- Explains the core mutations: `createItem(input: CreateItemInput!)`, `updateItem(id, input: UpdateItemInput!)`, `deleteItem(id)` (removes incoming links automatically), `setParent(id, parentId, ifMatch)` (checks the type hierarchy), `addBlocking`/`removeBlocking`/`addBlockedBy`/`removeBlockedBy` (each with `ifMatch`), `archiveItem`.
-- Table `CreateItemInput` (`title`, `type`, `status`, `priority`, `tags`, `body`, `parent`, `blocking`, `blockedBy`, `prefix`) and `UpdateItemInput` (among others `addTags`/`removeTags`, `bodyMod`, `addBlocking` etc., `order`, `ifMatch`).
-- Explains `bodyMod` (`replace: [{old, new}]`, `append`) as an alternative to `body`; using both together is forbidden.
-- Explains `ifMatch` (ETag comparison against concurrent changes) and the derived field `etag` on the item.
-- Shows example: create an item, change status, set parent, add blocking.
-- Source: FACTS.md §7.2, §7.4
+```sh
+lif graphql '{ items { id title status } }'
+echo '{ items { id title } }' | lif graphql
+lif graphql -v '{"id":"abc"}' 'query($id: ID!) { item(id: $id) { title } }'
+lif graphql --schema
+```
 
-### Subscriptions
-- Explains `itemChanged(includeInitial: Boolean = false)` with `ItemChangeEvent { type, item, items, itemId }`; `ChangeType` = `INITIAL_SNAPSHOT`, `CREATED`, `UPDATED`, `DELETED`; a slow subscriber additionally receives `INITIAL_SNAPSHOT`.
-- Clarifies: subscriptions run only over the WebSocket of `lif-serve`, not via `lif graphql`.
-- Only name the other subscriptions of the server group: `worktreesChanged`, `agentSessionChanged`, `activeAgentStatuses`, `workspaceStatuses`.
-- Links to the section "Live updates" in `reference/web-server`.
-- Source: FACTS.md §7.3, §8.1
+Over HTTP the server has **no authentication** ([8h4v]); read the warning on [Web server](../web-server/) first.
 
-### Examples
-- Three real runs with output: filter items (query), create an item (mutation), change an item with variables (`-v`).
-- Each example shows the command, the output and a short explanation of the fields.
-- The examples are to be run in phase 5 in a fresh store with `lif init`; no invented output.
-- Source: `TODO: verify` — FACTS shows no complete runs except the observed `createItem`; run with `lif graphql` in the test store in phase 5
+```sh
+curl -s -X POST http://localhost:8080/api/graphql \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"{ items { id title status } }"}'
+```
 
-### Errors and validation
-- Error format in the CLI: a single error as `graphql: <message>`, several as `graphql errors:` with an indented list.
-- Input validation on write: title non-empty and at most 1000 characters, body at most 1 MiB, tags must match the tag pattern, prefix pattern; `body` and `bodyMod` are mutually exclusive, as are `tags` and `addTags`/`removeTags`.
-- Type, status and priority names are checked against the configured tables (only on create and for supplied fields).
-- Parent check on `createItem` (with parent), `setParent` and `updateItem` with `parent`: rank rule and cycle check; behaves as in the CLI.
-- HTTP WebSocket: a disallowed origin returns 403 `origin not allowed` (cross-reference `reference/web-server`).
-- Source: FACTS.md §7.4, §7.5, §3.1, §8.1
+## Schema overview
 
-### Known gaps
-- `createItem` without `status` leaves the status empty (`"status": ""`); the default status `todo` is set only by `lif create`. Recommendation: always specify `status`.
-- Changing only the `type` via `updateItem(type)` does not re-check the parent/child ranks (same as with `lif update -t`).
-- Both gaps are tracked as product bugs; update the page as soon as they are fixed.
-- Source: FACTS.md §7.5, §3.1; DESIGN.md D43
+One schema file holds the item operations and, next to them, operations for `lif-serve` only: worktrees, agent sessions, terminal, file changes and diffs, run and stop, open in editor. In the CLI mode the mutations of that group fail (`worktree support not available`, `agent manager not available`, `terminal support not available`). Some query-only fields of the group still answer in the CLI when they need no manager, such as `{ agentEnabled }`.
 
-### Schema (SDL)
-- Embeds the complete SDL, generated at build time from `lif graphql --schema`; do not copy by hand.
-- Note for the implementation: the generator step (embedding) belongs in phase 5.
-- Optionally a short sentence that the schema is 845 lines long and is regenerated with `just gqlgen` (developers only).
-- Source: FACTS.md §7, §7.5; DESIGN.md D27
+Item operations: `item`, `items`, `createItem`, `updateItem`, `deleteItem`, `setParent`, `addBlocking`, `removeBlocking`, `addBlockedBy`, `removeBlockedBy`, `archiveItem`, `saveItem`, `saveDirtyItems`, and the subscription `itemChanged`.
+
+`status`, `type` and `priority` are plain `String` fields, not enums. Valid values come from the [configuration](../configuration/). Custom scalars: `Time`, `Map`.
+
+Main fields of `Item`:
+
+| Field | Meaning |
+|---|---|
+| `id`, `slug`, `path`, `title`, `body` | Identity and text. |
+| `status`, `type`, `priority`, `tags`, `order` | Classification. |
+| `createdAt`, `updatedAt` | Timestamps (`Time`). |
+| `parent`, `children`, `blocking`, `blockedBy` | Relationships; the lists take their own `filter`. |
+| `etag` | Hash of the file; pass it as `ifMatch`. |
+| `isDirty` | Unsaved changes in memory. |
+| `implicitStatus`, `implicitStatusFrom` | Status derived from children or blockers. |
+| `extra` | Extra front matter keys (`Map`). |
+
+## Queries
+
+- `item(id: ID!)`: full ID or short ID without prefix. Returns `null` if nothing matches.
+- `items(filter: ItemFilter)`: all matching items, in the default sort order of `lif list`.
+- `projectName`, `mainBranch`: project data.
+
+`ItemFilter` fields:
+
+| Group | Fields |
+|---|---|
+| Text | `search` (see [Search syntax](../search-syntax/)) |
+| Classification | `status`/`excludeStatus`, `type`/`excludeType`, `priority`/`excludePriority`, `tags`/`excludeTags` |
+| Parent | `hasParent`, `noParent`, `parentId` |
+| Links | `hasBlocking`, `noBlocking`, `blockingId`, `hasBlockedBy`, `noBlockedBy`, `blockedById` |
+| Blocked state | `isBlocked`, `isExplicitlyBlocked`, `isImplicitlyBlocked`, `excludeImplicitTerminal` |
+
+Set fields combine with AND; values inside one list are OR. The nested `children`, `blocking` and `blockedBy` fields ignore `search`.
+
+## Mutations
+
+- `createItem(input: CreateItemInput!)`: `title`, `type`, `status`, `priority`, `tags`, `body`, `parent`, `blocking`, `blockedBy`, `prefix`.
+- `updateItem(id, input: UpdateItemInput!)`: the same fields, plus `addTags`/`removeTags`, `bodyMod`, `order`, `ifMatch`. Only supplied fields change.
+- `deleteItem(id)`: removes incoming links in other items automatically.
+- `setParent(id, parentId, ifMatch)`: checks the type hierarchy.
+- `addBlocking`, `removeBlocking`, `addBlockedBy`, `removeBlockedBy`: each with `ifMatch`.
+- `archiveItem(id)`: moves an item with an archive status to `archive/`.
+
+`bodyMod` edits the body in place: `replace: [{old, new}]` or `append`. It cannot be combined with `body`, and `tags` cannot be combined with `addTags` or `removeTags`.
+
+`ifMatch` compares the ETag with the current file. If the item changed meanwhile, the call fails with a conflict. The `etag` field gives the current value. With `lif.require_if_match: true` the value is mandatory.
+
+## Subscriptions
+
+`itemChanged(includeInitial: Boolean = false)` delivers `ItemChangeEvent { type, item, items, itemId }`. `type` is `INITIAL_SNAPSHOT`, `CREATED`, `UPDATED` or `DELETED`. A subscriber that is too slow also receives an `INITIAL_SNAPSHOT`. Subscriptions run only over the WebSocket of `lif-serve`, not through `lif graphql`. The server group adds `worktreesChanged`, `agentSessionChanged`, `activeAgentStatuses`, `workspaceStatuses`. See [Live updates](../web-server/#live-updates).
+
+## Examples
+
+Real runs in a fresh store (Lif 0.14, 2026-10-14). IDs are shortened by the store prefix `f014j-`.
+
+**Filter items (query)** with a variable:
+
+```sh
+lif graphql --json -v '{"s":["todo"]}' \
+  'query($s:[String!]){ items(filter:{status:$s}) { id title status } }'
+```
+
+```json
+{
+  "items": [
+    { "id": "f014j-dsdd", "title": "Via GraphQL", "status": "todo" }
+  ]
+}
+```
+
+**Create an item (mutation).** Without `status` the configured default is used (`todo` here):
+
+```sh
+lif graphql --json 'mutation { createItem(input:{title:"Via GraphQL", type:"task"}) { id status type } }'
+```
+
+```json
+{
+  "createItem": { "id": "f014j-dsdd", "status": "todo", "type": "task" }
+}
+```
+
+**Change an item with variables (`-v`):**
+
+```sh
+lif graphql --json -v '{"id":"ix1n","s":"in-progress"}' \
+  'mutation($id:ID!,$s:String){ updateItem(id:$id, input:{status:$s}) { id status } }'
+```
+
+```json
+{
+  "updateItem": { "id": "f014j-ix1n", "status": "in-progress" }
+}
+```
+
+**Children of a container** (the example output has one epic with one child):
+
+```sh
+lif graphql --json '{ items(filter:{type:["epic"]}) { id children { id status } } }'
+```
+
+## Errors and validation
+
+- In the CLI one error prints as `Error: graphql: <message>`; several print as `graphql errors:` with an indented list. The exit code is 1.
+- Over HTTP the response has `errors[0].message` and `data: null`.
+- Write validation is the same as in the CLI: title not empty and at most 1000 characters, body at most 1 MiB, tags match the tag pattern, `body` and `bodyMod` exclusive. Type, status and priority names are checked against the configured tables for the supplied fields.
+- Parent rules apply on `createItem` (with `parent`), `setParent` and `updateItem` with `parent` or a changed `type`: rank rule and cycle check, as in [Configuration](../configuration/#types-ranks-and-hierarchy-rules).
+
+```text
+Error: graphql: invalid title: must not be empty
+Error: graphql: task items can only have milestone, epic, or feature as parent, not task
+```
+
+- A WebSocket from a disallowed origin gets 403 `origin not allowed` ([Web server](../web-server/#network-and-cors)).
+
+## Known gaps
+
+- `createItem` without `status` sets the default status since 0.14. `lif promote` goes through the same path; a part-way failure of `lif promote` stays open ([z69m]).
+- A search in a nested field is ignored (see [Search syntax](../search-syntax/)); `AND`/`OR`/`NOT` in `search` do not work ([xa2j]).
+
+## Schema (SDL)
+
+The full schema is about 1060 lines. Print it with `lif graphql --schema`. It is generated from `internal/graph/schema.graphqls`; developers regenerate code with `just gqlgen`.

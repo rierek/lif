@@ -244,18 +244,41 @@ func printCreated(b *item.Item) error {
 	return nil
 }
 
-// runCreateInteractiveWith is runCreateInteractive's testable core.
-func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput, out io.Writer) error {
+// runCreateInteractiveWith is runCreateInteractive's testable core. It
+// repeats form, menu and write while the user picks "create next". A cancel
+// after at least one written item ends the run with success; before that it
+// returns errCreateAborted.
+func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput, out io.Writer) (err error) {
 	d := newCreateDraft(args)
-	if err := runCreateFormWith(&d, in, out); err != nil {
-		return err
+	carry := newCreateCarry()
+	wrote := false
+	defer func() {
+		if wrote && err == errCreateAborted {
+			err = nil
+		}
+	}()
+	for {
+		if err := runCreateFormWith(&d, in, out); err != nil {
+			return err
+		}
+		act, err := runCreateMenuWith(&d, createJSON, in, out)
+		if err != nil {
+			return err
+		}
+		b, err := writeCreateDraft(cmd, d)
+		if err != nil {
+			return err
+		}
+		wrote = true
+		if err := printCreated(b); err != nil {
+			return err
+		}
+		if act != createMenuCreateNext {
+			return nil
+		}
+		if err := runCreateCarryStep(&carry, in, out); err != nil {
+			return err
+		}
+		d = nextCreateDraft(d, carry)
 	}
-	if _, err := runCreateMenuWith(&d, in, out); err != nil {
-		return err
-	}
-	b, err := writeCreateDraft(cmd, d)
-	if err != nil {
-		return err
-	}
-	return printCreated(b)
 }

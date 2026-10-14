@@ -15,40 +15,53 @@ import (
 // createMenuAction is what the action menu hands back to the run core.
 type createMenuAction int
 
-const createMenuCreate createMenuAction = iota
-
 const (
-	menuBody      = "body"
-	menuCreate    = "create"
-	menuTags      = "tags"
-	menuBlockedBy = "blocked_by"
-	menuBlocking  = "blocking"
-	menuStatus    = "status"
+	createMenuCreate createMenuAction = iota
+	createMenuCreateNext
 )
 
-// runCreateMenuWith shows the action menu until the user picks "create".
-// Every other entry runs its step on *d and returns to the menu with the
-// cursor back on "create". Ctrl+C anywhere returns errCreateAborted.
-func runCreateMenuWith(d *createDraft, in createInput, out io.Writer) (createMenuAction, error) {
+const (
+	menuBody       = "body"
+	menuCreate     = "create"
+	menuCreateNext = "create next"
+	menuTags       = "tags"
+	menuBlockedBy  = "blocked_by"
+	menuBlocking   = "blocking"
+	menuStatus     = "status"
+)
+
+// runCreateMenuWith shows the action menu until the user picks "create" or
+// "create next". Under --json the menu omits "create next": one run prints
+// one JSON object. Every other entry runs its step on *d and returns to the
+// menu with the cursor back on "create". Ctrl+C anywhere returns
+// errCreateAborted.
+func runCreateMenuWith(d *createDraft, jsonMode bool, in createInput, out io.Writer) (createMenuAction, error) {
 	for {
 		choice := menuCreate
-		// The "create next" slot of beans-tem3 goes directly after "create".
+		opts := []huh.Option[string]{
+			huh.NewOption("go to body", menuBody),
+			huh.NewOption("create", menuCreate),
+		}
+		if !jsonMode {
+			opts = append(opts, huh.NewOption("create next", menuCreateNext))
+		}
+		opts = append(opts,
+			huh.NewOption("set tags", menuTags),
+			huh.NewOption("set blocked_by", menuBlockedBy),
+			huh.NewOption("set blocking", menuBlocking),
+			huh.NewOption("set status", menuStatus),
+		)
 		err := runCreateForm(in, out, nil, huh.NewGroup(huh.NewSelect[string]().
 			Title("Action").
-			Options(
-				huh.NewOption("go to body", menuBody),
-				huh.NewOption("create", menuCreate),
-				huh.NewOption("set tags", menuTags),
-				huh.NewOption("set blocked_by", menuBlockedBy),
-				huh.NewOption("set blocking", menuBlocking),
-				huh.NewOption("set status", menuStatus),
-			).Value(&choice)))
+			Options(opts...).Value(&choice)))
 		if err != nil {
 			return 0, err
 		}
 		switch choice {
 		case menuCreate:
 			return createMenuCreate, nil
+		case menuCreateNext:
+			return createMenuCreateNext, nil
 		case menuBody:
 			err = runCreateBodyStep(d, in, out)
 		case menuTags:

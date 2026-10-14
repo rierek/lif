@@ -19,18 +19,25 @@ const keyUp = "\x1b[A"
 // action, error and chrome.
 func cmRun(t *testing.T, d *createDraft, programs ...[]string) (createMenuAction, error, *bytes.Buffer) {
 	t.Helper()
+	return cmRunMode(t, d, false, programs...)
+}
+
+// cmRunMode is cmRun with the --json mode of the run.
+func cmRunMode(t *testing.T, d *createDraft, jsonMode bool, programs ...[]string) (createMenuAction, error, *bytes.Buffer) {
+	t.Helper()
 	var chrome bytes.Buffer
-	act, err := runCreateMenuWith(d, feedCreatePrograms(t, programs...), &chrome)
+	act, err := runCreateMenuWith(d, jsonMode, feedCreatePrograms(t, programs...), &chrome)
 	return act, err, &chrome
 }
 
 // Menu keys from the initial cursor on create.
 var (
 	cmBody      = []string{keyUp, keyEnter}
-	cmTags      = []string{keyDown, keyEnter}
-	cmBlockedBy = []string{keyDown, keyDown, keyEnter}
-	cmBlocking  = []string{keyDown, keyDown, keyDown, keyEnter}
-	cmStatus    = []string{keyDown, keyDown, keyDown, keyDown, keyEnter}
+	cmNext      = []string{keyDown, keyEnter}
+	cmTags      = []string{keyDown, keyDown, keyEnter}
+	cmBlockedBy = []string{keyDown, keyDown, keyDown, keyEnter}
+	cmBlocking  = []string{keyDown, keyDown, keyDown, keyDown, keyEnter}
+	cmStatus    = []string{keyDown, keyDown, keyDown, keyDown, keyDown, keyEnter}
 )
 
 func TestRunCreateMenuEntriesOrderAndCursor(t *testing.T) {
@@ -42,21 +49,33 @@ func TestRunCreateMenuEntriesOrderAndCursor(t *testing.T) {
 	}
 	view := ciText(chrome.String())
 	last := -1
-	for _, label := range []string{"go to body", "create", "set tags", "set blocked_by", "set blocking", "set status"} {
+	for _, label := range []string{"go to body", "create", "create next", "set tags", "set blocked_by", "set blocking", "set status"} {
 		i := strings.Index(view, label)
 		if i < 0 || i < last {
 			t.Fatalf("entry %q missing or out of order in %q", label, view)
 		}
 		last = i
 	}
-	if strings.Contains(view, "create next") {
-		t.Error("menu shows create next")
-	}
 	if !strings.Contains(view, "▸ create") {
 		t.Errorf("cursor not on create in %q", view)
 	}
 }
 
+func TestRunCreateMenuJSONOmitsCreateNext(t *testing.T) {
+	ciFixture(t)
+	d := newCreateDraft([]string{"T"})
+	// Under --json, the entry after "create" is "set tags": one Down reaches it.
+	_, err, chrome := cmRunMode(t, &d, true, []string{keyDown, keyEnter}, []string{"jsontag", keyEnter}, []string{keyEnter})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(d.Tags, []string{"jsontag"}) {
+		t.Errorf("tags = %v: Down from create did not reach set tags", d.Tags)
+	}
+	if strings.Contains(ciText(chrome.String()), "create next") {
+		t.Error("menu shows create next under --json")
+	}
+}
 func TestRunCreateMenuReturnsAfterTags(t *testing.T) {
 	ciFixture(t)
 	d := newCreateDraft([]string{"T"})

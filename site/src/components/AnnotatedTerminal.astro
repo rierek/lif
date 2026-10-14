@@ -10,11 +10,12 @@ interface Note {
 	text: string;
 }
 interface Props {
-	title?: string;
+	title?: string; // caption: directory and command, e.g. `~/app · lif create`
+	label?: string; // accessible description of the block
 	lines: string[];
 	notes: Note[];
 }
-const { title = 'Terminal', lines, notes } = Astro.props;
+const { title = 'Terminal', label, lines, notes } = Astro.props;
 
 const W = 416; // card width (px)
 const BAR = 44; // title bar height
@@ -47,7 +48,7 @@ const numOf = new Map(sorted.map((n) => [n.line, n.num]));
 
 <div class="anno not-content" data-pagefind-ignore style={`--w: ${W}px; --bar: ${BAR}px; --pad: ${PAD}px; --lh: ${LH}px; --gap: ${GAP}px`}>
 	<div class="stage">
-		<div class="card">
+		<div class="card" role="group" aria-label={label}>
 			<div class="bar">
 				<span class="name"><SquareTerminal size={16} aria-hidden="true" />{title}</span>
 				<button type="button" class="copy" data-copy={lines.join('\n')} aria-label="Copy command">
@@ -84,19 +85,20 @@ const numOf = new Map(sorted.map((n) => [n.line, n.num]));
 <style>
 	.anno { margin-inline: auto; width: min(100%, 26rem); }
 	.stage { position: relative; }
-	.card { border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; overflow: hidden; background: var(--term-bg); box-shadow: 0 1.5rem 3rem -1.5rem var(--sl-color-gray-7); }
-	.bar { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; height: var(--bar); padding: 0 0.9rem 0 1.1rem; background: var(--term-bar); border-bottom: 1px solid var(--sl-color-gray-5); }
-	.name { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--sl-text-sm); font-weight: 500; color: var(--sl-color-gray-1); }
-	.name :global(svg) { color: var(--sl-color-accent-high); }
-	.copy { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 0.4rem; background: none; color: var(--sl-color-gray-3); cursor: pointer; }
-	.copy:hover { background: var(--sl-color-gray-5); color: var(--sl-color-white); }
-	.copy:focus-visible { outline: 2px solid var(--sl-color-accent-high); outline-offset: 1px; }
+	.card { border: 1px solid var(--term-rule); border-radius: 0.75rem; overflow: hidden; background: var(--term-bg); box-shadow: var(--lif-shadow); }
+	.bar { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; height: var(--bar); padding: 0 0.9rem 0 1.1rem; background: var(--term-bar); border-bottom: 1px solid var(--term-rule); }
+	.name { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--sl-text-sm); font-weight: 400; color: var(--ctp-text); }
+	.name :global(svg) { color: var(--ctp-teal); }
+	.copy { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 0.4rem; background: none; color: var(--ctp-subtext0); cursor: pointer; }
+	.copy:hover { background: var(--ctp-surface0); color: var(--ctp-text); }
+	.copy:focus-visible { outline: 2px solid var(--ctp-teal); outline-offset: 1px; }
 	.copy :global(.i-done), .copy[data-done] :global(.i-copy) { display: none; }
-	.copy[data-done] :global(.i-done) { display: block; color: var(--sl-color-green-high); }
+	.copy[data-done] :global(.i-done) { display: block; color: var(--ctp-green); }
 	pre { margin: 0; padding: var(--pad) 1.25rem; overflow-x: auto; font-family: var(--sl-font-mono); font-size: 0.9rem; line-height: var(--lh); white-space: pre; font-variant-ligatures: none; background: none; color: var(--ctp-text); }
+	pre:focus-visible { outline: 2px solid var(--ctp-teal); outline-offset: -2px; }
 	pre code { font: inherit; background: none; padding: 0; border: 0; color: inherit; }
 	.ln { position: relative; display: block; height: var(--lh); }
-	.num { display: none; position: absolute; right: 0; top: 50%; translate: 0 -50%; width: 1.25rem; height: 1.25rem; place-items: center; border: 1px solid var(--sl-color-accent); border-radius: 50%; font-size: 0.7rem; font-weight: 700; line-height: 1; color: var(--sl-color-accent-high); }
+	.num { display: none; position: absolute; right: 0; top: 50%; translate: 0 -50%; width: 1.25rem; height: 1.25rem; place-items: center; border: 1px solid var(--ctp-teal); border-radius: 50%; font-size: 0.7rem; font-weight: 700; line-height: 1; color: var(--ctp-teal); }
 	.note, .arrows { display: none; }
 	.list { margin: 1.25rem 0 0; padding-left: 1.5rem; display: grid; gap: 0.4rem; font-size: var(--sl-text-sm); color: var(--sl-color-gray-1); }
 	.list li::marker { color: var(--sl-color-accent-high); font-weight: 700; }
@@ -105,7 +107,7 @@ const numOf = new Map(sorted.map((n) => [n.line, n.num]));
 	@media (min-width: 66rem) {
 		.anno { width: var(--w); }
 		.list { display: none; }
-		.note { display: block; position: absolute; margin: 0; translate: 0 -50%; white-space: nowrap; font-size: var(--sl-text-sm); font-weight: 500; color: var(--sl-color-accent-high); }
+		.note { display: block; position: absolute; margin: 0; translate: 0 -50%; white-space: nowrap; font-size: var(--sl-text-sm); font-weight: 400; color: var(--sl-color-accent-high); }
 		.note[data-side='left'] { right: calc(100% + var(--gap)); text-align: right; }
 		.note[data-side='right'] { left: calc(100% + var(--gap)); }
 		.arrows { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke: var(--sl-color-accent-high); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }

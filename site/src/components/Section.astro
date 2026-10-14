@@ -1,33 +1,28 @@
 ---
-// Home page section: accent eyebrow, centered heading, content below, optional "read more" link.
-import { ArrowRight } from '@lucide/astro';
-
+// Home page section: centered heading, content below, optional "read more" link.
 interface Props {
-	eyebrow?: string;
 	title: string;
 	link?: { text: string; href: string };
 }
-const { eyebrow, title, link } = Astro.props;
+const { title, link } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 
 <section class="section">
 	<header class="not-content">
-		{eyebrow && <p class="eyebrow">{eyebrow}</p>}
 		<h2>{title}</h2>
 	</header>
 	<slot />
 	{link && (
-		<p class="more not-content"><a href={base + link.href}>{link.text}<ArrowRight size={16} aria-hidden="true" /></a></p>
+		<p class="more not-content"><a href={base + link.href}>{link.text}</a></p>
 	)}
 </section>
 
 <style>
 	.section { margin-block: clamp(3.5rem, 8vw, 6rem) 0; }
 	header { text-align: center; margin-bottom: 2rem; }
-	.eyebrow { margin: 0 0 0.75rem; font-size: var(--sl-text-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sl-color-accent-high); }
-	h2 { margin: 0; font-size: clamp(1.6rem, 3.2vw, 2.4rem); line-height: 1.15; letter-spacing: -0.03em; color: var(--sl-color-white); }
-	.more { margin: 2.5rem 0 0; text-align: center; }
-	.more a { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--sl-text-sm); font-weight: 700; color: var(--sl-color-white); text-decoration: none; }
-	.more a:hover { color: var(--sl-color-accent-high); }
+	h2 { margin: 0; font-size: clamp(1.6rem, 3.2vw, 2.4rem); line-height: 1.15; letter-spacing: -0.03em; color: var(--lif-ink-strong); }
+	.more { margin: 2.5rem 0 0; max-width: none; text-align: center; }
+	.more a { font-size: var(--sl-text-sm); font-weight: 700; color: var(--lif-accent-ink); text-underline-offset: 0.2em; }
+	.more a:hover { color: var(--lif-ink-strong); }
 </style>

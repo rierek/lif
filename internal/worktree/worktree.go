@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -444,12 +445,18 @@ func (m *Manager) DetectItemIDs(worktreePath string) []string {
 	return ids
 }
 
+// validName keeps the name a single safe path segment (no separators, no leading dash or dot).
+var validName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
 // Create creates a new git worktree with the given name.
 // It stores the human-readable name as metadata.
 // The worktree is placed in the configured worktree root directory.
 func (m *Manager) Create(name string) (*Worktree, error) {
 	if name == "" {
 		return nil, fmt.Errorf("worktree name must not be empty")
+	}
+	if !validName.MatchString(name) {
+		return nil, fmt.Errorf("invalid worktree name %q: use letters, digits, '.', '_', '-'", name)
 	}
 
 	// Use the name as the worktree ID so branch and directory match

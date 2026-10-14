@@ -16,7 +16,7 @@ const fmt = (d: Date) => d.toLocaleDateString('en-US', { day: 'numeric', month: 
 				<h3>{e.data.title}</h3>
 				<p>{e.data.teaser}</p>
 				<footer>
-					<a href={`${base}/${e.id}/`}>Read more →</a>
+					<a href={`${base}/${e.id}/`}>Read the notes</a>
 					<span>{e.data.minRead ?? 1} min read</span>
 				</footer>
 			</article>
@@ -27,15 +27,20 @@ const fmt = (d: Date) => d.toLocaleDateString('en-US', { day: 'numeric', month: 
 <style>
 	.timeline { list-style: none; margin: 2rem 0; padding: 0; }
 	li { display: grid; grid-template-columns: 7.5rem 1.5rem 1fr; column-gap: 1rem; position: relative; padding-bottom: 1.5rem; }
-	li::before { content: ''; position: absolute; left: calc(7.5rem + 1rem + 0.75rem - 1px); top: 1.4rem; bottom: -0.4rem; width: 2px; background: var(--sl-color-gray-5); }
-	li:last-child::before { display: none; }
-	time { text-align: right; color: var(--sl-color-gray-3); font-size: var(--sl-text-sm); padding-top: 0.9rem; }
-	.dot { width: 0.8rem; height: 0.8rem; margin: 1rem auto 0; border-radius: 50%; background: var(--sl-color-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--sl-color-accent) 25%, transparent); z-index: 1; }
-	.card { padding: 1rem 1.25rem; border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; }
-	h3 { margin: 0 0 0.5rem; font-size: var(--sl-text-xl); color: var(--sl-color-white); }
-	p { margin: 0; color: var(--sl-color-gray-2); }
+	li::before { content: ''; position: absolute; left: calc(7.5rem + 1rem + 0.75rem - 0.5px); top: 1.6rem; bottom: -0.6rem; width: 1px; background: var(--lif-rule); }
+	time { text-align: right; color: var(--lif-ink-muted); font-size: var(--sl-text-sm); font-variant-numeric: tabular-nums; padding-top: 0.95rem; }
+	/* Release = milestone: the `M` marker of lif roadmap, inverse video on the newest one. */
+	.dot { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; margin: 0.75rem auto 0; border: 1px solid var(--lif-rule); border-radius: 0.25rem; background: var(--lif-page); z-index: 1; }
+	.dot::before { content: 'M'; font-size: 0.75rem; font-weight: 700; color: var(--lif-accent-ink); }
+	li:first-child .dot { background: var(--lif-accent-fill); border-color: var(--lif-accent-fill); }
+	li:first-child .dot::before { color: var(--lif-on-accent); }
+	.card { padding: 1rem 1.25rem; border: 1px solid var(--lif-rule-soft); border-radius: 0.5rem; transition: border-color 150ms ease-out; }
+	.card:hover { border-color: var(--lif-accent-ink); }
+	h3 { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 700; color: var(--lif-ink-strong); }
+	p { margin: 0; color: var(--lif-ink); }
 	footer { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; font-size: var(--sl-text-sm); }
-	footer a { color: var(--sl-color-accent-high); text-decoration: none; font-weight: 700; }
-	footer span { color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); }
+	footer a { color: var(--lif-accent-ink); font-weight: 700; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.22em; text-decoration-color: color-mix(in srgb, var(--lif-accent-ink) 45%, transparent); }
+	footer a:hover { text-decoration-color: currentColor; }
+	footer span { color: var(--lif-ink-muted); font-size: var(--sl-text-xs); }
 	@media (max-width: 50rem) { li { grid-template-columns: 1.5rem 1fr; } time { grid-column: 2; text-align: left; padding: 0; } .dot { grid-row: 1 / 3; grid-column: 1; } .card { grid-column: 2; } li::before { left: 0.75rem; } }
 </style>

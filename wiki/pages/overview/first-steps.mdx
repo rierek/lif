@@ -1,0 +1,88 @@
+---
+title: "First steps"
+description: "Plan and finish your first item in 10 minutes."
+---
+
+**Plan and finish your first item in 10 minutes.** You will create a backlog in your project, add three items, work one of them and see the result as plain Markdown files. [Install Lif](../installation/) first.
+
+## 1. Create the store
+
+Run `init` in your project folder (here the folder is named `proj`):
+
+```text
+$ lif init
+Initialized Lif project
+$ lif path
+/tmp/vh/proj/.lif
+```
+
+`init` writes `.lif.yml` and the store directory `.lif/`. The ID prefix becomes `<folder name>-`, here `proj-`. Every other command needs a store. Without one you get:
+
+```text
+Error: no .lif directory found at /tmp/vh/proj/.lif (run 'lif init' to create one)
+```
+
+## 2. Create items
+
+```text
+$ lif create "Ship first release" -t epic
+Created proj-4uvu proj-4uvu--ship-first-release.md
+$ lif create "Write README" -t task --parent 4uvu
+Created proj-jd0d proj-jd0d--write-readme.md
+$ lif create "Add license" -t task --parent 4uvu --priority high
+Created proj-7xdp proj-7xdp--add-license.md
+$ lif list --view tree
+Items
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+epic     Ship first release                                                        todo              proj-4uvu
+├─ task  Add license                                                               todo    high      proj-7xdp
+└─ task  Write README                                                              todo              proj-jd0d
+```
+
+New items get the status `todo` and the type `task`. Type `-t` and `--status` override both for one item. The short ID without the prefix (`4uvu`) works in every command. A task cannot be the parent of a task: `task items can only have milestone, epic, or feature as parent, not task`.
+
+## 3. Finish an item
+
+```text
+$ lif start 7xdp
+$ lif complete 7xdp --summary "MIT license added"
+Completed proj-7xdp Add license
+$ lif list --view tree
+Items
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+epic     Ship first release                                                   in-progress            proj-4uvu
+├─ task  Write README                                                         todo                   proj-jd0d
+└─ task  Add license                                                          completed    high      proj-7xdp
+$ lif progress
+In Progress: 1
+Todo: 1
+Draft: 0
+Completed: 1
+Scrapped: 0
+━━━━━━░░░░░░░░░░░░░░ 33% complete
+```
+
+Starting a child also moved the epic to `in-progress`. `lif complete` appends a `## Summary of Changes` section to the item file. `--commit HEAD` stores a commit SHA. `lif scrap <id> --reason "..."` ends an item without finishing it.
+
+## 4. Open the files
+
+Each item is a Markdown file in `.lif/`, named `<id>--<slug>.md`. Open `.lif/proj-7xdp--add-license.md` in your editor. The front matter holds `title`, `status`, `type`, `priority` and `parent`. You can edit it by hand. Run `lif check` afterwards:
+
+```text
+$ lif check
+...
+All checks passed
+```
+
+## Where to go next
+
+- Look at your plan: `lif list`, `lif show <id>`, `lif roadmap` and `lif next` (the highest-priority ready item).
+- Defaults for new items live in the `lif:` section of `.lif.yml`: `default_status` (`todo`), `default_type` (`task`), `prefix` and `id_length` (4). There is no default priority setting. See [Configuration](../../reference/configuration/).
+- Other hierarchies: `lif init --profile <classic|todo|simple|complex>` writes a preset. See [Configuration](../../reference/configuration/) for the definitions.
+- Work with a coding agent: [Agent onboarding](../agent-onboarding/).
+- [Concepts](../concepts/) explains the model. [Store management](../store-management/) covers several projects and worktrees.
+
+## Limits
+
+- `lif init` overwrites an existing `.lif.yml` without asking. Back it up first. Known as [1y6w].
+- `lif next` and `lif list --ready` can return container items such as epics. Filter with `-t task,bug`. Known as [g5dn].

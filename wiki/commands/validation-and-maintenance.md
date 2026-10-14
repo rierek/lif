@@ -25,6 +25,8 @@ All checks passed
 
 Configuration checks cover: that `default_status` and `default_type` name entries that actually exist, that `default_priority` names a known priority and every `default_tags` entry is a valid tag, that every item on disk carries a type the current configuration still defines (a config edit or profile switch can leave items behind with a type nothing recognizes anymore), that every configured status and type `color` names a valid theme tone, and that the configured ID prefix (`lif.prefix`) matches what the item files on disk actually carry — archived items are excluded from that comparison, since a project can rename its live prefix without needing to touch history.
 
+Item field checks cover what a hand-edited Markdown file can get wrong and no command would have accepted: a `status` or `priority` the configuration does not define, a tag that breaks the tag rules, and a `parent` whose type does not rank above the item's own type. Each finding is a configuration error and makes the command exit 1. A `parent` that does not exist is not reported here; the item-link check below covers it. The configuration holds no tag list, so "invalid tag" means a tag that violates the tag format rules, not one missing from a registry.
+
 Item-link checks cover three classes of structural problem, all evaluated together:
 
 - **Broken links** — a link field (`blocking`, `blocked_by`, `parent`, and similar) pointing at an ID that does not exist.

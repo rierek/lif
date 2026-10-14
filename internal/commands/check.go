@@ -32,6 +32,36 @@ func unknownTypeItems(allItems []*item.Item) []*item.Item {
 	return out
 }
 
+// itemFieldIssues reports what a hand-edited Markdown file can get wrong and
+// no command would have accepted: a parent of the wrong rank, an unknown
+// status or priority, a tag that breaks the tag rules. A missing parent is
+// left to the link check.
+func itemFieldIssues(allItems []*item.Item) []string {
+	byID := make(map[string]*item.Item, len(allItems))
+	for _, b := range allItems {
+		byID[b.ID] = b
+	}
+	var out []string
+	for _, b := range allItems {
+		if b.Status != "" && !cfg.IsValidStatus(b.Status) {
+			out = append(out, fmt.Sprintf("item %s carries unknown status '%s'", b.ID, b.Status))
+		}
+		if !cfg.IsValidPriority(b.Priority) {
+			out = append(out, fmt.Sprintf("item %s carries unknown priority '%s'", b.ID, b.Priority))
+		}
+		for _, tag := range b.Tags {
+			if err := item.ValidateTag(tag); err != nil {
+				out = append(out, fmt.Sprintf("item %s carries invalid tag '%s': %v", b.ID, tag, err))
+			}
+		}
+		if p, ok := byID[b.Parent]; ok && cfg.IsValidType(b.Type) && cfg.IsValidType(p.Type) &&
+			!itemcore.IsValidParentRank(cfg, b.Type, p.Type) {
+			out = append(out, fmt.Sprintf("item %s (%s) cannot sit under parent %s (%s): parent must rank higher", b.ID, b.Type, p.ID, p.Type))
+		}
+	}
+	return out
+}
+
 var (
 	checkJSON   bool
 	checkFix    bool
@@ -134,6 +164,7 @@ var checkCmd = &cobra.Command{
 	Short: "Validate configuration and item integrity",
 	Long: `Checks configuration and item integrity, including:
 - Configuration settings (colors, default type)
+- Item fields: unknown status or priority, invalid tags, parent of the wrong type rank
 - Broken links (links to non-existent items)
 - Self-references (items linking to themselves)
 - Circular dependencies (cycles in blocks/parent relationships)
@@ -177,6 +208,13 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			}
 		} else if !checkJSON {
 			fmt.Printf("  %s Every item carries a known type\n", ui.Success.Render("✓"))
+		}
+
+		// 2b-3. Check status, priority, tags and parent rank of every item
+		if issues := itemFieldIssues(allItems); len(issues) > 0 {
+			configErrors = append(configErrors, issues...)
+		} else if !checkJSON {
+			fmt.Printf("  %s Status, priority, tags and hierarchy are valid\n", ui.Success.Render("✓"))
 		}
 
 		// 2c. Check agent.default_effort is a valid effort level

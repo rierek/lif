@@ -106,6 +106,9 @@ etag, so it accepts exactly one ID.`,
 		if err := preflightParent(resolver, targets, input); err != nil {
 			return mutationError(updateJSON, err)
 		}
+		if err := preflightType(resolver, targets, input); err != nil {
+			return mutationError(updateJSON, err)
+		}
 
 		// Each item lands in a single UpdateItem mutation -- field updates,
 		// body modifications, relationship changes, and extra front matter
@@ -255,6 +258,31 @@ func preflightParent(resolver *itemgraph.CoreResolver, targets []*item.Item, inp
 		}
 		if err := resolver.ValidateAndSetParent(&probe, *input.Parent); err != nil {
 			return fmt.Errorf("%s: %w", target.ID, err)
+		}
+	}
+	return nil
+}
+
+// preflightType runs, for every target and before the first write, the
+// hierarchy check UpdateItem runs on a type change, so a batch cannot be
+// left half-written by a violation on a later item.
+func preflightType(resolver *itemgraph.CoreResolver, targets []*item.Item, input model.UpdateItemInput) error {
+	if input.Type == nil {
+		return nil
+	}
+	for _, target := range targets {
+		if target.Type == *input.Type {
+			continue
+		}
+		probe := *target
+		probe.Type = *input.Type
+		if input.Parent != nil {
+			if err := resolver.ValidateAndSetParent(&probe, *input.Parent); err != nil {
+				return fmt.Errorf("%s: %w", target.ID, err)
+			}
+		}
+		if err := resolver.ValidateTypeChange(&probe); err != nil {
+			return err
 		}
 	}
 	return nil

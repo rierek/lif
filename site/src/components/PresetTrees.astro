@@ -1,0 +1,87 @@
+---
+// The four shipped presets as type hierarchies (source: Reference, Configuration, Presets).
+// Swim lanes: one row per preset, one column per rank 1..4. A child needs a strictly greater rank than its parent.
+interface Level { rank: number; types: { name: string; hidden?: boolean }[] }
+const presets: { name: string; note: string; levels: Level[] }[] = [
+	{ name: 'classic', note: '4 levels', levels: [
+		{ rank: 1, types: [{ name: 'milestone' }] },
+		{ rank: 2, types: [{ name: 'epic' }] },
+		{ rank: 3, types: [{ name: 'feature' }] },
+		{ rank: 4, types: [{ name: 'bug' }, { name: 'task' }] },
+	] },
+	{ name: 'todo', note: '1 level', levels: [{ rank: 4, types: [{ name: 'task' }] }] },
+	{ name: 'simple', note: '3 levels', levels: [
+		{ rank: 1, types: [{ name: 'milestone' }, { name: 'bucket', hidden: true }] },
+		{ rank: 2, types: [{ name: 'epic' }, { name: 'feature' }] },
+		{ rank: 4, types: [{ name: 'bug' }, { name: 'task' }] },
+	] },
+	{ name: 'complex', note: '3 levels', levels: [
+		{ rank: 1, types: [{ name: 'release' }, { name: 'bucket', hidden: true }] },
+		{ rank: 2, types: [{ name: 'feature' }, { name: 'improvement' }, { name: 'chore' }] },
+		{ rank: 4, types: [{ name: 'story' }, { name: 'bug' }, { name: 'task' }] },
+	] },
+];
+const ranks = [1, 2, 3, 4];
+---
+
+<div class="lanes not-content" role="table" aria-label="Preset types by rank">
+	<div class="axis" role="row" aria-hidden="true">
+		<span class="corner"></span>
+		<div class="ruler"><span>rank 1</span><span class="line"></span><span>rank 4</span></div>
+	</div>
+	<p class="rule"><b>Parent rank &lt; child rank.</b> A child has a higher rank number than its parent. Ranks may be skipped.</p>
+	{presets.map((p) => (
+		<section class="lane" role="row">
+			<header role="rowheader"><code>{p.name}</code><span>{p.note}</span></header>
+			<div class="cells">
+				{ranks.map((r) => {
+					const l = p.levels.find((x) => x.rank === r);
+					return (
+						<div class:list={['cell', { empty: !l }]} role="cell">
+							<span class="rk">rank {r}</span>
+							{l ? l.types.map((t) => <span class:list={['chip', { bucket: t.hidden }]} title={t.hidden ? 'roadmap: false' : undefined}>{t.name}</span>) : <span class="none">unused</span>}
+						</div>
+					);
+				})}
+			</div>
+		</section>
+	))}
+	<p class="legend"><span class="chip">type</span> a type. <span class="chip bucket">type</span> bucket type, <code>roadmap: false</code>: hidden from <code>lif roadmap</code>. Presets as in the Reference.</p>
+</div>
+
+<style>
+	.lanes { margin-block: 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; --lw: 6.5rem; }
+	.axis { display: none; }
+	.rule { margin: 0; font-size: var(--sl-text-sm); color: var(--sl-color-gray-2); }
+	.rule b { color: var(--sl-color-accent-high); }
+	.lane { border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; background: var(--term-bg); overflow: hidden; }
+	header { display: flex; justify-content: space-between; align-items: baseline; padding: 0.45rem 0.8rem; background: var(--term-bar); border-bottom: 1px solid var(--sl-color-gray-5); }
+	header code { color: var(--sl-color-accent-high); font-weight: 600; background: none; padding: 0; }
+	header span { font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+	.cells { display: grid; grid-template-columns: 1fr 1fr; }
+	.cell { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 0.3rem; padding: 0.5rem 0.8rem 0.7rem; border-top: 1px solid var(--sl-color-gray-5); }
+	.cell:nth-child(-n+2) { border-top: 0; }
+	.cell:nth-child(odd) { border-right: 1px solid var(--sl-color-gray-5); }
+	.rk { flex: 0 0 100%; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+	.none { font-size: var(--sl-text-xs); color: var(--sl-color-gray-4); font-style: italic; }
+	.cell.empty { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--sl-color-gray-5) 6px 7px); }
+	.chip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; border: 1px solid var(--sl-color-accent); background: var(--sl-color-accent-low); color: var(--sl-color-white); font-size: var(--sl-text-xs); font-family: var(--sl-font-mono); }
+	.chip.bucket { border-style: dashed; border-color: var(--sl-color-gray-3); background: transparent; color: var(--sl-color-gray-2); }
+	.legend { margin: 0; font-size: var(--sl-text-sm); color: var(--sl-color-gray-2); }
+	.legend code { background: none; padding: 0; }
+	@media (min-width: 52rem) {
+		.lanes { gap: 0.5rem; }
+		.axis { display: grid; grid-template-columns: var(--lw) 1fr; gap: 0; }
+		.ruler { display: flex; align-items: center; gap: 0.5rem; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); }
+		.ruler .line { flex: 1; height: 2px; background: var(--sl-color-gray-4); position: relative; }
+		.ruler .line::after { content: ''; position: absolute; right: 0; top: -4px; border: 5px solid transparent; border-left: 8px solid var(--sl-color-gray-4); border-right: 0; }
+		.rule { order: -1; }
+		.lane { display: grid; grid-template-columns: var(--lw) 1fr; }
+		header { flex-direction: column; justify-content: center; gap: 0.1rem; border-bottom: 0; border-right: 1px solid var(--sl-color-gray-5); }
+		.cells { grid-template-columns: repeat(4, 1fr); }
+		.cell { border-top: 0; border-right: 1px solid var(--sl-color-gray-5); align-content: center; padding-block: 0.7rem; }
+		.cell:nth-child(odd) { border-right: 1px solid var(--sl-color-gray-5); }
+		.cell:last-child { border-right: 0; }
+		.rk { display: none; }
+	}
+</style>

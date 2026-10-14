@@ -59,13 +59,23 @@ const active = (href: string) => path.startsWith(base + href);
 	// Reset on new query or dialog close.
 	document.addEventListener('input', () => mark(null));
 	document.addEventListener('close', () => mark(null), true);
+
+	// A table wider than the column scrolls; keyboard users need it focusable (WCAG 2.1.1, axe scrollable-region-focusable).
+	const focusWideTables = () => {
+		for (const t of document.querySelectorAll<HTMLTableElement>('.sl-markdown-content table')) {
+			if (t.scrollWidth > t.clientWidth) t.tabIndex = 0;
+			else t.removeAttribute('tabindex');
+		}
+	};
+	focusWideTables();
+	window.addEventListener('resize', focusWideTables);
 </script>
 
 <style>
 	.header { display: flex; gap: var(--sl-nav-gap); justify-content: space-between; align-items: center; height: 100%; }
 	.top { display: none; gap: 0.15rem; flex: 1; margin-inline-start: 0.75rem; align-items: center; white-space: nowrap; }
 	.search { margin-inline-start: auto; }
-	@media (min-width: 64rem) { .top { display: flex; } .search { margin-inline-start: 0; } }
+	@media (min-width: 64rem) { .top { display: flex; } .search { margin-inline-start: 0; width: 33rem; max-width: 40vw; } }
 	.top > a { display: inline-flex; align-items: center; height: 2rem; padding: 0 0.6rem; border-radius: 0.4rem; color: var(--sl-color-gray-2); text-decoration: none; font-size: var(--sl-text-sm); transition: color 0.15s, background-color 0.15s; }
 	.top > a:hover { color: var(--sl-color-white); background: var(--sl-color-gray-5); }
 	.top > a[aria-current] { color: var(--sl-color-accent-high); }

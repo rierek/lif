@@ -1,0 +1,51 @@
+---
+title: "Command overview"
+description: "All lif commands, global flags and shared conventions."
+---
+
+import { Content as CommandTree } from './_command-tree.md';
+
+## The lif command line
+
+Lif ships two binaries. `lif` is the CLI; it also contains the [TUI](../tui/start-and-repositories/) and [GraphQL](../graphql/) in process. `lif-serve` is the [web server](../web-server/) with a single command, `serve`.
+
+The root command is described as "A file-based issue tracker for AI-first workflows". `lif --help` lists 28 commands (Lif 0.14, 2026-10-14). 27 of them have a page here. Cobra's built-in `help` has no page. The four `completion` shells (bash, zsh, fish, powershell) share one page. Hidden commands, such as the `lif serve` placeholder, are not documented.
+
+`init`, `path`, `version`, `help` and `completion` are plumbing: you rarely type them interactively. All other commands are user-facing.
+
+## Command hierarchy
+
+Every command sits one level below its parent. `lif` is the root, and the shells of `completion` sit below `completion`. The list is alphabetical, without categories, and shows one line of purpose per command. It is generated from the command tree and not edited by hand; each command page also links to its parent in "SEE ALSO".
+
+<CommandTree />
+
+Aliases: `ls` (`list`), `rm` (`delete`), `new` and `c` (`create`), `query` (`graphql`), `u` (`update`).
+
+## Global flags
+
+| Flag | Meaning |
+|---|---|
+| `--config <path>` | Path to the config file. Without it Lif searches upward for `.lif.yml`. A legacy `.beans.yml` is read when no `.lif.yml` exists. |
+| `--lif-path <path>` | Path to the store. Beats the config and `LIF_PATH`. A legacy `BEANS_PATH` is read when `LIF_PATH` is not set. |
+| `-h`, `--help` | Help for the command (on every command). |
+
+The order of flag, config and `LIF_PATH` is in [Configuration](../configuration/#store-resolution). The task-oriented view is [Store management](../../overview/store-management/).
+
+## Shared conventions
+
+- **Item ID:** the full ID, or the short ID without the configured prefix (`ix1n` for `f014j-ix1n`).
+- **`--json`:** a flag of most commands. `graph` uses `--format json`. `path`, `pick`, `prime`, `tui` and the Cobra commands have no JSON output. Details: [JSON output](../json-output/).
+- **Exit codes:** 0 on success, 1 on error. Errors print once and Cobra's usage text is suppressed. `lif check` returns 1 on at least one finding. There is no exit code 2.
+- **Commands without a store:** `init`, `prime`, `version`, `tui`. All other commands load the config and the items first. A missing store is an error.
+- **Several IDs:** `start`, `complete`, `scrap`, `update`, `tag` and `delete` take several IDs. For `update` and `complete`, the checks run for all IDs before the first write.
+
+## How these pages are generated
+
+The command pages come from the command tree of the `lif` binary, built by the generator `cmd/lif-docgen`. Do not edit them by hand. The help texts contain no web links.
+
+## Related reference
+
+- [Configuration](../configuration/): store resolution, config keys.
+- [JSON output](../json-output/): payloads, error codes, exit codes.
+- [Search syntax](../search-syntax/): for `lif list --search`.
+- [GraphQL](../graphql/) and [Web server](../web-server/): for `lif graphql` and `lif-serve`.

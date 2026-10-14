@@ -3,46 +3,44 @@ title: "Contribute"
 description: "Repository layout, where to change what and how to build the docs."
 ---
 
-# Contribute
+## Purpose
+Helps new contributors find their way around the repository: layout, places to change, docs build and maintenance rules.
 
-## Zweck
-Hilft neuen Mitwirkenden, sich im Repository zurechtzufinden: Aufbau, Änderungsorte, Docs-Build und Pflegeregeln.
+## Audience
+Developers and documentation authors who change Lif or the docs; agents that make changes to the repository.
 
-## Zielgruppe
-Entwickler und Dokumentationsautoren, die Lif oder die Docs ändern; Agenten, die Änderungen am Repository vornehmen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Repository layout
-- Zeigt eine Baumskizze: `cmd/lif` (CLI), `cmd/lif-serve` (Webserver), `cmd/lif-docgen` (erzeugt Befehls-Referenzseiten), `internal/commands`, `pkg/item`, `wiki/pages`, `wiki/assets`, `site`, `.lif`-Store.
-- Erklärt jede Zeile in einem Halbsatz.
-- Hinweis: `lif-serve` ist ein eigenes Binary; `lif serve` im Hauptbinary ist ein versteckter Stub.
-- Quelle: FACTS.md §8.1 (Binaries); Verzeichnisbaum `TODO: verify` — Checkout-Baum, `justfile` und `README.md` in Phase 5 prüfen
+- Shows a tree sketch: `cmd/lif` (CLI), `cmd/lif-serve` (web server), `cmd/lif-docgen` (generates command reference pages), `internal/commands`, `pkg/item`, `wiki/pages`, `wiki/assets`, `site`, `.lif` store.
+- Explains each line in a half sentence.
+- Note: `lif-serve` is a separate binary; `lif serve` in the main binary is a hidden stub.
+- Source: FACTS.md §8.1 (binaries); directory tree `TODO: verify` — check checkout tree, `justfile` and `README.md` in phase 5
 
 ### Where to change what
-- Befehl ändern: Definition unter `internal/commands`; Hilfe, Completion und Reference-Seiten folgen beim Build. (TODO: verify)
-- Docs ändern: Seiten unter `wiki/pages`, Medien unter `wiki/assets`.
-- TUI-Tastenbelegung: Single Source ist die `keyMap` in `internal/tui/keymap.go`; die Hilfe im TUI und die Seite Key bindings (`reference/tui/key-bindings`) folgen daraus.
-- Item-Dateiformat: `pkg/item`.
-- Quelle: FACTS.md §8.3 (keyMap), §2.1 (`pkg/item`); Befehl→Reference-Kette `TODO: verify` — `cmd/lif-docgen` und `justfile` prüfen
+- Change a command: definition under `internal/commands`; help, completion and reference pages follow at build. (TODO: verify)
+- Change docs: pages under `wiki/pages`, media under `wiki/assets`.
+- TUI key bindings: single source is the `keyMap` in `internal/tui/keymap.go`; the help in the TUI and the Key bindings page (`reference/tui/key-bindings`) follow from it.
+- Item file format: `pkg/item`.
+- Source: FACTS.md §8.3 (keyMap), §2.1 (`pkg/item`); command→reference chain `TODO: verify` — check `cmd/lif-docgen` and `justfile`
 
 ### Build and preview the docs
-- Zeigt `just docs-gen`, `just docs-build`, `just docs-dev` und was jedes tut.
-- Erklärt Voraussetzungen (Go, Node) und wohin die Ausgabe geht.
-- Quelle: `TODO: verify` — Rezeptnamen und Voraussetzungen im `justfile` und in `site/package.json` prüfen
+- Shows `just docs-gen`, `just docs-build`, `just docs-dev` and what each does.
+- Explains prerequisites (Go, Node) and where the output goes.
+- Source: `TODO: verify` — check recipe names and prerequisites in `justfile` and `site/package.json`
 
 ### Report issues and propose changes
-- Erklärt, wo Fehler gemeldet und Änderungen vorgeschlagen werden (Issue-Tracker, Branch, Pull Request).
-- Verweist auf Commit- und Branch-Konventionen des Repositories.
-- Quelle: `TODO: verify` — `README.md`, `.github/` und Prozessdokumente im Checkout prüfen
+- Explains where to report bugs and propose changes (issue tracker, branch, pull request).
+- Links to the commit and branch conventions of the repository.
+- Source: `TODO: verify` — check `README.md`, `.github/` and process documents in the checkout
 
 ### License
-- Nennt die Lizenz und verweist auf die Datei `LICENSE`.
-- Verweist auf die Attribution zum Upstream-Projekt (`about`).
-- Quelle: `TODO: verify` — `LICENSE` im Checkout prüfen (Trial-Draft nennt Apache-2.0)
+- Names the license and links to the file `LICENSE`.
+- Links to the attribution to the upstream project (`about`).
+- Source: `TODO: verify` — check `LICENSE` in the checkout (trial draft names Apache-2.0)
 
 ### Maintenance rules
-- Checkliste je Befehlsänderung: Definition, Hilfetext, Completion, generierte Reference, `lif prime`, Tests, Docs.
-- Regel: Verhaltensaussagen in Docs stammen aus Code oder `lif --help`, nie aus Annahmen.
-- Regel: Dokumentation folgt der Terminologie des Codes (item, type, rank, status, priority, tag, parent, blocking / blocked_by, preset).
-- Quelle: DESIGN.md D45, D47; Checkliste und `lif prime`-Verhältnis `TODO: verify` — Prozess mit Maintainern klären
+- Checklist per command change: definition, help text, completion, generated reference, `lif prime`, tests, docs.
+- Rule: behavior statements in docs come from code or `lif --help`, never from assumptions.
+- Rule: documentation follows the terminology of the code (item, type, rank, status, priority, tag, parent, blocking / blocked_by, preset).
+- Source: DESIGN.md D45, D47; checklist and `lif prime` relationship `TODO: verify` — clarify the process with maintainers

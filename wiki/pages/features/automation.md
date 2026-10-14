@@ -3,68 +3,66 @@ title: "Automation and agents"
 description: "JSON output, GraphQL and lif prime for scripts and coding agents."
 ---
 
-# Automation and agents
+## Purpose
+Shows how scripts and coding agents use Lif in a machine-readable way: `--json`, GraphQL, `lif prime` and `lif promote`. Contains the how-to guides for agent hooks and for validation after automated changes.
 
-## Zweck
-Zeigt, wie Skripte und Coding-Agents Lif maschinenlesbar nutzen: `--json`, GraphQL, `lif prime` und `lif promote`. Enthält die Anleitungen für Agent-Hooks und für die Prüfung nach automatischen Änderungen.
+## Audience
+Script authors, operators of coding agents and people who connect an agent to their backlog. They need concrete calls, exit codes and the known gaps.
 
-## Zielgruppe
-Skript-Autoren, Betreiber von Coding-Agents und Menschen, die einen Agenten an ihr Backlog anschließen. Sie brauchen konkrete Aufrufe, Exit-Codes und die bekannten Lücken.
-
-## Pflichtabschnitte
+## Required sections
 
 ### What
-- `--json` an vielen Befehlen (zum Beispiel `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`); `lif graph` nutzt `--format json`; im JSON-Modus entfallen die menschlichen Zeilen, Fehler tragen Codes wie `NOT_FOUND` oder `VALIDATION_ERROR`.
-- GraphQL ohne Server: `lif graphql '<query>'` (Alias `lif query`), auch per stdin; mit Server über `lif-serve` unter `/api/graphql` mit Playground unter `/playground`.
-- `lif prime` gibt einen Prompt aus, der einem Coding-Agent die Nutzung von Lif beibringt; läuft ohne geladenen Store.
-- `lif promote <artifact> <finding-id>...` legt aus geprüften Review-Findings Items an; schreibt nichts, wenn ein gewählter Eintrag fehlerhaft ist, und überspringt bereits übernommene.
-- Exit-Codes: 0 bei Erfolg, 1 bei Fehler; `lif check` gibt 1 bei mindestens einem Problem; es gibt keinen Exit-Code 2.
-- Quelle: FACTS.md §1.0, §1.1 (`lif list`, `lif promote`, `lif prime`, `lif graph`), §6.8, §6.11, §7.5
+- `--json` on many commands (for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`); `lif graph` uses `--format json`; in JSON mode the human-readable lines are omitted, errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`.
+- GraphQL without a server: `lif graphql '<query>'` (alias `lif query`), also via stdin; with a server through `lif-serve` at `/api/graphql` with the playground at `/playground`.
+- `lif prime` prints a prompt that teaches a coding agent how to use Lif; runs without a loaded store.
+- `lif promote <artifact> <finding-id>...` creates items from reviewed review findings; writes nothing if a chosen entry is faulty, and skips entries already taken over.
+- Exit codes: 0 on success, 1 on error; `lif check` returns 1 on at least one problem; there is no exit code 2.
+- Source: FACTS.md §1.0, §1.1 (`lif list`, `lif promote`, `lif prime`, `lif graph`), §6.8, §6.11, §7.5
 
 ### Why
-- Lif kann an automatischen Abläufen teilnehmen statt nur manuell bedient zu werden.
-- Der Store braucht keinen Server; Skripte und Agents arbeiten direkt auf den Dateien.
-- Agents lernen Lif über `lif prime` und `--help`, nicht über Vorwissen.
-- Quelle: CONCEPT.md §4.5; FACTS.md §7.5, §1.0
+- Lif can take part in automated workflows instead of only being operated manually.
+- The store needs no server; scripts and agents work directly on the files.
+- Agents learn Lif through `lif prime` and `--help`, not through prior knowledge.
+- Source: CONCEPT.md §4.5; FACTS.md §7.5, §1.0
 
 ### How it looks
-- `lif list --json` mit `jq` in einer Pipeline; Optionen `--full` (Body im JSON) und `--quiet` (nur IDs).
-- GraphQL-Einzeiler mit `lif graphql '{ items { id title status } }'`, Variablen mit `-v`, Anfrage über stdin, `--schema`.
-- Mutation per CLI: `createItem` mit `title` und `type`; Hinweis auf die Statuslücke aus Limits.
-- Promote-Ablauf: Review-Artefakt, Finding-IDs, Ergebnis als Items; Format des Artefakts in Phase 5 prüfen (TODO: verify)
-- Alle Beispiele in Phase 5 real ausführen und echte Ausgaben einfügen (TODO: verify)
-- Quelle: FACTS.md §1.1 (`lif list`, `lif promote`), §7.5; (TODO: verify) für Beispielausgaben und Promote-Artefakt: Befehle in Phase 5 laufen lassen, Schema in `internal/commands/findings-schema.json` prüfen
+- `lif list --json` with `jq` in a pipeline; options `--full` (body in the JSON) and `--quiet` (IDs only).
+- GraphQL one-liner with `lif graphql '{ items { id title status } }'`, variables with `-v`, query via stdin, `--schema`.
+- Mutation via CLI: `createItem` with `title` and `type`; note on the status gap from Limits.
+- Promote flow: review artifact, finding IDs, result as items; check the artifact format in phase 5 (TODO: verify)
+- Run all examples for real in phase 5 and paste real outputs (TODO: verify)
+- Source: FACTS.md §1.1 (`lif list`, `lif promote`), §7.5; (TODO: verify) for example outputs and promote artifact: run the commands in phase 5, check the schema in `internal/commands/findings-schema.json`
 
 ### Agent hooks
-- Anleitung (Agent-Seite): Ein Session-Hook führt `lif prime` bei Sitzungsbeginn und vor der Kontextverdichtung aus; so bleibt der Agent bei der Sache.
-- Das Projekt nutzt dafür Claude-Code-Hooks, die bei `SessionStart` und `PreCompact` `lif prime` aufrufen.
-- Konfigurations-Snippet für die Hooks aus der Vorlage übernehmen und gegen den aktuellen Stand prüfen (TODO: verify)
-- Hinweis: Das Beispiel gilt für Claude Code; andere Agents brauchen eigene Hook-Mechanismen (TODO: verify)
-- Commit-Nachrichten-Konvention mit Item-ID, damit Agent-Arbeit zurückverfolgbar bleibt: Konvention, nicht belegt (TODO: verify)
-- Verweis auf Drift-Vermeidung in Agent onboarding (`overview/agent-onboarding`).
-- Quelle: FACTS.md §6.10; (TODO: verify) für Snippet, andere Agents und Commit-Konvention: `.claude/settings.json` und `extras/claude/plugins/lif-prime/hooks/hooks.json` im Checkout lesen
+- How-to (agent side): A session hook runs `lif prime` at session start and before context compaction; this keeps the agent on track.
+- The project uses Claude Code hooks for this, which call `lif prime` on `SessionStart` and `PreCompact`.
+- Take the configuration snippet for the hooks from the template and check it against the current state (TODO: verify)
+- Note: The example applies to Claude Code; other agents need their own hook mechanisms (TODO: verify)
+- Commit message convention with item ID so agent work stays traceable: convention, not proven (TODO: verify)
+- Link to drift avoidance in Agent onboarding (`overview/agent-onboarding`).
+- Source: FACTS.md §6.10; (TODO: verify) for snippet, other agents and commit convention: read `.claude/settings.json` and `extras/claude/plugins/lif-prime/hooks/hooks.json` in the checkout
 
 ### Validation after automated changes
-- Nach automatischen Änderungen `lif check` laufen lassen; Exit 1 meldet mindestens ein Problem, Exit 0 keines.
-- `--strict` zählt Policy-Warnungen (fehlende Pflichtfelder, unbekannte Commit-SHAs) als Probleme.
-- `--fix` entfernt defekte Links und Selbstbezüge; Zyklen, Konfigurationsfehler, Anhang-Waisen und Policy-Warnungen bleiben.
-- `--json` liefert `success`, `config_errors`, `item_issues` (`broken_links`, `self_links`, `cycles`) und weitere Felder.
-- Aussage des Prompts: Konfiguration, Links, Front Matter und Policies mit `lif check` prüfen, bevor die Automatisierung weiterläuft.
-- Grenze: `lif check` prüft weder Rang, Status, Priorität noch Tags; ein Agent, der Dateien direkt schreibt, bleibt dort ungeprüft.
-- Quelle: FACTS.md §6.7, §6.8, §6.9, §6.10; DESIGN.md D40
+- Run `lif check` after automated changes; exit 1 reports at least one problem, exit 0 none.
+- `--strict` counts policy warnings (missing required fields, unknown commit SHAs) as problems.
+- `--fix` removes broken links and self-references; cycles, configuration errors, attachment orphans and policy warnings remain.
+- `--json` returns `success`, `config_errors`, `item_issues` (`broken_links`, `self_links`, `cycles`) and further fields.
+- Statement of the prompt: check configuration, links, front matter and policies with `lif check` before the automation continues.
+- Limit: `lif check` checks neither rank, status, priority nor tags; an agent that writes files directly stays unchecked there.
+- Source: FACTS.md §6.7, §6.8, §6.9, §6.10; DESIGN.md D40
 
 ### Limits
-- Bekannter Fehler: GraphQL `createItem` ohne `status` lässt den Status leer; nur `lif create` setzt den Standard `todo`.
-- Bei einem GraphQL-Fehler gibt die CLI eine Fehlermeldung aus (`graphql: <message>`); ob dabei Teildaten geliefert werden, ist nicht belegt (TODO: verify)
-- Server-nur Teile des Schemas (Agent, Terminal, Worktrees) scheitern in der CLI mit Meldungen wie "agent manager not available".
-- Subscriptions laufen nur über das WebSocket von `lif-serve`, nicht über `lif graphql`.
-- Direkt geschriebene Dateien umgehen die Regeln; `lif check` deckt nur einen Teil ab.
-- Quelle: FACTS.md §7, §7.3, §7.5, §6.9; DESIGN.md D43; (TODO: verify) für Teildaten bei Fehlern: `internal/commands/graphql.go` prüfen
+- Known bug: GraphQL `createItem` without `status` leaves the status empty; only `lif create` sets the default `todo`.
+- On a GraphQL error the CLI prints an error message (`graphql: <message>`); whether partial data is returned is not proven (TODO: verify)
+- Server-only parts of the schema (agent, terminal, worktrees) fail in the CLI with messages such as "agent manager not available".
+- Subscriptions run only over the WebSocket of `lif-serve`, not through `lif graphql`.
+- Files written directly bypass the rules; `lif check` covers only part of them.
+- Source: FACTS.md §7, §7.3, §7.5, §6.9; DESIGN.md D43; (TODO: verify) for partial data on errors: check `internal/commands/graphql.go`
 
 ### Reference links
-- GraphQL (`reference/graphql`): Schema, Abfragen, Mutationen, Fehler.
-- JSON schemas (`reference/json-schemas`): Nutzlasten, Fehlercodes, Exit-Codes.
+- GraphQL (`reference/graphql`): schema, queries, mutations, errors.
+- JSON schemas (`reference/json-schemas`): payloads, error codes, exit codes.
 - `lif graphql`, `lif prime`, `lif promote`, `lif check` (`reference/commands/lif-graphql`, `reference/commands/lif-prime`, `reference/commands/lif-promote`, `reference/commands/lif-check`).
-- Web server (`reference/web-server`): HTTP-Endpunkte von `lif-serve`.
-- Agent onboarding (`overview/agent-onboarding`): empfohlene Hooks.
-- Quelle: DESIGN.md D24, D27, D28
+- Web server (`reference/web-server`): HTTP endpoints of `lif-serve`.
+- Agent onboarding (`overview/agent-onboarding`): recommended hooks.
+- Source: DESIGN.md D24, D27, D28

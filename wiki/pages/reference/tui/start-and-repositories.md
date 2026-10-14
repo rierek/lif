@@ -3,51 +3,49 @@ title: "Start and repositories"
 description: "Start lif tui and choose the repository to work in."
 ---
 
-# Start and repositories
+## Purpose
+Explains how the TUI starts, which repository it opens and how to switch between repositories. Entry point to the TUI subsection of the reference.
 
-## Zweck
-Erklärt, wie die TUI gestartet wird, welches Repository sie öffnet und wie man zwischen Repositories wechselt. Einstieg in den TUI-Unterbereich der Reference.
+## Audience
+Users who start `lif tui` for the first time or want to manage several projects in one interface.
 
-## Zielgruppe
-Nutzer, die `lif tui` zum ersten Mal starten oder mehrere Projekte in einer Oberfläche verwalten wollen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Starting the TUI
-- Zeigt `lif tui [repo-path]`: höchstens ein Argument (Repo-Pfad, Verzeichnis-Vervollständigung); keine eigenen Flags außer den globalen.
-- Erklärt: `lif tui` ist die TUI im `lif`-Binary (das frühere eigene Binary `lif-tui` gibt es nicht mehr); sie läuft auch ohne geladenen Store.
-- Nennt `--lif-path` als globales Flag, das den Store des geöffneten Repositories bestimmt.
-- Beschreibt die TUI als Begleiter der CLI (kurzer Satz, Verweis auf `reference/commands/lif-tui`).
-- Quelle: FACTS.md §1.0, §1.1 (`lif tui`), §8.1, §8.2
+- Shows `lif tui [repo-path]`: at most one argument (repo path, directory completion); no flags of its own besides the global ones.
+- Explains: `lif tui` is the TUI inside the `lif` binary (the former separate `lif-tui` binary no longer exists); it also runs without a loaded store.
+- Names `--lif-path` as a global flag that determines the store of the opened repository.
+- Describes the TUI as a companion to the CLI (one short sentence, link to `reference/commands/lif-tui`).
+- Source: FACTS.md §1.0, §1.1 (`lif tui`), §8.1, §8.2
 
 ### Which repository opens
-- Reihenfolge als nummerierte Liste: 1) ausdrücklicher Pfad-Argument, 2) Repository, das aufwärts vom aktuellen Verzeichnis gefunden wird, 3) ohne Repository und mit mindestens zwei Einträgen in `repos` der Settings-Datei der Repository-Picker (Lobby), 4) sonst die Fehlermeldung "nicht gefunden".
-- Zeigt Beispielaufrufe für jeden Fall.
-- Hinweis: Mit genau einem Repository in den Settings und außerhalb eines Repositories erscheint keine Lobby (Fehler).
-- Quelle: FACTS.md §8.1, §1.1 (`lif tui`)
+- Order as a numbered list: 1) explicit path argument, 2) repository found by searching upward from the current directory, 3) without a repository and with at least two entries in `repos` of the settings file, the repository picker (lobby), 4) otherwise the error message "not found".
+- Shows example commands for each case.
+- Note: With exactly one repository in the settings and outside a repository, no lobby appears (error).
+- Source: FACTS.md §8.1, §1.1 (`lif tui`)
 
 ### The repository picker
-- Erklärt die Lobby als Liste der Repositories aus der Settings-Datei; Auswahl öffnet das Repository.
-- Taste `p` öffnet den Picker auch aus einem geöffneten Repository (Tastenkürzel siehe `reference/tui/key-bindings`).
-- Beschreibt Voraussetzung: mindestens zwei Repositories in `repos`.
-- Screenshot `lobby.png` (siehe Abschnitt "Screenshots").
-- Quelle: FACTS.md §8.1, §8.2, §8.3
+- Explains the lobby as the list of repositories from the settings file; selecting one opens the repository.
+- Key `p` opens the picker also from an opened repository (for the shortcut see `reference/tui/key-bindings`).
+- Describes the prerequisite: at least two repositories in `repos`.
+- Screenshot `lobby.png` (see section "Screenshots").
+- Source: FACTS.md §8.1, §8.2, §8.3
 
 ### Settings that matter at start
-- Nennt `repos` (Liste von Repository-Pfaden) und `repo_store_paths` (Abbildung Repository auf Store-Pfad) in `~/.config/lif/tui/config.yaml`.
-- Nennt `--lif-path` als Weg, den Store einmalig vorzugeben.
-- Verweist auf `reference/tui/settings-and-themes` für alle Schlüssel.
-- Zeigt, wie ein Repository in `repos` aufgenommen wird. (TODO: verify)
-- Quelle: FACTS.md §8.2, §1.1 (`lif tui`); Aufnahme neuer Repositories — `TODO: verify` (Phase 5: prüfen, ob die TUI `repos` selbst schreibt, `internal/tui/config/settings.go`)
+- Names `repos` (list of repository paths) and `repo_store_paths` (mapping of repository to store path) in `~/.config/lif/tui/config.yaml`.
+- Names `--lif-path` as a way to set the store once.
+- Links to `reference/tui/settings-and-themes` for all keys.
+- Shows how a repository is added to `repos`. (TODO: verify)
+- Source: FACTS.md §8.2, §1.1 (`lif tui`); adding new repositories — `TODO: verify` (Phase 5: check whether the TUI writes `repos` itself, `internal/tui/config/settings.go`)
 
 ### Quit and help
-- `q` und `ctrl+c` beenden nach Bestätigung; `esc` geht zurück.
-- `?` öffnet die Hilfe; sie wird aus derselben Tastenbelegung (`keyMap`) erzeugt wie die Seite `reference/tui/key-bindings`.
-- `K` öffnet die Befehlspalette (Command Palette).
-- Quelle: FACTS.md §8.3, §8.2
+- `q` and `ctrl+c` quit after confirmation; `esc` goes back.
+- `?` opens help; it is generated from the same key map (`keyMap`) as the page `reference/tui/key-bindings`.
+- `K` opens the command palette.
+- Source: FACTS.md §8.3, §8.2
 
 ### Screenshots
-- Plan: vorhandenes Bild `wiki/screenshots/lobby.png` (Lobby) einbinden; weitere Bilder auf den Seiten `reference/tui/views`.
-- Medienart laut Design: VHS-GIF für den Start (`lif tui`), Screenshots als webp.
-- Bilder prüfen, ob sie zur aktuellen Oberfläche passen (neu aufnehmen, falls nicht). (TODO: verify)
-- Quelle: DESIGN.md D38, D44; Aktualität der Bilder — `TODO: verify` (Phase 5: mit laufender TUI vergleichen)
+- Plan: embed the existing image `wiki/screenshots/lobby.png` (lobby); further images on the pages `reference/tui/views`.
+- Media type per design: VHS GIF for the start (`lif tui`), screenshots as webp.
+- Check whether the images match the current interface (re-record if not). (TODO: verify)
+- Source: DESIGN.md D38, D44; currency of the images — `TODO: verify` (Phase 5: compare with a running TUI)

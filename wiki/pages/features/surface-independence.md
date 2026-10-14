@@ -3,63 +3,61 @@ title: "Surface independence"
 description: "Use the CLI, TUI, web UI or any editor on the same files."
 ---
 
-# Surface independence
+## Purpose
+Shows that the CLI, TUI, Web UI and direct editing of the Markdown files all use the same store. Clarifies which paths enforce rules and what `lif check` covers afterwards.
 
-## Zweck
-Zeigt, dass CLI, TUI, Web UI und direktes Bearbeiten der Markdown-Dateien denselben Store nutzen. Klärt, welche Wege Regeln erzwingen und was `lif check` danach abdeckt.
+## Audience
+People who want to choose and switch tools by preference, and teams with mixed usage (terminal, browser, editor, agent). They want to understand whether the data stays consistent on every path.
 
-## Zielgruppe
-Menschen, die ein Werkzeug nach Geschmack wählen und wechseln wollen, und Teams mit gemischter Nutzung (Terminal, Browser, Editor, Agent). Sie wollen verstehen, ob die Daten bei jedem Weg konsistent bleiben.
-
-## Pflichtabschnitte
+## Required sections
 
 ### What
-- Vier Wege auf einen Store: CLI (`lif`), TUI (`lif tui`), Web UI (eingebettet in das separate Programm `lif-serve`) und direktes Bearbeiten der Markdown-Dateien.
-- Alle nutzen denselben Store; Store-Pfad wird nach fester Rangfolge bestimmt (`--lif-path`, Konfiguration, `LIF_PATH`, aktuelles Verzeichnis).
-- Der Web-Server beobachtet das Store-Verzeichnis und schickt Änderungen an Abonnenten; das TUI ist Begleiter der CLI.
-- Der Server hat weitere Fähigkeiten (Worktrees, Agent-Sitzungen, Terminal), die nur über `lif-serve` verfügbar sind.
-- Quelle: FACTS.md §4.2, §8.1, §8.2
+- Four paths to one Store: CLI (`lif`), TUI (`lif tui`), Web UI (embedded in the separate program `lif-serve`) and direct editing of the Markdown files.
+- All use the same store; the store path is determined by a fixed precedence (`--lif-path`, configuration, `LIF_PATH`, current directory).
+- The web server watches the store directory and pushes changes to subscribers; the TUI is a companion to the CLI.
+- The server has further capabilities (worktrees, agent sessions, terminal) that are only available through `lif-serve`.
+- Source: FACTS.md §4.2, §8.1, §8.2
 
 ### Why
-- Kein Lock-in: dieselben Informationen sind über verschiedene Werkzeuge erreichbar.
-- Jeder arbeitet in seinem Werkzeug; Agents nutzen CLI oder GraphQL, Menschen Editor, TUI oder Browser.
-- Quelle: CONCEPT.md §4.4
+- No lock-in: the same information is reachable through different tools.
+- Everyone works in their own tool; agents use the CLI or GraphQL, people use an editor, the TUI or a browser.
+- Source: CONCEPT.md §4.4
 
 ### How it looks
-- Vierfach-Gegenüberstellung desselben Items: Datei im Editor, `lif show`, TUI-Detailansicht, Web-UI-Ansicht.
-- Medienplan: VHS-GIFs für CLI und TUI, Screenshots (webp) für die Web UI.
-- Zeigt dieselbe Änderung (zum Beispiel Status) über zwei Wege und die Auswirkung auf die Datei.
-- TUI: Taste `e` öffnet den Body im `$EDITOR`.
-- Inhalte der Web-UI-Ansicht (Spalten, Board): FACTS enthält dazu nichts (TODO: verify)
-- Quelle: DESIGN.md D38; FACTS.md §8.2, §8.3; (TODO: verify) für Web-UI-Ansicht: Screenshot in Phase 5 aufnehmen, `frontend/` im Checkout prüfen
+- Four-way comparison of the same item: file in the editor, `lif show`, TUI detail view, Web UI view.
+- Media plan: VHS GIFs for CLI and TUI, screenshots (webp) for the Web UI.
+- Shows the same change (for example status) through two paths and the effect on the file.
+- TUI: key `e` opens the body in `$EDITOR`.
+- Contents of the Web UI view (columns, board): FACTS says nothing about this (TODO: verify)
+- Source: DESIGN.md D38; FACTS.md §8.2, §8.3; (TODO: verify) for the Web UI view: take a screenshot in phase 5, check `frontend/` in the checkout
 
 ### Consistency and validation
-- Schreibende Wege (CLI-Befehle, GraphQL-Mutationen, TUI, Web UI) laufen über dieselbe Item-Logik und erzwingen dieselben konfigurierten Regeln (Rangregel für Parents, gültige Werte für Typ, Status, Priorität).
-- Direktes Bearbeiten bleibt uneingeschränkt; Lif lädt die Änderung ohne Prüfung und beobachtet Dateien nur zum Neuladen.
-- Danach `lif check` ausführen. Es prüft: Konfiguration, unbekannte Typen, defekte Links, Selbstbezüge, Zyklen, fehlende Pflichtfelder (Warnung), unbekannte Commit-SHAs (Warnung), verwaiste Anhang-Verzeichnisse.
-- Es prüft nicht: Rang von Parent und Kind, Statuswerte, Prioritätswerte, Tags, doppelte IDs, Dateiname gegen ID, Syntaxfehler des Front Matters (die brechen schon das Laden ab).
-- Gleichzeitige Änderungen: `--if-match` und GraphQL `ifMatch` sichern per ETag; Konfiguration `require_if_match` macht es Pflicht.
-- Erweiterung der Prüfung ist als Verbesserung geplant; die Seite folgt, sobald sie ausgeliefert ist (D40).
-- Quelle: FACTS.md §2.1, §3.1, §3.2, §6.8, §6.9, §8.2; DESIGN.md D40
+- Writing paths (CLI commands, GraphQL mutations, TUI, Web UI) go through the same item logic and enforce the same configured rules (rank rule for parents, valid values for type, status, priority).
+- Direct editing stays unrestricted; Lif loads the change without checking it and watches files only to reload.
+- Then run `lif check`. It checks: configuration, unknown types, broken links, self-references, cycles, missing required fields (warning), unknown commit SHAs (warning), orphaned attachment directories.
+- It does not check: rank of parent and child, status values, priority values, tags, duplicate IDs, file name against ID, syntax errors in the front matter (those already abort loading).
+- Concurrent changes: `--if-match` and GraphQL `ifMatch` protect via ETag; the configuration `require_if_match` makes it mandatory.
+- Extending the check is planned as an improvement; the page follows once it ships (D40).
+- Source: FACTS.md §2.1, §3.1, §3.2, §6.8, §6.9, §8.2; DESIGN.md D40
 
 ### Editors such as Obsidian
-- Jeder Markdown-fähige Editor kann Item-Dateien öffnen; das Format ist Front Matter plus Body.
-- Obsidian ist ein Experiment und steht im Blog (`blog/obsidian-experiment`), nicht mehr als Use Case.
-- Bases-Kompatibilität ist nicht belegt: im Code, in der Doku und im README taucht Obsidian nicht auf.
-- Zu beachten: erste Front-Matter-Zeile ist ein YAML-Kommentar `# <id>`; der Store liegt in einem Punkt-Verzeichnis (`.lif/`) (Auswirkung auf Obsidian: TODO: verify)
-- Quelle: FACTS.md §2.1, §2.4, §9(g); DESIGN.md D42; (TODO: verify) für Obsidian-Verhalten: im Experiment (Blog) prüfen
+- Any Markdown-capable editor can open item files; the format is front matter plus body.
+- Obsidian is an experiment and lives in the blog (`blog/obsidian-experiment`), no longer as a use case.
+- Bases compatibility is not proven: Obsidian does not appear in the code, the docs or the README.
+- Note: the first front matter line is a YAML comment `# <id>`; the store lives in a dot directory (`.lif/`) (effect on Obsidian: TODO: verify)
+- Source: FACTS.md §2.1, §2.4, §9(g); DESIGN.md D42; (TODO: verify) for Obsidian behavior: check in the experiment (blog)
 
 ### Limits
-- Handbearbeitung wird nicht beim Bearbeiten, sondern höchstens nachträglich mit `lif check` geprüft; dessen Lücken sind oben genannt.
-- Das Web UI braucht das separate Programm `lif-serve`; `lif serve` im Hauptprogramm ist ein versteckter Stub.
-- Ein Store gilt nur für einen Pfad: Ohne `lif.anchor: repo-root` nutzt jeder Git-Worktree seinen eigenen lokalen Store.
-- Gleichzeitiges Editieren ohne `--if-match` ist ohne Schutz; ein überschriebener Stand wird nicht gemeldet (TODO: verify)
-- GraphQL `createItem` ohne `status` lässt den Status leer (bekannter Fehler); `lif create` setzt `todo`.
-- Quelle: FACTS.md §4.2, §7.5, §8.1; DESIGN.md D43; (TODO: verify) für Schreibkonflikte: Verhalten von `Core.Update` ohne ETag prüfen
+- Manual edits are not checked while editing but at most afterwards with `lif check`; its gaps are listed above.
+- The Web UI needs the separate program `lif-serve`; `lif serve` in the main program is a hidden stub.
+- A store applies to one path only: Without `lif.anchor: repo-root`, each Git worktree uses its own local store.
+- Concurrent editing without `--if-match` has no protection; an overwritten state is not reported (TODO: verify)
+- GraphQL `createItem` without `status` leaves the status empty (known bug); `lif create` sets `todo`.
+- Source: FACTS.md §4.2, §7.5, §8.1; DESIGN.md D43; (TODO: verify) for write conflicts: check the behavior of `Core.Update` without ETag
 
 ### Reference links
 - TUI: Start and repositories (`reference/tui/start-and-repositories`), Views (`reference/tui/views`), Editing items (`reference/tui/editing-items`).
-- Web server (`reference/web-server`): `lif-serve`, Port, CORS.
-- `lif check` (`reference/commands/lif-check`): Prüfumfang.
-- `lif path` (`reference/commands/lif-path`) und Configuration (`reference/configuration`): Store-Auflösung, `require_if_match`.
-- Quelle: DESIGN.md D28, D29, D44
+- Web server (`reference/web-server`): `lif-serve`, port, CORS.
+- `lif check` (`reference/commands/lif-check`): scope of checks.
+- `lif path` (`reference/commands/lif-path`) and Configuration (`reference/configuration`): Store resolution, `require_if_match`.
+- Source: DESIGN.md D28, D29, D44

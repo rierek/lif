@@ -3,59 +3,57 @@ title: "Flexible planning"
 description: "Types, statuses and hierarchy presets that adapt to how you work."
 ---
 
-# Flexible planning
+## Purpose
+Shows how types, ranks, status, priorities and parents model the structure of a project and which rules Lif enforces on write. Contains the how-to guide for Acceptance criteria and states honestly where the rules end.
 
-## Zweck
-Zeigt, wie Typen, Ränge, Status, Prioritäten und Parents die Struktur eines Projekts abbilden und welche Regeln Lif beim Schreiben durchsetzt. Enthält die Anleitung für Acceptance criteria und beschreibt ehrlich, wo die Regeln enden.
+## Audience
+People and agents who choose or adapt a planning structure (simple to-do list up to deep hierarchy). They want to know which presets exist, what is enforced and what is not.
 
-## Zielgruppe
-Menschen und Agents, die eine Planungsstruktur wählen oder anpassen (einfache To-do-Liste bis tiefe Hierarchie). Sie wollen wissen, welche Presets es gibt, was erzwungen wird und was nicht.
-
-## Pflichtabschnitte
+## Required sections
 
 ### What
-- Ein Item hat `type` (mit Rang), `status`, `priority`, `tags` und höchstens einen `parent`; ein Parent ist gültig, wenn der Rang des Kindes strikt größer ist als der des Parents.
-- Eingebaute Typen: `milestone` (Rang 1), `epic` (2), `feature` (3), `bug` und `task` (4); Status: `in-progress`, `todo`, `draft`, `completed`, `scrapped`; Prioritäten: `critical`, `high`, `normal`, `low`, `deferred`.
-- Eigene Typen, Status und Prioritäten in `.lif.yml` (`types`, `statuses`, `priorities`) überschreiben eingebaute Einträge oder ergänzen sie; `types_exclusive` ersetzt die Typtabelle vollständig.
-- Vier Presets über `lif init --profile`: `classic`, `todo`, `simple`, `complex`; das Preset wird beim Anlegen in die Konfiguration ausgeschrieben, nicht per Namen referenziert.
-- Planungsbefehle: `lif roadmap`, `lif milestones`, `lif progress`, `lif order` (manuelle Reihenfolge über `order`).
-- Quelle: FACTS.md §2.2, §2.3, §3, §4.3, §9(b)
+- An item has `type` (with rank), `status`, `priority`, `tags` and at most one `parent`; a parent is valid if the child's rank is strictly greater than the parent's.
+- Built-in types: `milestone` (rank 1), `epic` (2), `feature` (3), `bug` and `task` (4); status: `in-progress`, `todo`, `draft`, `completed`, `scrapped`; priorities: `critical`, `high`, `normal`, `low`, `deferred`.
+- Custom types, status and priorities in `.lif.yml` (`types`, `statuses`, `priorities`) override built-in entries or extend them; `types_exclusive` replaces the type table completely.
+- Four presets via `lif init --profile`: `classic`, `todo`, `simple`, `complex`; the preset is written out into the configuration on creation, not referenced by name.
+- Planning commands: `lif roadmap`, `lif milestones`, `lif progress`, `lif order` (manual ordering via `order`).
+- Source: FACTS.md §2.2, §2.3, §3, §4.3, §9(b)
 
 ### Why
-- Lif passt sich verschiedenen Projektstrukturen an und erzwingt die konfigurierten Regeln beim Schreiben.
-- Statt fester Vorgabe: Presets sind Beispiele, die Struktur gehört dem Projekt (D39).
-- Beispiele für unterschiedliche Modelle: Ein-Ebenen-Liste, Meilenstein bis Task, Release-Modell.
-- Quelle: CONCEPT.md §4.2; DESIGN.md D39; FACTS.md §3.1, §9(c)
+- Lif adapts to different project structures and enforces the configured rules on write.
+- Instead of a fixed template: presets are examples, the structure belongs to the project (D39).
+- Examples for different models: single-level list, milestone down to task, release model.
+- Source: CONCEPT.md §4.2; DESIGN.md D39; FACTS.md §3.1, §9(c)
 
 ### How it looks
-- Mermaid-Diagramme der vier Presets aus den Definitionen: `classic` (milestone 1, epic 2, feature 3, bug/task 4), `todo` (nur `task`), `simple` (milestone, bucket, epic, feature, bug, task), `complex` (release, bucket, feature, improvement, chore, story, bug, task).
-- Hinweis: `bucket` ist mit `roadmap: false` aus Roadmap und Meilensteinliste ausgeblendet.
-- Ausgabe von `lif roadmap` (zum Beispiel mit `--tags`, `--depth`) als echter Auszug; in Phase 5 mit `lif init --profile` aufsetzen und festhalten (TODO: verify).
-- Regelverstoß zeigen: Task unter Task wird abgelehnt mit `task items can only have milestone, epic, or feature as parent, not task`.
-- Preset-Diagramme in Phase 5 mit `lif init --profile <name>` nachbauen und prüfen (TODO: verify)
-- Quelle: FACTS.md §3, §3.1, §9(b); (TODO: verify) für Roadmap-Ausgabe und Diagramme: in Phase 5 gegen `lif init --profile` und `lif roadmap` laufen lassen
+- Mermaid diagrams of the four presets from the definitions: `classic` (milestone 1, epic 2, feature 3, bug/task 4), `todo` (only `task`), `simple` (milestone, bucket, epic, feature, bug, task), `complex` (release, bucket, feature, improvement, chore, story, bug, task).
+- Note: `bucket` is hidden from the roadmap and the milestone list with `roadmap: false`.
+- Output of `lif roadmap` (for example with `--tags`, `--depth`) as a real excerpt; set it up in phase 5 with `lif init --profile` and record it (TODO: verify).
+- Show a rule violation: task under task is rejected with `task items can only have milestone, epic, or feature as parent, not task`.
+- Rebuild the preset diagrams in phase 5 with `lif init --profile <name>` and check them (TODO: verify)
+- Source: FACTS.md §3, §3.1, §9(b); (TODO: verify) for roadmap output and diagrams: run in phase 5 against `lif init --profile` and `lif roadmap`
 
 ### Acceptance criteria
-- Anleitung zum Hinzufügen: Kriterien als Checkliste im Body des Items, jedes Kriterium beobachtbar; Format und Vorlage je Typ (Blatt gegenüber Container) (TODO: verify)
-- Anleitung zum Prüfen: Kriterien lesen und abhaken, bevor `lif complete` läuft; Beweise im Item oder unter `attachments/<item-id>/`.
-- Was Lif beim Abschluss erzwingt: Statusabhängige Pflichtfelder über `lif.require_fields_on` (Status mit Liste extra keys); fehlt ein Wert, schlägt Anlegen und Aktualisieren mit Policy-Verletzung fehl.
-- `lif check` meldet fehlende Pflichtfelder als Warnung; `lif check --strict` zählt sie als Problem (Exit 1).
-- `lif complete --summary` hängt einen Abschnitt "Summary of Changes" an; `--commit` hält die SHA im konfigurierten Feld (Standard `commit`) fest.
-- Klären: Checklisten im Body sind Konvention; FACTS zeigt keinen Code, der sie auswertet (TODO: verify)
-- Quelle: FACTS.md §2.3, §6.5, §1.1 (`lif complete`); (TODO: verify) für Checklistenformat und "Konvention oder Feature": `internal/commands/prompt.tmpl`, `complete.go` und `lif prime` prüfen
+- How-to for adding: criteria as a checklist in the item body, each criterion observable; format and template per type (leaf versus container) (TODO: verify)
+- How-to for checking: read the criteria and tick them off before `lif complete` runs; evidence in the item or under `attachments/<item-id>/`.
+- What Lif enforces on completion: status-dependent required fields via `lif.require_fields_on` (status with a list of extra keys); if a value is missing, create and update fail with a policy violation.
+- `lif check` reports missing required fields as a warning; `lif check --strict` counts them as a problem (exit 1).
+- `lif complete --summary` appends a "Summary of Changes" section; `--commit` records the SHA in the configured field (default `commit`).
+- To clarify: checklists in the body are a convention; FACTS shows no code that evaluates them (TODO: verify)
+- Source: FACTS.md §2.3, §6.5, §1.1 (`lif complete`); (TODO: verify) for checklist format and "convention or feature": check `internal/commands/prompt.tmpl`, `complete.go` and `lif prime`
 
 ### Limits
-- Die Rangregel gilt beim Schreiben über Lif (CLI, GraphQL, TUI, Web UI), nicht bei Handbearbeitung der Datei.
-- `lif check` prüft weder Rang von Parent und Kind noch Statuswerte, Prioritätswerte oder Tags; es meldet nur unbekannten Typ, defekte Links, Selbstbezüge, Zyklen, fehlende Pflichtfelder und verwaiste Anhang-Verzeichnisse.
-- Bekannter Fehler: Wer nur `type` ändert (`lif update -t`, GraphQL `updateItem(type)`), umgeht die Prüfung des Parent-Rangs; `lif check` meldet es danach auch nicht.
-- Keine feste Tiefengrenze: Eingebaute Typen und `classic` nutzen bis zu vier Ränge, eigene Typen mit Rang 5 oder höher werden angenommen.
-- Typen mit gleichem Rang können nicht ineinander liegen; Ränge dürfen Lücken haben.
-- `lif next` schließt Container nicht aus; der Hinweis am Typ `epic` ("nicht direkt bearbeiten") wird nicht erzwungen.
-- Quelle: FACTS.md §3, §3.1, §3.2, §5.2, §6.9, §9(a), §9(c), §9(d), §9(e); DESIGN.md D39, D40, D43
+- The rank rule applies on write through Lif (CLI, GraphQL, TUI, Web UI), not on manual edits of the file.
+- `lif check` checks neither the rank of parent and child nor status values, priority values or tags; it only reports unknown type, broken links, self-references, cycles, missing required fields and orphaned attachment directories.
+- Known bug: Changing only `type` (`lif update -t`, GraphQL `updateItem(type)`) bypasses the parent rank check; `lif check` does not report it afterwards either.
+- No fixed depth limit: built-in types and `classic` use up to four ranks, custom types with rank 5 or higher are accepted.
+- Types with the same rank cannot be nested in each other; ranks may have gaps.
+- `lif next` does not exclude containers; the note on type `epic` ("do not work on directly") is not enforced.
+- Source: FACTS.md §3, §3.1, §3.2, §5.2, §6.9, §9(a), §9(c), §9(d), §9(e); DESIGN.md D39, D40, D43
 
 ### Reference links
-- Configuration (`reference/configuration`): Typen, Ränge, Status, Prioritäten, Presets, `require_fields_on`.
-- `lif init` (`reference/commands/lif-init`): Option `--profile`.
-- `lif roadmap`, `lif milestones`, `lif progress`, `lif order` (`reference/commands/lif-roadmap`, `reference/commands/lif-milestones`, `reference/commands/lif-progress`, `reference/commands/lif-order`): Planungsansichten und Reihenfolge.
-- `lif complete` (`reference/commands/lif-complete`) und `lif check` (`reference/commands/lif-check`): Abschluss und Prüfung.
-- Quelle: DESIGN.md D24, D25 und Open (Page-Cut Phase 4)
+- Configuration (`reference/configuration`): types, ranks, status, priorities, presets, `require_fields_on`.
+- `lif init` (`reference/commands/lif-init`): option `--profile`.
+- `lif roadmap`, `lif milestones`, `lif progress`, `lif order` (`reference/commands/lif-roadmap`, `reference/commands/lif-milestones`, `reference/commands/lif-progress`, `reference/commands/lif-order`): planning views and ordering.
+- `lif complete` (`reference/commands/lif-complete`) and `lif check` (`reference/commands/lif-check`): completion and checking.
+- Source: DESIGN.md D24, D25 and Open (page cut phase 4)

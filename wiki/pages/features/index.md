@@ -3,44 +3,42 @@ title: "Features"
 description: "What Lif can do, with a page for each capability."
 ---
 
-# Features
+## Purpose
+Entry point to the Features chapter: shows the six capabilities of Lif at a glance and explains how they fit together. The page describes capabilities, not individual commands; details live on the feature pages and in the Reference.
 
-## Zweck
-Einstieg in das Kapitel Features: zeigt die sechs Fähigkeiten von Lif auf einen Blick und erklärt, wie sie zusammenhängen. Die Seite beschreibt Fähigkeiten, keine einzelnen Befehle; Details stehen auf den Feature-Seiten und in der Reference.
+## Audience
+People evaluating or recommending Lif, and coding agents that use web search to find out what Lif can do. They want to know in a few lines which capability answers their question, and jump straight to the matching page.
 
-## Zielgruppe
-Menschen, die Lif bewerten oder empfehlen, und Coding-Agents, die per Websuche herausfinden, was Lif kann. Sie wollen in wenigen Zeilen wissen, welche Fähigkeit ihre Frage beantwortet, und gezielt zur passenden Seite springen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### What Lif can do
-- Eine Zeile pro Feature mit Slug in Backticks: Markdown-native (`features/markdown-native`), Flexible planning (`features/project-planning`), Dependencies (`features/dependencies`), Surface independence (`features/surface-independence`), Automation and agents (`features/automation`), Git-native (`features/git-native`).
-- Prinzip vorab: Ein Feature ist eine Fähigkeit, kein Befehl; Befehle zeigen Fähigkeiten nur (CONCEPT §4).
-- Hinweis auf das feste Seitenmuster: What, Why, How it looks, Limits, Reference links; Anleitungen sind als eingeklappte Abschnitte in die passende Feature-Seite gewandert.
-- Sechs Seiten, nicht fünf: Git-native kam als sechstes Feature hinzu.
-- Quelle: DESIGN.md D30, D31, D32; CONCEPT.md §4
+- One line per feature with the slug in backticks: Markdown-native (`features/markdown-native`), Flexible planning (`features/project-planning`), Dependencies (`features/dependencies`), Surface independence (`features/surface-independence`), Automation and agents (`features/automation`), Git-native (`features/git-native`).
+- Principle up front: A feature is a capability, not a command; commands only show capabilities (CONCEPT §4).
+- Note on the fixed page pattern: What, Why, How it looks, Limits, Reference links; how-to guides moved into the matching feature page as collapsed sections.
+- Six pages, not five: Git-native was added as the sixth feature.
+- Source: DESIGN.md D30, D31, D32; CONCEPT.md §4
 
 ### How the features fit together
-- Erklärt die gemeinsame Grundlage: Ein Item ist eine Markdown-Datei im Store (`.lif/` neben `.lif.yml`), alle anderen Features setzen darauf auf.
-- Verknüpfung: Planung (Typen, Ränge, Parents) und Abhängigkeiten (`blocking` / `blocked_by`) beschreiben Beziehungen zwischen Dateien; `lif next` und `lif roadmap` lesen beides.
-- Verknüpfung: Alle schreibenden Wege (CLI, GraphQL, TUI, Web UI) laufen durch dieselbe Item-Logik und erzwingen dieselben konfigurierten Regeln; direktes Editieren der Dateien ist frei und wird nachträglich mit `lif check` geprüft.
-- Verknüpfung: Weil der Store im Repository liegt, reisen Items mit dem Code (Git-native); Automatisierung und Agents arbeiten auf denselben Dateien.
-- Optional: Mermaid-Diagramm, das Store in der Mitte zeigt und die sechs Features darum gruppiert (D38).
-- Quelle: FACTS.md §2.1, §2.4, §3.1, §4.2, §5.2, §7.5; DESIGN.md D38
+- Explains the shared foundation: An item is a Markdown file in the store (`.lif/` next to `.lif.yml`), and all other features build on it.
+- Link: Planning (types, ranks, parents) and dependencies (`blocking` / `blocked_by`) describe relations between files; `lif next` and `lif roadmap` read both.
+- Link: All writing paths (CLI, GraphQL, TUI, Web UI) go through the same item logic and enforce the same configured rules; editing the files directly is free and is checked afterwards with `lif check`.
+- Link: Because the store lives in the repository, items travel with the code (Git-native); automation and agents work on the same files.
+- Optional: Mermaid diagram that shows the store in the middle and groups the six features around it (D38).
+- Source: FACTS.md §2.1, §2.4, §3.1, §4.2, §5.2, §7.5; DESIGN.md D38
 
 ### Which feature answers which question
-- Tabellenskizze mit Spalten Frage, Feature-Seite, Einstiegsbefehl.
-- Zeile: "Kann ich meine Daten ohne Lif lesen und ändern?" mit `features/markdown-native`.
-- Zeile: "Wie bilde ich Meilensteine, Epics und Aufgaben ab?" mit `features/project-planning` und `lif init --profile`.
-- Zeile: "Was kann ich jetzt anfangen, was blockiert mich?" mit `features/dependencies` und `lif next`.
-- Zeile: "Kann ich CLI, TUI, Web UI und meinen Editor mischen?" mit `features/surface-independence`.
-- Zeile: "Wie binde ich Skripte oder Coding-Agents an?" mit `features/automation`, `lif prime`, `--json`.
-- Zeile: "Wie läuft das mit Branches, Worktrees und Commits?" mit `features/git-native`.
-- Quelle: FACTS.md §1.1 (`lif init`, `lif next`, `lif prime`), §5.2; DESIGN.md D30
+- Table sketch with columns question, feature page, entry command.
+- Row: "Can I read and change my data without Lif?" with `features/markdown-native`.
+- Row: "How do I model milestones, epics and tasks?" with `features/project-planning` and `lif init --profile`.
+- Row: "What can I start now, what blocks me?" with `features/dependencies` and `lif next`.
+- Row: "Can I mix CLI, TUI, Web UI and my editor?" with `features/surface-independence`.
+- Row: "How do I connect scripts or coding agents?" with `features/automation`, `lif prime`, `--json`.
+- Row: "How does this work with branches, worktrees and commits?" with `features/git-native`.
+- Source: FACTS.md §1.1 (`lif init`, `lif next`, `lif prime`), §5.2; DESIGN.md D30
 
 ### Where to go next
-- Use cases (`use-cases/index`): dieselben Features in fünf durchgespielten Szenarien.
-- Reference (`reference/index`): Befehle, Item-Dateiformat, Konfiguration, GraphQL.
-- Einstieg für Coding-Agents: Agent onboarding (`overview/agent-onboarding`).
-- Hinweis auf die Grenzen: Jede Feature-Seite hat einen Abschnitt Limits; die Seite weist darauf hin, dass dort ehrlich steht, was Lif nicht prüft (D39 bis D41).
-- Quelle: DESIGN.md D32, D39, D40, D41
+- Use cases (`use-cases/index`): the same features in five worked scenarios.
+- Reference (`reference/index`): commands, item file format, configuration, GraphQL.
+- Entry point for coding agents: Agent onboarding (`overview/agent-onboarding`).
+- Note on limits: Every feature page has a Limits section; the page points out that it states honestly there what Lif does not check (D39 to D41).
+- Source: DESIGN.md D32, D39, D40, D41

@@ -3,56 +3,54 @@ title: "Home lab"
 description: "Track servers, services and chores."
 ---
 
-# Home lab
+## Purpose
+Shows how a home server setup (servers, services, maintenance, expansion plans) is managed with a lean custom Lif configuration.
 
-## Zweck
-Zeigt, wie ein Heimserver-Betrieb (Server, Dienste, Wartung, Ausbaupläne) mit einer schlanken eigenen Lif-Konfiguration verwaltet wird.
+## Audience
+Home lab operators and self-hosters who want to track maintenance and expansion in files; agents that suggest such a setup.
 
-## Zielgruppe
-Home-Lab-Betreiber und Selbsthoster, die Wartung und Ausbau nachvollziehbar in Dateien führen wollen; Agenten, die so ein Setup vorschlagen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Problem
-- Beschreibt die Situation: Viele Systeme, verstreute Notizen, vergessene Wartung, unklare Reihenfolge (erst Backup, dann Update).
-- Nennt Anforderungen: pro System filtern, Abhängigkeiten sichtbar, schnell ein Item finden.
-- Bleibt Szenario-Text; keine Behauptungen über Lif-Verhalten.
-- Quelle: CONCEPT.md §5.3 (Content)
+- Describes the situation: many systems, scattered notes, forgotten maintenance, unclear order (backup first, then update).
+- Names requirements: filter per system, visible dependencies, find an item quickly.
+- Stays scenario text; no claims about Lif behavior.
+- Source: CONCEPT.md §5.3 (Content)
 
 ### Solution
-- Erklärt: Eine kleine eigene `types`-Tabelle (Typ-Vorschläge, z. B. Projekt und Aufgabe) statt eines fertigen Presets; Tags benennen die Systeme.
-- Erklärt `blocked_by` für Reihenfolgen: ein Item wartet, bis sein Blocker `completed` oder `scrapped` ist.
-- Erklärt `lif next` und `lif list --ready` als Antwort auf die Frage was heute dran ist.
-- Quelle: FACTS.md §4.3 (`types`, `types_exclusive`), §5.1, §5.2; Typnamen sind ein Vorschlag → `TODO: verify`
+- Explains: A small custom `types` table (suggested types, e.g. project and task) instead of a ready-made preset; tags name the systems.
+- Explains `blocked_by` for ordering: an item waits until its blocker is `completed` or `scrapped`.
+- Explains `lif next` and `lif list --ready` as the answer to what is due today.
+- Source: FACTS.md §4.3 (`types`, `types_exclusive`), §5.1, §5.2; type names are a suggestion → `TODO: verify`
 
 ### Structure
-- Zeigt eine Beispiel-`.lif.yml` mit `types_exclusive: true` und zwei bis drei eigenen Typen; Ränge so wählen, dass Eltern einen kleineren Rang haben als Kinder.
-- Erklärt: Ein neuer Typ ohne `rank` erhält Rang 4; Ränge dürfen Lücken haben.
-- Hierarchie-Skizze (Mermaid, D38): Projekt (z. B. Netzwerk-Umbau) > Aufgabe; Tags je System (`nas`, `router`).
-- Beispiel-Konfiguration und Ausgabe von `lif check`: in Phase 5 mit `lif init` bauen und prüfen. (TODO: verify)
-- Optional: `require_fields_on` verlangt für einen Status einen Extra-Schlüssel (z. B. Notiz zum Wartungsfenster). (TODO: verify)
-- Quelle: FACTS.md §4.3, §3, §2.3; konkrete Beispiel-Config `TODO: verify` — in Phase 5 mit `lif init` und `lif check` bauen
+- Shows an example `.lif.yml` with `types_exclusive: true` and two to three custom types; choose ranks so that parents have a lower rank than children.
+- Explains: A new type without `rank` gets rank 4; ranks may have gaps.
+- Hierarchy sketch (Mermaid, D38): project (e.g. network rebuild) > task; tags per system (`nas`, `router`).
+- Example configuration and output of `lif check`: build and verify with `lif init` in phase 5. (TODO: verify)
+- Optional: `require_fields_on` requires an extra key for a status (e.g. a note on the maintenance window). (TODO: verify)
+- Source: FACTS.md §4.3, §3, §2.3; concrete example config `TODO: verify` — build with `lif init` and `lif check` in phase 5
 
 ### Workflow
-- Schleife: `lif create "…" -t <type> --tag <system>` → `lif create … --blocked-by <id>` → `lif next --tag <system>` → `lif start` → `lif complete --summary "…"`.
-- Zeigt `lif list --tag <system>` und `lif list --is-blocked` für Wartestau.
-- Zeigt `lif pick` und das zsh-Widget (Alt+i), um Item-IDs per Fuzzy-Auswahl in die Befehlszeile zu setzen.
-- Zeigt `lif graph --format mermaid` für die Abhängigkeitsübersicht.
-- Quelle: FACTS.md §1.1 (create, next, list, pick, graph, complete), §8.3, §5.5
+- Loop: `lif create "…" -t <type> --tag <system>` → `lif create … --blocked-by <id>` → `lif next --tag <system>` → `lif start` → `lif complete --summary "…"`.
+- Shows `lif list --tag <system>` and `lif list --is-blocked` for the backlog of waiting items.
+- Shows `lif pick` and the zsh widget (Alt+i) to put item IDs on the command line via fuzzy selection.
+- Shows `lif graph --format mermaid` for the dependency overview.
+- Source: FACTS.md §1.1 (create, next, list, pick, graph, complete), §8.3, §5.5
 
 ### Benefits
-- Wartungswissen liegt als Text im Repository oder Verzeichnis und lässt sich mit Git versionieren.
-- Reihenfolgen werden über `blocked_by` sichtbar; `lif next` überspringt Blockiertes.
-- Systeme lassen sich per Tag filtern, ohne feste Hierarchie.
-- Quelle: FACTS.md §5.1, §5.2, §2.2 (Tags)
+- Maintenance knowledge lives as text in the repository or directory and can be versioned with Git.
+- Ordering becomes visible via `blocked_by`; `lif next` skips blocked items.
+- Systems can be filtered by tag, without a fixed hierarchy.
+- Source: FACTS.md §5.1, §5.2, §2.2 (Tags)
 
 ### Limits
-- Wiederkehrende Pflichten (monatliche Updates, Zertifikats-Erneuerung): kein Feature belegt. (TODO: verify)
-- Lif überwacht keine Systeme und löst keine Erinnerungen aus. (TODO: verify)
-- Ein Link wird nur auf einer Seite gespeichert; `lif check` meldet keine Asymmetrie zwischen `blocking` und `blocked_by`.
-- Quelle: FACTS.md §5.1, §5.6; Wiederholung/Überwachung `TODO: verify` — `lif --help` und Config-Schlüssel in Phase 5 prüfen
+- Recurring duties (monthly updates, certificate renewal): no documented feature. (TODO: verify)
+- Lif does not monitor systems and does not trigger reminders. (TODO: verify)
+- A link is stored on one side only; `lif check` does not report asymmetry between `blocking` and `blocked_by`.
+- Source: FACTS.md §5.1, §5.6; recurrence/monitoring `TODO: verify` — check `lif --help` and config keys in phase 5
 
 ### References
 - Feature: Dependencies (`features/dependencies`), Flexible planning (`features/project-planning`).
 - Reference: Configuration (`reference/configuration`), `lif next`, `lif list`, `lif graph`, `lif pick` (`reference/commands`).
-- Quelle: DESIGN.md D32, D33
+- Source: DESIGN.md D32, D33

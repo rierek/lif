@@ -3,37 +3,35 @@ title: "Blog"
 description: "Experiments, integrations and field notes around Lif."
 ---
 
-# Blog
+## Purpose
+Overview of blog posts: experiences, experiments, integrations and extensions around Lif, without a fixed narrative structure.
 
-## Zweck
-Übersicht über Blog-Beiträge: Erfahrungen, Experimente, Integrationen und Erweiterungen rund um Lif, ohne feste Erzählstruktur.
+## Audience
+Readers who want to look beyond the core scope, and authors who decide whether a text belongs on the blog or in Use cases.
 
-## Zielgruppe
-Leserinnen, die über den Kernumfang hinausschauen wollen, und Autoren, die entscheiden, ob ein Text ins Blog oder in Use cases gehört.
-
-## Pflichtabschnitte
+## Required sections
 
 ### What belongs on the blog
-- Erklärt: Das Blog teilt eine konkrete Erfahrung, ein Experiment, eine Integration oder Erweiterung; Use cases zeigen dagegen allgemein anwendbare Lösungen.
-- Beispiel der Abgrenzung: Use case "Managing a Software Project with Lif" gegenüber Blog "Wie ich Items mit Git-Worktrees verbinde".
-- Regel: Blog-Beiträge verlinken die Reference, statt technische Definitionen zu wiederholen.
-- Mögliche Themen laut Seed: Git-Worktree-Integration, Rückführbarkeit Item zu Umsetzung, Release-Workflow, eigene Skripte, Obsidian.
-- Quelle: CONCEPT.md §6 (Purpose, Potential Articles, Editorial Distinction); DESIGN.md D34, D42
+- Explains: the blog shares a concrete experience, experiment, integration or extension; use cases, in contrast, show generally applicable solutions.
+- Example of the scope boundary: use case "Managing a Software Project with Lif" versus blog "How I connect items with Git worktrees".
+- Rule: blog posts link to the reference instead of repeating technical definitions.
+- Possible topics per seed: Git worktree integration, traceability from item to implementation, release workflow, custom scripts, Obsidian.
+- Source: CONCEPT.md §6 (Purpose, Potential Articles, Editorial Distinction); DESIGN.md D34, D42
 
 ### Post list
-- Zeigt die Beitragsliste chronologisch, neueste zuerst, mit Titel, Datum, Tags und Kurzbeschreibung.
-- Aktueller Bestand: Managing Lif items in Obsidian (`blog/obsidian-experiment`).
-- Listenmechanismus offen: Das Starlight-Blog-Plugin aus D34 ist nicht installiert. (TODO: verify)
-- Quelle: DESIGN.md D34; Mechanismus `TODO: verify` — `site/` (Plugins in `astro.config.mjs`) in Phase 5 prüfen
+- Shows the post list chronologically, newest first, with title, date, tags and short description.
+- Current posts: Managing Lif items in Obsidian (`blog/obsidian-experiment`).
+- List mechanism open: the Starlight blog plugin from D34 is not installed. (TODO: verify)
+- Source: DESIGN.md D34; mechanism `TODO: verify` — check `site/` (plugins in `astro.config.mjs`) in phase 5
 
 ### Tags and the experiment tag
-- Erklärt: Beiträge tragen Tags; experimentelle Beiträge tragen den Tag `experiment`.
-- Zeigt die Tag-Liste mit Anzahl, sobald mehr als ein Beitrag existiert.
-- Erklärt, was der Tag `experiment` bedeutet: ausprobiert, nicht als unterstützte Integration zugesagt.
-- Quelle: DESIGN.md D34, D42; Tag-Mechanik des Plugins `TODO: verify`
+- Explains: posts carry tags; experimental posts carry the tag `experiment`.
+- Shows the tag list with counts as soon as more than one post exists.
+- Explains what the tag `experiment` means: tried out, not promised as a supported integration.
+- Source: DESIGN.md D34, D42; tag mechanics of the plugin `TODO: verify`
 
 ### Notice box for experimental posts
-- Zeigt den Hinweistext, den jeder Beitrag mit Tag `experiment` am Anfang trägt.
-- Erklärt Zweck: Leser erkennen, dass Verhalten nicht von Lif zugesichert ist und Referenzseiten Vorrang haben.
-- Bestimmt, wie die Box umgesetzt wird (Plugin-Funktion oder Starlight-Aside). (TODO: verify)
-- Quelle: DESIGN.md D34, D42; Umsetzung `TODO: verify` — in Phase 5 mit Seiten-Generator und Plugin abstimmen
+- Shows the notice text that every post with tag `experiment` carries at the top.
+- Explains the purpose: readers see that behavior is not guaranteed by Lif and reference pages take precedence.
+- Determines how the box is implemented (plugin function or Starlight aside). (TODO: verify)
+- Source: DESIGN.md D34, D42; implementation `TODO: verify` — align with page generator and plugin in phase 5

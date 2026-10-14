@@ -3,96 +3,94 @@ title: "Item file format"
 description: "Structure of an item file: Markdown with YAML front matter."
 ---
 
-# Item file format
+## Purpose
+Canonical description of the data model: how an item is stored as a Markdown file, which fields and values exist, and what applies when editing by hand. This page introduces the term Liff.
 
-## Zweck
-Kanonische Beschreibung des Datenmodells: wie ein Item als Markdown-Datei gespeichert ist, welche Felder und Werte es gibt und was beim Bearbeiten von Hand gilt. Hier wird der Begriff Liff eingeführt.
+## Audience
+Users and agents who read item files, edit them by hand, or process them with their own scripts. Readers looking for hierarchy and status rules are pointed to `reference/configuration`.
 
-## Zielgruppe
-Nutzer und Agenten, die Items-Dateien lesen, von Hand ändern oder mit eigenen Skripten verarbeiten. Wer Hierarchie- und Statusregeln sucht, wird zu `reference/configuration` verwiesen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### What an item file is
-- Führt **Liff** (Mehrzahl **Liffs**) ein: Kurzform für Lif-Datei, die Markdown-Datei, die ein Item speichert; Feldnamen, Befehle, JSON und GraphQL behalten das Wort `item`.
-- Erklärt: ein Item = eine Markdown-Datei; Aufbau `---`, YAML-Front-Matter, `---`, Markdown-Body.
-- Erklärt: die erste Zeile im Front Matter ist ein YAML-Kommentar `# <id>`, den Lif schreibt, wenn die ID bekannt ist.
-- Erklärt: ID und Slug stehen nicht im Front Matter, sie werden aus dem Dateinamen abgeleitet.
-- Quelle: DESIGN.md D47; FACTS.md §2.1
+- Introduces **Liff** (plural **Liffs**): short for Lif file, the Markdown file that stores an item; field names, commands, JSON and GraphQL keep the word `item`.
+- Explains: one item = one Markdown file; layout `---`, YAML front matter, `---`, Markdown body.
+- Explains: the first line in the front matter is a YAML comment `# <id>`, which Lif writes when the ID is known.
+- Explains: ID and slug are not in the front matter, they are derived from the file name.
+- Source: DESIGN.md D47; FACTS.md §2.1
 
 ### File name and ID
-- Dateiname `<id>--<slug>.md` (doppelter Bindestrich); ohne Slug `<id>.md`; enthält die ID `-` oder `.` und es gibt keinen Slug, heißt die Datei `<id>--.md`.
-- ID = konfiguriertes `prefix` plus Zufallssuffix aus `id_length` Zeichen (Standard 4) aus dem Alphabet `0-9a-z`; IDs mit gesperrten Wörtern werden neu erzeugt.
-- Slug: Titel kleingeschrieben, Leerzeichen und Unterstriche zu `-`, nur Buchstaben, Ziffern und `-`, zusammengezogen, gekürzt auf 50 Bytes.
-- Eigenes Präfix beim Anlegen (`lif create --prefix`): beginnt mit Buchstaben, enthält nur Buchstaben, Ziffern und einzelne Bindestriche.
-- Beim Lesen akzeptiert: `id--slug.md`, `id.slug.md`, alt `id-slug.md` und `id.md`.
-- Verweis: Umbenennen von Slug, ID oder Präfix mit `lif rename` (generierte Befehlsseite).
-- Quelle: FACTS.md §2.4, §1.1 (`lif rename`)
+- File name `<id>--<slug>.md` (double hyphen); without a slug `<id>.md`; if the ID contains `-` or `.` and there is no slug, the file is named `<id>--.md`.
+- ID = configured `prefix` plus a random suffix of `id_length` characters (default 4) from the alphabet `0-9a-z`; IDs containing blocked words are regenerated.
+- Slug: title lowercased, spaces and underscores to `-`, only letters, digits and `-`, collapsed, truncated to 50 bytes.
+- Custom prefix on create (`lif create --prefix`): starts with a letter, contains only letters, digits and single hyphens.
+- Accepted on read: `id--slug.md`, `id.slug.md`, legacy `id-slug.md` and `id.md`.
+- Link: rename slug, ID or prefix with `lif rename` (generated command page).
+- Source: FACTS.md §2.4, §1.1 (`lif rename`)
 
 ### Front matter fields
-- Tabelle: Feld, Typ, Default, Prüfung. Reihenfolge, in der Lif schreibt: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`.
-- `title`: Pflicht, nicht leer, höchstens 1000 Zeichen beim Schreiben; `lif create` ohne Titel nutzt "Untitled".
-- `status`, `type`, `priority`: Strings aus den konfigurierten Tabellen; leerer `type` wird beim Laden zu `task`, leere `priority` zu `normal`; `priority` wird beim Anlegen nicht vorbelegt.
-- `tags`: Liste; jeder Tag klein, getrimmt, Muster `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`.
-- `created_at`, `updated_at`: RFC 3339, UTC, Sekunden; fehlen sie beim Laden, springt Lif auf das jeweils andere Feld, sonst auf die Änderungszeit der Datei.
-- `order`: String, Fractional Index in base62, letzte Stelle nie `0`; geschrieben von `lif order`, `lif create --order` und GraphQL `updateItem(order)`. `parent`: höchstens eine ID; `blocking` und `blocked_by`: Listen von IDs.
-- Quelle: FACTS.md §2.1, §2.2
+- Table: field, type, default, validation. Order in which Lif writes: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`.
+- `title`: required, non-empty, at most 1000 characters on write; `lif create` without a title uses "Untitled".
+- `status`, `type`, `priority`: strings from the configured tables; an empty `type` becomes `task` on load, an empty `priority` becomes `normal`; `priority` is not pre-filled on create.
+- `tags`: list; each tag lowercase, trimmed, pattern `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`.
+- `created_at`, `updated_at`: RFC 3339, UTC, seconds; if missing on load, Lif falls back to the other field, otherwise to the file modification time.
+- `order`: string, fractional index in base62, last digit never `0`; written by `lif order`, `lif create --order` and GraphQL `updateItem(order)`. `parent`: at most one ID; `blocking` and `blocked_by`: lists of IDs.
+- Source: FACTS.md §2.1, §2.2
 
 ### Allowed values and defaults
-- Tabelle Status (Sortierreihenfolge): `in-progress`, `todo`, `draft`, `completed`, `scrapped`; Archiv-Status sind `completed` und `scrapped`.
-- Tabelle Typen: `milestone` (Rank 1), `epic` (2), `feature` (3), `bug` (4), `task` (4).
-- Tabelle Prioritäten, höchste Dringlichkeit zuerst: `critical`, `high`, `normal`, `low`, `deferred`.
-- Defaults: Status `todo`, Typ `task`, keine Priorität geschrieben.
-- Verweis auf `reference/configuration` für eigene Status, Typen und Prioritäten und für die Hierarchieregeln.
-- Hinweis: Werte werden beim Schreiben über Lif (CLI, GraphQL) gegen die Tabellen geprüft; `update` prüft nur Felder, die es setzt.
-- Quelle: FACTS.md §2.3
+- Status table (sort order): `in-progress`, `todo`, `draft`, `completed`, `scrapped`; archive statuses are `completed` and `scrapped`.
+- Type table: `milestone` (rank 1), `epic` (2), `feature` (3), `bug` (4), `task` (4).
+- Priority table, highest urgency first: `critical`, `high`, `normal`, `low`, `deferred`.
+- Defaults: status `todo`, type `task`, no priority written.
+- Link to `reference/configuration` for custom statuses, types and priorities and for the hierarchy rules.
+- Note: values are checked against the tables on write through Lif (CLI, GraphQL); `update` checks only the fields it sets.
+- Source: FACTS.md §2.3
 
 ### Relationships
-- Erklärt `parent` (Ein-Eltern-Beziehung, Rank-Regel beim Schreiben, Details auf `reference/configuration`).
-- Erklärt `blocking` und `blocked_by`: zwei getrennte Listen; ein Link wird nur in der Datei des geänderten Items gespeichert, die Gegenseite wird nicht geschrieben.
-- Erklärt: beim Lesen werden beide Richtungen vereinigt; `lif check` meldet keine Asymmetrie zwischen `blocking` und `blocked_by`.
-- Erklärt: `lif delete` räumt eingehende Verweise (parent, blocking, blocked_by) in anderen Dateien auf.
-- Verweis auf `features/dependencies` für die Semantik (blockiert, bereit) und auf die generierten Seiten zu `lif next`, `lif list`, `lif graph`.
-- Quelle: FACTS.md §2.2, §5.1, §5.4, §5.6
+- Explains `parent` (single-parent relationship, rank rule on write, details on `reference/configuration`).
+- Explains `blocking` and `blocked_by`: two separate lists; a link is stored only in the file of the changed item, the opposite side is not written.
+- Explains: on read both directions are merged; `lif check` reports no asymmetry between `blocking` and `blocked_by`.
+- Explains: `lif delete` cleans up incoming references (parent, blocking, blocked_by) in other files.
+- Link to `features/dependencies` for the semantics (blocked, ready) and to the generated pages for `lif next`, `lif list`, `lif graph`.
+- Source: FACTS.md §2.2, §5.1, §5.4, §5.6
 
 ### Extra keys
-- Erklärt: jeder weitere Front-Matter-Schlüssel bleibt erhalten und wird nach den typisierten Feldern alphabetisch geschrieben.
-- Reservierte Schlüssel: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`; `--set` und `--unset` lehnen sie ab.
-- Beispiel: `summary:` ist ein gewöhnlicher Extra-Schlüssel ohne Sonderbehandlung; `lif list --where key=value` filtert darauf (mehrfach, UND).
-- Erklärt Zusammenspiel mit `require_fields_on` und `commit_field` (Verweis auf `reference/configuration`).
-- Quelle: FACTS.md §2.1, §2.3, §1.1 (`lif list`)
+- Explains: every additional front matter key is preserved and written alphabetically after the typed fields.
+- Reserved keys: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`; `--set` and `--unset` reject them.
+- Example: `summary:` is an ordinary extra key without special handling; `lif list --where key=value` filters on it (repeatable, AND).
+- Explains the interplay with `require_fields_on` and `commit_field` (link to `reference/configuration`).
+- Source: FACTS.md §2.1, §2.3, §1.1 (`lif list`)
 
 ### Body
-- Body = Markdown nach dem Front Matter; ein abschließender Zeilenumbruch gehört nicht zum Inhalt.
-- Grenze: höchstens 1 MiB beim Schreiben.
-- ETag: Hash der Dateibytes; für optimistisches Sperren mit `--if-match` und GraphQL `ifMatch`; `require_if_match: true` macht es verpflichtend.
-- Hinweis: `lif complete --summary` hängt einen Abschnitt "## Summary of Changes" an, `lif scrap --reason` einen Abschnitt "## Reason for Scrapping".
-- Quelle: FACTS.md §2.1, §1.1 (`lif complete`, `lif scrap`), §4.3
+- Body = Markdown after the front matter; a trailing line break is not part of the content.
+- Limit: at most 1 MiB on write.
+- ETag: hash of the file bytes; for optimistic locking with `--if-match` and GraphQL `ifMatch`; `require_if_match: true` makes it mandatory.
+- Note: `lif complete --summary` appends a section "## Summary of Changes", `lif scrap --reason` a section "## Reason for Scrapping".
+- Source: FACTS.md §2.1, §1.1 (`lif complete`, `lif scrap`), §4.3
 
 ### Where files live
-- Store-Verzeichnis `.lif/` neben `.lif.yml`; ein altes `.beans/` wird genutzt, wenn es existiert; `lif.path` überschreibt.
-- Neue Items liegen flach im Store-Wurzelverzeichnis.
-- Laden: rekursiv alle `*.md`; Verzeichnisse mit Punkt am Namensanfang und `attachments/` werden übersprungen; `archive/` wird geladen.
-- `archive/`: Unterverzeichnis; archivierte Items bleiben geladen und ansprechbar.
-- `attachments/<item-id>/`: Belege je Item; `lif init` schreibt `<store>/.gitignore` mit `.conversations/`.
-- Eine nicht lesbare `.md`-Datei bricht das Laden ab (`loading <path>: ...`).
-- Quelle: FACTS.md §2.4, §5.4
+- Store directory `.lif/` next to `.lif.yml`; a legacy `.beans/` is used if it exists; `lif.path` overrides.
+- New items are stored flat in the store root directory.
+- Load: recursively all `*.md`; directories with a leading dot and `attachments/` are skipped; `archive/` is loaded.
+- `archive/`: subdirectory; archived items stay loaded and addressable.
+- `attachments/<item-id>/`: attachments per item; `lif init` writes `<store>/.gitignore` with `.conversations/`.
+- An unreadable `.md` file aborts loading (`loading <path>: ...`).
+- Source: FACTS.md §2.4, §5.4
 
 ### Editing by hand
-- Erklärt: Handbearbeitung ist erlaubt; Lif lädt und lädt neu, ohne Hierarchie, Status oder Priorität zu prüfen.
-- Tabelle: Was `lif check` in Hand-Edits findet (unbekannter Typ, kaputte Links, Selbstreferenzen, Zyklen, fehlende Pflichtfelder als Warnung, unbekannte Commit-SHAs als Warnung, verwaiste `attachments/<id>`).
-- Tabelle: Was `lif check` nicht findet (Rank-Regel, unbekannte Status- oder Prioritätswerte, Tag-Format, doppelte IDs, Abweichung Dateiname/ID, Front-Matter-Syntax über das Laden hinaus).
-- Warnt: doppelte IDs überschreiben sich beim Laden stillschweigend; ein Parse-Fehler bricht das Laden ab.
-- Verweis auf `reference/configuration` (Types, ranks and hierarchy rules) als kanonische Aussage zu D40.
-- Quelle: FACTS.md §3.2, §6.9, §9(d), §9(e); DESIGN.md D40
+- Explains: editing by hand is allowed; Lif loads and reloads without checking hierarchy, status or priority.
+- Table: what `lif check` finds in manual edits (unknown type, broken links, self-references, cycles, missing required fields as a warning, unknown commit SHAs as a warning, orphaned `attachments/<id>`).
+- Table: what `lif check` does not find (rank rule, unknown status or priority values, tag format, duplicate IDs, mismatch between file name and ID, front matter syntax beyond loading).
+- Warns: duplicate IDs silently overwrite each other on load; a parse error aborts loading.
+- Link to `reference/configuration` (Types, ranks and hierarchy rules) as the canonical statement for D40.
+- Source: FACTS.md §3.2, §6.9, §9(d), §9(e); DESIGN.md D40
 
 ### Legacy names
-- Tabelle: alt zu neu: `.beans/` zu `.lif/`, `.beans.yml` zu `.lif.yml`, Config-Schlüssel `beans:` zu `lif:`, Dateiname `id-slug.md` wird weiterhin gelesen.
-- Erklärt: Lif liest alte Namen an Ort und Stelle und benennt nie selbst um; `lif check` meldet sie unter "Legacy names", sie zählen nie als Befund.
-- Erklärt: JSON-Felder `bean_id` und `bean_issues` heißen jetzt `item_id` und `item_issues`.
-- Quelle: FACTS.md §2.4, §4.1, §6.6, §6.8
+- Table: old to new: `.beans/` to `.lif/`, `.beans.yml` to `.lif.yml`, config key `beans:` to `lif:`, file name `id-slug.md` is still read.
+- Explains: Lif reads old names in place and never renames on its own; `lif check` reports them under "Legacy names", they never count as a finding.
+- Explains: JSON fields `bean_id` and `bean_issues` are now called `item_id` and `item_issues`.
+- Source: FACTS.md §2.4, §4.1, §6.6, §6.8
 
 ### Annotated example
-- Zeigt eine echte Liff-Datei mit Kommentaren zu jedem Feld (TODO: verify)
-- Zeigt die JSON-Entsprechung desselben Items aus `lif show --json` (TODO: verify)
-- Quelle: `TODO: verify` — Beispiel in Phase 5 mit `lif init` und `lif create` bauen und die Ausgabe von `lif show --json` übernehmen; FACTS enthält keine Beispieldatei
+- Shows a real Liff file with comments on every field (TODO: verify)
+- Shows the JSON equivalent of the same item from `lif show --json` (TODO: verify)
+- Source: `TODO: verify` — build the example in phase 5 with `lif init` and `lif create` and take over the output of `lif show --json`; FACTS contains no example file

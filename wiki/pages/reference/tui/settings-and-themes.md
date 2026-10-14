@@ -3,48 +3,46 @@ title: "Settings and themes"
 description: "TUI settings file, editor, accent colour and themes."
 ---
 
-# Settings and themes
+## Purpose
+Describes the TUI settings (settings file, editor, accent color, layout) and the themes that TUI and CLI share.
 
-## Zweck
-Beschreibt die Einstellungen der TUI (Settings-Datei, Editor, Akzentfarbe, Layout) und die Themes, die TUI und CLI gemeinsam nutzen.
+## Audience
+Users who customize the TUI (repositories, editor, colors), and readers who want to know which settings live in `.lif.yml` and which in the TUI file.
 
-## Zielgruppe
-Nutzer, die die TUI anpassen (Repositories, Editor, Farben), und Leser, die wissen wollen, welche Einstellungen in `.lif.yml` und welche in der TUI-Datei stehen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Settings file
-- Pfade: `~/.config/lif/tui/config.yaml` (Einstellungen) und `state.json` im selben Verzeichnis (Zustand).
-- Tabelle der Schlüssel: `repos` (Liste von Repository-Pfaden), `editor`, `theme.accent` (Hex `#rrggbb`, leer = eingebautes Mauve), `layout.tree_width` (Standard 36, Minimum 24, Maximum 60), `repo_store_paths` (Abbildung Repository auf Store-Pfad).
-- Abgrenzung: Diese Datei gehört der TUI; Projekteinstellungen stehen in `.lif.yml` (`reference/configuration`).
-- Es gibt ein Einstellungsformular in der TUI. (Zugang und Taste: TODO: verify)
-- Quelle: FACTS.md §8.2; Einstellungsformular — `TODO: verify` (Phase 5: `internal/tui/box_form_settings.go` und Befehlspalette prüfen)
+- Paths: `~/.config/lif/tui/config.yaml` (settings) and `state.json` in the same directory (state).
+- Table of keys: `repos` (list of repository paths), `editor`, `theme.accent` (hex `#rrggbb`, empty = built-in mauve), `layout.tree_width` (default 36, minimum 24, maximum 60), `repo_store_paths` (mapping of repository to store path).
+- Scope boundary: this file belongs to the TUI; project settings live in `.lif.yml` (`reference/configuration`).
+- There is a settings form in the TUI. (Access and key: TODO: verify)
+- Source: FACTS.md §8.2; settings form — `TODO: verify` (Phase 5: check `internal/tui/box_form_settings.go` and the command palette)
 
 ### Themes
-- `display.theme` in `.lif.yml`: `latte`, `frappe`, `macchiato`, `mocha`; Standard `mocha`.
-- Das Theme gilt auch für die Farben der CLI; ein unbekannter Name wird von `lif check` gemeldet.
-- Zeigt die vier Themes nebeneinander (Screenshots). (TODO: verify)
-- Abgrenzung: `display.theme` (global, alle Oberflächen) vs `theme.accent` (nur TUI).
-- Quelle: FACTS.md §8.4, §4.3; Screenshots — `TODO: verify` (Phase 5: aufnehmen)
+- `display.theme` in `.lif.yml`: `latte`, `frappe`, `macchiato`, `mocha`; default `mocha`.
+- The theme also applies to the CLI colors; an unknown name is reported by `lif check`.
+- Shows the four themes side by side (screenshots). (TODO: verify)
+- Scope boundary: `display.theme` (global, all interfaces) vs `theme.accent` (TUI only).
+- Source: FACTS.md §8.4, §4.3; screenshots — `TODO: verify` (Phase 5: record)
 
 ### Display width
-- `display.max_width`: 0 = nicht gesetzt = 110, `-1` hebt die Begrenzung auf; das Flag `--max-width` überschreibt pro Befehl.
-- Klärt, ob `display.max_width` die TUI beeinflusst. (TODO: verify)
-- Quelle: FACTS.md §4.3; Wirkung auf die TUI — `TODO: verify` (Phase 5: Code prüfen, wo `max_width` gelesen wird)
+- `display.max_width`: 0 = unset = 110, `-1` removes the limit; the flag `--max-width` overrides it per command.
+- Clarifies whether `display.max_width` affects the TUI. (TODO: verify)
+- Source: FACTS.md §4.3; effect on the TUI — `TODO: verify` (Phase 5: check the code for where `max_width` is read)
 
 ### Choosing the editor
-- Schlüssel `editor` in der Settings-Datei; Befehl `e`/`ctrl+e` öffnet den Body im Editor.
-- Erklärt, ob `editor` Vorrang vor `$EDITOR` hat und was passiert, wenn keiner gesetzt ist. (TODO: verify)
-- Zeigt Beispiel mit einem Terminal- und einem GUI-Editor. (TODO: verify)
-- Quelle: FACTS.md §8.2, §8.3; Reihenfolge und Beispiele — `TODO: verify` (Phase 5: `internal/tui/editor.go` prüfen)
+- Key `editor` in the settings file; command `e`/`ctrl+e` opens the body in the editor.
+- Explains whether `editor` takes precedence over `$EDITOR` and what happens if neither is set. (TODO: verify)
+- Shows an example with a terminal editor and a GUI editor. (TODO: verify)
+- Source: FACTS.md §8.2, §8.3; order and examples — `TODO: verify` (Phase 5: check `internal/tui/editor.go`)
 
 ### Example settings file
-- Zeigt eine vollständige `config.yaml` mit `repos`, `editor`, `theme.accent`, `layout.tree_width`.
-- Das Beispiel wird in Phase 5 gebaut und mit `lif tui` geprüft, nicht erfunden.
-- Quelle: `TODO: verify` — FACTS nennt Schlüssel, aber kein Beispiel; in Phase 5 eine Datei anlegen und die TUI starten
+- Shows a complete `config.yaml` with `repos`, `editor`, `theme.accent`, `layout.tree_width`.
+- The example is built in Phase 5 and checked with `lif tui`, not invented.
+- Source: `TODO: verify` — FACTS names keys but gives no example; in Phase 5 create a file and start the TUI
 
 ### Limits
-- Settings gelten pro Benutzer, nicht pro Repository.
-- Ungültige Werte (z. B. Breite außerhalb 24–60, ungültige Hex-Farbe): Verhalten nicht belegt. (TODO: verify)
-- Die Themes sind auf die vier Werte begrenzt; eigene Themes gibt es nicht. (TODO: verify)
-- Quelle: FACTS.md §8.2, §8.4; Fehlerverhalten und eigene Themes — `TODO: verify` (Phase 5: `internal/tui/config/settings.go` prüfen)
+- Settings apply per user, not per repository.
+- Invalid values (e.g. width outside 24–60, invalid hex color): behavior not documented. (TODO: verify)
+- The themes are limited to the four values; custom themes do not exist. (TODO: verify)
+- Source: FACTS.md §8.2, §8.4; error behavior and custom themes — `TODO: verify` (Phase 5: check `internal/tui/config/settings.go`)

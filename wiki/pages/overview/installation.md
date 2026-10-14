@@ -3,56 +3,54 @@ title: "Installation"
 description: "Install Lif and check that it works."
 ---
 
-# Installation
+## Purpose
+Target of the hero button on the start page: install Lif and check with a first command that it runs. Shows only the installation path, no configuration.
 
-## Zweck
-Ziel des Hero-Buttons auf der Startseite: Lif installieren und mit einem ersten Befehl prüfen, dass es läuft. Zeigt nur den Installationsweg, keine Konfiguration.
+## Audience
+New users who have chosen Lif and want a working `lif` as quickly as possible, plus agents that look up installation steps.
 
-## Zielgruppe
-Neue Nutzer, die sich für Lif entschieden haben und möglichst schnell ein lauffähiges `lif` wollen, plus Agenten, die Installationsschritte nachlesen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Requirements
-- Unterstützte Betriebssysteme und Architekturen nennen (Tabelle).
-- Voraussetzungen: Git empfohlen, Go nur für Build aus Quellen, Node nur für das Frontend (TODO: verify).
-- Hinweis: `lif` selbst braucht keinen laufenden Server (siehe `overview/index`).
-- Quelle: `TODO: verify` — FACTS.md hat keinen Installationsabschnitt; prüfen in `.goreleaser.yaml` (Build-Matrix), `go.mod` (Go-Version), `README.md`, `wiki/installation.md`.
+- Names supported operating systems and architectures (table).
+- Prerequisites: Git recommended, Go only for building from source, Node only for the frontend (TODO: verify).
+- Note: `lif` itself needs no running server (see `overview/index`).
+- Source: `TODO: verify` — FACTS.md has no installation section; check in `.goreleaser.yaml` (build matrix), `go.mod` (Go version), `README.md`, `wiki/installation.md`.
 
 ### Install methods
-- Vier Wege als Tabs oder Unterabschnitt-Liste: Installationsskript · Paketmanager · Release-Download · Build aus Quellen.
-- Je Weg ein kopierbarer Befehl und eine Zeile "wann nehmen" (Befehle erst in Phase 5 verifizieren).
-- Hinweis: macOS-Quarantäne bei Homebrew-Installation wird per `xattr` behandelt (TODO: verify; FACTS erwähnt nur den Post-Install-Hook).
-- Hinweis zu `just install` als Entwicklerweg und seinem Schutz (`LIF_INSTALL_FORCE`) gehört auf die Seite Contribute, nicht hierher.
-- Quelle: `TODO: verify` — Skript-URL, Paketmanager-Namen und Release-Artefakte fehlen in FACTS; prüfen in `install.sh`, `.goreleaser.yaml` (Homebrew-Abschnitt), `README.md`, `wiki/installation.md`. FACTS.md §6.10 belegt nur: goreleaser-Homebrew-Hook mit `xattr`, `scripts/install-guard.sh` mit `LIF_INSTALL_FORCE=1`.
+- Four ways as tabs or a subsection list: install script · package manager · release download · build from source.
+- Per way one copyable command and one line "when to use" (verify commands only in phase 5).
+- Note: macOS quarantine on Homebrew install is handled with `xattr` (TODO: verify; FACTS mentions only the post-install hook).
+- Note on `just install` as a developer path and its guard (`LIF_INSTALL_FORCE`) belongs on the Contribute page, not here.
+- Source: `TODO: verify` — script URL, package manager names and release artifacts are missing in FACTS; check in `install.sh`, `.goreleaser.yaml` (Homebrew section), `README.md`, `wiki/installation.md`. FACTS.md §6.10 only documents: goreleaser Homebrew hook with `xattr`, `scripts/install-guard.sh` with `LIF_INSTALL_FORCE=1`.
 
 ### The binaries
-- `lif`: CLI und TUI (`lif tui`); die TUI ist kein eigenes Binary mehr.
-- `lif-serve`: separates Binary für den Webserver; ohne Argument startet es `serve`.
-- Der Befehl `lif serve` im Binary `lif` ist ein versteckter Stub und nicht dokumentiert; er verweist auf `lif-serve`.
-- Tabelle: Binary · Zweck · Standard-Port (8080 für `lif-serve`).
-- Quelle: FACTS.md §1.0, §1.1 (`lif tui`, `lif serve` stub, `lif-serve`), §4.3
+- `lif`: CLI and TUI (`lif tui`); the TUI is no longer a separate binary.
+- `lif-serve`: separate binary for the web server; without an argument it starts `serve`.
+- The command `lif serve` in the binary `lif` is a hidden stub and is not documented; it points to `lif-serve`.
+- Table: binary · purpose · default port (8080 for `lif-serve`).
+- Source: FACTS.md §1.0, §1.1 (`lif tui`, `lif serve` stub, `lif-serve`), §4.3
 
 ### Verify the installation
-- Zeigt `lif version` mit Beispielausgabe; `--json` für strukturierte Ausgabe.
-- Erklärt: Ein Entwicklungs-Build meldet die Version `dev`.
-- Zeigt `lif --help`: 28 Befehle sind aufgelistet (Zahl in Phase 5 neu zählen).
-- Erster sinnvoller Befehl: `lif init` im Projektordner; Verweis auf First steps (`overview/first-steps`).
-- Quelle: FACTS.md §1.1 (`version`, Command count), §1.0 (Bootstrap-Skip: `version` läuft ohne Store)
+- Shows `lif version` with example output; `--json` for structured output.
+- Explains: a development build reports the version `dev`.
+- Shows `lif --help`: 28 commands are listed (recount the number in phase 5).
+- First useful command: `lif init` in the project folder; link to First steps (`overview/first-steps`).
+- Source: FACTS.md §1.1 (`version`, command count), §1.0 (bootstrap skip: `version` runs without a store)
 
 ### Shell completion
-- Zeigt `lif completion bash|zsh|fish|powershell` (eine gemeinsame Befehlsseite, D25).
-- Nennt Item-ID-Vervollständigung als Nutzen.
-- Optional: zsh-Widget `Alt+i` für `lif pick` (extras, TODO: verify Installationsweg).
-- Quelle: FACTS.md §1.1 (Cobra built-ins, `lif pick`); DESIGN.md D25. Der Installationsweg des zsh-Widgets ist `TODO: verify` (prüfen in `extras/zsh/lif-pick.zsh`).
+- Shows `lif completion bash|zsh|fish|powershell` (one shared command page, D25).
+- Names item ID completion as the benefit.
+- Optional: zsh widget `Alt+i` for `lif pick` (extras, TODO: verify installation path).
+- Source: FACTS.md §1.1 (Cobra built-ins, `lif pick`); DESIGN.md D25. The installation path of the zsh widget is `TODO: verify` (check in `extras/zsh/lif-pick.zsh`).
 
 ### Update and uninstall
-- Update je Installationsweg (Skript erneut, Paketmanager-Upgrade, neuer Download).
-- Deinstallation: Binaries entfernen; Stores im Projekt (`.lif/`, `.lif.yml`) bleiben als normale Dateien erhalten.
-- Hinweis auf Upgrade-Kompatibilität alter `.beans`-Stores (Verweis nur als Titel, Quelle prüfen).
-- Quelle: `TODO: verify` — FACTS.md enthält weder Update- noch Deinstallationswege; prüfen in `install.sh`, `.goreleaser.yaml`, `wiki/installation.md`, `wiki/compatibility-and-upgrading.md`. Legacy-Lesen von `.beans/`: FACTS.md §2.4, §4.1.
+- Update per installation way (script again, package manager upgrade, new download).
+- Uninstall: remove the binaries; Stores in the project (`.lif/`, `.lif.yml`) stay as normal files.
+- Note on upgrade compatibility of old `.beans` Stores (link only as a title, check source).
+- Source: `TODO: verify` — FACTS.md contains neither update nor uninstall paths; check in `install.sh`, `.goreleaser.yaml`, `wiki/installation.md`, `wiki/compatibility-and-upgrading.md`. Legacy reading of `.beans/`: FACTS.md §2.4, §4.1.
 
 ### Next step
-- Verweis auf First steps (`overview/first-steps`): Store anlegen, Preset wählen, erste Items.
-- Verweis auf Concepts (`overview/concepts`) und, für Agenten, Agent onboarding (`overview/agent-onboarding`).
-- Quelle: DESIGN.md D37; CONCEPT.md §3.1
+- Link to First steps (`overview/first-steps`): create a store, choose a preset, first items.
+- Link to Concepts (`overview/concepts`) and, for agents, Agent onboarding (`overview/agent-onboarding`).
+- Source: DESIGN.md D37; CONCEPT.md §3.1

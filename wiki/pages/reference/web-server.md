@@ -3,66 +3,64 @@ title: "Web server"
 description: "lif-serve: the web UI and GraphQL HTTP server."
 ---
 
-# Web server
+## Purpose
+Reference for the web server `lif-serve`: start, options, routes, network/CORS behavior and what it offers in addition to the CLI. The page has low priority and follows the implemented scope.
 
-## Zweck
-Referenz für den Webserver `lif-serve`: Start, Optionen, Routen, Netzwerk-/CORS-Verhalten und was er zusätzlich zur CLI anbietet. Die Seite hat niedrige Priorität und folgt dem implementierten Umfang.
+## Audience
+Users who start the web interface, and operators who integrate the GraphQL HTTP interface into scripts or other machines.
 
-## Zielgruppe
-Nutzer, die die Weboberfläche starten, und Betreiber, die die GraphQL-HTTP-Schnittstelle in Skripte oder andere Rechner einbinden.
-
-## Pflichtabschnitte
+## Required sections
 
 ### What lif-serve is
-- Erklärt: `lif-serve` ist ein eigenes Binary, das Weboberfläche und GraphQL-HTTP-Schnittstelle liefert; `lif` selbst enthält keinen Server.
-- `lif serve` im `lif`-Binary ist ein versteckter Platzhalter, der auf `lif-serve` verweist und mit Exit 1 endet (nicht dokumentieren, nur diesen Hinweis geben).
-- `lif-serve` kennt nur den Befehl `serve`; ohne Argument oder bei erstem Argument mit `-` wird `serve` ergänzt.
-- Verweist auf `overview/installation` (welche Binaries es gibt) und `reference/graphql`.
-- Quelle: FACTS.md §1.0, §1.1 (`lif serve`, `lif-serve`), §8.1
+- Explains: `lif-serve` is a separate binary that provides the web interface and the GraphQL HTTP interface; `lif` itself contains no server.
+- `lif serve` in the `lif` binary is a hidden placeholder that points to `lif-serve` and exits with 1 (do not document it, give only this note).
+- `lif-serve` knows only the command `serve`; with no argument or when the first argument starts with `-`, `serve` is added.
+- Links to `overview/installation` (which binaries exist) and `reference/graphql`.
+- Source: FACTS.md §1.0, §1.1 (`lif serve`, `lif-serve`), §8.1
 
 ### Starting the server
-- Zeigt `lif-serve` und `lif-serve serve` (gleichwertig); Aliase `server` und `s`.
-- Optionen: `--port`/`-p` (Standard 8080), `--cors-origin` (Liste, kommagetrennt oder wiederholt; Standard `http://localhost:*` und `http://127.0.0.1:*`; `*` erlaubt alle).
-- Konfiguration: `server.port` und `server.cors_origins` in `.lif.yml`; Rangfolge Flag vor Konfiguration vor Standard.
-- Startmeldung des Servers (Adresse, Playground, erlaubte Origins) als Beispielausgabe.
-- Hinweis, dass der Server die Store-Konfiguration wie die CLI lädt (globale Flags `--config`, `--lif-path`). (TODO: verify)
-- Quelle: FACTS.md §8.1, §4.3, §1.1 (`lif-serve`); `--config`/`--lif-path` auf `lif-serve` — `TODO: verify` (Phase 5: `lif-serve --help` ausführen)
+- Shows `lif-serve` and `lif-serve serve` (equivalent); aliases `server` and `s`.
+- Options: `--port`/`-p` (default 8080), `--cors-origin` (list, comma-separated or repeated; default `http://localhost:*` and `http://127.0.0.1:*`; `*` allows all).
+- Configuration: `server.port` and `server.cors_origins` in `.lif.yml`; precedence flag over configuration over default.
+- Startup message of the server (address, playground, allowed origins) as example output.
+- Note that the server loads the store configuration like the CLI (global flags `--config`, `--lif-path`). (TODO: verify)
+- Source: FACTS.md §8.1, §4.3, §1.1 (`lif-serve`); `--config`/`--lif-path` on `lif-serve` — `TODO: verify` (Phase 5: run `lif-serve --help`)
 
 ### Network and CORS
-- Der Server lauscht auf `:<port>`, also auf allen Schnittstellen; Warnhinweis für Netzwerke.
-- CORS-Allow-List: Muster mit `:*` am Ende passt auf jeden Port; `*` erlaubt alles.
-- Der WebSocket-Upgrade (GraphQL) prüft den Origin gegen dieselbe Liste; unerlaubter Origin → 403 `origin not allowed`.
-- Beispiel für Zugriff von einem anderen Rechner mit angepasster `--cors-origin`. (TODO: verify)
-- Quelle: FACTS.md §8.1, §4.3; Beispiel — `TODO: verify` (in Phase 5 mit zweitem Host/Tailnet prüfen)
+- The server listens on `:<port>`, that is on all interfaces; warning note for networks.
+- CORS allow list: a pattern ending in `:*` matches any port; `*` allows everything.
+- The WebSocket upgrade (GraphQL) checks the origin against the same list; disallowed origin → 403 `origin not allowed`.
+- Example of access from another machine with an adjusted `--cors-origin`. (TODO: verify)
+- Source: FACTS.md §8.1, §4.3; example — `TODO: verify` (Phase 5: check with a second host/tailnet)
 
 ### Routes
-- Tabelle: `/api/graphql` (GraphQL; WebSocket, OPTIONS, GET, POST), `/playground` (GraphQL Playground), `/api/attachments/:beanId/:filename` (Bildanhänge des Agent-Chats), `/api/terminal` (WebSocket-Terminal), alle anderen Pfade liefern die eingebettete Single-Page-App (Rückfall auf `index.html`).
-- Hinweis: Der Platzhalter `:beanId` stammt aus dem Code; Beschreibung so wählen, dass klar bleibt, dass er die Item-ID meint.
-- Verweist auf `reference/graphql` für `/api/graphql` und `/playground`.
-- Quelle: FACTS.md §8.1
+- Table: `/api/graphql` (GraphQL; WebSocket, OPTIONS, GET, POST), `/playground` (GraphQL Playground), `/api/attachments/:beanId/:filename` (image attachments of the agent chat), `/api/terminal` (WebSocket terminal), all other paths serve the embedded single-page app (fallback to `index.html`).
+- Note: the placeholder `:beanId` comes from the code; word the description so it stays clear that it means the item ID.
+- Links to `reference/graphql` for `/api/graphql` and `/playground`.
+- Source: FACTS.md §8.1
 
 ### Web UI
-- Erklärt: Das Frontend ist in das Binary eingebettet (`dist/*`), ein SvelteKit/Vite-Projekt in `frontend/`; kein separater Webserver nötig.
-- Zeigt Screenshots der Oberfläche (webp, D38): Board, Detailansicht. (TODO: verify)
-- Beschreibt Ansichten und Board-Spalten. (TODO: verify)
-- Hinweis: Eine Toolbar-Schaltfläche "Run" erscheint, wenn `worktree.run` gesetzt ist.
-- Quelle: FACTS.md §8.1, §4.3; DESIGN.md D38; Ansichten und Board-Spalten — `TODO: verify` (Phase 5: Code unter `frontend/` (BoardView) und laufende Oberfläche prüfen)
+- Explains: the frontend is embedded in the binary (`dist/*`), a SvelteKit/Vite project in `frontend/`; no separate web server needed.
+- Shows screenshots of the interface (webp, D38): board, detail view. (TODO: verify)
+- Describes views and board columns. (TODO: verify)
+- Note: a toolbar button "Run" appears when `worktree.run` is set.
+- Source: FACTS.md §8.1, §4.3; DESIGN.md D38; views and board columns — `TODO: verify` (Phase 5: check the code under `frontend/` (BoardView) and the running interface)
 
 ### Live updates
-- Erklärt: Der Server beobachtet das Store-Verzeichnis und schickt Änderungen an Abonnenten (`itemChanged`-Subscription); externe Änderungen an Dateien erscheinen ohne Neuladen.
-- Verzeichnisse von Worktree-Stores werden ebenfalls beobachtet und in den Laufzeitzustand eingemischt.
-- Zeigt kurzes Beispiel: Subscription im Playground, Item per `lif update` ändern, Ereignis erscheint.
-- Quelle: FACTS.md §8.1, §7.3; Beispiel — `TODO: verify` (in Phase 5 ausführen)
+- Explains: the server watches the store directory and sends changes to subscribers (`itemChanged` subscription); external changes to files appear without reloading.
+- Directories of worktree Stores are also watched and merged into the runtime state.
+- Shows a short example: subscription in the playground, change an item with `lif update`, the event appears.
+- Source: FACTS.md §8.1, §7.3; example — `TODO: verify` (Phase 5: run it)
 
 ### Server-only capabilities
-- Nennt die Funktionen, die es nur mit `lif-serve` gibt: Worktrees, Agent-Sitzungen (Claude), Terminal-Sitzungen, Dateiänderungen und Diffs, Start/Stopp des Projekts, Öffnen im Editor.
-- Schalter in der Konfiguration: `agent.enabled` (Standard `true`), `agent.default_mode`, `agent.default_effort`, `worktree.base_ref`, `worktree.path`, `worktree.setup`, `worktree.run`, `worktree.integrate`, `worktree.fetch_timeout`.
-- Umgebungsvariable `LIF_WORKSPACE_PORT` für Shells in Workspaces (alt: `BEANS_WORKSPACE_PORT`).
-- Verweist auf `reference/configuration` für die Schlüssel.
-- Quelle: FACTS.md §8.1, §4.3, §7
+- Names the functions that exist only with `lif-serve`: worktrees, agent sessions (Claude), terminal sessions, file changes and diffs, start/stop of the project, opening in the editor.
+- Switches in the configuration: `agent.enabled` (default `true`), `agent.default_mode`, `agent.default_effort`, `worktree.base_ref`, `worktree.path`, `worktree.setup`, `worktree.run`, `worktree.integrate`, `worktree.fetch_timeout`.
+- Environment variable `LIF_WORKSPACE_PORT` for shells in workspaces (old: `BEANS_WORKSPACE_PORT`).
+- Links to `reference/configuration` for the keys.
+- Source: FACTS.md §8.1, §4.3, §7
 
 ### Limits
-- Keine Beschreibung von Authentifizierung in den Fakten; ehrlich sagen, was bekannt ist: Der Server lauscht auf allen Schnittstellen, Schutz nur über die Origin-Liste.
-- Aussage zur Authentifizierung und zu Transportverschlüsselung (TLS) nicht erfinden.
-- `lif serve` im `lif`-Binary funktioniert nicht (Platzhalter).
-- Quelle: FACTS.md §8.1; Authentifizierung/TLS — `TODO: verify` (Phase 5: `internal/commands/serve.go` prüfen)
+- The facts contain no description of authentication; state honestly what is known: the server listens on all interfaces, protection only through the origin list.
+- Do not invent statements about authentication and transport encryption (TLS).
+- `lif serve` in the `lif` binary does not work (placeholder).
+- Source: FACTS.md §8.1; authentication/TLS — `TODO: verify` (Phase 5: check `internal/commands/serve.go`)

@@ -3,64 +3,62 @@ title: "Markdown-native"
 description: "Items are plain Markdown files you can read, diff and edit anywhere."
 ---
 
-# Markdown-native
+## Purpose
+Explains that every item is a plain Markdown file and what that means for ownership, readability and editing. Contains two collapsed how-to guides (attachments, links from READMEs) and states honestly what stays unchecked on manual edits.
 
-## Zweck
-Erklärt, dass jedes Item eine einfache Markdown-Datei ist und was das für Besitz, Lesbarkeit und Bearbeitung bedeutet. Enthält zwei eingeklappte Anleitungen (Attachments, Links aus READMEs) und benennt ehrlich, was bei Handbearbeitung ungeprüft bleibt.
+## Audience
+People who want to know whether their data stays open and tool-independent, and agents that read or write item files directly. The page answers "What is in the file?" and "What may I change by hand?".
 
-## Zielgruppe
-Menschen, die wissen wollen, ob ihre Daten offen und werkzeugunabhängig bleiben, und Agents, die Item-Dateien direkt lesen oder schreiben. Die Seite beantwortet "Was steht in der Datei?" und "Was darf ich von Hand ändern?".
-
-## Pflichtabschnitte
+## Required sections
 
 ### What
-- Ein Item ist genau eine Markdown-Datei: `---`, YAML Front Matter, `---`, danach der Markdown-Body.
-- Dateiname `<id>--<slug>.md`; ID und Slug stehen nicht im Front Matter, sondern werden aus dem Dateinamen abgeleitet.
-- Von Lif geschriebene Felder in fester Reihenfolge: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`; erste Front-Matter-Zeile ist ein YAML-Kommentar `# <id>`.
-- Unbekannte Schlüssel bleiben erhalten (extra keys) und werden alphabetisch hinter den bekannten Feldern geschrieben.
-- Erste Verwendung des Begriffs: Liff = die Markdown-Datei eines Items; Definition steht auf `reference/item-file-format` und `reference/glossary`, hier nur kurz nennen und verweisen.
-- Quelle: FACTS.md §2.1, §2.2, §2.4
+- An item is exactly one Markdown file: `---`, YAML front matter, `---`, then the Markdown body.
+- File name `<id>--<slug>.md`; ID and slug are not in the front matter but derived from the file name.
+- Fields written by Lif in fixed order: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`; the first front matter line is a YAML comment `# <id>`.
+- Unknown keys are preserved (extra keys) and written alphabetically after the known fields.
+- First use of the term: Liff = the Markdown file of an item; the definition lives on `reference/item-file-format` and `reference/glossary`, name it briefly here and link.
+- Source: FACTS.md §2.1, §2.2, §2.4
 
 ### Why
-- Nutzer behalten Besitz und Kontrolle über ihre Informationen (Kernnutzen laut Konzept).
-- Menschenlesbar, diffbar, in jedem Editor änderbar; kein Datenbank-Export nötig.
-- Offenes Format: Skripte und Agents lesen die Dateien ohne Lif.
-- Quelle: CONCEPT.md §4.1
+- Users keep ownership and control of their information (core benefit according to the concept).
+- Human-readable, diffable, editable in any editor; no database export needed.
+- Open format: scripts and agents read the files without Lif.
+- Source: CONCEPT.md §4.1
 
 ### How it looks
-- Annotierte Beispiel-Datei: Dateiname, Front Matter, Body; Pfeile oder Nummern erklären jedes Feld.
-- Zeigt einen extra key (zum Beispiel `commit`) und seinen Platz hinter den bekannten Feldern.
-- Beispiel in Phase 5 mit `lif create` erzeugen und die Datei unverändert einfügen (TODO: verify).
-- Optional Verweis auf `lif show` für dieselbe Ansicht im Terminal.
-- Quelle: FACTS.md §2.1, §2.2, §2.4; (TODO: verify) für das konkrete Beispiel: in Phase 5 mit `lif init` und `lif create` bauen
+- Annotated example file: file name, front matter, body; arrows or numbers explain each field.
+- Shows an extra key (for example `commit`) and its place after the known fields.
+- Generate the example in phase 5 with `lif create` and paste the file unchanged (TODO: verify).
+- Optional link to `lif show` for the same view in the terminal.
+- Source: FACTS.md §2.1, §2.2, §2.4; (TODO: verify) for the concrete example: build it in phase 5 with `lif init` and `lif create`
 
 ### Attachments
-- Anleitung: Pro Item gibt es ein Verzeichnis `attachments/<item-id>/` im Store für Belege und Artefakte.
-- Beim Laden überspringt Lif das Verzeichnis `attachments/`; es werden dort keine Items gesucht.
-- `lif check` meldet Verzeichnisse ohne zugehöriges Item als Problem (`attachments/<id> has no item <id>`, Exit 1); Items im Archiv gelten weiter als vorhanden.
-- Wann und wie man aus dem Body auf eine Anlage verweist (Design-Doku, Entscheidung, Review-Artefakt, Screenshot): Konvention aus dem Entwurf (TODO: verify)
-- Wie Anlagen in die Item-Datei verlinkt werden und ob `lif` sie anlegt oder nur prüft (TODO: verify)
-- Quelle: FACTS.md §2.4, §6.4; (TODO: verify) für Anlagen-Workflow: `lif prime` Template (`internal/commands/prompt.tmpl`) und `wiki/` im Checkout prüfen
+- How-to: Each item has a directory `attachments/<item-id>/` in the store for evidence and artifacts.
+- On load, Lif skips the `attachments/` directory; no items are searched there.
+- `lif check` reports directories without a matching item as a problem (`attachments/<id> has no item <id>`, exit 1); items in the archive still count as present.
+- When and how to reference an attachment from the body (design doc, decision, review artifact, screenshot): convention from the draft (TODO: verify)
+- How attachments are linked in the item file and whether `lif` creates them or only checks them (TODO: verify)
+- Source: FACTS.md §2.4, §6.4; (TODO: verify) for attachment workflow: check the `lif prime` template (`internal/commands/prompt.tmpl`) and `wiki/` in the checkout
 
 ### Link items from READMEs
-- Anleitung: README als Einstieg, Items als Arbeitsstand; Status nicht in der README duplizieren.
-- Roadmap als Markdown erzeugen: `lif roadmap --format markdown`, Optionen `--no-links`, `--link-prefix`, `--depth`, `--tags`, `--include-done`.
-- Zeigt ein kurzes Roadmap-Snippet aus echter Ausgabe (in Phase 5 erzeugen).
-- Beispielabschnitt für die README, Badge und Verweis auf Docs-Site oder `lif prime`: im Entwurf nur angedeutet (TODO: verify)
-- Quelle: FACTS.md §1.1 (`lif roadmap`); (TODO: verify) für Beispielabschnitt und Badge: Trial-Seite und README im Checkout prüfen, Snippet mit `lif roadmap` real laufen lassen
+- How-to: README as entry point, items as work state; do not duplicate status in the README.
+- Generate the roadmap as Markdown: `lif roadmap --format markdown`, options `--no-links`, `--link-prefix`, `--depth`, `--tags`, `--include-done`.
+- Shows a short roadmap snippet from real output (generate in phase 5).
+- Example section for the README, badge and link to the docs site or `lif prime`: only hinted at in the draft (TODO: verify)
+- Source: FACTS.md §1.1 (`lif roadmap`); (TODO: verify) for example section and badge: check the trial page and README in the checkout, run the snippet for real with `lif roadmap`
 
 ### Limits
-- Handbearbeitung wird beim Laden nicht geprüft: kein Check von Hierarchie, Status oder Priorität.
-- Beim Schreiben über Lif gelten Grenzen: Body höchstens 1 MiB, Titel höchstens 1000 Zeichen, Tags nach Muster (klein, mit Buchstabe beginnend, Bindestriche nur zwischen Zeichen).
-- Eine nicht parsbare `.md`-Datei bricht das gesamte Laden ab (`loading <path>: ...`); Lif liefert dann keine Items.
-- `lif check` meldet weder abweichenden Dateinamen noch doppelte IDs; bei doppelter ID überschreibt die später geladene Datei still.
-- Obsidian-Bases-Kompatibilität des Formats ist ungeklärt; nichts im Code oder in der Doku sagt etwas dazu.
-- Quelle: FACTS.md §2.1, §2.2, §2.4, §3.2, §6.8, §6.9, §9(g)
+- Manual edits are not checked on load: no check of hierarchy, status or priority.
+- Limits apply when writing through Lif: body at most 1 MiB, title at most 1000 characters, tags follow a pattern (lowercase, starting with a letter, hyphens only between characters).
+- One unparsable `.md` file aborts the whole load (`loading <path>: ...`); Lif then returns no items.
+- `lif check` reports neither a mismatched file name nor duplicate IDs; with a duplicate ID the file loaded later silently overwrites.
+- Obsidian Bases compatibility of the format is unclear; nothing in the code or docs says anything about it.
+- Source: FACTS.md §2.1, §2.2, §2.4, §3.2, §6.8, §6.9, §9(g)
 
 ### Reference links
-- Item file format (`reference/item-file-format`): alle Felder, Werte, Dateinamen, Handbearbeitung.
-- Configuration (`reference/configuration`): Store-Pfad, ID-Präfix, Typen, Status.
-- `lif check` (`reference/commands/lif-check`): was geprüft wird und was nicht.
-- `lif roadmap` (`reference/commands/lif-roadmap`): Markdown-Ausgabe und Link-Optionen.
-- Glossary (`reference/glossary`): Begriff Liff.
-- Quelle: DESIGN.md D26, D47 und Open (Page-Cut Phase 4)
+- Item file format (`reference/item-file-format`): all fields, values, file names, manual edits.
+- Configuration (`reference/configuration`): store path, ID prefix, types, status.
+- `lif check` (`reference/commands/lif-check`): what is checked and what is not.
+- `lif roadmap` (`reference/commands/lif-roadmap`): Markdown output and link options.
+- Glossary (`reference/glossary`): term Liff.
+- Source: DESIGN.md D26, D47 and Open (page cut phase 4)

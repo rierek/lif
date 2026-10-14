@@ -3,59 +3,57 @@ title: "Editing items"
 description: "Menus, pickers and dialogs for changing items in the TUI."
 ---
 
-# Editing items
+## Purpose
+Explains how to create, change and delete items in the TUI, which menus, pickers and dialogs are involved and where the limits are.
 
-## Zweck
-Erklärt, wie man Items in der TUI anlegt, ändert und löscht, über welche Menüs, Picker und Dialoge das läuft und wo die Grenzen liegen.
+## Audience
+TUI users who maintain items without the CLI, and readers who want to know whether the TUI applies the same rules as the CLI.
 
-## Zielgruppe
-Nutzer der TUI, die Items ohne CLI pflegen, und Leser, die wissen wollen, ob die TUI dieselben Regeln wie die CLI anwendet.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Principles
-- Erklärt: Schreibzugriffe der TUI gehen durch dieselben Item-Operationen wie CLI und GraphQL; Beispiel: der Parent-Picker ruft `SetParent` mit dem ETag auf.
-- Folge: dieselben Regeln (Rang-Regel, Zyklusprüfung) gelten wie bei `lif update --parent`.
-- Alle Aktionen arbeiten auf dem ausgewählten Item; Tastenkürzel siehe `reference/tui/key-bindings`.
-- Quelle: FACTS.md §8.2, §3.1
+- Explains: write access in the TUI goes through the same item operations as CLI and GraphQL; example: the parent picker calls `SetParent` with the ETag.
+- Consequence: the same rules (rank rule, cycle check) apply as with `lif update --parent`.
+- All actions work on the selected item; for shortcuts see `reference/tui/key-bindings`.
+- Source: FACTS.md §8.2, §3.1
 
 ### Create an item
-- `c` öffnet das Formular zum Anlegen und danach einen Bestätigungsdialog.
-- Zeigt die Felder des Formulars. (TODO: verify)
-- Erklärt, welcher Status und welche Priorität vorbelegt werden und ob ein Elternteil aus der Auswahl übernommen wird. (TODO: verify)
-- Verweist auf die CLI-Entsprechung `lif create` (`reference/commands/lif-create`).
-- Quelle: FACTS.md §8.2, §8.3; Formularfelder und Vorbelegung — `TODO: verify` (Phase 5: `internal/tui/form_create_bean.go` und laufende TUI prüfen)
+- `c` opens the create form and afterwards a confirmation dialog.
+- Shows the fields of the form. (TODO: verify)
+- Explains which status and priority are prefilled and whether a parent is taken from the selection. (TODO: verify)
+- Links to the CLI equivalent `lif create` (`reference/commands/lif-create`).
+- Source: FACTS.md §8.2, §8.3; form fields and prefill — `TODO: verify` (Phase 5: check `internal/tui/form_create_bean.go` and a running TUI)
 
 ### Quick changes
-- `s` öffnet das Status-Menü, `o` das Typ-Menü, `u` das Prioritäts-Menü.
-- Menüs zeigen die konfigurierten Werte (`reference/configuration`). (TODO: verify)
-- Titel ändern über ein eigenes Formular (Taste: TODO: verify).
-- Quelle: FACTS.md §8.3, §8.2; Werte der Menüs und Taste für Titel-Dialog — `TODO: verify` (Phase 5: `internal/tui/keymap.go` und Menü-Code prüfen)
+- `s` opens the status menu, `o` the type menu, `u` the priority menu.
+- Menus show the configured values (`reference/configuration`). (TODO: verify)
+- Change the title through a separate form (key: TODO: verify).
+- Source: FACTS.md §8.3, §8.2; menu values and key for the title dialog — `TODO: verify` (Phase 5: check `internal/tui/keymap.go` and menu code)
 
 ### Pickers
-- Parent-Picker `a`: wählt das Elternelement; wendet die Hierarchieregeln an.
-- Relations-Picker `r`: Blocking-Beziehungen (blocking / blocked_by) setzen und entfernen.
-- Tag-Picker `t`: Tags umschalten mit `space`; `n` legt einen neuen Tag an.
-- Item-Picker bieten Facetten-Chips zum Eingrenzen (`ctrl+t`, `ctrl+n`, `ctrl+p`, `ctrl+g`).
-- Quelle: FACTS.md §8.2, §8.3
+- Parent picker `a`: selects the parent; applies the hierarchy rules.
+- Relations picker `r`: sets and removes blocking relations (blocking / blocked_by).
+- Tag picker `t`: toggles tags with `space`; `n` creates a new tag.
+- Item pickers offer facet chips for narrowing (`ctrl+t`, `ctrl+n`, `ctrl+p`, `ctrl+g`).
+- Source: FACTS.md §8.2, §8.3
 
 ### Edit the body
-- `e` oder `ctrl+e` öffnet den Body im Editor.
-- Erklärt, wie der Editor gewählt wird (`editor` in den Settings oder `$EDITOR`) mit Verweis auf `reference/tui/settings-and-themes`. (Reihenfolge: TODO: verify)
-- Nach dem Schließen wird der Body gespeichert. (TODO: verify)
-- Quelle: FACTS.md §8.2, §8.3; Editor-Reihenfolge und Speichern — `TODO: verify` (Phase 5: `internal/tui/editor.go` prüfen)
+- `e` or `ctrl+e` opens the body in the editor.
+- Explains how the editor is chosen (`editor` in the settings or `$EDITOR`) with a link to `reference/tui/settings-and-themes`. (Order: TODO: verify)
+- The body is saved after closing. (TODO: verify)
+- Source: FACTS.md §8.2, §8.3; editor order and saving — `TODO: verify` (Phase 5: check `internal/tui/editor.go`)
 
 ### Delete
-- `d` löscht nach Bestätigung; kein Kaskadieren (Kinder werden nicht mitgelöscht).
-- Löschen entfernt eingehende Links automatisch (beim GraphQL-`deleteItem` belegt; gilt für die TUI vermutlich gleich). (TODO: verify)
-- Quelle: FACTS.md §8.3, §7.2; Verhalten in der TUI — `TODO: verify` (Phase 5: `internal/tui/box_confirm_delete.go` prüfen)
+- `d` deletes after confirmation; no cascading (children are not deleted with it).
+- Deleting removes incoming links automatically (documented for GraphQL `deleteItem`; presumably the same for the TUI). (TODO: verify)
+- Source: FACTS.md §8.3, §7.2; behavior in the TUI — `TODO: verify` (Phase 5: check `internal/tui/box_confirm_delete.go`)
 
 ### Tag management
-- Eigene Ansicht zur Tag-Verwaltung; `e` benennt einen Tag um.
-- Wie die Ansicht geöffnet wird und was Umbenennen bei Items bewirkt. (TODO: verify)
-- Quelle: FACTS.md §8.2, §8.3; Zugang und Wirkung — `TODO: verify` (Phase 5: `internal/tui/view_tag_management.go` prüfen)
+- Separate view for tag management; `e` renames a tag.
+- How the view is opened and what renaming does to items. (TODO: verify)
+- Source: FACTS.md §8.2, §8.3; access and effect — `TODO: verify` (Phase 5: check `internal/tui/view_tag_management.go`)
 
 ### Limits
-- Eine Änderung nur des `type` prüft die Eltern-/Kind-Ränge nicht erneut; gleiches Verhalten wie `lif update -t` (bekannter Fehler).
-- Die TUI schreibt keine Mehrfachänderungen über mehrere Items. (TODO: verify)
-- Quelle: FACTS.md §3.1; DESIGN.md D43; Mehrfachänderungen — `TODO: verify` (Phase 5: TUI prüfen)
+- A change of only the `type` does not re-check parent/child ranks; same behavior as `lif update -t` (known bug).
+- The TUI does not write bulk changes across several items. (TODO: verify)
+- Source: FACTS.md §3.1; DESIGN.md D43; bulk changes — `TODO: verify` (Phase 5: check the TUI)

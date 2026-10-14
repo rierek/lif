@@ -3,81 +3,80 @@ title: "Configuration"
 description: "The .lif.yml file: discovery, keys, defaults, types, statuses, priorities and presets."
 ---
 
-# Configuration
+## Purpose
+Canonical page for the `.lif.yml` configuration file, for types, ranks and hierarchy rules, and for the shipped presets. It states exactly what Lif enforces on write and what `lif check` does not verify.
 
-## Zweck
-Kanonische Seite für die Konfigurationsdatei `.lif.yml`, für Typen, Ranks und Hierarchieregeln sowie für die ausgelieferten Presets. Sie sagt genau, was Lif beim Schreiben erzwingt und was `lif check` nicht prüft.
+## Audience
+Users who set up or adapt a project (custom types, statuses, priorities, store path), and agents that need to know which rules reliably hold. Overview and Features link here instead of repeating the rules.
 
-## Zielgruppe
-Nutzer, die ein Projekt einrichten oder anpassen (eigene Typen, Status, Prioritäten, Store-Pfad), und Agenten, die wissen müssen, welche Regeln verlässlich gelten. Overview und Features verlinken hierher, statt die Regeln zu wiederholen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Config file and discovery
-- Dateiname `.lif.yml`; ein altes `.beans.yml` wird an Ort und Stelle gelesen und nie umbenannt.
-- Pro Verzeichnis darf nur eine der beiden Dateien existieren; sonst Fehler `both .lif.yml and .beans.yml exist in <dir>; keep one of them`.
-- Auffindung: `--config <path>` lädt genau diese Datei; sonst Suche Verzeichnis für Verzeichnis aufwärts ab dem aktuellen Verzeichnis bis zur Dateisystemwurzel.
-- Keine Datei gefunden: eingebaute Defaults, verankert im aktuellen Verzeichnis.
-- Format: YAML; Item-Einstellungen unter dem Schlüssel `lif:` (alt `beans:`; beide in einer Datei sind ein Fehler); übrige Abschnitte stehen auf oberster Ebene.
-- `lif init` schreibt eine Datei mit kommentierten Schlüsseln (`project.name`, `lif.path`, `lif.prefix`, `lif.id_length`, `lif.default_status`, `lif.default_type`, `worktree.base_ref`/`setup`/`run`/`integrate`, `agent.enabled`/`default_mode`, `server.port`).
-- Quelle: FACTS.md §4.1, §1.1 (`lif init`)
+- File name `.lif.yml`; a legacy `.beans.yml` is read in place and never renamed.
+- Only one of the two files may exist per directory; otherwise the error `both .lif.yml and .beans.yml exist in <dir>; keep one of them`.
+- Discovery: `--config <path>` loads exactly that file; otherwise the search walks up directory by directory from the current directory to the filesystem root.
+- No file found: built-in defaults, anchored in the current directory.
+- Format: YAML; item settings live under the key `lif:` (legacy `beans:`; both in one file is an error); the other sections sit at top level.
+- `lif init` writes a file with commented keys (`project.name`, `lif.path`, `lif.prefix`, `lif.id_length`, `lif.default_status`, `lif.default_type`, `worktree.base_ref`/`setup`/`run`/`integrate`, `agent.enabled`/`default_mode`, `server.port`).
+- Source: FACTS.md §4.1, §1.1 (`lif init`)
 
 ### Store resolution
-- Rangfolge: (1) `--lif-path` (2) Config-Datei (ihr `lif.path` oder das Standard-Store-Verzeichnis neben ihr) (3) `LIF_PATH` (4) Standard-Store-Verzeichnis im aktuellen Verzeichnis.
-- Eine gefundene Config-Datei, und nur eine gefundene, stuft `LIF_PATH` herab; Grund im Code: per direnv exportierte Variablen sollen keine fremden Repositories umlenken.
-- `LIF_PATH` und altes `BEANS_PATH` zugleich gesetzt: Fehler; ist nur das alte gesetzt, wird es benutzt.
-- Relativer `lif.path` wird auf das Config-Verzeichnis bezogen, absoluter unverändert genutzt.
-- `lif.anchor: repo-root`: alle Git-Worktrees eines Repositories teilen einen Store; ohne `anchor` nutzt ein Worktree seinen eigenen lokalen Store; jeder andere Wert ist ein Config-Ladefehler.
-- Fehlermeldungen bei fehlendem Verzeichnis: `no .lif directory found at <path> (run 'lif init' to create one)`; mit explizitem Pfad `store path does not exist or is not a directory: <path>`. `lif path` gibt das Ergebnis aus.
-- Quelle: FACTS.md §4.2, §1.1 (`lif path`)
+- Precedence: (1) `--lif-path` (2) config file (its `lif.path` or the default store directory next to it) (3) `LIF_PATH` (4) default store directory in the current directory.
+- A discovered config file, and only a discovered one, demotes `LIF_PATH`; reason in the code: variables exported via direnv must not redirect unrelated repositories.
+- `LIF_PATH` and legacy `BEANS_PATH` both set: error; if only the legacy one is set, it is used.
+- A relative `lif.path` is resolved against the config directory; an absolute one is used unchanged.
+- `lif.anchor: repo-root`: all Git worktrees of a repository share one store; without `anchor` a worktree uses its own local store; any other value is a config load error.
+- Error messages for a missing directory: `no .lif directory found at <path> (run 'lif init' to create one)`; with an explicit path `store path does not exist or is not a directory: <path>`. `lif path` prints the result.
+- Task-oriented view of the same rules: Store management (`overview/store-management`), including worktrees, a shared store and the ID prefix; this section stays the canonical precedence table.
+- Source: FACTS.md §4.2, §1.1 (`lif path`); DESIGN.md D56
 
 ### Keys and defaults
-- Je Gruppe eine Tabelle: Schlüssel, Typ, Default, Wirkung; `lif check` meldet ungültige Werte bei `agent.default_effort` und `display.theme`. `project`: `name` (Default leer; `lif init` schreibt den Verzeichnisnamen).
-- `lif`: `path` (leer = `.lif`), `anchor` (leer; nur `repo-root`), `prefix` (leer; `lif init` schreibt `<verzeichnisname>-`), `id_length` (4), `default_status` (`todo`), `default_type` (`task`; ohne `task` in der Typtabelle der erste Typ), `require_if_match` (false), `require_fields_on` (keine), `commit_field` (`commit`).
-- `worktree`: `base_ref` (`main`), `path` (`~/.lif/worktrees/<project>/`), `setup`, `run`, `integrate` (`local` oder `pr`; Default `local`), `fetch_timeout` (10 Sekunden, 0 schaltet den Fetch ab).
-- `agent`: `enabled` (true), `default_mode` (`act` oder `plan`; Default `act`), `default_effort` (`low`, `medium`, `high`, `max`; Default leer = keine Überschreibung).
-- `server`: `port` (8080), `cors_origins` (Default `http://localhost:*`, `http://127.0.0.1:*`; `*` erlaubt alle).
-- `display`: `theme` (`latte`, `frappe`, `macchiato`, `mocha`; Default `mocha`), `max_width` (0 = 110; -1 hebt die Begrenzung auf; `--max-width` überschreibt je Befehl).
-- Quelle: FACTS.md §4.3
+- One table per group: key, type, default, effect; `lif check` reports invalid values for `agent.default_effort` and `display.theme`. `project`: `name` (default empty; `lif init` writes the directory name).
+- `lif`: `path` (empty = `.lif`), `anchor` (empty; only `repo-root`), `prefix` (empty; `lif init` writes `<directory name>-`), `id_length` (4), `default_status` (`todo`), `default_type` (`task`; without `task` in the type table, the first type), `require_if_match` (false), `require_fields_on` (none), `commit_field` (`commit`).
+- `worktree`: `base_ref` (`main`), `path` (`~/.lif/worktrees/<project>/`), `setup`, `run`, `integrate` (`local` or `pr`; default `local`), `fetch_timeout` (10 seconds, 0 disables the fetch).
+- `agent`: `enabled` (true), `default_mode` (`act` or `plan`; default `act`), `default_effort` (`low`, `medium`, `high`, `max`; default empty = no override).
+- `server`: `port` (8080), `cors_origins` (default `http://localhost:*`, `http://127.0.0.1:*`; `*` allows all).
+- `display`: `theme` (`latte`, `frappe`, `macchiato`, `mocha`; default `mocha`), `max_width` (0 = 110; -1 removes the limit; `--max-width` overrides per command).
+- Source: FACTS.md §4.3
 
 ### Statuses, types and priorities
-- Eingebaute Tabellen: Status (`in-progress`, `todo`, `draft`, `completed`, `scrapped`), Typen (`milestone`, `epic`, `feature`, `bug`, `task`), Prioritäten (`critical`, `high`, `normal`, `low`, `deferred`); Details auf `reference/item-file-format` (Allowed values and defaults).
-- Eigene Einträge unter `statuses:`, `types:`, `priorities:` überschreiben eingebaute Einträge nach Name oder werden angehängt.
-- Felder: `statuses`: `name`, `color`, `archive`, `short`, `description`; `types`: `name`, `color`, `rank`, `emphasis`, `roadmap`, `short`, `description`; `priorities`: `name`, `color`, `symbol`, `description`. `archive` weggelassen behält den Default des eingebauten Eintrags; `lif archive` verschiebt Items mit Archiv-Status nach `archive/`.
-- `types_exclusive: true`: `types` ist die vollständige Tabelle, eingebaute Typen werden nicht ergänzt; `lif init --profile` setzt es.
-- Achtung, Blockier-Logik: "aufgelöst" ist fest `completed` oder `scrapped`; das Flag `archive: true` zählt dort nicht, ein eigener Archiv-Status blockiert weiter. Bereit-Logik (`ready`) dagegen schließt jeden Status mit `archive: true` aus.
-- Akzeptierte Farbwerte (TODO: verify)
-- Quelle: FACTS.md §2.3, §4.3, §5.1 ("Resolved" status), §5.2; `TODO: verify` für das Farbformat: `pkg/config/config.go` und die Farbprüfung in `internal/commands/check.go` ansehen
+- Built-in tables: status (`in-progress`, `todo`, `draft`, `completed`, `scrapped`), types (`milestone`, `epic`, `feature`, `bug`, `task`), priorities (`critical`, `high`, `normal`, `low`, `deferred`); details on `reference/item-file-format` (Allowed values and defaults).
+- Custom entries under `statuses:`, `types:`, `priorities:` override built-in entries by name or are appended.
+- Fields: `statuses`: `name`, `color`, `archive`, `short`, `description`; `types`: `name`, `color`, `rank`, `emphasis`, `roadmap`, `short`, `description`; `priorities`: `name`, `color`, `symbol`, `description`. Omitting `archive` keeps the default of the built-in entry; `lif archive` moves items with an archive status to `archive/`.
+- `types_exclusive: true`: `types` is the complete table, built-in types are not added; `lif init --profile` sets it.
+- Caution, blocking logic: "resolved" is fixed to `completed` or `scrapped`; the flag `archive: true` does not count there, so a custom archive status keeps blocking. Ready logic (`ready`), in contrast, excludes every status with `archive: true`.
+- Accepted color values (TODO: verify)
+- Source: FACTS.md §2.3, §4.3, §5.1 ("Resolved" status), §5.2; `TODO: verify` for the color format: see `pkg/config/config.go` and the color check in `internal/commands/check.go`
 
 ### Types, ranks and hierarchy rules
-- Rank-Skala: jeder Typ hat ein ganzzahliges `rank`; ein Parent ist gültig, wenn der Rank des Kindes strikt größer ist als der des Parents; Typen gleichen Ranks verschachteln sich nicht ("level" ist in Prosa nur ein Synonym für rank). Ranks 1 bis 3 sind Container-Ranks, Rank 4 ist der Leaf-Rank; ein Typ ohne `rank` bekommt 4, ein unbekannter Typ zählt als 4; Lücken sind erlaubt.
-- Tiefe: Mit den eingebauten Typen und dem Preset `classic` sind es vier Ebenen (`milestone` > `epic` > `feature` > `bug`/`task`); eigene Typen können tiefer gehen, es gibt keine feste Obergrenze (Rank 5 bis 7 wurden akzeptiert). Die "vier Ebenen" sind Eigenschaft der eingebauten Skala, kein erzwungenes Maximum.
-- Wo erzwungen: `Core.ValidateParent` prüft beim Anlegen mit `--parent`, bei `lif update --parent` und bei den GraphQL-Mutationen `createItem`, `updateItem`, `setParent`; alle CLI-Schreibbefehle, die GraphQL-Mutationen und der TUI-Parent-Picker laufen durch denselben Resolver. Fehler: `parent item not found: <id>`, `<type> items cannot have a parent`, `<type> items can only have <a, b, or c> as parent, not <type>`. Zusätzlich Zyklenprüfung für `parent` (`would create cycle: [...]`).
-- Lücke beim Erzwingen: Wer nur den `type` ändert (`lif update -t`, `updateItem(type)`), löst die Rank-Prüfung nicht erneut aus; ein Item kann so unter einem Parent mit unpassendem Rank stehen bleiben und `lif check` bleibt grün. Als Fehler geführt (D43).
-- Was nur validiert wird: `lif check` prüft Konfiguration (Default-Typ, Farben, Theme, Effort, Präfix-Konsistenz), den Typ jedes Items gegen die Typtabelle, kaputte Links, Selbstreferenzen, Zyklen in `parent`, `blocking` und `blocked_by`, verwaiste `attachments/<id>`-Verzeichnisse sowie Pflichtfelder und Commit-SHAs als Warnungen.
-- Was `lif check` NICHT prüft (kanonische Aussage zu D40): Rank-Regel von Parent und Kind, Status- und Prioritätswerte von Items, Tag-Format, doppelte IDs, Abweichung zwischen Dateiname und ID, Front-Matter-Syntax über das Laden hinaus; Handbearbeitung (`parent:`, `type:`, `status:`, `blocking:`) wird beim Laden angenommen. Erweiterung von `lif check` ist geplant; die Seite folgt, sobald sie ausgeliefert ist.
-- Quelle: FACTS.md §3, §3.1, §3.2, §5.3, §6.9, §9(a), §9(c), §9(d), §9(e); DESIGN.md D39, D40, D43, D45
+- Rank scale: every type has an integer `rank`; a parent is valid if the child's rank is strictly greater than the parent's; types of equal rank do not nest ("level" is only a prose synonym for rank). Ranks 1 to 3 are container ranks, rank 4 is the leaf rank; a type without `rank` gets 4, an unknown type counts as 4; gaps are allowed.
+- Depth: with the built-in types and the preset `classic` there are four levels (`milestone` > `epic` > `feature` > `bug`/`task`); custom types can go deeper, there is no fixed upper limit (ranks 5 to 7 were accepted). The "four levels" are a property of the built-in scale, not an enforced maximum.
+- Where enforced: `Core.ValidateParent` checks on create with `--parent`, on `lif update --parent` and on the GraphQL mutations `createItem`, `updateItem`, `setParent`; all CLI write commands, the GraphQL mutations and the TUI parent picker go through the same resolver. Errors: `parent item not found: <id>`, `<type> items cannot have a parent`, `<type> items can only have <a, b, or c> as parent, not <type>`. Additionally a cycle check for `parent` (`would create cycle: [...]`).
+- Enforcement gap: changing only the `type` (`lif update -t`, `updateItem(type)`) does not re-trigger the rank check; an item can stay under a parent with an unsuitable rank and `lif check` stays green. Tracked as a bug (D43).
+- What is only validated: `lif check` verifies configuration (default type, colors, theme, effort, prefix consistency), the type of every item against the type table, broken links, self-references, cycles in `parent`, `blocking` and `blocked_by`, orphaned `attachments/<id>` directories, and required fields and commit SHAs as warnings.
+- What `lif check` does NOT verify (canonical statement for D40): rank rule of parent and child, status and priority values of items, tag format, duplicate IDs, mismatch between file name and ID, front matter syntax beyond loading; manual edits (`parent:`, `type:`, `status:`, `blocking:`) are accepted on load. Extending `lif check` is planned; this page follows once it ships.
+- Source: FACTS.md §3, §3.1, §3.2, §5.3, §6.9, §9(a), §9(c), §9(d), §9(e); DESIGN.md D39, D40, D43, D45
 
 ### Presets
-- Erklärt: ein Preset ist eine Typtabelle, die `lif init --profile <name>` einmal in `.lif.yml` ausschreibt; die Datei verweist danach nicht mehr auf den Preset-Namen. `lif init --profile` setzt `types_exclusive: true` und den Default-Typ `task`.
-- Tabelle `classic`: `milestone` (1), `epic` (2), `feature` (3), `bug` (4), `task` (4); vier Ebenen. Tabelle `todo`: nur `task` (4); eine Ebene.
-- Tabelle `simple`: `milestone` (1), `bucket` (1, `roadmap: false`), `epic` (2), `feature` (2), `bug` (4), `task` (4); drei Ebenen.
-- Tabelle `complex`: `release` (1), `bucket` (1, `roadmap: false`), `feature` (2), `improvement` (2), `chore` (2), `story` (4), `bug` (4), `task` (4); drei Ebenen.
-- Erklärt `roadmap: false` am Typ: blendet den Typ in `lif roadmap` und `lif milestones` aus; auf einem Container-Rank verschwindet der ganze Teilbaum. Mermaid-Diagramm je Preset (Hierarchie; D38); unbekanntes Profil gibt `unknown profile "<x>" (must be classic, complex, simple, todo)`.
-- Offen: ob ein Preset auch Status oder Prioritäten ändert (TODO: verify)
-- Quelle: FACTS.md §9(b), §3, §1.1 (`lif init`); DESIGN.md D38, D39; `TODO: verify` für Status und Prioritäten der Presets: `pkg/config/profiles.go` ansehen
+- Explains: a preset is a type table that `lif init --profile <name>` writes out once into `.lif.yml`; the file no longer refers to the preset name afterwards. `lif init --profile` sets `types_exclusive: true` and the default type `task`.
+- Table `classic`: `milestone` (1), `epic` (2), `feature` (3), `bug` (4), `task` (4); four levels. Table `todo`: only `task` (4); one level.
+- Table `simple`: `milestone` (1), `bucket` (1, `roadmap: false`), `epic` (2), `feature` (2), `bug` (4), `task` (4); three levels.
+- Table `complex`: `release` (1), `bucket` (1, `roadmap: false`), `feature` (2), `improvement` (2), `chore` (2), `story` (4), `bug` (4), `task` (4); three levels.
+- Explains `roadmap: false` on a type: hides the type from `lif roadmap` and `lif milestones`; on a container rank the whole subtree disappears. Mermaid diagram per preset (hierarchy; D38); an unknown profile gives `unknown profile "<x>" (must be classic, complex, simple, todo)`.
+- Open: whether a preset also changes statuses or priorities (TODO: verify)
+- Source: FACTS.md §9(b), §3, §1.1 (`lif init`); DESIGN.md D38, D39; `TODO: verify` for statuses and priorities of the presets: see `pkg/config/profiles.go`
 
 ### Status-dependent required fields
-- `lif.require_fields_on`: Map Status zu Liste von Extra-Schlüsseln; unbekannter Status, leerer Feldname oder reservierter Feldname sind ein Config-Ladefehler.
-- Schreiben eines Items in einen solchen Status ohne nicht-leeren Wert für jeden Schlüssel scheitert bei `create` und `update` mit einer Policy-Verletzung (Fehlercode `POLICY_VIOLATION`).
-- `lif check` meldet es als Warnung (Abschnitt "Policy"); mit `--strict` zählt die Warnung als Befund (Exit-Code 1).
-- "Fehlt" heißt: Schlüssel fehlt, ist null oder nur Leerraum.
-- `lif.commit_field` (Default `commit`): Extra-Schlüssel mit einer Git-SHA; `lif complete --commit <ref>` schreibt sie, `lif check` prüft, ob das Repository sie kennt (Warnung sonst; ohne Git-Repository wird die Prüfung übersprungen).
-- Quelle: FACTS.md §2.3, §4.3, §6.5, §1.0
+- `lif.require_fields_on`: map of status to list of extra keys; an unknown status, an empty field name or a reserved field name is a config load error.
+- Writing an item into such a status without a non-empty value for every key fails on `create` and `update` with a policy violation (error code `POLICY_VIOLATION`).
+- `lif check` reports it as a warning (section "Policy"); with `--strict` the warning counts as a finding (exit code 1).
+- "Missing" means: key absent, null, or whitespace only.
+- `lif.commit_field` (default `commit`): extra key holding a Git SHA; `lif complete --commit <ref>` writes it, `lif check` verifies that the repository knows it (otherwise a warning; without a Git repository the check is skipped).
+- Source: FACTS.md §2.3, §4.3, §6.5, §1.0
 
 ### Annotated example and recipes
-- Zeigt eine kommentierte `.lif.yml`, wie `lif init` sie erzeugt (TODO: verify)
-- Rezept: einen Typ umbenennen oder einen eigenen Typ mit Rank anlegen (TODO: verify)
-- Rezept: einen eigenen Status anlegen, inklusive `archive` (TODO: verify)
-- Rezept: eigene Farben setzen (TODO: verify)
-- Quelle: `TODO: verify` — Beispiele in Phase 5 mit `lif init` bauen und mit `lif check` prüfen; FACTS enthält keine Beispiel-Konfiguration
+- Shows a commented `.lif.yml` as `lif init` generates it (TODO: verify)
+- Recipe: rename a type or add a custom type with a rank (TODO: verify)
+- Recipe: add a custom status, including `archive` (TODO: verify)
+- Recipe: set custom colors (TODO: verify)
+- Source: `TODO: verify` — build the examples in phase 5 with `lif init` and verify them with `lif check`; FACTS contains no example configuration

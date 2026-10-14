@@ -3,58 +3,56 @@ title: "Writing or research project"
 description: "Organise chapters, sources and open questions."
 ---
 
-# Writing or research project
+## Purpose
+Non-technical example: structure a writing or research project (book, thesis, study) with custom types.
 
-## Zweck
-Nicht-technisches Beispiel: Ein Schreib- oder Forschungsprojekt (Buch, Abschlussarbeit, Studie) mit eigenen Typen strukturieren.
+## Audience
+Authors, researchers and students who track chapters, sources and open questions in files; agents that build a non-software setup.
 
-## Zielgruppe
-Autorinnen, Forschende und Studierende, die Kapitel, Quellen und offene Fragen in Dateien führen; Agenten, die ein Nicht-Software-Setup aufbauen.
-
-## Pflichtabschnitte
+## Required sections
 
 ### Problem
-- Beschreibt die Situation: Viele Kapitel und Quellen, offene Fragen gehen verloren, unklar, worauf ein Abschnitt wartet.
-- Nennt Anforderungen: eigene Begriffe statt Software-Vokabular, Themen-Filter, Fortschritt je Kapitel.
-- Zeigt: Lif ist nicht auf Software beschränkt (D33).
-- Quelle: DESIGN.md D33
+- Describes the situation: many chapters and sources, open questions get lost, unclear what a section is waiting for.
+- Names requirements: own terms instead of software vocabulary, topic filters, progress per chapter.
+- Shows: Lif is not limited to software (D33).
+- Source: DESIGN.md D33
 
 ### Solution
-- Erklärt: Eigene `types` mit `types_exclusive: true` ersetzen das Software-Vokabular; Status und Priorität bleiben nutzbar.
-- Erklärt: Tags bilden Themen; `blocked_by` bildet "wartet auf eine Quelle"; der Item-Body trägt Arbeitsnotizen.
-- Erklärt: Status `draft` ("Needs refinement before it can be worked on") passt zu unfertigen Abschnitten.
-- Quelle: FACTS.md §4.3, §2.3, §2.2 (Tags), §5.1, §9(b)
+- Explains: Custom `types` with `types_exclusive: true` replace the software vocabulary; status and priority stay usable.
+- Explains: tags form topics; `blocked_by` models "waiting for a source"; the item body carries working notes.
+- Explains: status `draft` ("Needs refinement before it can be worked on") fits unfinished sections.
+- Source: FACTS.md §4.3, §2.3, §2.2 (Tags), §5.1, §9(b)
 
 ### Structure
-- Zeigt eine `types`-Tabelle (Vorschlag): `chapter` (Rang 1), `section` (Rang 2), `source` und `question` (Rang 4). (TODO: verify)
-- Erklärt: Ein Typ ohne `rank` erhält Rang 4; Ränge bestimmen gültige Eltern (Kind hat größeren Rang).
-- Hierarchie-Diagramm (Mermaid, D38): chapter > section > source/question.
-- Beispiel-`.lif.yml` mit `types_exclusive: true`: in Phase 5 mit `lif init` bauen und mit `lif check` prüfen. (TODO: verify)
-- Erklärt: Der Standardtyp (`lif.default_type`) fällt auf den ersten Typ zurück, wenn `task` fehlt.
-- Quelle: FACTS.md §4.3, §3, §9(b); Typnamen und Beispiel-Config `TODO: verify` — Vorschlag, in Phase 5 bauen
+- Shows a `types` table (suggestion): `chapter` (rank 1), `section` (rank 2), `source` and `question` (rank 4). (TODO: verify)
+- Explains: A type without `rank` gets rank 4; ranks determine valid parents (child has a higher rank).
+- Hierarchy diagram (Mermaid, D38): chapter > section > source/question.
+- Example `.lif.yml` with `types_exclusive: true`: build with `lif init` in phase 5 and verify with `lif check`. (TODO: verify)
+- Explains: The default type (`lif.default_type`) falls back to the first type if `task` is missing.
+- Source: FACTS.md §4.3, §3, §9(b); type names and example config `TODO: verify` — suggestion, build in phase 5
 
 ### Workflow
-- Anlegen: `lif create "…" -t chapter`, `lif create "…" -t section --parent <chapter-id> --tag <theme>`.
-- Quelle erfassen: `lif create "…" -t source --blocked-by …` bzw. offene Frage als `question`; Abschnitt wartet über `blocked_by`.
-- Weiterarbeiten: `lif next --tag <theme>`, `lif start`, `lif complete --summary "…"`.
-- Überblick: `lif list --tag <theme>`, `lif progress <chapter-id>`, `lif list --view tree`.
-- Reihenfolge der Abschnitte: `lif order <id> --after <id>`.
-- Quelle: FACTS.md §1.1 (create, next, start, complete, list, progress, order), §5.1
+- Create: `lif create "…" -t chapter`, `lif create "…" -t section --parent <chapter-id> --tag <theme>`.
+- Capture a source: `lif create "…" -t source --blocked-by …` or an open question as `question`; the section waits via `blocked_by`.
+- Continue: `lif next --tag <theme>`, `lif start`, `lif complete --summary "…"`.
+- Overview: `lif list --tag <theme>`, `lif progress <chapter-id>`, `lif list --view tree`.
+- Order of sections: `lif order <id> --after <id>`.
+- Source: FACTS.md §1.1 (create, next, start, complete, list, progress, order), §5.1
 
 ### Benefits
-- Texte, Notizen und Planung liegen als Dateien nebeneinander; Änderungen sind per Git nachvollziehbar.
-- Fortschritt je Kapitel in Prozent; offene Quellen werden über `blocked_by` sichtbar.
-- Gleiche Befehle wie in Softwareprojekten, eigenes Vokabular.
-- Quelle: FACTS.md §1.1 (progress), §5.1, §4.3
+- Text, notes and planning live side by side as files; changes are traceable via Git.
+- Progress per chapter in percent; open sources become visible via `blocked_by`.
+- Same commands as in software projects, own vocabulary.
+- Source: FACTS.md §1.1 (progress), §5.1, §4.3
 
 ### Limits
-- Lif verwaltet keine Zitate oder Literaturdatenbank und setzt keinen Text zusammen. (TODO: verify)
-- `lif roadmap` baut auf Meilenstein- und Container-Rängen auf; Verhalten mit eigenen Typen am Beispiel prüfen. (TODO: verify)
-- `lif check` prüft Typnamen gegen die Konfiguration, aber keine Eltern-/Kind-Ränge, Status- und Prioritätswerte (D40).
-- Quelle: FACTS.md §3, §3.2, §6.9; DESIGN.md D40; Zitate/Export und `lif roadmap` mit eigenen Typen `TODO: verify` — in Phase 5 am Beispiel prüfen
+- Lif does not manage citations or a bibliography database and does not assemble text. (TODO: verify)
+- `lif roadmap` builds on milestone and container ranks; check the behavior with custom types in the example. (TODO: verify)
+- `lif check` checks type names against the configuration, but not parent/child ranks, status values or priority values (D40).
+- Source: FACTS.md §3, §3.2, §6.9; DESIGN.md D40; citations/export and `lif roadmap` with custom types `TODO: verify` — check in the example in phase 5
 
 ### References
 - Features: Flexible planning (`features/project-planning`), Markdown-native (`features/markdown-native`).
 - Reference: Configuration (`reference/configuration`), Item file format (`reference/item-file-format`).
 - Overview: Concepts (`overview/concepts`).
-- Quelle: DESIGN.md D32, D33
+- Source: DESIGN.md D32, D33

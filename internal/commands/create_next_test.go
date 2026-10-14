@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/xRiErOS/lif/internal/output"
 	"github.com/xRiErOS/lif/internal/ui"
 	"github.com/xRiErOS/lif/pkg/item"
@@ -273,7 +274,7 @@ func TestRunCreateCarryStepColoursComeFromFlavour(t *testing.T) {
 					t.Errorf("colour #%02x%02x%02x is not in flavour %s", r, g, b, flavour)
 				}
 			}
-			text := ciText(view)
+			text := ansi.Strip(view)
 			for _, label := range []string{"type", "priority", "parent", "tags", "ctrl+c cancel"} {
 				if !strings.Contains(text, label) {
 					t.Errorf("checklist lacks %q in %q", label, text)

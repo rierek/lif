@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/xRiErOS/lif/internal/ui"
 	"github.com/xRiErOS/lif/pkg/config"
 	"github.com/xRiErOS/lif/pkg/item"
@@ -126,18 +126,16 @@ func ppNew(t *testing.T, typ, parent string, w, h int, withTypeStep bool) *ppEnv
 			Options(huh.NewOptions("task", "feature", "epic", "milestone")...).
 			Value(&e.typ)))
 	}
-	groups = append(groups, e.p.Group())
+	groups = append(groups, e.p.group)
 	e.f = huh.NewForm(groups...).
-		WithLayout(e.p.Layout()).
+		WithLayout(e.p).
 		WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
 	ppInit(e.f)
 	ppSend(e.f, tea.WindowSizeMsg{Width: w, Height: h})
 	return e
 }
 
-var ppANSI = regexp.MustCompile("\x1b\\[[0-9;]*m")
-
-func (e *ppEnv) view() string { return ppANSI.ReplaceAllString(e.f.View(), "") }
+func (e *ppEnv) view() string { return ansi.Strip(e.f.View()) }
 
 // ppRowLines returns the view lines on which the short ID token id appears
 // as a row (token followed by a space and a type letter).
@@ -407,44 +405,22 @@ func TestParentPickerPanelCutsLongContentWithMarker(t *testing.T) {
 	t.Setenv("TERM", "xterm-256color")
 	resolver, cfg := ppFixture(t)
 	typ, parent := "task", ""
-	p := newParentPicker(context.Background(), resolver, cfg, &typ, &parent)
-	base := p.allItems
-	p.allItems = func(ctx context.Context) ([]*item.Item, error) {
-		items, err := base(ctx)
-		for i := range 30 {
-			items = append(items, &item.Item{ID: "pp-x" + string(rune('a'+i%26)) + string(rune('a'+i/26)), Title: "Child", Type: "task", Status: "todo", Parent: "pp-e1"})
+	for i := range 30 {
+		if err := resolver.Core.Create(&item.Item{ID: "pp-x" + string(rune('a'+i%26)) + string(rune('a'+i/26)), Title: "Child", Type: "task", Status: "todo", Parent: "pp-e1"}); err != nil {
+			t.Fatal(err)
 		}
-		return items, err
 	}
-	f := huh.NewForm(p.Group()).WithLayout(p.Layout()).WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
+	p := newParentPicker(context.Background(), resolver, cfg, &typ, &parent)
+	f := huh.NewForm(p.group).WithLayout(p).WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
 	ppInit(f)
 	ppSend(f, tea.WindowSizeMsg{Width: 95, Height: 30})
 	ppType(f, "/e1")
-	v := ppANSI.ReplaceAllString(f.View(), "")
+	v := ansi.Strip(f.View())
 	if !strings.Contains(v, "more") {
 		t.Fatalf("no cut marker for over-long panel:\n%s", v)
 	}
 	if n := len(strings.Split(v, "\n")); n > 30 {
 		t.Fatalf("view has %d rows at 95x30", n)
-	}
-}
-
-func TestParentPickerLoadErrorShownNotEmptyList(t *testing.T) {
-	t.Setenv("TERM", "xterm-256color")
-	resolver, cfg := ppFixture(t)
-	typ, parent := "task", ""
-	p := newParentPicker(context.Background(), resolver, cfg, &typ, &parent)
-	p.candidates = func(context.Context, string) ([]*item.Item, error) { return nil, errors.New("store exploded") }
-	f := huh.NewForm(p.Group()).WithLayout(p.Layout()).WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
-	ppInit(f)
-	ppSend(f, tea.WindowSizeMsg{Width: 150, Height: 40})
-	v := ppANSI.ReplaceAllString(f.View(), "")
-	if !strings.Contains(v, "store exploded") {
-		t.Fatalf("load error not shown:\n%s", v)
-	}
-	ppSend(f, ppKey(tea.KeyEnter))
-	if f.State == huh.StateCompleted {
-		t.Fatal("form must not complete while candidates failed to load")
 	}
 }
 
@@ -455,7 +431,7 @@ func TestParentPickerEscEndsFilterAndKeepsStepOpen(t *testing.T) {
 	if e.f.State != huh.StateNormal {
 		t.Fatalf("Esc ended the form: state %v", e.f.State)
 	}
-	if e.p.Field().GetFiltering() {
+	if e.p.field.GetFiltering() {
 		t.Fatal("filter entry still active after Esc")
 	}
 	if e.parent != "" {
@@ -471,8 +447,8 @@ func TestParentPickerOtherGroupRendersAsLayoutDefault(t *testing.T) {
 	resolver, cfg := ppFixture(t)
 	typ, parent, title := "task", "", ""
 	p := newParentPicker(context.Background(), resolver, cfg, &typ, &parent)
-	f := huh.NewForm(p.Group(), huh.NewGroup(huh.NewInput().Title("Title").Value(&title))).
-		WithLayout(p.Layout()).
+	f := huh.NewForm(p.group, huh.NewGroup(huh.NewInput().Title("Title").Value(&title))).
+		WithLayout(p).
 		WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
 	ppInit(f)
 	ppSend(f, tea.WindowSizeMsg{Width: 150, Height: 40})

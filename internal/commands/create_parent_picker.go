@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -35,16 +36,13 @@ const (
 // highlighted row. It runs no bubbletea program of its own.
 type parentPicker struct {
 	ctx       context.Context
+	resolver  *itemgraph.CoreResolver
 	cfg       *config.Config
 	itemType  *string
 	parentID  *string
 	field     *huh.Select[string]
 	group     *huh.Group
 	listWidth int // width of the group; written by GroupWidth only
-
-	// Data sources; tests replace them. candidates answers for one type.
-	candidates func(ctx context.Context, itemType string) ([]*item.Item, error)
-	allItems   func(ctx context.Context) ([]*item.Item, error)
 
 	mu       sync.RWMutex // options are built in a tea.Cmd goroutine, View reads below
 	total    int          // full form width
@@ -57,11 +55,7 @@ type parentPicker struct {
 // value; the options follow it. parentID is the bound parent: pre-filled by
 // the caller, written on selection, "" for "(no parent)".
 func newParentPicker(ctx context.Context, resolver *itemgraph.CoreResolver, cfg *config.Config, itemType *string, parentID *string) *parentPicker {
-	p := &parentPicker{ctx: ctx, cfg: cfg, itemType: itemType, parentID: parentID}
-	p.candidates = func(ctx context.Context, typ string) ([]*item.Item, error) {
-		return candidates.ParentCandidates(ctx, resolver, cfg, nil, []string{typ})
-	}
-	p.allItems = func(ctx context.Context) ([]*item.Item, error) { return resolver.Items(ctx, nil) }
+	p := &parentPicker{ctx: ctx, resolver: resolver, cfg: cfg, itemType: itemType, parentID: parentID}
 
 	p.field = huh.NewSelect[string]().
 		Title("Parent").
@@ -76,23 +70,13 @@ func newParentPicker(ctx context.Context, resolver *itemgraph.CoreResolver, cfg 
 	return p
 }
 
-// Field returns the parent select.
-func (p *parentPicker) Field() *huh.Select[string] { return p.field }
-
-// Group returns the one group holding Field.
-func (p *parentPicker) Group() *huh.Group { return p.group }
-
-// Layout returns the layout that draws the context panel with the group.
-func (p *parentPicker) Layout() huh.Layout { return parentPickerLayout{p} }
-
 // options recomputes the select options for the bound type and the row
 // width. It is the huh OptionsFunc.
 func (p *parentPicker) options() []huh.Option[string] {
-	typ := *p.itemType
-	cands, err := p.candidates(p.ctx, typ)
+	cands, err := candidates.ParentCandidates(p.ctx, p.resolver, p.cfg, nil, []string{*p.itemType})
 	var all []*item.Item
 	if err == nil {
-		all, err = p.allItems(p.ctx)
+		all, err = p.resolver.Items(p.ctx, nil)
 	}
 
 	p.mu.Lock()
@@ -159,17 +143,14 @@ func (p *parentPicker) rowLabel(fi ui.FlatItem, listWidth int) string {
 
 // pathTo returns the ancestors of id from the root down to id itself.
 func (p *parentPicker) pathTo(id string) []*item.Item {
-	var rev []*item.Item
+	var path []*item.Item
 	seen := map[string]bool{}
 	for it := p.byID[id]; it != nil && !seen[it.ID]; it = p.byID[it.Parent] {
 		seen[it.ID] = true
-		rev = append(rev, it)
+		path = append(path, it)
 	}
-	out := make([]*item.Item, len(rev))
-	for i, it := range rev {
-		out[len(rev)-1-i] = it
-	}
-	return out
+	slices.Reverse(path)
+	return path
 }
 
 // openChildren returns the children of id outside an archive status, in
@@ -232,15 +213,12 @@ func (p *parentPicker) panel(width, height int) string {
 		Render(strings.Join(lines, "\n"))
 }
 
-// parentPickerLayout is the huh.Layout of the picker. Any group other than
-// the picker's renders exactly as huh.LayoutDefault.
-type parentPickerLayout struct{ p *parentPicker }
-
-// GroupWidth gives the picker group the list share of the form width and
-// every other group the full width. It also fixes the list height for the
-// layout, because the form sizes its groups right after this call.
-func (l parentPickerLayout) GroupWidth(_ *huh.Form, g *huh.Group, w int) int {
-	p := l.p
+// GroupWidth makes the picker a huh.Layout. Any group other than the
+// picker's renders exactly as huh.LayoutDefault. The picker group gets the
+// list share of the form width and every other group the full width. It also
+// fixes the list height, because the form sizes its groups right after this
+// call.
+func (p *parentPicker) GroupWidth(_ *huh.Form, g *huh.Group, w int) int {
 	if g != p.group {
 		return w
 	}
@@ -255,8 +233,7 @@ func (l parentPickerLayout) GroupWidth(_ *huh.Form, g *huh.Group, w int) int {
 	return p.listWidth
 }
 
-func (l parentPickerLayout) View(f *huh.Form) string {
-	p := l.p
+func (p *parentPicker) View(f *huh.Form) string {
 	view := huh.LayoutDefault.View(f)
 	if f.GetFocusedField() != huh.Field(p.field) {
 		return view

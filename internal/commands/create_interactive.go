@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -120,7 +119,6 @@ func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*
 		WithInput(in()).
 		WithOutput(out).
 		WithLayout(cancelHintLayout{layout, groups}).
-		WithKeyMap(huh.NewDefaultKeyMap()).
 		WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
 	if err := f.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
@@ -133,8 +131,8 @@ func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*
 
 // runCreateFormWith runs the steps title, type, priority, parent from the
 // values in *d and writes the results back. An untouched "(none)" priority
-// leaves Priority empty; a parent that is no candidate for the chosen type
-// is dropped.
+// leaves Priority empty; the parent step drops a parent that is no candidate
+// for the chosen type.
 func runCreateFormWith(d *createDraft, in createInput, out io.Writer) error {
 	resolver := &itemgraph.CoreResolver{Core: core}
 
@@ -148,26 +146,12 @@ func runCreateFormWith(d *createDraft, in createInput, out io.Writer) error {
 	}
 
 	picker := newParentPicker(context.Background(), resolver, cfg, &d.Type, &d.Parent)
-	err := runCreateForm(in, out, picker.Layout(),
+	return runCreateForm(in, out, picker,
 		huh.NewGroup(huh.NewInput().Title("Title").Value(&d.Title)),
 		huh.NewGroup(huh.NewSelect[string]().Title("Type").Options(typeOpts...).Value(&d.Type)),
 		huh.NewGroup(huh.NewSelect[string]().Title("Priority").Options(prioOpts...).Value(&d.Priority)),
-		picker.Group(),
+		picker.group,
 	)
-	if err != nil {
-		return err
-	}
-
-	if d.Parent != "" {
-		cands, err := candidates.ParentCandidates(context.Background(), resolver, cfg, nil, []string{d.Type})
-		if err != nil {
-			return err
-		}
-		if !slices.ContainsFunc(cands, func(it *item.Item) bool { return it.ID == d.Parent }) {
-			d.Parent = ""
-		}
-	}
-	return nil
 }
 
 // writeCreateDraft is the sole CreateItem call site for plain create and -i.
@@ -273,7 +257,7 @@ func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput,
 		if err := runCreateFormWith(&d, in, out); err != nil {
 			return err
 		}
-		act, err := runCreateMenuWith(&d, createJSON, in, out)
+		next, err := runCreateMenuWith(&d, createJSON, in, out)
 		if err != nil {
 			return err
 		}
@@ -285,7 +269,7 @@ func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput,
 		if err := printCreated(b); err != nil {
 			return err
 		}
-		if act != createMenuCreateNext {
+		if !next {
 			return nil
 		}
 		if err := runCreateCarryStep(&carry, in, out); err != nil {

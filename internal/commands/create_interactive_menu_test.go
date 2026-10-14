@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/xRiErOS/lif/internal/ui"
 	"github.com/xRiErOS/lif/pkg/candidates"
 	"github.com/xRiErOS/lif/pkg/item"
@@ -17,13 +18,13 @@ const keyUp = "\x1b[A"
 
 // cmRun runs the menu on a draft with scripted programs and returns the
 // action, error and chrome.
-func cmRun(t *testing.T, d *createDraft, programs ...[]string) (createMenuAction, error, *bytes.Buffer) {
+func cmRun(t *testing.T, d *createDraft, programs ...[]string) (bool, error, *bytes.Buffer) {
 	t.Helper()
 	return cmRunMode(t, d, false, programs...)
 }
 
 // cmRunMode is cmRun with the --json mode of the run.
-func cmRunMode(t *testing.T, d *createDraft, jsonMode bool, programs ...[]string) (createMenuAction, error, *bytes.Buffer) {
+func cmRunMode(t *testing.T, d *createDraft, jsonMode bool, programs ...[]string) (bool, error, *bytes.Buffer) {
 	t.Helper()
 	var chrome bytes.Buffer
 	act, err := runCreateMenuWith(d, jsonMode, feedCreatePrograms(t, programs...), &chrome)
@@ -44,10 +45,10 @@ func TestRunCreateMenuEntriesOrderAndCursor(t *testing.T) {
 	ciFixture(t)
 	d := newCreateDraft([]string{"T"})
 	act, err, chrome := cmRun(t, &d, []string{keyEnter})
-	if err != nil || act != createMenuCreate {
-		t.Fatalf("act = %v, err = %v, want createMenuCreate", act, err)
+	if err != nil || act {
+		t.Fatalf("next = %v, err = %v, want create", act, err)
 	}
-	view := ciText(chrome.String())
+	view := ansi.Strip(chrome.String())
 	last := -1
 	for _, label := range []string{"go to body", "create", "create next", "set tags", "set blocked_by", "set blocking", "set status"} {
 		i := strings.Index(view, label)
@@ -72,7 +73,7 @@ func TestRunCreateMenuJSONOmitsCreateNext(t *testing.T) {
 	if !slices.Equal(d.Tags, []string{"jsontag"}) {
 		t.Errorf("tags = %v: Down from create did not reach set tags", d.Tags)
 	}
-	if strings.Contains(ciText(chrome.String()), "create next") {
+	if strings.Contains(ansi.Strip(chrome.String()), "create next") {
 		t.Error("menu shows create next under --json")
 	}
 }
@@ -80,8 +81,8 @@ func TestRunCreateMenuReturnsAfterTags(t *testing.T) {
 	ciFixture(t)
 	d := newCreateDraft([]string{"T"})
 	act, err, _ := cmRun(t, &d, cmTags, []string{"alpha", keyEnter}, []string{keyEnter})
-	if err != nil || act != createMenuCreate {
-		t.Fatalf("act = %v, err = %v", act, err)
+	if err != nil || act {
+		t.Fatalf("next = %v, err = %v", act, err)
 	}
 	if !slices.Equal(d.Tags, []string{"alpha"}) {
 		t.Errorf("tags = %v", d.Tags)
@@ -157,7 +158,7 @@ func TestRunCreateMenuTagValidation(t *testing.T) {
 	if err != errCreateAborted {
 		t.Fatalf("err = %v", err)
 	}
-	if !strings.Contains(ciText(chrome.String()), "invalid tag") {
+	if !strings.Contains(ansi.Strip(chrome.String()), "invalid tag") {
 		t.Error("validation message not shown")
 	}
 	if !slices.Equal(d.Tags, []string{"keep"}) {

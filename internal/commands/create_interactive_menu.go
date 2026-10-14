@@ -12,14 +12,6 @@ import (
 	"github.com/xRiErOS/lif/pkg/itemgraph"
 )
 
-// createMenuAction is what the action menu hands back to the run core.
-type createMenuAction int
-
-const (
-	createMenuCreate createMenuAction = iota
-	createMenuCreateNext
-)
-
 const (
 	menuBody       = "body"
 	menuCreate     = "create"
@@ -35,7 +27,7 @@ const (
 // one JSON object. Every other entry runs its step on *d and returns to the
 // menu with the cursor back on "create". Ctrl+C anywhere returns
 // errCreateAborted.
-func runCreateMenuWith(d *createDraft, jsonMode bool, in createInput, out io.Writer) (createMenuAction, error) {
+func runCreateMenuWith(d *createDraft, jsonMode bool, in createInput, out io.Writer) (bool, error) {
 	for {
 		choice := menuCreate
 		opts := []huh.Option[string]{
@@ -55,13 +47,11 @@ func runCreateMenuWith(d *createDraft, jsonMode bool, in createInput, out io.Wri
 			Title("Action").
 			Options(opts...).Value(&choice)))
 		if err != nil {
-			return 0, err
+			return false, err
 		}
 		switch choice {
-		case menuCreate:
-			return createMenuCreate, nil
-		case menuCreateNext:
-			return createMenuCreateNext, nil
+		case menuCreate, menuCreateNext:
+			return choice == menuCreateNext, nil
 		case menuBody:
 			err = runCreateBodyStep(d, in, out)
 		case menuTags:
@@ -74,7 +64,7 @@ func runCreateMenuWith(d *createDraft, jsonMode bool, in createInput, out io.Wri
 			err = runCreateStatusStep(d, in, out)
 		}
 		if err != nil {
-			return 0, err
+			return false, err
 		}
 	}
 }
@@ -122,9 +112,9 @@ func runCreateRelationStep(ids *[]string, title string, in createInput, out io.W
 	}
 	opts := make([]huh.Option[string], 0, len(cands))
 	for _, c := range cands {
-		opts = append(opts, huh.NewOption(c.ID+"  "+c.Title, c.ID).Selected(slices.Contains(*ids, c.ID)))
+		opts = append(opts, huh.NewOption(c.ID+"  "+c.Title, c.ID))
 	}
-	var sel []string
+	sel := slices.Clone(*ids)
 	field := huh.NewMultiSelect[string]().Title(title).Filterable(true).Options(opts...).Value(&sel)
 	if err := runCreateForm(in, out, nil, huh.NewGroup(field)); err != nil {
 		return err

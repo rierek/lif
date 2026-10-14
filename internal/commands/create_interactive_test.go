@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/xRiErOS/lif/internal/output"
 	"github.com/xRiErOS/lif/internal/ui"
 	"github.com/xRiErOS/lif/pkg/item"
@@ -140,7 +141,7 @@ func TestCreateInteractiveStepsWriteOneItem(t *testing.T) {
 	if strings.Contains(string(stdout), "\x1b[?") {
 		t.Errorf("stdout holds terminal control sequences: %q", stdout)
 	}
-	view := ciText(chrome.String())
+	view := ansi.Strip(chrome.String())
 	for _, step := range []string{"Title", "Parent"} {
 		if !strings.Contains(view, step) {
 			t.Errorf("chrome never showed step %q", step)
@@ -154,7 +155,7 @@ func TestCreateInteractiveStepsWriteOneItem(t *testing.T) {
 func TestCreateInteractiveFormOptions(t *testing.T) {
 	ciFixture(t)
 	_, _, chrome, _ := ciRun(t, nil, []string{keyEnter, keyEnter, keyCtrlC})
-	view := ciText(chrome.String())
+	view := ansi.Strip(chrome.String())
 	for _, want := range []string{"milestone", "epic", "feature", "bug", "task", "(none)", "critical", "deferred"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("chrome lacks option %q", want)
@@ -288,7 +289,7 @@ func TestCreateInteractiveParentGuard(t *testing.T) {
 		if got.Parent != "" {
 			t.Errorf("parent = %q, want none", got.Parent)
 		}
-		if strings.Contains(ciText(chrome.String()), "pp-m1") {
+		if strings.Contains(ansi.Strip(chrome.String()), "pp-m1") {
 			t.Errorf("parent step listed a candidate for a milestone")
 		}
 	})
@@ -427,8 +428,3 @@ func TestCreateInteractiveColoursComeFromFlavour(t *testing.T) {
 		t.Error("mocha and latte render identically")
 	}
 }
-
-var ciCSI = regexp.MustCompile("\x1b\\[[0-9;?]*[a-zA-Z]")
-
-// ciText drops every CSI sequence (colour and cursor) from captured frames.
-func ciText(s string) string { return ciCSI.ReplaceAllString(s, "") }

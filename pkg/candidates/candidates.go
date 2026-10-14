@@ -20,7 +20,7 @@ import (
 // order then title (case-insensitive). An item is eligible only if its type
 // is a valid parent type for every selected item, and it is neither one of
 // the selected items nor a descendant of any of them (which would create a
-// cycle).
+// cycle) nor in an archive status.
 func ParentCandidates(ctx context.Context, resolver *itemgraph.CoreResolver, cfg *config.Config, itemIDs, itemTypes []string) ([]*item.Item, error) {
 	var validParentTypes []string
 	for i, itemType := range itemTypes {
@@ -54,12 +54,14 @@ func ParentCandidates(ctx context.Context, resolver *itemgraph.CoreResolver, cfg
 	// 1. Must be of a valid parent type for ALL selected items
 	// 2. Must not be any of the selected items
 	// 3. Must not be a descendant of any selected item (to prevent cycles)
+	// 4. Must not have an archive status (Config.IsArchiveStatus); only the
+	//    item's own status counts, not its ancestors'
 	var eligibleItems []*item.Item
 	for _, b := range allItems {
 		if selectedSet[b.ID] {
 			continue
 		}
-		if allDescendants[b.ID] {
+		if allDescendants[b.ID] || cfg.IsArchiveStatus(b.Status) {
 			continue
 		}
 		isValidType := false

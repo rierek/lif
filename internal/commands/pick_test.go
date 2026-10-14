@@ -775,3 +775,36 @@ func TestPickWidgetEmptyBufferStaysUnconstrained(t *testing.T) {
 		t.Errorf("len(got) = %d, want all 12 fixture beans", len(got))
 	}
 }
+
+// TestPickPartialLineParentCursorOmitsArchivedItems: a cursor at a --parent
+// value leaves out containers with an archive status (R-14).
+func TestPickPartialLineParentCursorOmitsArchivedItems(t *testing.T) {
+	pick := setupPickScopeTest(t)
+
+	for _, b := range []*item.Item{
+		{ID: "beans-ua01", Title: "Open epic", Type: "epic", Status: "todo"},
+		{ID: "beans-ua02", Title: "Done epic", Type: "epic", Status: "completed"},
+		{ID: "beans-ua03", Title: "Scrapped epic", Type: "epic", Status: "scrapped"},
+		{ID: "beans-ua04", Title: "Task", Type: "task", Status: "todo"},
+	} {
+		if err := core.Create(b); err != nil {
+			t.Fatalf("seeding %s: %v", b.ID, err)
+		}
+	}
+
+	line := "update beans-ua04 --parent "
+	if err := pick.Flags().Set("line", line); err != nil {
+		t.Fatalf("setting --line: %v", err)
+	}
+	if err := pick.Flags().Set("cursor", strconv.Itoa(len(line))); err != nil {
+		t.Fatalf("setting --cursor: %v", err)
+	}
+
+	got, err := resolvePickCandidates(pick)
+	if err != nil {
+		t.Fatalf("resolvePickCandidates() error = %v", err)
+	}
+	if len(got) != 1 || got[0].ID != "beans-ua01" {
+		t.Errorf("got %v, want only the open epic beans-ua01", got)
+	}
+}

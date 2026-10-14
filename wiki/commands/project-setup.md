@@ -38,6 +38,8 @@ lif prime
 
 Flags: `--scope string` restricts candidates to a comma-separated list of item types; `--line string` and `--cursor int` (default `-1`) pass a partial command line and the cursor byte offset so the picker can derive its scope from the verb or `--parent` position under the cursor. The zsh widget below supplies those two flags for you.
 
+At a `--parent` value the picker offers only items that can be the parent: the type rules of `--parent` completion apply, the edited item and its descendants are left out, and so is every item whose status is an archive status (by default `completed` and `scrapped`; a `statuses:` entry with `archive: false` keeps a status in). Typing an archived item's ID after `--parent` is still accepted.
+
 ```
 id=$(lif pick --scope epic,milestone)
 ```

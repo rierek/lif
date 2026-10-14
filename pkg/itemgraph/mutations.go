@@ -3,6 +3,7 @@ package itemgraph
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"github.com/xRiErOS/lif/pkg/item"
@@ -131,7 +132,11 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 	}
 
 	// Update fields if provided
-	if input.Title != nil {
+	// A slug still equal to the old title's slug was derived, not hand-set
+	// (lif rename --slug), so it follows the title. Capture before overwrite.
+	reslug := false
+	if input.Title != nil && *input.Title != b.Title {
+		reslug = b.Slug == item.Slugify(b.Title) && r.Core.WorktreeForItem(b.ID) == ""
 		b.Title = *input.Title
 	}
 	if input.Status != nil {
@@ -254,6 +259,20 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 	// If the item is linked to a worktree, Core auto-routes the write there.
 	if err := r.Core.Update(b, input.IfMatch, opts...); err != nil {
 		return nil, err
+	}
+
+	if reslug {
+		// Content is written under the old name first; the rename then moves
+		// that one file, so exactly one file with new content remains.
+		plan, err := r.Core.PlanRenameSlug(b.ID, nil, true)
+		if err != nil {
+			return nil, err
+		}
+		if err := r.Core.ApplyRename(plan); err != nil {
+			return nil, err
+		}
+		b.Path = plan.Changes[0].NewPath
+		_, b.Slug = item.ParseFilename(filepath.Base(b.Path))
 	}
 
 	return b, nil

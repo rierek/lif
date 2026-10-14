@@ -55,7 +55,7 @@ pre.mermaid svg .edgeLabel rect { fill: var(--ctp-base) !important; }
 
 /* beans-xb2q style polish: stacked windows, themed scrollbars, details boxes. */
 .pair { grid-template-columns: minmax(0, 1fr); }
-.shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.shots { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 40rem) { .shots { grid-template-columns: minmax(0, 1fr); } }
 .window pre.screen { white-space: pre-wrap !important; overflow-wrap: anywhere; }
 
@@ -104,5 +104,5 @@ pre:hover, .window .screen:hover { scrollbar-color: var(--sl-color-accent) var(-
 .sl-markdown-content details[open] > summary::before { transform: none; }
 
 /* Feature media grid: terminals shrink to fit the half-width cell (as a screenshot would) instead of wrapping. */
-.shots .window pre.screen { white-space: pre !important; font-size: max(0.35rem, calc((100cqw - 2.2rem) / (var(--cols) * 0.6))); padding: 0.6rem 0.7rem; line-height: 1.35; }
+.shots .window pre.screen { white-space: pre !important; font-size: clamp(0.5rem, calc((100cqw - 2.2rem) / (var(--cols) * 0.6)), 0.875rem); padding: 0.6rem 0.7rem; line-height: 1.35; }
 .shots .window.browser .title { min-width: 0; }

@@ -1,0 +1,143 @@
+---
+title: "Managing Lif items in Obsidian"
+description: "An untested idea: open a Lif store as an Obsidian vault, browse items as notes with properties, and validate with lif check. What should work, and how to try it."
+date: 2026-10-14
+tags: ["experiment", "obsidian", "editor"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Experiment">
+This is not a supported integration. We did not run Obsidian for this post. The [item file format reference](../../reference/item-file-format/) is the binding source for the format; if this post and the reference differ, the reference wins.
+</Aside>
+
+**A Lif item is a Markdown file with YAML front matter, so an Obsidian vault should be able to show it as a note with properties.** We checked the Lif side with real runs. We did not check the Obsidian side: the application is not installed on our machine, and none of our vaults holds Lif items. Read this post as "what should work and how to try it".
+
+## What we ran and what we did not
+
+| Part | State |
+|---|---|
+| Item file layout, file name, front matter | Run with Lif 0.14, output below |
+| Hand edits and `lif check` | Run with Lif 0.14, output below |
+| Opening the folder in Obsidian | Not run |
+| Properties view, tags, Bases over items | Not run. Statements come from Obsidian's documentation |
+| Whether Obsidian rewrites item files on save | Not run, unknown |
+
+<Aside type="note" title="Third-party source">
+Statements about Obsidian come from its public help, checked 2026-10-14: [Properties](https://help.obsidian.md/properties), [Tags](https://help.obsidian.md/tags), [Introduction to Bases](https://help.obsidian.md/bases), [Bases syntax](https://help.obsidian.md/bases/syntax) and [Create a vault](https://help.obsidian.md/vault). The documentation can change. No warranty for statements about third-party software.
+</Aside>
+
+## How an item looks
+
+A real item from a throwaway store, made with `lif create 'Write the queue' -t task --parent <epic> -p high --tag docs`:
+
+```markdown
+---
+# demo-fwep
+title: Write the queue
+status: todo
+type: task
+priority: high
+tags:
+    - docs
+created_at: 2026-10-14T20:58:10Z
+updated_at: 2026-10-14T20:58:10Z
+parent: demo-0zvt
+---
+```
+
+The file is `demo-fwep--write-the-queue.md`. The ID comes from the file name, not from the front matter. The first line `# demo-fwep` is only a YAML comment. Every field in the format is described in the [item file format](../../reference/item-file-format/).
+
+Obsidian's documentation says properties are stored as YAML at the top of a note, in the form `name: value`, and that list values are written as `- value` lines. Both match this file. The documentation also lists `tags` as a property whose value must be a list, which is how Lif writes `tags`. It allows hyphens and letters in tags and treats them as case-insensitive. Lif writes lower-case, hyphenated tags.
+
+## Setup to try
+
+Lif's store is `.lif/` by default, a dot directory. Lif skips dot directories inside the store, and the Obsidian documentation does not say how Obsidian treats a dot folder in a vault. We avoid the question: use a store folder without a leading dot, set with `lif.path`.
+
+```text
+vault/
+├── .lif.yml          lif.path: backlog
+└── backlog/          the Lif store: one .md file per item
+```
+
+Steps:
+
+1. `lif init`, then rename `.lif/` to `backlog/` and set `lif.path: backlog` in `.lif.yml`. `lif path` must print the new folder. See [Store management](../../overview/store-management/).
+2. In Obsidian choose "Open folder as vault" and select the folder (as described in [Create a vault](https://help.obsidian.md/vault)). Obsidian adds its own `.obsidian/` folder there.
+3. Open an item. Check whether the properties show at the top and which type Obsidian assigns to each.
+
+The same layout with the vault one level higher, for example the whole workspace, is a variant. We did not decide between them.
+
+## Bases: untested sketch
+
+Obsidian's Bases core plugin shows files as table rows and properties as columns. Its documentation says a base is YAML in a `.base` file, that by default it includes every file in the vault, and that `filters` narrow it. A sketch built only from the documented syntax, not run:
+
+```yaml
+filters:
+  and:
+    - file.inFolder("backlog")
+views:
+  - type: table
+    name: "All items"
+    order:
+      - file.name
+      - status
+      - type
+      - priority
+  - type: kanban
+    name: "By status"
+    groupBy:
+      property: note.status
+      direction: ASC
+```
+
+Whether a view like this works over Lif items is the point of the experiment. We make no statement about it.
+
+## Validate after every edit
+
+Obsidian does not know Lif's rules. After you edit items by hand, run `lif check`. Here we edited a file with a text tool instead of Obsidian, setting `status: doing`, which is not a status of the preset:
+
+```console
+$ lif check
+...
+  ✗ item demo-fwep carries unknown status 'doing'
+...
+1 issue found
+$ echo $?
+1
+```
+
+Renaming a file changes the item ID, because the ID is the part of the file name before `--`. We renamed `demo-fwep--write-the-queue.md` to `Write the queue.md`:
+
+```console
+$ lif list
+TYPE  ID               TITLE
+task  Write the queue  Write the queue
+epic  demo-0zvt        Notes app
+$ lif show demo-fwep
+Error: item not found: demo-fwep
+```
+
+`lif check` reported a prefix inconsistency in that state, not a missing item. An editor that renames files, for example to follow a title, would break the ID and the `parent` links that point to it. Check whether Obsidian renames on title change: we did not run it.
+
+## What to watch in a trial
+
+- Does Obsidian rewrite a file when you only open it, or only when you edit a property?
+- After an edit in Obsidian, does `git diff` show more than the changed value: the `# <id>` comment, key order, list indentation, the `Z` timestamps?
+- Does Obsidian keep a key it does not know? Lif keeps unknown keys; see [item file format](../../reference/item-file-format/).
+- Does `lif check` pass after the edit, and `lif list` show the same item ID as before?
+
+If you try it, tell us what happened and we will update this post.
+
+## Limits
+
+- **Everything about Obsidian is untested.** The post cannot say whether it works.
+- **Hand edits bypass the CLI.** `lif check` finds unknown status or priority, invalid tags, wrong parent rank, broken links and cycles. It does not find duplicate IDs or a file name that does not match the ID. See [Editing by hand](../../reference/item-file-format/#editing-by-hand).
+- **Blocking links are stored on one side.** `lif check` does not report a difference between the two sides.
+
+## Reference
+
+- [Item file format](../../reference/item-file-format/): fields, file names, editing by hand.
+- [`lif check`](../../reference/commands/lif-check/) and [Configuration](../../reference/configuration/) for `lif.path`.
+- [Files in your repo](../../features/files-in-your-repo/) and [Surface independence](../../features/surface-independence/).
+- [Blog](../).

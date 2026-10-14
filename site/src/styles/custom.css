@@ -34,3 +34,15 @@
   --term-bg: var(--sl-color-gray-6);
   --term-bar: var(--sl-color-gray-7);
 }
+
+/* Mermaid diagrams: astro-mermaid renders ```mermaid fences in the browser with Mermaid's own 'default' or 'dark'
+   theme (chosen by data-theme). These rules recolour the SVG with the tones above, so both flavours follow the site.
+   !important is needed because Mermaid scopes its own rules with the diagram id. */
+pre.mermaid[data-processed] { background: transparent; border: 1px solid var(--ctp-surface0); border-radius: 0.5rem; }
+pre.mermaid svg .node :is(rect, polygon, circle, ellipse, path) { fill: var(--ctp-surface0) !important; stroke: var(--ctp-teal) !important; }
+pre.mermaid svg .cluster rect { fill: transparent !important; stroke: var(--ctp-surface2) !important; }
+pre.mermaid svg :is(.flowchart-link, .edgePath .path) { stroke: var(--ctp-overlay1) !important; }
+pre.mermaid svg .arrowMarkerPath { fill: var(--ctp-overlay1) !important; stroke: var(--ctp-overlay1) !important; }
+pre.mermaid svg :is(.nodeLabel, .cluster-label, .edgeLabel, text) { color: var(--ctp-text) !important; fill: var(--ctp-text) !important; }
+pre.mermaid svg :is(.edgeLabel, .edgeLabel p, .labelBkg) { background-color: var(--ctp-base) !important; }
+pre.mermaid svg .edgeLabel rect { fill: var(--ctp-base) !important; }

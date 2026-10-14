@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { fileURLToPath } from 'node:url';
 import catppuccin from '@catppuccin/starlight';
+import mermaid from 'astro-mermaid';
 
 export default defineConfig({
 	vite: {
@@ -20,22 +21,33 @@ export default defineConfig({
 	site: 'https://xrieros.github.io',
 	base: '/lif',
 	integrations: [
+		// D38/D53/D55: ```mermaid fences become diagrams in the browser (theme follows data-theme, colours: custom.css).
+		// Must come before starlight(): its remark step runs before Expressive Code turns the fences into code blocks.
+		mermaid({ enableLog: false }),
 		starlight({
 			title: 'Lif',
 			description: 'Lightweight, Markdown-native work management for humans, AI agents and automation.',
 			components: { Header: './src/components/Header.astro', Hero: './src/components/Hero.astro' },
 			customCss: ['./src/styles/custom.css'],
-			// D36: the sidebar shows only the current chapter (top-level group below).
+			// D36/D51: sidebar mode (all chapters or current chapter only) is one switch in src/routeData.ts.
 			routeMiddleware: './src/routeData.ts',
 			// custom.css defines the --ctp-* tones for these two flavours (captured lif output); change both together.
 			plugins: [catppuccin({ dark: { flavor: 'mocha', accent: 'teal' }, light: { flavor: 'latte', accent: 'teal' } })],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/xRiErOS/lif' }],
 			// Each top-level group is a chapter. Header chapters: Overview, Features, Use Cases, Reference, Resources
-			// (= Blog, Releases, Contribute, About); see src/components/nav.ts.
+			// (= Blog, Releases, Contribute, About); see src/components/nav.ts. D57: Blog is its own sidebar chapter;
+			// Releases, Contribute and About form the sidebar chapter "Resources".
 			sidebar: [
 				{
 					label: 'Overview',
-					items: ['overview', 'overview/installation', 'overview/first-steps', 'overview/concepts', 'overview/agent-onboarding'],
+					items: [
+						'overview',
+						'overview/installation',
+						'overview/first-steps',
+						'overview/concepts',
+						'overview/agent-onboarding',
+						'overview/store-management',
+					],
 				},
 				{
 					label: 'Features',
@@ -85,9 +97,10 @@ export default defineConfig({
 					],
 				},
 				{ label: 'Blog', items: [{ autogenerate: { directory: 'blog' } }] },
-				{ label: 'Releases', items: [{ autogenerate: { directory: 'releases' } }] },
-				{ label: 'Contribute', items: ['contribute'] },
-				{ label: 'About', items: ['about'] },
+				{
+					label: 'Resources',
+					items: [{ label: 'Releases', items: [{ autogenerate: { directory: 'releases' } }] }, 'contribute', 'about'],
+				},
 			],
 		}),
 	],

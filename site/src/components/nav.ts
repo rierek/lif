@@ -1,5 +1,7 @@
 // Header navigation (usememos.com style). Groups with `items` become drop-downs with a one-line description per
 // entry. Hrefs are site-relative and must match page slugs in wiki/pages (chapters: see sidebar in astro.config.mjs).
+// "Resources" lists Blog, Releases, Contribute and About. In the sidebar (D57) Blog is its own chapter, while
+// Releases, Contribute and About form the chapter "Resources".
 export interface NavItem {
 	title: string;
 	description: string;
@@ -8,7 +10,17 @@ export interface NavItem {
 export type NavEntry = { label: string; href: string } | { label: string; items: NavItem[] };
 
 export const nav: NavEntry[] = [
-	{ label: 'Overview', href: '/overview/' },
+	{
+		label: 'Overview',
+		items: [
+			{ title: 'Lif in brief', description: 'What Lif is and where to go next', href: '/overview/' },
+			{ title: 'Installation', description: 'Install the lif binary', href: '/overview/installation/' },
+			{ title: 'First steps', description: 'Store, preset and your first items', href: '/overview/first-steps/' },
+			{ title: 'Concepts', description: 'Items, ranks, order and dependencies', href: '/overview/concepts/' },
+			{ title: 'Agent onboarding', description: 'Teach a coding agent to use Lif', href: '/overview/agent-onboarding/' },
+			{ title: 'Store management', description: 'Several projects, worktrees, shared stores', href: '/overview/store-management/' },
+		],
+	},
 	{
 		label: 'Features',
 		items: [

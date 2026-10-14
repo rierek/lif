@@ -21,9 +21,6 @@ export default defineConfig({
 	site: 'https://xrieros.github.io',
 	base: '/lif',
 	integrations: [
-		// D38/D53/D55: ```mermaid fences become diagrams in the browser (theme follows data-theme, colours: custom.css).
-		// Must come before starlight(): its remark step runs before Expressive Code turns the fences into code blocks.
-		mermaid({ enableLog: false }),
 		starlight({
 			title: 'Lif',
 			description: 'Lightweight, Markdown-native work management for humans, AI agents and automation.',
@@ -116,5 +113,11 @@ export default defineConfig({
 				},
 			],
 		}),
+
+		// D38/D53/D55: ```mermaid fences become diagrams in the browser (theme follows data-theme, colours: custom.css).
+		// Must come after starlight(): astro-mermaid replaces markdown.processor with a copy, and Expressive Code hooks
+		// into the processor that is current when starlight() runs. Before starlight(), .md pages (Reference, Contribute)
+		// rendered code blocks with default Expressive Code options and a stylesheet the build never wrote.
+		mermaid({ enableLog: false }),
 	],
 });

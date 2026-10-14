@@ -3,34 +3,49 @@ title: "Contribute"
 description: "Report bugs and requests, build Lif from source, license and credit."
 ---
 
-## Purpose
-Short page: tells readers where to report problems, how to build Lif from source with `just`, under which license Lif is distributed and whom the project credits. It welcomes focused pull requests, requires a Discussion before any feature pull request, and makes no promise about review times (D61, D63).
+## Report bugs and requests
 
-## Audience
-Users who found a bug or want a feature; developers who build Lif from source.
+Read [Known limitations](../known-limitations/) first. Your problem may already be listed there, with a workaround.
 
-## Required sections
+Report bugs and request features in the issue tracker: <https://github.com/xRiErOS/lif/issues>. Reports about Lif go there, not to `hmans/beans`.
 
-### Report bugs and requests
-- Links to the Known limitations page (`known-limitations`) before asking readers to report a bug.
-- Names the issue tracker `https://github.com/xRiErOS/lif/issues` as the place for bug reports and feature requests; reports about Lif go there, not to `hmans/beans`.
-- Lists what a good report contains: observed behavior, expected behavior, Lif version (`lif version`), smallest reproducible store shape.
-- States that focused pull requests are welcome (D63). A new feature needs a GitHub Discussion opened first at `https://github.com/xRiErOS/lif/discussions`; feature pull requests without one are declined. Makes no promise about review or response times.
-- Source: `wiki/fork-lineage.md` (section "How to reference Lif"); `README.md` (section "Project status"); DESIGN.md D61, D63; `README.md` line 238
+A good report contains:
 
-### Build from source
-- Prerequisite: `mise` installs the toolchain declared in `mise.toml` (Go, Node.js, pnpm, each pinned to `latest`); the docs site itself builds with `npm ci` and `npm run build` (justfile `docs-build`), not with pnpm; the Go module requires Go 1.26 (`go.mod`).
-- Shows `git clone https://github.com/xRiErOS/lif.git`, `mise install`, `mise run setup`.
-- `just build` builds the stamped binaries `lif` and `lif-serve` (it runs `mise run build`).
-- `just test` runs the Go test suite (`go test -count=1 ./...`); `just test-race`, `just test-web` and `just check-web` run the race detector, the frontend unit tests and the frontend type check.
-- `just docs-gen`, `just docs-build` and `just docs-dev` generate the command pages, build the docs site and serve it with live reload.
-- Source: `justfile` (recipes `build`, `test`, `test-race`, `test-web`, `check-web`, `docs-gen`, `docs-build`, `docs-dev`); `mise.toml`; `go.mod`; `wiki/installation.md` (sections "Prerequisites", "Building from source")
+- the observed behavior
+- the expected behavior
+- your Lif version (`lif version`)
+- the smallest store shape that reproduces the problem
 
-### License
-- Names the license Apache License 2.0 and links to the file `LICENSE` in the repository.
-- Source: `LICENSE`; `README.md` (section "License")
+Focused pull requests are welcome. A new feature needs a GitHub Discussion first: <https://github.com/xRiErOS/lif/discussions>. Feature pull requests without a Discussion are declined. There is no promise about review or response times.
 
-### Credit
-- Lif originated as a fork of `hmans/beans` by Hendrik Mans; the original idea and the first implementation come from that project.
-- Links to the About page (`about`) for the origin and the attribution.
-- Source: `README.md` (section "Acknowledgements"); `wiki/fork-lineage.md` (sections "Origin", "License and attribution")
+## Build from source
+
+You need Git and [mise](https://mise.jdx.dev). `mise` installs the toolchain declared in `mise.toml`: Go, Node.js and pnpm. The Go module requires Go 1.26 (`go.mod`). The docs site builds with `npm ci` and `npm run build`, not with pnpm.
+
+```sh
+git clone https://github.com/xRiErOS/lif.git
+cd lif
+mise install
+mise run setup
+```
+
+Then use `just`:
+
+| Command | What it does |
+|---|---|
+| `just build` | Builds the stamped binaries `lif` and `lif-serve`. It runs `mise run build`. |
+| `just test` | Runs the Go tests (`go test -count=1 ./...`). |
+| `just test-race` | Runs the Go tests with the race detector. |
+| `just test-web` | Runs the frontend unit tests. |
+| `just check-web` | Runs the frontend type check. |
+| `just docs-gen` | Generates the command reference pages. |
+| `just docs-build` | Generates the command pages and builds the docs site. |
+| `just docs-dev` | Serves the docs site with live reload. |
+
+## License
+
+Lif is distributed under the Apache License 2.0. See the [`LICENSE`](https://github.com/xRiErOS/lif/blob/main/LICENSE) file in the repository.
+
+## Credit
+
+Lif started as a fork of [`hmans/beans`](https://github.com/hmans/beans) by Hendrik Mans. The original idea and the first implementation come from that project. See [About](../about/) for the origin and the attribution.

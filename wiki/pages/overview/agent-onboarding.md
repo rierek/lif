@@ -49,9 +49,12 @@ flowchart LR
 - Idea: the agent reads `lif prime` automatically instead of relying on memory.
 - Claude Code: hooks on `SessionStart` and `PreCompact` run `lif prime`.
 - Shows a short snippet of the hook configuration (phase 5: take it from the existing configuration and test it).
-- Alternative to a hook: a Claude Code rule in `.claude/rules/` that tells the agent to run `lif prime` before anything else. A rule only instructs the agent; a hook runs the command itself. (TODO: verify how Claude Code loads `.claude/rules/` and whether the rule still applies after compaction.)
+- Alternative to a hook: a Claude Code rule in `.claude/rules/` that tells the agent to run `lif prime` before anything else. A rule only instructs the agent; a hook runs the command itself. Claude Code treats rules as context, not enforced configuration.
+- A rule file without `paths:` frontmatter loads at session start for every file; after compaction it is re-injected from disk. A rule with `paths:` loads only when Claude touches a matching file, so it is the wrong choice for a start-of-session instruction. Say so.
+- Shows a rule file of a few lines. Links to the Claude Code documentation pages "How Claude remembers your project" (`https://code.claude.com/docs/en/memory`) and "What survives compaction" (`https://code.claude.com/docs/en/context-window`), and states the version and date on which the claims were checked.
+- Disclaimer (D67), shown in a note box: statements about third-party software (Claude Code, OpenCode, Obsidian) come from their public documentation at the stated date; they can change, and no warranty is given for them.
 - Agents without hooks: paste the prompt once, or point to `lif prime` in the agent instruction file. (TODO: verify)
-- Source: FACTS.md §6.10, §9(f) (Claude Code hooks run `lif prime`, `.claude/settings.json`, `extras/claude/plugins/lif-prime/hooks/hooks.json`); DESIGN.md D53. Hook snippet and behaviour without hooks are `TODO: verify` (check in `extras/claude/plugins/lif-prime`, `wiki/agent-integration.md`); the `.claude/rules/` alternative is not documented in the repository.
+- Source: FACTS.md §6.10, §9(f) (Claude Code hooks run `lif prime`, `.claude/settings.json`, `extras/claude/plugins/lif-prime/hooks/hooks.json`); DESIGN.md D53, D67; Claude Code docs `memory` (rules without `paths` load unconditionally; "Claude treats them as context, not enforced configuration") and `context-window` section "What survives compaction" (project-root CLAUDE.md and unscoped rules re-injected from disk; rules with `paths:` reload on demand), read 2026-10-14. Hook snippet and behaviour without hooks stay `TODO: verify`.
 
 ### Drift prevention hook
 - Problem: after context compaction an agent forgets the rules or edits files in the store by hand; the store drifts from what is intended.

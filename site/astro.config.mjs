@@ -80,7 +80,7 @@ export default defineConfig({
 						'reference/item-file-format',
 						'reference/configuration',
 						'reference/search-syntax',
-						'reference/json-schemas',
+						'reference/json-output',
 						'reference/graphql',
 						'reference/web-server',
 						{

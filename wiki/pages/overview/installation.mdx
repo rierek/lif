@@ -21,6 +21,12 @@ Linux or macOS, with the install script:
 curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
 ```
 
+Linux or macOS, with Nix (from Lif 0.13.1 on):
+
+```sh
+nix profile install github:xRiErOS/lif
+```
+
 Check that it works:
 
 ```sh
@@ -51,6 +57,7 @@ Next, run `lif init` in your project folder. [First steps](../first-steps/) take
 |---|---|---|
 | Homebrew | `brew install xRiErOS/lif/lif` | You are on macOS. Installs `lif` and `lif-serve`. |
 | Install script | `curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh \| sh` | You are on Linux or macOS and want no package manager. Installs both binaries. |
+| Nix (from 0.13.1) | `nix profile install github:xRiErOS/lif` | You use Nix. `nix run github:xRiErOS/lif -- version` tries it without installing. Installs both binaries, and `lif-serve` serves the web UI. |
 | Release archive | Download `lif_<Os>_<arch>.tar.gz` (`.zip` on Windows) from the Releases page | You are on Windows or want to pin a file. Installs both binaries. |
 | `go install` | `go install github.com/xRiErOS/lif/cmd/lif@latest` | You only need the CLI. Installs `lif` only. |
 | Build from source | `git clone https://github.com/xRiErOS/lif.git`, then `mise install`, `mise run setup`, `mise run build` | You want an unreleased build. |

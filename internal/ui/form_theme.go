@@ -25,7 +25,7 @@ func FlavourFormPalette(t Theme) FormPalette {
 	c := func(tone string) lipgloss.Color { return lipgloss.Color(t.Hex(tone)) }
 	return FormPalette{
 		Accent:     c("mauve"),
-		Focus:      c("yellow"),
+		Focus:      c("mauve"),
 		Background: c("base"),
 		Error:      c("red"),
 		Text:       c("text"),

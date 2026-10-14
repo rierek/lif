@@ -3,26 +3,13 @@ title: "Known limitations"
 description: "Open defects and limits of Lif, each with a short ID that release notes reuse."
 ---
 
-## Purpose
-One list of what Lif does not do right yet. Every limitation named on another page as `[abcd]` is listed here with the same ID. Release notes use the same IDs, so a reader can follow a limitation from the page that mentions it to the release that fixes it (D64, D65, D66).
+## How to read an ID
 
-## Audience
-Users who hit a surprise and want to know whether it is known; readers who see `[abcd]` on another page; maintainers who keep the list current.
+`[abcd]` is the ID of a tracking item without the store prefix. The same form appears on feature and reference pages and in release notes. This list is maintained by hand. Each entry shows its status: open, or fixed in a version.
 
-## Required sections
+Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as convention are not enforced by Lif.
 
-### How to read an ID
-- Explains the notation: `[abcd]` is the tracking item ID without the prefix of the store; the same form appears on feature and reference pages and in release notes.
-- States that the list is maintained by hand and shows the status of each entry (open, fixed in a version).
-- Source: DESIGN.md D65, D66
-
-### Open limitations
-- Table: ID, title, one-line effect, workaround, status.
-- Groups: data safety (mixed-field cycles [et2a], `lif init` overwrite [1y6w], `lif promote` [z69m]); web server ([8h4v], [9a66]); search ([xa2j]); TUI ([179g], [hh0o]); CLI help and completion ([mgx8], [9kej]); front matter handling ([1wnd], [ih2r]); JSON output ([0g6b], [ju1q]); other ([0ish], [gbl5], [9r10], [t5k2], [29wh], [0pv6], [6y1a]).
-- Each row's effect text comes from the tracking item and FACTS.md §22.4; a workaround appears only where FACTS.md has one.
-- Source: FACTS.md §22.1, §22.2, §22.4; DESIGN.md D64
-
-Limitations cited on Reference pages (Lif 0.14, measured 2026-10-14):
+## Open limitations
 
 | ID | Title | Effect | Workaround | Status |
 |---|---|---|---|---|
@@ -39,12 +26,19 @@ Limitations cited on Reference pages (Lif 0.14, measured 2026-10-14):
 | [hh0o] | TUI lobby footer shows `i/k`, but those keys edit the filter | Misleading key hint. | Use the arrow keys. | Open |
 | [nhcz] | `lif promote` review artifact format is undocumented | You cannot write an artifact without reading the source. | Read `internal/commands/findings-schema.json` in the repository. | Open |
 | [g5dn] | `lif next` and `lif list --ready` return container items | The ready list is not limited to leaf work. | Filter with `-t task,bug`. | Open |
+| [1y6w] | `lif init` silently overwrites an existing config | An existing `.lif.yml` or `.beans.yml` is replaced by the default config, exit 0. | Back up the file before running `lif init` in an existing project. | Open |
+| [mgx8] | `create`/`update` help lists built-in names; completion and help fail outside a project | Help shows built-in type names even with custom types. `lif completion`, `lif help <cmd>` and `lif __complete` fail outside an initialised project. | Run them inside a project. | Open |
+| [1wnd] | Unrecovered panic on a `.nan` front matter value | Lif exits with code 2 and a panic trace. | Remove or quote the value in the file. | Open |
+| [ih2r] | UTF-8 BOM before front matter makes `lif update` duplicate it | The front matter block appears twice after an update. | Save item files without a BOM. | Open |
+| [t5k2] | Persisted search index path is built but never filled | No effect for users: every call indexes in memory. | None needed. | Open |
+| [29wh] | Wiki and README statements disagree with the code | Some older statements (cycle entry fields, `display.theme`, `default_status` check, i386 platforms, `go install` binaries) are wrong. | Trust this site and a run of your binary. | Open |
+| [0ish] | Cycle path in `lif check` starts at a different item each run | The same cycle is printed with a different first item between runs. | Read the path as a ring. | Open |
+| [gbl5] | `lif rename --dry-run` hits the same refusals as a real rename | The dry run stops at the first refusal instead of listing the full plan. | Fix the refusal and run again. | Open |
 
-### Fixed limitations
-- Table: ID, title, version that fixed it with a link to its release note.
-- Empty until the first fix ships; the section stays so the structure is stable.
-- Source: DESIGN.md D66
+## Fixed
 
-### Report a limitation
-- Links to Contribute (`contribute`) for the issue tracker and to the Discussion rule for new features.
-- Source: DESIGN.md D63
+| ID | Title | Effect | Workaround | Status |
+|---|---|---|---|---|
+| [0pv6] | GraphQL `createItem` left status empty | Fixed in 0.14: the default status `todo` is applied. | n/a | Fixed in 0.14 |
+| [6y1a] | Type change skipped hierarchy validation | Fixed in 0.14: the hierarchy is validated before the first write. | n/a | Fixed in 0.14 |
+| [9kej] | Help text omitted manual order in the default sort | Fixed in 0.14: help names the manual order. | n/a | Fixed in 0.14 |

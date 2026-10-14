@@ -76,6 +76,20 @@ Views: `lif list --view tree` and `lif roadmap`. Presets and custom types change
 
 Status shows progress: `todo`, `in-progress`, `draft`, `completed` and `scrapped`. A new item is `todo`. Change it with `lif start`, `lif complete`, `lif scrap` or `lif update --status`. `lif archive` moves completed and scrapped items to `archive/`.
 
+```mermaid
+flowchart LR
+    new(["new item"]) --> todo
+    todo -- "lif start" --> inprog["in-progress"]
+    inprog -- "lif complete" --> completed
+    todo -- "lif scrap --reason" --> scrapped
+    inprog -- "lif scrap --reason" --> scrapped
+    draft -. "lif update --status" .-> todo
+    completed -- "lif archive" --> archive[("archive/")]
+    scrapped -- "lif archive" --> archive
+```
+
+The arrows show the dedicated commands. `lif update --status` sets any of the five statuses directly.
+
 ## 4. Blocking
 
 `blocked_by` lists the items that must finish first. `blocking` is the same link seen from the other side. Lif stores a link on one item and merges both directions when it reads. An item is blocked while a blocker, or a blocker of one of its parents, is unfinished.
@@ -85,9 +99,31 @@ lif list --is-blocked --quiet    # ov1-33x3
 lif list --ready --type task --quiet   # ov1-l1b7
 ```
 
+```mermaid
+flowchart LR
+    B["B: write the API"] -- "blocks" --> A["A: build the client<br/>blocked_by: B"]
+    A -. "B completed" .-> ready(["A is ready"])
+    P["Epic E<br/>blocked_by: C"] --> A2["Task under E"]
+    C["C: unfinished"] -- "blocks" --> P
+```
+
+Left: A waits for B. Right: a task inherits the block of its parent, so it waits for C too.
+
 After `lif complete ov1-l1b7`, `lif next --type task` returns `ov1-33x3`. [Dependencies](../../features/dependencies/) has the full rules.
 
 ## 5. Store
+
+```mermaid
+flowchart TD
+    subgraph own["Default: one store per checkout"]
+        m1["main worktree"] --> s1[(".lif/ of main")]
+        w1["worktree app-wt"] --> s2[(".lif/ of app-wt")]
+    end
+    subgraph shared["anchor: repo-root"]
+        m2["main worktree"] --> s3[(".lif/ of main")]
+        w2["worktree app-wt"] --> s3
+    end
+```
 
 The store is the `.lif/` folder of Liff files next to the `.lif.yml` configuration. Git versions it with your code. [Store management](../store-management/) shows how to use one store per project, or share one.
 

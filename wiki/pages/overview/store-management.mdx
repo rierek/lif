@@ -47,6 +47,18 @@ lif:
 
 From a secondary worktree, Lif now resolves the store against the main worktree. `lif path` there prints the store of the main checkout. In the main worktree and outside Git nothing changes. Any other value for `anchor` is a config error.
 
+```mermaid
+flowchart TD
+    subgraph own["Default: one store per checkout"]
+        m1["main worktree"] --> s1[(".lif/ of main")]
+        w1["worktree app-wt"] --> s2[(".lif/ of app-wt")]
+    end
+    subgraph shared["anchor: repo-root"]
+        m2["main worktree"] --> s3[(".lif/ of main")]
+        w2["worktree app-wt"] --> s3
+    end
+```
+
 Choose by need: an own store keeps items with the branch. A shared store shows every worktree the same items at once.
 
 ## Steer the store for one call

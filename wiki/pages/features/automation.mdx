@@ -34,18 +34,22 @@ $ lif graphql '{ items { id title status } }'
 
 Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif graphql`](../../reference/commands/lif-graphql/).
 
+<Aside type="tip" title="Why it matters">
+With `lif prime`, `--json` and GraphQL, a script or coding agent works on your backlog without a server.
+</Aside>
+
 ## What you get
 
 <CardGrid>
-  <Card title="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`.</Card>
+  <Card title="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error.</Card>
   <Card title="GraphQL without a server">`lif graphql '<query>'` (alias `lif query`) also reads stdin. A mutation through the CLI works the same way, for example `createItem` with `title` and `type`.</Card>
   <Card title="Agents that learn Lif from Lif">`lif prime` prints a prompt that teaches a coding agent how to use Lif, and it runs without a loaded store. Agents learn from `lif prime` and `--help`, not from prior knowledge.</Card>
   <Card title="Review findings become items">`lif promote <artifact> <finding-id>...` creates items from the findings of a review artifact. It writes nothing if a chosen finding is malformed and skips findings that were already taken over.</Card>
-  <Card title="Plain exit codes">0 on success, 1 on error.</Card>
 </CardGrid>
 
-<details>
-<summary>How to set up agent hooks</summary>
+## Tips
+
+<Aside type="tip" title="How do I set up agent hooks?">
 
 A session hook runs `lif prime` at session start and before context compaction. The agent then starts each session with the Lif instructions. The Lif repository does this for Claude Code with `SessionStart` and `PreCompact` hooks:
 
@@ -62,10 +66,9 @@ This snippet is the hook file shipped in `extras/claude/plugins/lif-prime/hooks/
 
 Convention, not enforced by Lif: put the item ID in the commit message so agent work stays traceable.
 
-</details>
+</Aside>
 
-<details>
-<summary>How to validate after automated changes</summary>
+<Aside type="tip" title="How do I validate after automated changes?">
 
 Run `lif check` after every automated change.
 
@@ -75,7 +78,7 @@ Run `lif check` after every automated change.
 - `--json` returns `success`, `config_errors`, `item_issues` (`broken_links`, `self_links`, `cycles`) and more.
 - For what `lif check` does and does not cover, see [Flexible planning](../project-planning/#limits).
 
-</details>
+</Aside>
 
 ## Details
 
@@ -94,10 +97,6 @@ Run `lif check` after every automated change.
 - Run `lif check` after files you write directly. They bypass the write rules.
 
 See [Known limitations](../../known-limitations/) for [nhcz], [z69m] and [z9e6].
-
-<Aside type="tip" title="Why it matters">
-With `lif prime`, `--json` and GraphQL, a script or coding agent works on your backlog without a server.
-</Aside>
 
 ## Reference
 

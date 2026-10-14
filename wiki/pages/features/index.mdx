@@ -4,29 +4,36 @@ description: "Plan in Markdown, keep it in Git: plain Markdown files, CLI, TUI a
 ---
 
 import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import { Braces, CircleCheck, FileText, GitBranch, Layers, LayoutPanelLeft, SlidersHorizontal } from '@lucide/astro';
 
-**Plan in Markdown. Keep it in Git.** Lif is a lightweight work tracker. Every item is one Markdown file that sits next to your code. Humans edit it, AI agents query it, scripts automate it.
+<Aside type="note" title="Plan in Markdown. Keep it in Git.">
+Lif is a lightweight work tracker. Every item is one Markdown file that sits next to your code. Humans edit it, AI agents query it, scripts automate it.
+</Aside>
 
 ## Which feature answers which question
 
-| Question | Feature | Entry point |
-|---|---|---|
-| Can I read and change my data without Lif? | [Markdown-native](../markdown-native/) | [Item file format](../../reference/item-file-format/) |
-| How does this work with branches, worktrees and commits? | [Git-native](../git-native/) | `lif.anchor: repo-root` |
-| How do I connect scripts or coding agents? | [Automation and agents](../automation/) | `lif prime`, `--json` |
-| What can I start now, what blocks me? | [Dependencies](../dependencies/) | `lif next` |
-| How do I model milestones, epics and tasks? | [Flexible planning](../project-planning/) | `lif init --profile` |
-| Can I mix CLI, TUI, Web UI and my editor? | [Surface independence](../surface-independence/) | `lif tui` |
+| Question | Answer | Feature | Entry point |
+|---|---|---|---|
+| Can I read and change my data without Lif? | <CircleCheck size={18} color="var(--sl-color-green)" aria-label="Yes" /> Yes | [Markdown-native](../markdown-native/) | [Item file format](../../reference/item-file-format/) |
+| How does this work with branches, worktrees and commits? | <CircleCheck size={18} color="var(--sl-color-green)" aria-label="Yes" /> Yes | [Git-native](../git-native/) | `lif.anchor: repo-root` |
+| How do I connect scripts or coding agents? | <CircleCheck size={18} color="var(--sl-color-green)" aria-label="Yes" /> Yes | [Automation and agents](../automation/) | `lif prime`, `--json` |
+| What can I start now, what blocks me? | <CircleCheck size={18} color="var(--sl-color-green)" aria-label="Yes" /> Yes | [Dependencies](../dependencies/) | `lif next` |
+| How do I model milestones, epics and tasks? | <CircleCheck size={18} color="var(--sl-color-green)" aria-label="Yes" /> Yes | [Flexible planning](../project-planning/) | `lif init --profile` |
+| Can I mix CLI, TUI, Web UI and my editor? | <CircleCheck size={18} color="var(--sl-color-green)" aria-label="Yes" /> Yes | [Surface independence](../surface-independence/) | `lif tui` |
+
+<Aside type="tip" title="Why it matters">
+Lif keeps the backlog where the work happens: in plain files next to your code, readable by people, agents and scripts alike.
+</Aside>
 
 ## What Lif can do
 
 <CardGrid>
-  <Card title="Your backlog is plain Markdown">Every item is a Markdown file you can read, diff and edit anywhere. [Markdown-native](../markdown-native/)</Card>
-  <Card title="Your backlog travels with your code">Items live in the repository, and worktrees can share one store. [Git-native](../git-native/)</Card>
-  <Card title="Built for scripts and coding agents">`--json`, GraphQL and `lif prime`, with no server. [Automation and agents](../automation/)</Card>
-  <Card title="Know what you can start now">`blocking` and `blocked_by` links, and `lif next`. [Dependencies](../dependencies/)</Card>
-  <Card title="Shape the plan to your project">Types, ranks, statuses and presets that you configure. [Flexible planning](../project-planning/)</Card>
-  <Card title="Use the terminal, the board or your editor">CLI, TUI, Web UI and your editor work on the same files. [Surface independence](../surface-independence/)</Card>
+  <Card title="Your backlog is plain Markdown"><FileText size={20} color="var(--sl-color-blue)" /> Every item is a Markdown file you can read, diff and edit anywhere. [Markdown-native](../markdown-native/)</Card>
+  <Card title="Your backlog travels with your code"><GitBranch size={20} color="var(--sl-color-orange)" /> Items live in the repository, and worktrees can share one store. [Git-native](../git-native/)</Card>
+  <Card title="Built for scripts and coding agents"><Braces size={20} color="var(--sl-color-purple)" /> `--json`, GraphQL and `lif prime`, with no server. [Automation and agents](../automation/)</Card>
+  <Card title="Know what you can start now"><Layers size={20} color="var(--sl-color-red)" /> `blocking` and `blocked_by` links, and `lif next`. [Dependencies](../dependencies/)</Card>
+  <Card title="Shape the plan to your project"><SlidersHorizontal size={20} color="var(--sl-color-green)" /> Types, ranks, statuses and presets that you configure. [Flexible planning](../project-planning/)</Card>
+  <Card title="Use the terminal, the board or your editor"><LayoutPanelLeft size={20} color="var(--sl-color-cyan)" /> CLI, TUI, Web UI and your editor work on the same files. [Surface independence](../surface-independence/)</Card>
 </CardGrid>
 
 ## How the features fit together
@@ -43,7 +50,3 @@ An item is a Markdown file in the store, the directory `.lif/` next to the confi
 - [Reference](../../reference/): commands, item file format, configuration, GraphQL.
 - [Agent onboarding](../../overview/agent-onboarding/): the entry point for coding agents.
 - [Known limitations](../../known-limitations/): open defects with workarounds.
-
-<Aside type="tip" title="Why it matters">
-Lif keeps the backlog where the work happens: in plain files next to your code, readable by people, agents and scripts alike.
-</Aside>

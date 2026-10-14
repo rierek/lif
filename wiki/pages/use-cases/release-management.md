@@ -55,7 +55,7 @@ Release owners, teams with review findings, and agents that manage delivery scop
 - Source: FACTS.md §6.5, §6.9, §9(f); DESIGN.md D40, D41; tagging/notes `TODO: verify` — check in phase 5 against the repo process
 
 ### References
-- Features: Dependencies (`features/dependencies`), Git-native (`features/git-native`), Automation and agents (`features/automation`).
+- Features: Dependencies (`features/dependencies`), Files in your repo (`features/files-in-your-repo`), Automation and agents (`features/automation`).
 - Reference: Configuration (`reference/configuration`), `lif promote`, `lif complete`, `lif check`, `lif roadmap` (`reference/commands`).
 - Use case: Software project (`use-cases/software-projects`).
 - Source: DESIGN.md D32, D39

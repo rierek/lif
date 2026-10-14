@@ -53,12 +53,11 @@ export default defineConfig({
 					label: 'Features',
 					items: [
 						'features',
-						'features/markdown-native',
-						'features/project-planning',
-						'features/dependencies',
-						'features/surface-independence',
+						'features/files-in-your-repo',
 						'features/automation',
-						'features/git-native',
+						'features/dependencies',
+						'features/project-planning',
+						'features/surface-independence',
 					],
 				},
 				{

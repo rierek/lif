@@ -45,7 +45,7 @@ A new item, `lif create "Write notes" -t task --parent <epic> -p high --tag docs
 }
 ```
 
-- `lif list --json` and `lif show --json` use the same object; `list` returns an array. `priority` is `normal` when the file has none.
+- `lif list --json` and `lif show --json` use the same object; `list` returns an array. `show --json` returns the body with a leading newline, `create --json` does not [0g6b]. `priority` is `normal` when the file has none.
 - `etag` is the value for `--if-match`. `blocking` and `blocked_by` appear when set.
 - `lif list --json` has no `body`; add `--full`.
 
@@ -89,7 +89,7 @@ With `--json` an error is one JSON object on stdout and the exit code is 1:
 | `NO_LIF_DIR` | No store found (not `NO_BEANS_DIR`). |
 | `INVALID_STATUS` | Status not in the configured table. |
 | `VALIDATION_ERROR` | Invalid input: unknown blocker, invalid `--format` or `--depth`, bad filter. |
-| `FILE_ERROR` | Writing or reading the file failed, also a refused parent (`failed to create item: epic items can only have milestone as parent, not task`). |
+| `FILE_ERROR` | Writing or reading the file failed, also a refused parent [ju1q] (`failed to create item: epic items can only have milestone as parent, not task`). |
 | `CONFLICT` | ETag mismatch (`--if-match`). |
 | `POLICY_VIOLATION` | A required field of `require_fields_on` is missing. See [Configuration](../configuration/#status-dependent-required-fields). |
 

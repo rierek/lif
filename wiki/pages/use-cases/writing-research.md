@@ -52,7 +52,7 @@ Authors, researchers and students who track chapters, sources and open questions
 - Source: FACTS.md §3, §3.2, §6.9; DESIGN.md D40; citations/export and `lif roadmap` with custom types `TODO: verify` — check in the example in phase 5
 
 ### References
-- Features: Flexible planning (`features/project-planning`), Markdown-native (`features/markdown-native`).
+- Features: Flexible planning (`features/project-planning`), Files in your repo (`features/files-in-your-repo`).
 - Reference: Configuration (`reference/configuration`), Item file format (`reference/item-file-format`).
 - Overview: Concepts (`overview/concepts`).
 - Source: DESIGN.md D32, D33

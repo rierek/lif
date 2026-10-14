@@ -54,7 +54,7 @@ Developers, teams and agents who want to keep roadmap, dependencies and progress
 - Source: FACTS.md §3.1, §3.2, §5.2, §6.9, §9(f); DESIGN.md D40, D41, D43
 
 ### References
-- Features: Flexible planning (`features/project-planning`), Dependencies (`features/dependencies`), Git-native (`features/git-native`).
+- Features: Flexible planning (`features/project-planning`), Dependencies (`features/dependencies`), Files in your repo (`features/files-in-your-repo`).
 - Reference: Configuration (`reference/configuration`), `lif roadmap`, `lif milestones`, `lif progress`, `lif order`, `lif graph` (`reference/commands`).
 - Use case: Release management (`use-cases/release-management`).
 - Source: DESIGN.md D32, D39

@@ -235,7 +235,7 @@ lif prime
 
 Lif is an actively maintained independent continuation of the project it originated from. Features and file-format contracts may still evolve; review the commit history and the compatibility guide before upgrading a shared store.
 
-Focused pull requests are welcome at [xRiErOS/lif](https://github.com/xRiErOS/lif). Include the observed behavior, expected behavior, Lif version, and smallest reproducible store shape.
+Issues, discussions, and focused pull requests are welcome at [xRiErOS/lif](https://github.com/xRiErOS/lif). Pull requests target the current `milestone/0.N` branch, not `main`; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Acknowledgements
 

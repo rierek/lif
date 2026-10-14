@@ -4,3 +4,11 @@
   --sl-font: 'JetBrainsMono NF', ui-monospace, monospace;
   --sl-font-mono: 'JetBrainsMono NF', ui-monospace, monospace;
 }
+
+/* Search dialog: wider on desktop (Starlight default 40rem). Unlayered CSS beats Starlight's layer. */
+@media (min-width: 50rem) {
+  site-search dialog { max-width: 60rem; }
+}
+
+/* Keyboard-selected search result (set by Header.astro script). */
+#starlight__search .kb-active { outline: 1px solid var(--sl-color-accent-high); background-color: var(--sl-color-accent-low); }

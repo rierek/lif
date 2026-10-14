@@ -30,6 +30,37 @@ const links = [
 	</div>
 </div>
 
+<script>
+	// Keyboard navigation for the Pagefind dialog: ArrowDown/Up, Ctrl+J/K, Ctrl+N/P move a highlight; Enter opens it.
+	// Focus stays in the input, so plain j/k keep typing.
+	let active: HTMLAnchorElement | null = null;
+	const mark = (link: HTMLAnchorElement | null) => {
+		active?.closest('.kb-active')?.classList.remove('kb-active');
+		active = link;
+		const box = link && (link.closest('.pagefind-ui__result-nested') ?? link.closest('.pagefind-ui__result-title'));
+		box?.classList.add('kb-active');
+		box?.scrollIntoView({ block: 'nearest' });
+	};
+	window.addEventListener('keydown', (e) => {
+		if (!document.querySelector('site-search dialog[open]')) return;
+		const links = [...document.querySelectorAll<HTMLAnchorElement>('#starlight__search .pagefind-ui__result-link')];
+		let step = 0;
+		if (e.key === 'ArrowDown') step = 1;
+		else if (e.key === 'ArrowUp') step = -1;
+		else if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) step = { j: 1, n: 1, k: -1, p: -1 }[e.key] ?? 0;
+		if (step && links.length) {
+			const i = active ? links.indexOf(active) : -1;
+			mark(links[i < 0 ? (step > 0 ? 0 : links.length - 1) : (i + step + links.length) % links.length]);
+		} else if (e.key === 'Enter' && active?.isConnected) active.click();
+		else return;
+		e.preventDefault();
+		e.stopImmediatePropagation(); // Ctrl+K would otherwise close the dialog (Starlight's handler).
+	}, true);
+	// Reset on new query or dialog close.
+	document.addEventListener('input', () => mark(null));
+	document.addEventListener('close', () => mark(null), true);
+</script>
+
 <style>
 	.header { display: flex; gap: var(--sl-nav-gap); justify-content: space-between; align-items: center; height: 100%; }
 	.top { gap: 1.25rem; flex: 1; margin-inline-start: 1rem; }

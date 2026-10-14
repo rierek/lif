@@ -3,7 +3,10 @@ title: "Automation and agents"
 description: "Built for scripts and coding agents: JSON output, GraphQL and lif prime, with no server."
 ---
 
-import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
+import KeyValueList from '../../../site/src/components/KeyValueList.astro';
+import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../../site/src/components/WhyItMatters.astro';
 
 **Built for scripts and coding agents.** Most commands print JSON, GraphQL runs from the command line, and `lif prime` teaches a coding agent how to use Lif. No server is needed: scripts and agents work on the files.
 
@@ -34,18 +37,18 @@ $ lif graphql '{ items { id title status } }'
 
 Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif graphql`](../../reference/commands/lif-graphql/).
 
-<Aside type="tip" title="Why it matters">
-With `lif prime`, `--json` and GraphQL, a script or coding agent works on your backlog without a server.
-</Aside>
+<WhyItMatters>
+**With `lif prime`, `--json` and GraphQL, a script or coding agent works on your backlog without a server.**
+</WhyItMatters>
 
 ## What you get
 
-<CardGrid>
-  <Card title="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error.</Card>
-  <Card title="GraphQL without a server">`lif graphql '<query>'` (alias `lif query`) also reads stdin. A mutation through the CLI works the same way, for example `createItem` with `title` and `type`.</Card>
-  <Card title="Agents that learn Lif from Lif">`lif prime` prints a prompt that teaches a coding agent how to use Lif, and it runs without a loaded store. Agents learn from `lif prime` and `--help`, not from prior knowledge.</Card>
-  <Card title="Review findings become items">`lif promote <artifact> <finding-id>...` creates items from the findings of a review artifact. It writes nothing if a chosen finding is malformed and skips findings that were already taken over.</Card>
-</CardGrid>
+<KeyValueList>
+  <KeyValueItem term="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error.</KeyValueItem>
+  <KeyValueItem term="GraphQL without a server">`lif graphql '<query>'` (alias `lif query`) also reads stdin. A mutation through the CLI works the same way, for example `createItem` with `title` and `type`.</KeyValueItem>
+  <KeyValueItem term="Agents that learn Lif from Lif">`lif prime` prints a prompt that teaches a coding agent how to use Lif, and it runs without a loaded store. Agents learn from `lif prime` and `--help`, not from prior knowledge.</KeyValueItem>
+  <KeyValueItem term="Review findings become items">`lif promote <artifact> <finding-id>...` creates items from the findings of a review artifact. It writes nothing if a chosen finding is malformed and skips findings that were already taken over.</KeyValueItem>
+</KeyValueList>
 
 ## Tips
 

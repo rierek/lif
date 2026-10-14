@@ -6,12 +6,13 @@ template: splash
 hero: {}
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
-import { Braces, FileText, Globe, LayoutPanelLeft, SlidersHorizontal, Terminal } from '@lucide/astro';
+import { FileText, Globe, LayoutPanelLeft, Terminal } from '@lucide/astro';
 import demo from '../../site/src/data/demo.json';
 import AnnotatedTerminal from '../../site/src/components/AnnotatedTerminal.astro';
 import FeatureTabs from '../../site/src/components/FeatureTabs.astro';
 import HeroSplit from '../../site/src/components/HeroSplit.astro';
+import KeyValueItem from '../../site/src/components/KeyValueItem.astro';
+import KeyValueList from '../../site/src/components/KeyValueList.astro';
 import Section from '../../site/src/components/Section.astro';
 import TerminalWindow from '../../site/src/components/TerminalWindow.astro';
 import WebBoard from '../../site/src/components/WebBoard.astro';
@@ -29,12 +30,12 @@ export const epic = demo.board.find((i) => i.title === 'Accounts and sign-in').i
 Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that sits next to your code. Humans edit it, AI agents query it, scripts automate it.
 
 <div slot="visual">
-  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} />
+  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} narrowHtml={demo.roadmap.narrow} narrowCols={demo.roadmap.narrowCols} label="Roadmap tree of the demo project: milestone v1.0 launch with epics Accounts and sign-in and Dashboard and their features, bugs and tasks, then milestone v1.1 polish; each row shows status, priority, ID and tags." />
 </div>
 
 </HeroSplit>
 
-<Section eyebrow="Surfaces" title="One backlog, many surfaces">
+<Section title="One backlog, many surfaces">
   <FeatureTabs
     label="Lif surfaces"
     tabs={[
@@ -44,17 +45,18 @@ Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that
       { id: 'markdown', label: 'Markdown', icon: FileText, caption: 'Every item is one Markdown file with YAML front matter. Read it, edit it by hand, diff it like code.' },
     ]}
   >
-    <div slot="cli"><TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={80} /></div>
-    <div slot="tui"><TerminalWindow title="~/app — lif tui" html={demo.tui.html} cols={110} /></div>
+    <div slot="cli"><TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={80} label="Details of the item Password reset: a feature in progress with high priority, tags backend and security, its parent epic, timestamps and the acceptance criteria checklist." /></div>
+    <div slot="tui"><TerminalWindow title="~/app · lif tui" html={demo.tui.html} cols={110} label="Lif terminal UI: filter bar, the item tree with the feature Password reset selected, and its fields on the right: title, status in-progress, type feature, priority high, parent and tags." /></div>
     {/* TODO: verify: the web board view is not in FACTS.md (source: frontend BoardView.svelte, columns todo, in-progress, completed). */}
     <div slot="web"><TerminalWindow variant="browser" title="localhost:8080"><WebBoard items={demo.board} project="app" /></TerminalWindow></div>
-    <div slot="markdown"><TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} /></div>
+    <div slot="markdown"><TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} label="The item Password reset as a Markdown file: YAML front matter with title, status, priority, tags and timestamps, then the description and acceptance criteria." /></div>
   </FeatureTabs>
 </Section>
 
-<Section eyebrow="Start" title="One command, one Markdown file." link={{ text: 'Create your first items', href: '/overview/first-steps/' }}>
+<Section title="One command, one Markdown file." link={{ text: 'Create your first items', href: '/overview/first-steps/' }}>
   <AnnotatedTerminal
-    title="Create an item"
+    title="~/app · lif create"
+    label="Command that creates a feature item named Rate-limit logins, placed under an epic and tagged security."
     lines={['lif create "Rate-limit logins" \\', '  --type feature \\', `  --parent ${epic} \\`, '  --tag security']}
     notes={[
       { line: 0, side: 'left', text: 'One command, one file' },
@@ -65,11 +67,11 @@ Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that
   />
 </Section>
 
-<Section eyebrow="Why Lif" title="Built for humans, agents and programs.">
-  <CardGrid>
-    <Card title="Markdown for humans"><FileText size={20} color="var(--sl-color-blue)" /> Items are plain Markdown files in your repo. Read, diff and review them like code.</Card>
-    <Card title="CLI for agents"><Terminal size={20} color="var(--sl-color-orange)" /> `lif prime` and `lif --help` give agents everything they need.</Card>
-    <Card title="JSON for programs"><Braces size={20} color="var(--sl-color-purple)" /> Structured output for scripts, Git hooks and release automation.</Card>
-    <Card title="Your workflow"><SlidersHorizontal size={20} color="var(--sl-color-green)" /> Up to four levels in the shipped presets, deeper with custom types. Presets are examples, not a method.</Card>
-  </CardGrid>
+<Section title="Built for humans, agents and programs.">
+  <KeyValueList centered>
+    <KeyValueItem term="Markdown for humans">Items are plain Markdown files in your repo. Read, diff and review them like code.</KeyValueItem>
+    <KeyValueItem term="CLI for agents">`lif prime` and `lif --help` give agents everything they need.</KeyValueItem>
+    <KeyValueItem term="JSON for programs">Structured output for scripts, Git hooks and release automation.</KeyValueItem>
+    <KeyValueItem term="Your workflow">Up to four levels in the shipped presets, deeper with custom types. Presets are examples, not a method.</KeyValueItem>
+  </KeyValueList>
 </Section>

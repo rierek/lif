@@ -21,14 +21,25 @@ export default defineConfig({
 	site: 'https://xrieros.github.io',
 	base: '/lif',
 	integrations: [
-		// D38/D53/D55: ```mermaid fences become diagrams in the browser (theme follows data-theme, colours: custom.css).
-		// Must come before starlight(): its remark step runs before Expressive Code turns the fences into code blocks.
-		mermaid({ enableLog: false }),
 		starlight({
 			title: 'Lif',
 			description: 'Lightweight, Markdown-native work management for humans, AI agents and automation.',
 			components: { Header: './src/components/Header.astro', Hero: './src/components/Hero.astro' },
-			customCss: ['./src/styles/custom.css'],
+			customCss: ['./src/styles/custom.css', './src/styles/elements.css'],
+			// Code blocks use the same Catppuccin flavours as the site; VISUAL-SYSTEM.md §9. Expressive Code lifts token
+			// contrast against the theme base; the panes sit on mantle (--lif-surface), so the floor is above 4.5:1 with
+			// room to spare. Options must stay serializable (a function here breaks the dev stylesheet route).
+			expressiveCode: {
+				themes: ['catppuccin-mocha', 'catppuccin-latte'],
+				minSyntaxHighlightingColorContrast: 6.5,
+				styleOverrides: {
+					borderRadius: '0.5rem',
+					borderWidth: '1px',
+					codeFontSize: '0.875rem',
+					codeLineHeight: '1.7',
+					textMarkers: { lineMarkerAccentWidth: '0px', backgroundOpacity: '35%' },
+				},
+			},
 			// D36/D51: sidebar mode (all chapters or current chapter only) is one switch in src/routeData.ts.
 			routeMiddleware: './src/routeData.ts',
 			// custom.css defines the --ctp-* tones for these two flavours (captured lif output); change both together.
@@ -102,5 +113,11 @@ export default defineConfig({
 				},
 			],
 		}),
+
+		// D38/D53/D55: ```mermaid fences become diagrams in the browser (theme follows data-theme, colours: custom.css).
+		// Must come after starlight(): astro-mermaid replaces markdown.processor with a copy, and Expressive Code hooks
+		// into the processor that is current when starlight() runs. Before starlight(), .md pages (Reference, Contribute)
+		// rendered code blocks with default Expressive Code options and a stylesheet the build never wrote.
+		mermaid({ enableLog: false }),
 	],
 });

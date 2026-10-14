@@ -8,7 +8,7 @@ import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 **Plan milestones, epics and features in the same repository as the code, and read the state of the release with one command.** The `classic` preset gives you four levels. Every item is a Markdown file that travels with your branches.
 
 <div class="not-content">
-  <TerminalWindow title="~/notes-app" command={`lif roadmap --depth 2`} html={`<span style="color:var(--ctp-mauve);font-weight:700">Roadmap</span>
+  <TerminalWindow title="~/notes-app" label="Roadmap two levels deep: milestone v1.0 launch in progress with the epics Offline sync in progress and Search todo." command={`lif roadmap --depth 2`} html={`<span style="color:var(--ctp-mauve);font-weight:700">Roadmap</span>
 <span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>
 <span style="color:var(--ctp-mauve);font-weight:700">M</span>     <span style="color:var(--ctp-mauve);font-weight:700">v1.0 launch</span>                                         <span style="color:var(--ctp-peach);font-weight:700">in-progress</span>     <span style="color:var(--ctp-mauve);font-weight:700">p-rr1n</span>
 <span style="color:var(--ctp-surface2)">├─ </span><span style="color:var(--ctp-blue);font-weight:700">E</span>  <span style="color:var(--ctp-blue);font-weight:700">Offline sync</span>                                        <span style="color:var(--ctp-peach);font-weight:700">in-progress</span>     <span style="color:var(--ctp-blue);font-weight:700">p-u9wm</span>
@@ -19,7 +19,7 @@ import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 </div>
 
 <div class="not-content">
-  <TerminalWindow title="~/notes-app" command={`lif progress p-rr1n`} html={`<span style="color:var(--ctp-mauve);font-weight:700">p-rr1n</span> <span style="color:var(--ctp-mauve);font-weight:700">v1.0 launch</span>
+  <TerminalWindow title="~/notes-app" label="Progress of milestone v1.0 launch: 3 in progress, 5 todo, 0 draft, 2 completed, 20 percent complete." command={`lif progress p-rr1n`} html={`<span style="color:var(--ctp-mauve);font-weight:700">p-rr1n</span> <span style="color:var(--ctp-mauve);font-weight:700">v1.0 launch</span>
 
 <span style="color:var(--ctp-peach);font-weight:700">In Progress</span>: 3
 <span style="color:var(--ctp-green);font-weight:700">Todo</span>: 5
@@ -85,7 +85,7 @@ lif complete <id> --summary "Format is one JSON line per change."
 ```
 
 <div class="not-content">
-  <TerminalWindow title="~/notes-app" command={`lif next --type task`} html={`task  p-7fgw
+  <TerminalWindow title="~/notes-app" label="Next task to work on: Fsync the queue file, todo, normal priority, under the parent p-w9ml." command={`lif next --type task`} html={`task  p-7fgw
 Fsync the queue file
 <span style="color:var(--ctp-green);font-weight:700">todo</span>  <span style="color:var(--ctp-subtext0)">normal</span>
 <span style="color:var(--ctp-overlay1)">parent:</span> <span style="color:var(--ctp-subtext0);font-weight:700">p-w9ml</span>

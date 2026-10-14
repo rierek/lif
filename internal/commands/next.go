@@ -101,7 +101,7 @@ func RegisterNextCmd(root *cobra.Command) {
 	nextCmd.Flags().StringSliceVarP(&nextType, "type", "t", nil, "Filter by type (comma-separated or repeated, OR logic)")
 	nextCmd.Flags().StringSliceVar(&nextTag, "tag", nil, "Filter by tag (comma-separated or repeated, OR logic)")
 	nextCmd.Flags().StringVar(&nextParent, "parent", "", "Filter by parent ID")
-	nextCmd.Flags().StringVar(&nextSort, "sort", "", "Sort by: created, updated, status, priority, id, order (order is scoped per parent, so pair it with --parent) (default: status, priority, type, title)")
+	nextCmd.Flags().StringVar(&nextSort, "sort", "", "Sort by: created, updated, status, priority, id, order (order is scoped per parent, so pair it with --parent) (default: status, manual order, priority, type, title)")
 	nextCmd.Flags().BoolVar(&nextDesc, "desc", false, "Reverse the sort order")
 	nextCmd.Flags().BoolVar(&nextJSON, "json", false, "Output as JSON")
 	// next's doc comment (:29) states --type/--tag/--parent "mean the same

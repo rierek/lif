@@ -5,7 +5,9 @@ description: "Your backlog is a folder of files. Everything that reads files alr
 
 import demo from '../../../site/src/data/demo.json';
 import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
-import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
+import KeyValueList from '../../../site/src/components/KeyValueList.astro';
+import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
 
 **Your backlog is a folder of files. Everything that reads files already speaks Lif.** You, your editor, Git and your coding agent need no plugin and no server. There is no database and no export step.
 
@@ -50,12 +52,12 @@ Your backlog outlives any tool: if you stop using Lif, your items stay readable 
 
 ## What you get
 
-<CardGrid>
-  <Card title="You own your data">The files are readable, diffable and editable in any editor. Scripts and agents read them without Lif.</Card>
-  <Card title="Small, reviewable diffs">Lif writes fields in a fixed order and keeps unknown keys. A change touches few lines, in a file with a stable name `<id>--<slug>.md`.</Card>
-  <Card title="A backlog that follows the branch">Commit the item change with the code change it belongs to. `lif complete --commit <ref>` writes the commit SHA into the item.</Card>
-  <Card title="One shared store for parallel work">`lif.anchor: repo-root` lets all Git worktrees of a repository share one store, so parallel work does not drift apart.</Card>
-</CardGrid>
+<KeyValueList>
+  <KeyValueItem term="You own your data">The files are readable, diffable and editable in any editor. Scripts and agents read them without Lif.</KeyValueItem>
+  <KeyValueItem term="Small, reviewable diffs">Lif writes fields in a fixed order and keeps unknown keys. A change touches few lines, in a file with a stable name `<id>--<slug>.md`.</KeyValueItem>
+  <KeyValueItem term="A backlog that follows the branch">Commit the item change with the code change it belongs to. `lif complete --commit <ref>` writes the commit SHA into the item.</KeyValueItem>
+  <KeyValueItem term="One shared store for parallel work">`lif.anchor: repo-root` lets all Git worktrees of a repository share one store, so parallel work does not drift apart.</KeyValueItem>
+</KeyValueList>
 
 <details>
 <summary>How to use Lif with Git</summary>

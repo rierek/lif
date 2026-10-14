@@ -6,12 +6,13 @@ template: splash
 hero: {}
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
-import { Braces, FileText, Globe, LayoutPanelLeft, SlidersHorizontal, Terminal } from '@lucide/astro';
+import { FileText, Globe, LayoutPanelLeft, Terminal } from '@lucide/astro';
 import demo from '../../site/src/data/demo.json';
 import AnnotatedTerminal from '../../site/src/components/AnnotatedTerminal.astro';
 import FeatureTabs from '../../site/src/components/FeatureTabs.astro';
 import HeroSplit from '../../site/src/components/HeroSplit.astro';
+import KeyValueItem from '../../site/src/components/KeyValueItem.astro';
+import KeyValueList from '../../site/src/components/KeyValueList.astro';
 import Section from '../../site/src/components/Section.astro';
 import TerminalWindow from '../../site/src/components/TerminalWindow.astro';
 import WebBoard from '../../site/src/components/WebBoard.astro';
@@ -67,10 +68,10 @@ Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that
 </Section>
 
 <Section title="Built for humans, agents and programs.">
-  <CardGrid>
-    <Card title="Markdown for humans"><FileText size={20} color="var(--sl-color-blue)" /> Items are plain Markdown files in your repo. Read, diff and review them like code.</Card>
-    <Card title="CLI for agents"><Terminal size={20} color="var(--sl-color-orange)" /> `lif prime` and `lif --help` give agents everything they need.</Card>
-    <Card title="JSON for programs"><Braces size={20} color="var(--sl-color-purple)" /> Structured output for scripts, Git hooks and release automation.</Card>
-    <Card title="Your workflow"><SlidersHorizontal size={20} color="var(--sl-color-green)" /> Up to four levels in the shipped presets, deeper with custom types. Presets are examples, not a method.</Card>
-  </CardGrid>
+  <KeyValueList centered>
+    <KeyValueItem term="Markdown for humans">Items are plain Markdown files in your repo. Read, diff and review them like code.</KeyValueItem>
+    <KeyValueItem term="CLI for agents">`lif prime` and `lif --help` give agents everything they need.</KeyValueItem>
+    <KeyValueItem term="JSON for programs">Structured output for scripts, Git hooks and release automation.</KeyValueItem>
+    <KeyValueItem term="Your workflow">Up to four levels in the shipped presets, deeper with custom types. Presets are examples, not a method.</KeyValueItem>
+  </KeyValueList>
 </Section>

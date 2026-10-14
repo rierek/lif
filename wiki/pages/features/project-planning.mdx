@@ -4,7 +4,9 @@ description: "Shape the plan to your project: types, ranks, statuses and presets
 ---
 
 import PresetTrees from '../../../site/src/components/PresetTrees.astro';
-import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
+import KeyValueList from '../../../site/src/components/KeyValueList.astro';
+import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
 
 **Shape the plan to your project.** Types, ranks, status, priority and parents model the structure of your work. Lif enforces the configured rules when it writes. Presets are examples, not a fixed template.
 
@@ -41,12 +43,12 @@ The structure comes from your configuration, not from the tool. A flat to-do lis
 
 ## What you get
 
-<CardGrid>
-  <Card title="Your own structure">An item has a `type` (with a rank), a `status`, a `priority`, `tags` and at most one `parent`. A parent is valid if the child's rank is strictly greater than the parent's.</Card>
-  <Card title="Four presets">`lif init --profile` takes `classic`, `todo`, `simple` or `complex`. One tool covers a flat to-do list, a milestone-to-task tree or a release model.</Card>
-  <Card title="Rules on every write">Lif checks the configured rules on every write through Lif: CLI, GraphQL, TUI and Web UI.</Card>
-  <Card title="Planning views">`lif roadmap`, `lif milestones`, `lif progress` and `lif order` (manual order in the field `order`).</Card>
-</CardGrid>
+<KeyValueList>
+  <KeyValueItem term="Your own structure">An item has a `type` (with a rank), a `status`, a `priority`, `tags` and at most one `parent`. A parent is valid if the child's rank is strictly greater than the parent's.</KeyValueItem>
+  <KeyValueItem term="Four presets">`lif init --profile` takes `classic`, `todo`, `simple` or `complex`. One tool covers a flat to-do list, a milestone-to-task tree or a release model.</KeyValueItem>
+  <KeyValueItem term="Rules on every write">Lif checks the configured rules on every write through Lif: CLI, GraphQL, TUI and Web UI.</KeyValueItem>
+  <KeyValueItem term="Planning views">`lif roadmap`, `lif milestones`, `lif progress` and `lif order` (manual order in the field `order`).</KeyValueItem>
+</KeyValueList>
 
 <details>
 <summary>How to use acceptance criteria</summary>

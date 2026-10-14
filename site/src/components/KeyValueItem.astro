@@ -1,0 +1,9 @@
+---
+// One row of <KeyValueList>: `term` in accent ink, slot content is the description (Markdown allowed in MDX).
+interface Props {
+	term: string;
+}
+const { term } = Astro.props;
+---
+
+<div class="kv-row"><dt class="kv-term">{term}</dt><dd class="kv-desc"><slot /></dd></div>

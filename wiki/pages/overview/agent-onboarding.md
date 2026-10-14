@@ -12,21 +12,19 @@ People who set up a coding agent (Claude Code, OpenCode, others) with Lif, and a
 ## Required sections
 
 ### How an agent learns Lif
-- **The skill `use-lif` is part of the Lif installation.** Install it together with the `lif` binary: it gives the agent the working conventions that `lif prime` does not carry (see Skills). (TODO: verify where the skill ships and how it is installed.)
+- Lif ships no skill (D58). `lif prime` and `lif --help` are everything an agent needs; teams may add their own skill that points to this documentation (see Own skills).
 - No website needed: an agent learns Lif from the binary alone. `lif prime` prints a usage guide generated for the project at hand, `lif --help` documents every command, and the prime guide contains no web links. This site is for humans.
-- Order: `lif prime` first, then `lif --help` for syntax details, then the conventions of the skill. (TODO: verify)
+- Order: `lif prime` first, then `lif --help` for syntax details.
 - `prime` and `--help` run without a loaded store; all other commands need one.
 - Shows the tagline "A file-based issue tracker for AI-first workflows" as the guiding idea.
-- Includes a Mermaid diagram of the onboarding steps: install Lif, install the skill, add a session hook or rule, then per session `lif prime`, work, `lif check`, and `lif prime` again after context compaction. The diagram below is the working proof; phase 5 refines it.
-- Source: FACTS.md §1.0 (root texts, bootstrap skip), §1.1 (`prime`); DESIGN.md D24, D53; `internal/commands/prompt.tmpl` (no web links); `wiki/agent-integration.md` (prime is generated from the project's configuration). The order prime → help → skill is `TODO: verify` (check `wiki/agent-integration.md`, skill location see Skills).
+- Includes a Mermaid diagram of the onboarding steps: install Lif, add a session hook or rule, then per session `lif prime`, work, `lif check`, and `lif prime` again after context compaction. The diagram below is the working proof; phase 5 refines it.
+- Source: FACTS.md §1.0 (root texts, bootstrap skip), §1.1 (`prime`); DESIGN.md D24, D53, D58; `internal/commands/prompt.tmpl` (no web links); `wiki/agent-integration.md` (prime is generated from the project's configuration).
 
 ```mermaid
 flowchart LR
     subgraph setup ["Once per project"]
         direction TB
-        install["Install Lif"] --> skill["Install the skill use-lif"]
-        %% TODO: verify where the skill ships and how it is installed (it is not part of this repository)
-        skill --> wire["Add a session hook or a rule"]
+        install["Install Lif"] --> wire["Add a session hook or a rule"]
         %% TODO: verify the Claude Code rule in .claude/rules/ (the hook is documented in wiki/agent-integration.md)
     end
     subgraph session ["Every session"]
@@ -73,15 +71,14 @@ flowchart LR
 - Errors as JSON: codes such as `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`.
 - Source: FACTS.md §1.0, §1.1 (`rename`, `check`, `list`, `show`, `next`), §3.1, §3.2, §6.8. The statement "`lif rename` updates references" is `TODO: verify` (check with `lif rename --help` and `internal/commands/rename.go`).
 
-### Skills
-- What a skill adds beyond `lif prime`: stable, project-specific working instructions and examples.
-- **`use-lif` is the Lif skill and part of the installation** (D53); names what it covers (conventions for types, epics and milestones, the work loop). (TODO: verify)
-- Where a skill lives and how it is loaded, per agent.
-- Demarcation: `prime` delivers facts from the commands, a skill delivers the way of working.
-- Source: `TODO: verify`. FACTS.md has nothing on skills, and the repository does not ship a skill named `use-lif` (`extras/` holds only `claude/plugins/lif-prime` and `zsh/lif-pick.zsh`); decide where it is distributed before phase 5 (check `extras/claude/plugins/lif-prime`, `.opencode`, `wiki/agent-integration.md`).
+### Own skills
+- Lif ships no skill (D58). A skill is individual to a team's conventions, so each team writes its own if it needs one.
+- A project skill should only point to this documentation and to `lif prime`, not duplicate them.
+- Demarcation: `prime` delivers facts from the commands, a skill delivers a team's way of working.
+- Source: DESIGN.md D58. Where a skill lives and how an agent loads it differs per agent: `TODO: verify`.
 
 ### Setup per agent
-- All agents: install the `lif` binary and the skill `use-lif` first, then add one of the mechanisms below.
+- All agents: install the `lif` binary first, then add one of the mechanisms below.
 - Claude Code: plugin `lif-prime` with hooks for `SessionStart` and `PreCompact` (add the install commands), or a rule in `.claude/rules/`.
 - OpenCode: plugin in the `.opencode` directory (add the installation steps).
 - Other agents: paste `lif prime` once or let the agent call it as a command.

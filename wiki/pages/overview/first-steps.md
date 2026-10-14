@@ -76,7 +76,7 @@ New users right after installation. They want a working workflow in the terminal
 - Rules inside the prompt: one step at a time, say what is about to happen, ask for a decision where there is one, wait for the answer, change nothing before the user agrees.
 - Order matters: `lif prime` prints nothing before `lif init` (see Agent onboarding), so it comes right after the init step.
 - Shows the prompt in a code block with a copy button; the draft below is the working proof, phase 5 tests the final wording with a real agent run (`TODO: verify`).
-- Links to Agent onboarding (`overview/agent-onboarding`) for session hooks and the skill `use-lif`.
+- Links to Agent onboarding (`overview/agent-onboarding`) for session hooks.
 - Source: FACTS.md §1.1 (`version`, `init`, `prime`, `create`, `list`, `check`, `next`), §4.3; `internal/commands/prime.go:71-104` (silent without a config); DESIGN.md D54
 
 ```text

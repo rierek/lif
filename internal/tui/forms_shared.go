@@ -18,8 +18,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/xRiErOS/lif/internal/ui"
 )
 
 // nonEmpty is the shared required-field validator (title etc.) -- Port devd
@@ -81,53 +81,24 @@ func (m model) styleForm(f *huh.Form) *huh.Form {
 	return f.WithWidth(formInnerWidth(m.width)).
 		WithHeight(formInnerHeight(m.height)).
 		WithShowHelp(false).
-		WithTheme(paletteFormTheme())
+		WithTheme(ui.FormTheme(tuiFormPalette()))
 }
 
-// paletteFormTheme mirrors the app's own modal styling onto a huh.Theme --
-// Theme-Tokens only (theme.Mauve/Yellow/Base/Red/Text/Hint), no hex here.
-// Mauve = Akzent (Titel, Selector, Indikatoren, aktive Option), Yellow =
-// Signalbalken am aktiven Feld (Orientierung), Base = BG, Red = Fehler.
-// Port devd forms_shared.go:177-225.
-func paletteFormTheme() *huh.Theme {
-	t := huh.ThemeBase()
-
-	t.Focused.Base = t.Focused.Base.BorderForeground(theme.Yellow).Background(theme.Base)
-	t.Focused.Card = t.Focused.Base
-	t.Focused.Title = t.Focused.Title.Foreground(theme.Mauve).Bold(true)
-	t.Focused.Description = t.Focused.Description.Foreground(theme.Hint)
-	t.Focused.ErrorIndicator = t.Focused.ErrorIndicator.Foreground(theme.Red)
-	t.Focused.ErrorMessage = t.Focused.ErrorMessage.Foreground(theme.Red)
-
-	t.Focused.SelectSelector = t.Focused.SelectSelector.Foreground(theme.Mauve).SetString("▸ ")
-	t.Focused.NextIndicator = t.Focused.NextIndicator.Foreground(theme.Mauve)
-	t.Focused.PrevIndicator = t.Focused.PrevIndicator.Foreground(theme.Mauve)
-	t.Focused.Option = t.Focused.Option.Foreground(theme.Text)
-	t.Focused.SelectedOption = t.Focused.SelectedOption.Foreground(theme.Mauve)
-
-	t.Focused.MultiSelectSelector = t.Focused.MultiSelectSelector.Foreground(theme.Mauve).SetString("▸ ")
-	t.Focused.SelectedPrefix = lipgloss.NewStyle().Foreground(theme.Mauve).SetString("[•] ")
-	t.Focused.UnselectedPrefix = lipgloss.NewStyle().Foreground(theme.Hint).SetString("[ ] ")
-	t.Focused.UnselectedOption = t.Focused.UnselectedOption.Foreground(theme.Text)
-
-	t.Focused.FocusedButton = t.Focused.FocusedButton.Foreground(theme.Base).Background(theme.Mauve)
-	t.Focused.BlurredButton = t.Focused.BlurredButton.Foreground(theme.Text).Background(theme.Surface)
-	t.Focused.Next = t.Focused.FocusedButton
-
-	t.Focused.TextInput.Cursor = t.Focused.TextInput.Cursor.Foreground(theme.Mauve)
-	t.Focused.TextInput.Placeholder = t.Focused.TextInput.Placeholder.Foreground(theme.Hint)
-	t.Focused.TextInput.Prompt = t.Focused.TextInput.Prompt.Foreground(theme.Mauve).SetString("")
-	t.Focused.TextInput.Text = t.Focused.TextInput.Text.Foreground(theme.Text)
-
-	t.Form.Base = t.Form.Base.Background(theme.Base)
-
-	t.Blurred = t.Focused
-	t.Blurred.Base = t.Focused.Base.BorderForeground(theme.Hint).Background(theme.Base)
-	t.Blurred.Card = t.Blurred.Base
-	t.Blurred.NextIndicator = lipgloss.NewStyle()
-	t.Blurred.PrevIndicator = lipgloss.NewStyle()
-
-	return t
+// tuiFormPalette feeds the shared huh theme builder with the app's own modal
+// tokens: Mauve = Akzent (Titel, Selector, Indikatoren, aktive Option), Yellow
+// = Signalbalken am aktiven Feld (Orientierung), Base = BG, Red = Fehler,
+// Hint = Beschreibung/Placeholder/unfokussierter Rand. Port devd
+// forms_shared.go:177-225; theme construction lives in ui.FormTheme.
+func tuiFormPalette() ui.FormPalette {
+	return ui.FormPalette{
+		Accent:     theme.Mauve,
+		Focus:      theme.Yellow,
+		Background: theme.Base,
+		Error:      theme.Red,
+		Text:       theme.Text,
+		Muted:      theme.Hint,
+		Surface:    theme.Surface,
+	}
 }
 
 // formTitle labels the open form's modal (m.formKind-keyed, mirrors devd

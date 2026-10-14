@@ -23,7 +23,7 @@ Item Links
 All checks passed
 ```
 
-Configuration checks cover: that `default_status` and `default_type` name entries that actually exist, that every item on disk carries a type the current configuration still defines (a config edit or profile switch can leave items behind with a type nothing recognizes anymore), that every configured status and type `color` names a valid theme tone, and that the configured ID prefix (`lif.prefix`) matches what the item files on disk actually carry — archived items are excluded from that comparison, since a project can rename its live prefix without needing to touch history.
+Configuration checks cover: that `default_status` and `default_type` name entries that actually exist, that `default_priority` names a known priority and every `default_tags` entry is a valid tag, that every item on disk carries a type the current configuration still defines (a config edit or profile switch can leave items behind with a type nothing recognizes anymore), that every configured status and type `color` names a valid theme tone, and that the configured ID prefix (`lif.prefix`) matches what the item files on disk actually carry — archived items are excluded from that comparison, since a project can rename its live prefix without needing to touch history.
 
 Item-link checks cover three classes of structural problem, all evaluated together:
 

@@ -197,6 +197,16 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 				fmt.Sprintf("unknown display.theme '%s': expected latte, frappe, macchiato or mocha", cfg.GetTheme()))
 		}
 
+		// 2d. Check lif.default_priority and lif.default_tags (pre-fill for create -i)
+		if p := cfg.GetDefaultPriority(); !cfg.IsValidPriority(p) {
+			configErrors = append(configErrors, fmt.Sprintf("default_priority '%s' is not a known priority", p))
+		}
+		for _, tag := range cfg.GetDefaultTags() {
+			if err := item.ValidateTag(tag); err != nil {
+				configErrors = append(configErrors, fmt.Sprintf("default_tags entry '%s' is not valid: %v", tag, err))
+			}
+		}
+
 		// 3. Check all status colours are valid. This must iterate the
 		// MERGED list, not config.DefaultStatuses: the defaults are
 		// compile-time constants this repository writes itself, so

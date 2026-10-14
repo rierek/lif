@@ -18,6 +18,7 @@ import (
 	"github.com/xRiErOS/lif/pkg/config"
 	"github.com/xRiErOS/lif/pkg/item"
 	"github.com/xRiErOS/lif/pkg/itemgraph"
+	"github.com/xRiErOS/lif/pkg/roadmap"
 	"golang.org/x/term"
 )
 
@@ -403,7 +404,7 @@ func buildRoadmap(allItems []*item.Item, includeDone bool, statusFilter, noStatu
 	}
 
 	// Sort milestones by status, then dependency, then manual order, then priority, then created date
-	item.SortRoadmapContainers(milestones, cfg.StatusNames(), cfg.PriorityNames())
+	roadmap.SortSiblings(cfg, milestones)
 
 	// Build milestone groups
 	var milestoneGroups []milestoneGroup
@@ -479,7 +480,7 @@ func buildRoadmap(allItems []*item.Item, includeDone bool, statusFilter, noStatu
 	}
 
 	// Sort unscheduled epics and features together
-	sortRoadmapContainers(unscheduledContainers, cfg.StatusNames(), cfg.PriorityNames())
+	sortRoadmapContainers(unscheduledContainers)
 
 	// Find orphan items (not milestone, not epic, no parent or parent is not milestone/epic)
 	var orphanItems []*item.Item
@@ -748,7 +749,7 @@ func buildMilestoneGroup(m *item.Item, children map[string][]*item.Item, include
 	}
 
 	// Sort epics and features together
-	sortRoadmapContainers(group.Containers, cfg.StatusNames(), cfg.PriorityNames())
+	sortRoadmapContainers(group.Containers)
 
 	// Sort other items
 	item.SortRoadmapLeaves(filteredOther, cfg.StatusNames(), cfg.PriorityNames(), cfg.TypeNames())
@@ -789,7 +790,7 @@ func buildEpicGroup(epic *item.Item, children map[string][]*item.Item, includeDo
 	item.SortRoadmapLeaves(leafItems, cfg.StatusNames(), cfg.PriorityNames(), cfg.TypeNames())
 	eg.Items = leafItems
 
-	sortFeatureGroups(eg.Features, cfg.StatusNames(), cfg.PriorityNames())
+	sortFeatureGroups(eg.Features)
 	return eg
 }
 
@@ -911,15 +912,15 @@ func containsStatus(statuses []string, status string) bool {
 }
 
 // sortRoadmapContainers sorts mixed epic/feature container slots by their
-// own item, following the same status → dependency → order → priority →
-// created_at chain as item.SortRoadmapContainers -- across the epic/feature
+// own item, following the shared roadmap order (roadmap.SortSiblings) --
+// across the epic/feature
 // rank boundary, not within one rank (beans-swy1).
-func sortRoadmapContainers(containers []roadmapContainer, statusNames, priorityNames []string) {
+func sortRoadmapContainers(containers []roadmapContainer) {
 	items := make([]*item.Item, len(containers))
 	for i, c := range containers {
 		items[i] = containerItem(c)
 	}
-	item.SortRoadmapContainers(items, statusNames, priorityNames)
+	roadmap.SortSiblings(cfg, items)
 	rank := make(map[string]int, len(items))
 	for i, b := range items {
 		rank[b.ID] = i
@@ -940,13 +941,13 @@ func containerItem(c roadmapContainer) *item.Item {
 
 // sortFeatureGroups sorts featureGroups by their Feature item, following the
 // same status → dependency → order → priority → created_at chain as
-// item.SortRoadmapContainers.
-func sortFeatureGroups(groups []featureGroup, statusNames, priorityNames []string) {
+// roadmap.SortSiblings.
+func sortFeatureGroups(groups []featureGroup) {
 	items := make([]*item.Item, len(groups))
 	for i, g := range groups {
 		items[i] = g.Feature
 	}
-	item.SortRoadmapContainers(items, statusNames, priorityNames)
+	roadmap.SortSiblings(cfg, items)
 	rank := make(map[string]int, len(items))
 	for i, b := range items {
 		rank[b.ID] = i

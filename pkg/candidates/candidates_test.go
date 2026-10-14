@@ -269,3 +269,77 @@ func TestParentCandidates_IntersectsValidTypesAcrossMultipleSelectedItems(t *tes
 		}
 	}
 }
+
+// addArchivedEpics adds a completed and a scrapped epic to the fixture's
+// store; the fixture's open epics stay as they are.
+func addArchivedEpics(t *testing.T, resolver *itemgraph.CoreResolver) {
+	t.Helper()
+	for _, b := range []*item.Item{
+		{ID: "beans-ec", Slug: item.Slugify("Epic Done"), Title: "Epic Done", Status: "completed", Type: "epic", Tags: []string{"zulu"}},
+		{ID: "beans-es", Slug: item.Slugify("Epic Scrapped"), Title: "Epic Scrapped", Status: "scrapped", Type: "epic"},
+	} {
+		if err := resolver.Core.Create(b); err != nil {
+			t.Fatalf("core.Create(%s): %v", b.ID, err)
+		}
+	}
+}
+
+func TestParentCandidates_ExcludesArchivedItems(t *testing.T) {
+	resolver, cfg := fixture(t)
+	addArchivedEpics(t, resolver)
+
+	got, err := ParentCandidates(context.Background(), resolver, cfg, []string{"beans-f1"}, []string{"feature"})
+	if err != nil {
+		t.Fatalf("ParentCandidates: %v", err)
+	}
+	mustEqual(t, ids(got), []string{"beans-m1", "beans-m2", "beans-e1", "beans-e2"})
+}
+
+// TestParentCandidates_ArchiveFollowsConfig proves the predicate is
+// Config.IsArchiveStatus and not a status literal: with archive: false on
+// completed, the completed epic is a candidate again.
+func TestParentCandidates_ArchiveFollowsConfig(t *testing.T) {
+	resolver, cfg := fixture(t)
+	addArchivedEpics(t, resolver)
+	off := false
+	cfg.Statuses = []config.StatusOverride{{Name: "completed", Archive: &off}}
+
+	got, err := ParentCandidates(context.Background(), resolver, cfg, []string{"beans-f1"}, []string{"feature"})
+	if err != nil {
+		t.Fatalf("ParentCandidates: %v", err)
+	}
+	mustEqual(t, ids(got), []string{"beans-m1", "beans-m2", "beans-e1", "beans-e2", "beans-ec"})
+}
+
+// TestBlockingAndTagCandidates_KeepArchivedItems pins that the archive
+// filter is ParentCandidates-only (R-14 forbidden side effect).
+func TestBlockingAndTagCandidates_KeepArchivedItems(t *testing.T) {
+	resolver, cfg := fixture(t)
+	addArchivedEpics(t, resolver)
+
+	blocking, err := BlockingCandidates(context.Background(), resolver, cfg, "beans-f1")
+	if err != nil {
+		t.Fatalf("BlockingCandidates: %v", err)
+	}
+	have := map[string]bool{}
+	for _, id := range ids(blocking) {
+		have[id] = true
+	}
+	if !have["beans-ec"] || !have["beans-es"] {
+		t.Fatalf("BlockingCandidates must keep archived items, got %v", ids(blocking))
+	}
+
+	tags, err := TagCandidates(context.Background(), resolver)
+	if err != nil {
+		t.Fatalf("TagCandidates: %v", err)
+	}
+	found := false
+	for _, tc := range tags {
+		if tc.Tag == "zulu" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("TagCandidates must count tags of archived items, got %v", tags)
+	}
+}

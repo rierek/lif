@@ -51,6 +51,12 @@ func TestCheckHelperProcess(t *testing.T) {
 	if th := os.Getenv("BEANS_CHECK_BAD_THEME"); th != "" {
 		testCfg.Display.Theme = th
 	}
+	if p := os.Getenv("BEANS_CHECK_DEFAULT_PRIORITY"); p != "" {
+		testCfg.Items.DefaultPriority = p
+	}
+	if tags := os.Getenv("BEANS_CHECK_DEFAULT_TAGS"); tags != "" {
+		testCfg.Items.DefaultTags = strings.Split(tags, ",")
+	}
 	testCore := itemcore.New(itemsDir, testCfg)
 	if err := testCore.Load(); err != nil {
 		os.Stderr.WriteString("loading core: " + err.Error() + "\n")
@@ -88,6 +94,8 @@ func runCheckInTestStore(t *testing.T) string {
 		"BEANS_CHECK_BAD_STATUS_COLOR="+os.Getenv("BEANS_CHECK_BAD_STATUS_COLOR"),
 		"BEANS_CHECK_BAD_TYPE_COLOR="+os.Getenv("BEANS_CHECK_BAD_TYPE_COLOR"),
 		"BEANS_CHECK_BAD_THEME="+os.Getenv("BEANS_CHECK_BAD_THEME"),
+		"BEANS_CHECK_DEFAULT_PRIORITY="+os.Getenv("BEANS_CHECK_DEFAULT_PRIORITY"),
+		"BEANS_CHECK_DEFAULT_TAGS="+os.Getenv("BEANS_CHECK_DEFAULT_TAGS"),
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -228,6 +236,44 @@ func TestCheckReportsAnUnknownTheme(t *testing.T) {
 	if !strings.Contains(out, "unknown display.theme 'moccha'") {
 		t.Errorf("check did not report the unknown theme:\n%s", out)
 	}
+}
+
+// TestCheckValidatesDefaultPriorityAndTags covers the lif.default_priority and
+// lif.default_tags config checks: bad values are reported by key and value,
+// valid values produce no config error.
+func TestCheckValidatesDefaultPriorityAndTags(t *testing.T) {
+	t.Run("unknown priority", func(t *testing.T) {
+		t.Setenv("BEANS_CHECK_DEFAULT_PRIORITY", "urgentish")
+		out := stripANSITest(runCheckInTestStore(t))
+		if !strings.Contains(out, "default_priority 'urgentish'") {
+			t.Errorf("check did not report the unknown default priority:\n%s", out)
+		}
+	})
+	t.Run("invalid tag", func(t *testing.T) {
+		t.Setenv("BEANS_CHECK_DEFAULT_TAGS", "backend,Bad Tag")
+		out := stripANSITest(runCheckInTestStore(t))
+		if !strings.Contains(out, "default_tags entry 'Bad Tag'") {
+			t.Errorf("check did not report the invalid default tag:\n%s", out)
+		}
+		if strings.Contains(out, "default_tags entry 'backend'") {
+			t.Errorf("check reported a valid default tag:\n%s", out)
+		}
+	})
+	t.Run("empty tag entry", func(t *testing.T) {
+		t.Setenv("BEANS_CHECK_DEFAULT_TAGS", "backend,")
+		out := stripANSITest(runCheckInTestStore(t))
+		if !strings.Contains(out, "default_tags entry ''") {
+			t.Errorf("check did not report the empty default tag:\n%s", out)
+		}
+	})
+	t.Run("valid values", func(t *testing.T) {
+		t.Setenv("BEANS_CHECK_DEFAULT_PRIORITY", "high")
+		t.Setenv("BEANS_CHECK_DEFAULT_TAGS", "backend,api")
+		out := stripANSITest(runCheckInTestStore(t))
+		if strings.Contains(out, "default_priority") || strings.Contains(out, "default_tags") {
+			t.Errorf("check reported a config error for valid defaults:\n%s", out)
+		}
+	})
 }
 
 // TestCheckJSONNamesLinkIssuesWithItemKeys runs `check --json` against a store

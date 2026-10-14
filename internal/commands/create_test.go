@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -330,5 +331,36 @@ func TestCreateCmdSetSucceedsUnderRequireIfMatch(t *testing.T) {
 	}
 	if list[0].Extra["release"] != "0-4-1" {
 		t.Errorf("Extra[release] = %v, want %q (bean must not be left half-written without its extra keys)", list[0].Extra["release"], "0-4-1")
+	}
+}
+
+// Plain create ignores lif.default_priority and lif.default_tags (only
+// `create -i` pre-fills them). Asserts on the written file: the loader fills
+// priority "normal" on read, so a loaded item would look as if a default applied.
+func TestCreateCmdIgnoresDefaultPriorityAndTags(t *testing.T) {
+	setupCreateTest(t)
+	resetCreateFlags(t)
+	cfg.Items.DefaultPriority = "high"
+	cfg.Items.DefaultTags = []string{"backend", "api"}
+	oldPriority, oldTag := createPriority, createTag
+	createPriority, createTag = "", nil
+	t.Cleanup(func() { createPriority, createTag = oldPriority, oldTag })
+
+	if err := createCmd.RunE(createCmd, []string{"x"}); err != nil {
+		t.Fatalf("createCmd.RunE() error = %v", err)
+	}
+
+	files, err := filepath.Glob(filepath.Join(core.Root(), "*.md"))
+	if err != nil || len(files) != 1 {
+		t.Fatalf("expected 1 item file, got %v (err %v)", files, err)
+	}
+	data, err := os.ReadFile(files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"priority:", "tags:"} {
+		if strings.Contains(string(data), "\n"+key) {
+			t.Errorf("item file contains %q front matter key:\n%s", key, data)
+		}
 	}
 }

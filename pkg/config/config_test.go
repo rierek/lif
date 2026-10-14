@@ -250,6 +250,68 @@ func TestLoadAndSave(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultPriorityAndTags(t *testing.T) {
+	for _, section := range []string{SectionKey, LegacySectionKey} {
+		t.Run(section, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, ConfigFileName)
+			body := section + ":\n  prefix: t-\n  default_priority: high\n  default_tags: [backend, api]\n"
+			if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if got := cfg.GetDefaultPriority(); got != "high" {
+				t.Errorf("GetDefaultPriority() = %q, want high", got)
+			}
+			if got := cfg.GetDefaultTags(); len(got) != 2 || got[0] != "backend" || got[1] != "api" {
+				t.Errorf("GetDefaultTags() = %v, want [backend api]", got)
+			}
+
+			// Round trip keeps both keys under the file's own section key.
+			if err := cfg.Save(dir); err != nil {
+				t.Fatalf("Save() error = %v", err)
+			}
+			again, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load() after Save error = %v", err)
+			}
+			if again.GetDefaultPriority() != "high" {
+				t.Errorf("priority after round trip = %q, want high", again.GetDefaultPriority())
+			}
+			if got := again.GetDefaultTags(); len(got) != 2 || got[0] != "backend" || got[1] != "api" {
+				t.Errorf("tags after round trip = %v, want [backend api]", got)
+			}
+		})
+	}
+}
+
+func TestDefaultPriorityAndTagsUnset(t *testing.T) {
+	var nilCfg *Config
+	if nilCfg.GetDefaultPriority() != "" || nilCfg.GetDefaultTags() != nil {
+		t.Error("nil config must return empty priority and no tags")
+	}
+
+	dir := t.TempDir()
+	cfg := DefaultWithPrefix("t-")
+	cfg.SetConfigDir(dir)
+	if cfg.GetDefaultPriority() != "" || len(cfg.GetDefaultTags()) != 0 {
+		t.Error("default config must leave both keys unset")
+	}
+	if err := cfg.Save(dir); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ConfigFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "default_priority") || strings.Contains(string(data), "default_tags") {
+		t.Errorf("saved file contains unset keys:\n%s", data)
+	}
+}
+
 // toYAMLNode() built the agent, worktree and server mappings without three
 // of their fields - agent.default_effort, worktree.fetch_timeout and
 // server.cors_origins were all readable via their Get*/GetWorktree* getters

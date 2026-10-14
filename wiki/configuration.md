@@ -77,6 +77,8 @@ Any other value fails config loading immediately with an "unknown lif.anchor" er
 | `id_length` | int | `4` |
 | `default_status` | string | `todo` |
 | `default_type` | string | `task` when no config file exists; otherwise the first merged type when omitted |
+| `default_priority` | string | unset |
+| `default_tags` | list of strings | unset |
 | `require_if_match` | bool | `false` |
 | `require_fields_on` | map of status name to list of field names | unset |
 | `commit_field` | string | `commit` |
@@ -88,6 +90,8 @@ Any other value fails config loading immediately with an "unknown lif.anchor" er
 `lif.id_length` is the number of random characters in the generated ID suffix.
 
 `lif.default_status` and `lif.default_type` are applied to `lif create` when `--status`/`--type` are not passed. `lif check` fails if `default_status` names a status the merged status list does not contain, or if `default_type` names an unknown type.
+
+`lif.default_priority` and `lif.default_tags` are read only by the guided `lif create -i` form, which pre-fills them. Plain `lif create`, the GraphQL `createItem` mutation and the TUI create form ignore them. `lif check` fails if `default_priority` names an unknown priority (built-in or configured), or if a `default_tags` entry is empty or not a valid tag. An empty list behaves like an unset key.
 
 `lif.require_if_match` requires an `If-Match` header (an ETag) on updates made through the API layer, for optimistic concurrency control.
 

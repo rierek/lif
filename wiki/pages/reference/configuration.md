@@ -17,6 +17,6 @@ Source: `wiki/configuration.md`. Candidate for generation from `pkg/config`.
   - `lif path` prints the resolved dir.
 - `anchor: repo-root`: all git worktrees share one store. Unset: each worktree has its own. Other values fail loading.
 - `project.name`: display name in web UI and TUI only.
-- Also: prefix, `id_length`, `default_status`, `default_type`, types (rank, color, `roadmap`), `types_exclusive`, statuses, priorities, display colors, `require_fields_on` policies.
+- Also: prefix, `id_length`, `default_status`, `default_type`, `default_priority` (string, unset by default) and `default_tags` (list of strings, unset by default; both read only by `lif create -i`), types (rank, color, `roadmap`), `types_exclusive`, statuses, priorities, display colors, `require_fields_on` policies.
 - Terminology free, four ranks fixed.
 - TODO: generate key/type/default table from config struct; annotated full example; recipes (rename a type, add a status, custom colors).

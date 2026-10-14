@@ -1,0 +1,112 @@
+---
+title: "Git worktrees with just"
+description: "A short just module that creates one Git worktree per Lif item and removes it after the merge."
+date: 2026-10-14
+tags: ["just", "worktrees", "git"]
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**`just wt start <item-id>` gives each item its own worktree and branch, and `just wt finish <item-id>` removes both after the merge.** The recipes are plain Git plus two `lif` calls.
+
+## How it looks
+
+Our workspace has a code repository `repo/` and a folder `worktrees/` next to it, and the backlog lives outside the repository ([Keep the backlog outside the repository](../hull-and-repository/)). The module `wt.just` sits in `repo/`:
+
+```just
+# Per-item Git worktrees next to the repository. Run from repo/.
+base := "main"
+dir  := "../worktrees"
+
+# Create worktree ../worktrees/<id> on branch wt/<id> and mark the item in-progress.
+start id:
+    lif show {{id}} > /dev/null
+    git worktree add {{dir}}/{{id}} -b wt/{{id}} {{base}}
+    lif start {{id}}
+
+# Remove worktree and branch once the branch is merged into base. Refuses otherwise.
+finish id:
+    git merge-base --is-ancestor wt/{{id}} {{base}}
+    git worktree remove {{dir}}/{{id}}
+    git branch -d wt/{{id}}
+
+# List worktrees.
+list:
+    git worktree list
+```
+
+The `justfile` next to it has one line, `mod wt`. This is a real run in a throwaway Git repository with Lif 0.14 and just 1.58:
+
+```console
+$ just --list --list-submodules
+Available recipes:
+    wt:
+        finish id # Remove worktree and branch once the branch is merged into base. Refuses otherwise.
+        list      # List worktrees.
+        start id  # Create worktree ../worktrees/<id> on branch wt/<id> and mark the item in-progress.
+$ just wt start demo-ybk5
+lif show demo-ybk5 > /dev/null
+git worktree add ../worktrees/demo-ybk5 -b wt/demo-ybk5 main
+Preparing worktree (new branch 'wt/demo-ybk5')
+lif start demo-ybk5
+---
+# demo-ybk5
+title: Queue survives restart
+status: in-progress
+...
+```
+
+An unknown item stops the recipe before Git changes anything:
+
+```console
+$ just wt start demo-nope
+lif show demo-nope > /dev/null
+Error: item not found: demo-nope
+Run 'lif show --help' for usage.
+error: recipe `start` failed on line 7 with exit code 1
+```
+
+After some commits in the worktree, `finish` refuses while the branch is not merged. It also leaves the worktree alone:
+
+```console
+$ just wt finish demo-ybk5
+git merge-base --is-ancestor wt/demo-ybk5 main
+error: recipe `finish` failed on line 13 with exit code 1
+$ git merge --no-ff wt/demo-ybk5
+$ just wt finish demo-ybk5
+git merge-base --is-ancestor wt/demo-ybk5 main
+git worktree remove ../worktrees/demo-ybk5
+git branch -d wt/demo-ybk5
+Deleted branch wt/demo-ybk5 (was ced8595).
+```
+
+## The idea
+
+Lif's command line has no worktree command. Only the web server `lif-serve` creates worktrees ([Web server](../../reference/web-server/)). For plain terminal work we wanted one thing: item, branch and folder carry the same ID. The recipes give us that and nothing more.
+
+Two things make the worktree useful for Lif:
+
+- **One store for all worktrees.** Set `lif.anchor: repo-root` in `.lif.yml`. Then `lif` in `worktrees/demo-ybk5/` reads the same store as `lif` in `repo/`. Without it each worktree has its own copy of the store. See [Store management](../../overview/store-management/).
+- **The item ID in the branch name.** `git log` and `git branch` then lead back to the item. Use `lif complete <id> --commit <sha>` to write the SHA into the item. See [Files in your repo](../../features/files-in-your-repo/) and [Software projects](../../use-cases/software-projects/) for the loop.
+
+Our own recipes are longer. They also merge the branch into an integration branch after a review and mark the item completed. We left that out here: it depends on how your team reviews.
+
+<Aside type="note" title="Convention, not enforced by Lif">
+The branch name `wt/<item-id>` and one worktree per item are our convention. Lif does not check them. It does not know which branch belongs to which item.
+</Aside>
+
+## Limits
+
+- **`finish` does not complete the item.** Run `lif complete <id> --commit HEAD` yourself, or add it to the recipe.
+- **Only a merged branch is removed.** The check compares with `base`. A squash merge leaves the branch commits outside `main`, so `finish` refuses. Delete such a branch by hand.
+- **`git worktree remove` stops on uncommitted changes.** Commit or discard them first.
+- **No config for the base branch.** `base` is a variable in the module. Lif's own `worktree.base_ref` key applies only to `lif-serve`. See [Configuration](../../reference/configuration/).
+- **The messages are Just's.** A refusal shows `recipe failed on line N` after the failing Git command. The command above it names the cause.
+
+## Reference
+
+- [Store management](../../overview/store-management/): `anchor`, one store for all worktrees.
+- [Software projects](../../use-cases/software-projects/): the loop of `lif next`, work, `lif complete`.
+- [`lif start`](../../reference/commands/lif-start/), [`lif complete`](../../reference/commands/lif-complete/), [`lif show`](../../reference/commands/lif-show/).
+- [Configuration](../../reference/configuration/).
+- Just manual: [just.systems/man](https://just.systems/man/en/).

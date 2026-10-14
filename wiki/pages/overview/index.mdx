@@ -1,0 +1,52 @@
+---
+title: "Lif in brief"
+description: "Your backlog lives in your repo, for you and your agent."
+---
+
+import demo from '../../../site/src/data/demo.json';
+import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+**Your backlog lives in your repo, for you and your agent.** Lif is a file-based issue tracker. Every item is a Markdown file next to your code, so you and your coding agent see the same complete plan. Nothing to host and nothing to sync.
+
+> Lif is a lightweight issue tracker that stores issues as markdown files. Track your work alongside your code and supercharge your coding agent with a full view of your project.
+
+## How it looks
+
+One command prints the plan from the files in your repository:
+
+<div class="not-content">
+  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} />
+</div>
+
+Each line is an item file under `.lif/`. The type, status and priority columns come from the front matter of that file.
+
+## Who it is for
+
+| You are | You use | Start here |
+|---|---|---|
+| A person | The CLI, `lif tui`, the web UI (`lif-serve`) or any editor on the same files | [Surface independence](../features/surface-independence/) |
+| A coding agent | `lif prime` and `lif --help`. No website is needed. | [Automation and agents](../features/automation/) |
+| A script | `--json` output and GraphQL (`lif graphql`) | [Automation and agents](../features/automation/) |
+
+## What you get
+
+- **Files in your repo.** Your backlog is a folder of Markdown files that Git versions with the code. [Files in your repo](../features/files-in-your-repo/)
+- **Built for agents.** `lif prime`, `--json` and GraphQL work without a server. [Automation and agents](../features/automation/)
+- **Know what to start.** `blocking` and `blocked_by` links and `lif next` show what is ready. [Dependencies](../features/dependencies/)
+- **A plan that fits.** Types, ranks and presets you can change. [Flexible planning](../features/project-planning/)
+- **Your surface of choice.** Terminal, board or editor, all on the same files. [Surface independence](../features/surface-independence/)
+
+All features: [Features](../features/).
+
+<Aside type="tip" title="What Lif is not">
+Lif is not locked to four levels. The `classic` preset uses up to four ranks. Custom types can go deeper, because no code caps the rank. Presets (`classic`, `todo`, `simple`, `complex`) are starting points, not a fixed workflow.
+</Aside>
+
+## Next steps
+
+- [Installation](../installation/): install Lif in one minute.
+- [First steps](../first-steps/): plan and finish your first item.
+- [Concepts](../concepts/): the mental model.
+- [Agent onboarding](../agent-onboarding/): connect a coding agent to the store.
+- [Store management](../store-management/): several projects, worktrees, a shared store.

@@ -1,0 +1,149 @@
+---
+title: "Installation"
+description: "Install Lif and run it in one minute."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Install Lif and run it in one minute.** Copy one command, then check the result with `lif version`.
+
+## Install
+
+macOS, with Homebrew:
+
+```sh
+brew install xRiErOS/lif/lif
+```
+
+Linux or macOS, with the install script:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
+```
+
+Linux or macOS, with Nix:
+
+```sh
+nix profile install github:xRiErOS/lif
+```
+
+Check that it works:
+
+```sh
+lif version
+```
+
+Output of a development build. A release build shows its release version instead of `dev`:
+
+```text
+lif dev (135e76e-dirty) built 2026-10-14T18:41:07Z
+custom front matter: preserved
+```
+
+There is no `lif --version` flag ([3slb]). The command is `lif version`, and `lif version --json` prints the same data as JSON.
+
+Next, run `lif init` in your project folder. [First steps](../first-steps/) takes you through it.
+
+## Requirements
+
+- Release archives exist for Linux (`x86_64`, `arm64`, `i386`), macOS (`x86_64`, `arm64`) and Windows (`x86_64`, `arm64`, `i386`).
+- The install script supports Linux and macOS. Windows users download the `.zip` archive.
+- Building from source needs Go (the module requires Go 1.26) and `mise`, which installs Go, Node.js and pnpm.
+- Each binary stands alone. `lif-serve` is only needed for the web UI.
+
+## All install methods
+
+Open the method that fits you.
+
+<details>
+<summary data-label="Homebrew">Homebrew (macOS)</summary>
+
+```sh
+brew install xRiErOS/lif/lif
+```
+
+Installs `lif` and `lif-serve` as a cask from the tap `xRiErOS/homebrew-lif`. On macOS it removes the quarantine attribute from both binaries.
+
+</details>
+
+<details>
+<summary data-label="Script">Install script (Linux, macOS)</summary>
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
+```
+
+Use it when you want no package manager. It installs both binaries, downloads the release archive and verifies it against `checksums.txt` when `sha256sum` or `shasum` exists. It only warns, and still installs, if `checksums.txt` cannot be downloaded or neither tool exists. It runs `lif version` at the end.
+
+Variables: `LIF_VERSION` (default: latest release), `LIF_BIN_DIR` (default: `$HOME/.local/bin`), `LIF_REPO` (default: `xRiErOS/lif`). The script prints a note when `LIF_BIN_DIR` is not on `PATH`.
+
+</details>
+
+<details>
+<summary data-label="Nix">Nix (Linux, macOS)</summary>
+
+```sh
+nix profile install github:xRiErOS/lif
+```
+
+`nix run github:xRiErOS/lif -- version` tries Lif without installing it. Installs both binaries, and `lif-serve` from this channel serves the web UI.
+
+</details>
+
+<details>
+<summary data-label="Archive">Release archive (Windows, or to pin a file)</summary>
+
+Download `lif_<Os>_<arch>.tar.gz` (`.zip` on Windows) from the Releases page. Archive names use title-cased OS and the arch names `x86_64`, `arm64`, `i386`, for example `lif_Linux_x86_64.tar.gz`. Verify the archive against `checksums.txt`, then put `lif` and `lif-serve` on your `PATH`.
+
+</details>
+
+<details>
+<summary data-label="Go">go install (CLI only)</summary>
+
+```sh
+go install github.com/xRiErOS/lif/cmd/lif@latest
+```
+
+Installs `lif` only. A `lif-serve` built this way embeds no web assets and returns 404 for the browser UI. Use Homebrew, the script, Nix or an archive for a working `lif-serve`.
+
+</details>
+
+<details>
+<summary data-label="Source">Build from source (unreleased builds)</summary>
+
+```sh
+git clone https://github.com/xRiErOS/lif.git
+mise install
+mise run setup
+mise run build
+```
+
+Then install the binaries from the repository root, for example `install -m 755 lif lif-serve "$HOME/.local/bin/"`.
+
+</details>
+
+## The binaries
+
+| Binary | Purpose | Default port |
+|---|---|---|
+| `lif` | CLI and TUI (`lif tui`) | none |
+| `lif-serve` | Web UI and GraphQL API | 8080 |
+
+`lif-serve` has no version command. Check the version with `lif version`.
+
+## Shell completion
+
+`lif completion bash|zsh|fish|powershell` prints a completion script for your shell. It completes commands, flags and item IDs. Run `lif completion zsh --help` for how to load it.
+
+## Update and uninstall
+
+- Homebrew: `brew upgrade --cask lif`.
+- Install script: run it again. `LIF_VERSION` pins a release tag.
+- `go install`: run the command again. Release archive: download and extract the new archive. Source build: pull and run `mise run build` again.
+- Before an upgrade, commit pending item changes and read the [release notes](../../releases/) for breaking changes.
+- Uninstall: delete `lif` and `lif-serve` from the install directory (script default: `$HOME/.local/bin`). Lif has no uninstall command. Your stores (`.lif/`, `.lif.yml`) stay as normal files in your projects.
+- Old `.beans` stores are still read in place after you install Lif.
+
+## Limits
+
+- Run `lif completion` and `lif help <cmd>` inside a project folder: outside one they can fail. Known as [mgx8].

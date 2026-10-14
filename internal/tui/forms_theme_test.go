@@ -19,7 +19,7 @@ func TestStyleFormGolden(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() { lipgloss.SetColorProfile(old) })
 
-	var title, pick, confirm string
+	var title, pick string
 	var multi []string
 	opts := huh.NewOptions("alpha", "beta", "gamma")
 	f := huh.NewForm(
@@ -36,7 +36,6 @@ func TestStyleFormGolden(t *testing.T) {
 		huh.NewGroup(huh.NewMultiSelect[string]().Title("Many").Options(opts...).Value(&multi)),
 		huh.NewGroup(huh.NewConfirm().Title("Sure?").Value(new(bool))),
 	)
-	_ = confirm
 	f = model{width: 100, height: 40}.styleForm(f)
 	f.Init()
 

@@ -81,7 +81,7 @@ EARS Validation PASSED
 
 ## The idea
 
-EARS (Easy Approach to Requirements Syntax) was developed by Alistair Mavin and colleagues at Rolls-Royce and first published in 2009. The official page is [EARS by Alistair Mavin](https://alistairmavin.com/ears/); the [original paper](https://ieeexplore.ieee.org/document/5328509) and the [Wikipedia article](https://en.wikipedia.org/wiki/Easy_Approach_to_Requirements_Syntax) give background (all checked 2026-10-14; third-party sites, not part of Lif). AI coding tools use EARS too: Amazon's Kiro IDE generates EARS acceptance criteria for each user story, as its [introduction](https://kiro.dev/blog/introducing-kiro/) describes (checked 2026-10-14, vendor claim; Lif does not integrate with Kiro). EARS gives a criterion one of a few fixed shapes. The keyword `SHALL` is the only modal verb, and keywords are uppercase:
+EARS (Easy Approach to Requirements Syntax) was developed by Alistair Mavin and colleagues at Rolls-Royce and first published in 2009. The official page is [EARS by Alistair Mavin](https://alistairmavin.com/ears/); the [original paper](https://ieeexplore.ieee.org/document/5328509) (17th IEEE International Requirements Engineering Conference, 2009, DOI 10.1109/RE.2009.9) and the [Wikipedia article](https://en.wikipedia.org/wiki/Easy_Approach_to_Requirements_Syntax) give background (all checked 2026-10-14; third-party sites, not part of Lif). AI coding tools use EARS too: Amazon's Kiro IDE generates EARS acceptance criteria for each user story, as its [introduction](https://kiro.dev/blog/introducing-kiro/) describes (checked 2026-10-14, vendor claim; Lif does not integrate with Kiro). EARS gives a criterion one of a few fixed shapes. The keyword `SHALL` is the only modal verb, and keywords are uppercase:
 
 | Pattern | Shape |
 |---|---|
@@ -92,7 +92,7 @@ EARS (Easy Approach to Requirements Syntax) was developed by Alistair Mavin and 
 | Unwanted behavior | `IF <condition> THEN THE System SHALL …` |
 | Complex | `WHILE <state> WHEN <event> THE System SHALL …` |
 
-The patterns are the six listed in `ears-notation.md`, which ships with the validator. The shape forces the two questions that vague text skips: when, and what exactly. A numbered list inside the item makes each criterion addressable, so a review can say "criterion 2 is not covered" (see [Plan, implement, check with Lif](../plan-implement-check/)).
+The original paper describes five templates and reports an aero engine control case study. The validator's `ears-notation.md` lists six patterns, because it also counts the combined form (`WHILE ... WHEN ...`) as its own pattern. The shape forces the two questions that vague text skips: when, and what exactly. A numbered list inside the item makes each criterion addressable, so a review can say "criterion 2 is not covered" (see [Plan, implement, check with Lif](../plan-implement-check/)).
 
 An item is a Markdown file, so the criteria are plain text in its body. Lif does not parse them. The format is described in the [item file format](../../reference/item-file-format/).
 

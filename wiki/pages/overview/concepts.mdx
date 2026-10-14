@@ -130,7 +130,7 @@ The store is the `.lif/` folder of Liff files next to the `.lif.yml` configurati
 ## Limits
 
 - `lif next` and `lif list --ready` also return container items such as epics [g5dn]. Add `--type task` (or `bug`) to get leaf work.
-- `lif check` does not check parent ranks. Change types and parents with `lif create` and `lif update`, not by hand in the file.
+- Since 0.14 `lif check` reports a parent that does not rank higher than its child. Still, change types and parents with `lif create` and `lif update`.
 
 See [Known limitations](../../known-limitations/) for [g5dn].
 

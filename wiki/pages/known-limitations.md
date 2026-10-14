@@ -29,6 +29,8 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [1y6w] | `lif init` silently overwrites an existing config | An existing `.lif.yml` or `.beans.yml` is replaced by the default config, exit 0. | Back up the file before running `lif init` in an existing project. | Open |
 | [mgx8] | `create`/`update` help lists built-in names; completion and help fail outside a project | Help shows built-in type names even with custom types. `lif completion`, `lif help <cmd>` and `lif __complete` fail outside an initialised project. | Run them inside a project. | Open |
 | [3slb] | `lif --version` is rejected | `lif --version` prints `Error: unknown flag: --version`. | Run `lif version`. | Open |
+| [o8bs] | A blocker inside the blocked item's own subtree deadlocks it | A section with `blocked_by` pointing at its own child is never ready, because a blocked parent blocks its children. `lif check` passes. | Put the blocker outside the subtree. | Open |
+| [tgph] | `lif promote` creates the item without a parent | A promoted bug sits outside the release subtree and its progress number. | `lif update <id> --parent <feature-id>`. | Open |
 | [1wnd] | Unrecovered panic on a `.nan` front matter value | Lif exits with code 2 and a panic trace. | Remove or quote the value in the file. | Open |
 | [ih2r] | UTF-8 BOM before front matter makes `lif update` duplicate it | The front matter block appears twice after an update. | Save item files without a BOM. | Open |
 | [t5k2] | Persisted search index path is built but never filled | No effect for users: every call indexes in memory. | None needed. | Open |

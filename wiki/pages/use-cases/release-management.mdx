@@ -106,8 +106,9 @@ Without `require_fields_on`, `lif check` does not look at the commit field.
 - Run `lif check --strict` in your own script or hook, for example before you tag. Lif installs no hook.
 - Write the review artifact by reading the schema in the repository, until the format has a page [nhcz].
 - `lif promote` can stop part-way through a set [z69m]. Run `lif list` after a failed call to see what was created.
+- A promoted item has no parent, so it is outside the release progress. Attach it with `lif update <id> --parent <feature-id>` [tgph].
 
-See [Known limitations](../../known-limitations/) for [nhcz] and [z69m].
+See [Known limitations](../../known-limitations/) for [nhcz], [z69m] and [tgph].
 
 ## Reference
 

@@ -3,7 +3,10 @@ title: "Surface independence"
 description: "Use the terminal, the board or your editor: all of them work on the same files."
 ---
 
-import ScreenshotSlot from '../../../site/src/components/ScreenshotSlot.astro';
+import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
+import MediaCell from '../../../site/src/components/MediaCell.astro';
+import WebShot from '../../../site/src/components/WebShot.astro';
+import media from '../../../site/src/data/surface-media.json';
 import { Card, CardGrid, Badge, Aside } from '@astrojs/starlight/components';
 
 **Use the terminal, the board or your editor.** The CLI, the TUI, the Web UI and direct editing of the Markdown files all work on the same items. Agents use the CLI or GraphQL. People use an editor, the TUI or a browser.
@@ -13,10 +16,10 @@ import { Card, CardGrid, Badge, Aside } from '@astrojs/starlight/components';
 Four paths to the same files:
 
 <div class="shots not-content">
-  <ScreenshotSlot caption="CLI: lif show and lif list in a terminal" />
-  <ScreenshotSlot caption="TUI: lif tui, browsing and editing items" />
-  <ScreenshotSlot caption="Web UI: the board in lif-serve" />
-  <ScreenshotSlot caption="Editor: an item file open in a Markdown editor" />
+  <MediaCell caption="CLI: lif list and lif show in a terminal"><TerminalWindow title="lif" html={media.cli.html} cols={media.cli.cols} /></MediaCell>
+  <MediaCell caption="TUI: lif tui with the item tree and the detail pane"><TerminalWindow title="lif tui" html={media.tui.html} cols={media.tui.cols} /></MediaCell>
+  <MediaCell caption="Web UI: the board in lif-serve"><WebShot title="lif-serve" alt="The Lif board in a browser with the columns Todo, In Progress and Completed. Each card shows title, ID, type, tags and priority." light="/media/web-board-light.webp" dark="/media/web-board-dark.webp" /></MediaCell>
+  <MediaCell caption="An item file in a plain text editor"><TerminalWindow title="app-0aqa--password-reset.md" html={media.editor.html} cols={media.editor.cols} /></MediaCell>
 </div>
 
 

@@ -1,0 +1,17 @@
+---
+// One cell of the feature media grid: a terminal window or browser capture with a caption below it.
+interface Props {
+	caption: string;
+}
+---
+
+<figure class="cell not-content" data-pagefind-ignore>
+	<slot />
+	<figcaption>{Astro.props.caption}</figcaption>
+</figure>
+
+<style>
+	.cell { margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+	.cell > :global(.window) { flex: 1; margin: 0; width: 100%; }
+	figcaption { font-size: var(--sl-text-xs); color: var(--sl-color-gray-2); text-align: center; }
+</style>

@@ -90,7 +90,7 @@ Hand-editing an item file works because it is plain Markdown with YAML front mat
 - Edit `title`, `status`, `priority`, `tags`, `order`, `parent`, `blocking`, `blocked_by`, extra keys, and the body freely; `lif` re-reads the file from disk on the next command.
 - Never rename the file or change the `# <id>` comment expecting it to change the item's ID — the filename is the only source of truth for ID and slug. Use `lif rename` for any ID, slug, or prefix change so cross-references stay consistent.
 - Do not hand-write `created_at`/`updated_at` inconsistently with reality; nothing enforces them, but every native write path refreshes `updated_at` automatically.
-- After a manual edit, run `lif check` (`--strict` to fail on policy warnings, not just structural errors) to catch a broken link, a self-reference, a cycle, or a status transition that violates a configured `require_fields_on` policy before it propagates further.
+- After a manual edit, run `lif check` (`--strict` to fail on policy warnings, not just structural errors) to catch a broken link, a self-reference, a cycle, an unknown `status` or `priority`, an invalid tag, a `parent` of the wrong type rank, or a status transition that violates a configured `require_fields_on` policy before it propagates further.
 
 ## Related documentation
 

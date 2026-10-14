@@ -455,7 +455,7 @@ func RegisterListCmd(root *cobra.Command) {
 		listCmd.Flags().BoolVar(&listUnblocked, "unblocked", false, "Filter items with no unresolved blocker")
 		listCmd.Flags().BoolVar(&listReady, "ready", false, "Filter items available to start (not blocked, excludes in-progress/completed/scrapped/draft)")
 		listCmd.Flags().BoolVarP(&listQuiet, "quiet", "q", false, "Only output IDs (one per line)")
-		listCmd.Flags().StringVar(&listSort, "sort", "", "Sort by: created, updated, status, priority, id, order (order is scoped per parent) (default: status, priority, type, title)")
+		listCmd.Flags().StringVar(&listSort, "sort", "", "Sort by: created, updated, status, priority, id, order (order is scoped per parent) (default: status, manual order, priority, type, title)")
 		listCmd.Flags().BoolVar(&listDesc, "desc", false, "Reverse the sort order")
 		listCmd.Flags().BoolVar(&listFull, "full", false, "Include item body in JSON output")
 		listCmd.Flags().StringArrayVar(&listWhere, "where", nil, "Filter by extra front matter key=value (can be repeated, AND logic)")

@@ -566,6 +566,8 @@ func (r *queryResolver) FileChanges(ctx context.Context, path *string) ([]*model
 			if !valid {
 				return nil, fmt.Errorf("unknown worktree path: %s", *path)
 			}
+		} else {
+			return nil, fmt.Errorf("worktree support not available")
 		}
 		dir = *path
 	}
@@ -607,6 +609,8 @@ func (r *queryResolver) AllFileChanges(ctx context.Context, path *string) ([]*mo
 			if !valid {
 				return nil, fmt.Errorf("unknown worktree path: %s", *path)
 			}
+		} else {
+			return nil, fmt.Errorf("worktree support not available")
 		}
 		dir = *path
 	}
@@ -720,6 +724,8 @@ func (r *queryResolver) BranchStatus(ctx context.Context, path *string) (*model.
 			if !valid {
 				return nil, fmt.Errorf("unknown worktree path: %s", *path)
 			}
+		} else {
+			return nil, fmt.Errorf("worktree support not available")
 		}
 		dir = *path
 	}

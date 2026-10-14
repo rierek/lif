@@ -33,9 +33,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 	<div class="visual"><slot name="visual" /></div>
 </section>
 
+<script is:inline>
+	// Hero typing moment: set the step count to the command length so each step reveals one character.
+	document.querySelectorAll('.hero .cmd').forEach((el) => el.style.setProperty('--n', el.textContent.length));
+</script>
 
 <style>
 	.hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2.5rem; align-items: center; padding-block: clamp(2rem, 6vw, 5rem) 0; }
+	/* Hero typing moment (VISUAL-SYSTEM 5): the prompt line types its command, then the output appears at once.
+	   Text stays in the DOM and keeps its layout space; reduced motion renders the final state. */
+	@media (prefers-reduced-motion: no-preference) {
+		.visual :global(.cmd) { display: inline-block; vertical-align: top; animation: type 600ms steps(var(--n, 20), end) both; }
+		.visual :global(.out) { animation: reveal 0s 600ms both; }
+	}
+	@keyframes type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+	@keyframes reveal { from { opacity: 0; } to { opacity: 1; } }
 	@media (min-width: 64rem) { .hero { grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 3rem; } }
 	h1 { margin: 0; font-size: clamp(2rem, 7vw, 2.75rem); line-height: 1.08; letter-spacing: -0.04em; font-weight: 700; color: var(--lif-ink-strong); }
 	h1 span { display: block; }

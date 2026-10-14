@@ -27,7 +27,7 @@ People and agents who look for an exact answer (flag, field, configuration key, 
 
 ### Data and formats
 - Links to `reference/item-file-format` (Item file format): structure of the Markdown file, fields, file names, manual editing.
-- Links to `reference/json-schemas` (JSON schemas): output of the commands with `--json`, error payload, exit codes.
+- Links to `reference/json-output` (JSON output): output of the commands with `--json`, error payload, exit codes.
 - Links to `reference/search-syntax` (Search syntax): query syntax for `lif list --search` and GraphQL `ItemFilter.search`.
 - One sentence per page on when to use it (change a file by hand, read the output by machine, full-text search).
 - Source: DESIGN.md D26; FACTS.md §1.1 (`lif list`), §2.1, §6.8
@@ -54,7 +54,7 @@ People and agents who look for an exact answer (flag, field, configuration key, 
 
 ### Conventions
 - Item IDs: full ID or short ID without the configured prefix (point to an example in phase 5).
-- `--json`: many commands have the flag; details on `reference/json-schemas`; `lif graph` uses `--format json` instead.
+- `--json`: many commands have the flag; details on `reference/json-output`; `lif graph` uses `--format json` instead.
 - Exit codes: 0 on success, 1 on error; `lif check` returns 1 on at least one finding; there is no exit code 2.
 - Global flags `--config` and `--lif-path`; link to `reference/commands/index` and `reference/configuration` (Store resolution).
 - Examples in the Reference chapter: commands and field names are set in code formatting and stay English.

@@ -1,5 +1,5 @@
 ---
-title: "JSON schemas"
+title: "JSON output"
 description: "Machine-readable output of lif commands: payloads, errors and exit codes."
 ---
 

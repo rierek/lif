@@ -52,7 +52,7 @@ New users who look up a term, and agents that should use the same words as the c
 - Source: FACTS.md §1.0, §1.1 (`lif prime`, `lif tui`, `lif-serve`, `lif graphql`), §7.5
 
 ### Legacy terms
-- bean: former name for item; today item or Liff (D47). The JSON fields `bean_id` and `bean_issues` are now `item_id` and `item_issues`. Details: `reference/json-schemas`.
+- bean: former name for item; today item or Liff (D47). The JSON fields `bean_id` and `bean_issues` are now `item_id` and `item_issues`. Details: `reference/json-output`.
 - `.beans/`, `.beans.yml`, `beans:`: old store folder, old config file, old config key; they are read in place and never renamed; `lif check` reports them under "Legacy names". Details: `reference/configuration`.
 - `BEANS_PATH`: old environment variable; read when `LIF_PATH` is not set; setting both is an error. Details: `reference/configuration` (Store resolution), `overview/store-management`.
 - `beans-` prefix: old ID prefix; mapping to `lif rename --prefix` (TODO: verify)

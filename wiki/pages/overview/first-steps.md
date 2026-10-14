@@ -51,7 +51,7 @@ New users right after installation. They want a working workflow in the terminal
 - `lif show <id>`: formatted in the terminal, raw Markdown text when piped or with `--raw`.
 - `lif roadmap` and `lif milestones` for an overview; `lif progress` for counts and percentages.
 - `lif next`: the highest-priority ready item (the definition of "ready" is in Concepts, `overview/concepts`).
-- `--json` on `list`, `show`, `next` for scripts; link to JSON schemas (`reference/json-schemas`).
+- `--json` on `list`, `show`, `next` for scripts; link to JSON output (`reference/json-output`).
 - Source: FACTS.md §1.1 (`list`, `show`, `roadmap`, `milestones`, `progress`, `next`), §5.2
 
 ### Work an item

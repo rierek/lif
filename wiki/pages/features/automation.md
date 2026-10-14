@@ -61,7 +61,7 @@ Script authors, operators of coding agents and people who connect an agent to th
 
 ### Reference links
 - GraphQL (`reference/graphql`): schema, queries, mutations, errors.
-- JSON schemas (`reference/json-schemas`): payloads, error codes, exit codes.
+- JSON output (`reference/json-output`): payloads, error codes, exit codes.
 - `lif graphql`, `lif prime`, `lif promote`, `lif check` (`reference/commands/lif-graphql`, `reference/commands/lif-prime`, `reference/commands/lif-promote`, `reference/commands/lif-check`).
 - Web server (`reference/web-server`): HTTP endpoints of `lif-serve`.
 - Agent onboarding (`overview/agent-onboarding`): recommended hooks.

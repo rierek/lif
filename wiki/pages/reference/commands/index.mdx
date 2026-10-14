@@ -47,7 +47,7 @@ Generated command tree (rebuilt by `just docs-gen`):
 
 ### Shared conventions
 - Item ID: full ID or short ID without the configured prefix.
-- `--json`: flag of most commands; not available on `graph` (uses `--format json`), `path`, `pick`, `prime`, `tui` and the Cobra commands; details on `reference/json-schemas`.
+- `--json`: flag of most commands; not available on `graph` (uses `--format json`), `path`, `pick`, `prime`, `tui` and the Cobra commands; details on `reference/json-output`.
 - Exit codes: 0 on success, 1 on error; errors are printed once, Cobra usage is suppressed; `lif check` returns 1 on at least one finding; no exit code 2.
 - Commands without a store: `init`, `prime`, `version`, `tui`; all others load config and items before running, a missing store is an error.
 - Aliases: `ls` (`list`), `rm` (`delete`), `new` and `c` (`create`), `query` (`graphql`), `u` (`update`).
@@ -63,7 +63,7 @@ Generated command tree (rebuilt by `just docs-gen`):
 
 ### Related reference
 - Links to `reference/configuration` (Store resolution, config keys).
-- Links to `reference/json-schemas` (payloads, error codes, exit codes).
+- Links to `reference/json-output` (payloads, error codes, exit codes).
 - Links to `reference/search-syntax` (for `lif list --search`).
 - Links to `reference/graphql` and `reference/web-server` for `lif graphql` and `lif-serve`.
 - Source: DESIGN.md D26, D27, D28

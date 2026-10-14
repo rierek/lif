@@ -80,11 +80,10 @@ If a value is missing, `lif create` and `lif update` fail with a policy violatio
 ## Limits
 
 - The rank rule applies when you write through Lif (CLI, GraphQL, TUI, Web UI). It does not apply to manual edits of the file.
-- `lif check` does not check the rank of parent and child, status values, priority values or tags. It reports unknown types, broken links, self-references, cycles, missing required fields and orphaned attachment directories.
-- Changing only `type` (`lif update -t`, GraphQL `updateItem(type)`) bypasses the parent rank check. `lif check` does not report it afterwards. TODO: finding (no tracking item yet).
+- `lif check` verifies rank of parent and child, status values, priority values and tags (since 0.14). It also reports unknown types, broken links, self-references, cycles, missing required fields and orphaned attachment directories.
 - There is no fixed depth limit. Built-in types and `classic` use up to four ranks. Custom types with rank 5 or higher are accepted.
 - Types with the same rank cannot nest. Ranks may have gaps.
-- `lif next` does not exclude containers. The hint on type `epic` ("do not work on directly") is not enforced.
+- `lif next` does not exclude containers. The hint on type `epic` ("do not work on directly") is not enforced [g5dn].
 - The TUI offers only the built-in status, type and priority lists [179g]. See [Known limitations](../../known-limitations/).
 
 ## Reference links

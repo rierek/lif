@@ -60,7 +60,7 @@ ft-txrv
 ft-o87g
 ```
 
-Note that the ready list contains containers (the feature `ft-igeu`, the epic, the milestone). `lif next` can return a container too. In this store it returned the feature, because it has priority `high`.
+Note that the ready list contains containers (the feature `ft-igeu`, the epic, the milestone). `lif next` can return a container too [g5dn]. In this store it returned the feature, because it has priority `high`.
 
 ## Limits
 

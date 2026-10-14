@@ -35,6 +35,8 @@ Limitations cited on Reference pages (Lif 0.14, measured 2026-10-14):
 | [0g6b] | `show --json` returns the body with a leading newline, `create --json` does not | Body comparisons differ between commands. | Trim the body. | Open |
 | [ju1q] | A create refused for its parent returns `FILE_ERROR` instead of `VALIDATION_ERROR` | You cannot tell a validation refusal from an I/O failure by code. | Match the message text. | Open |
 | [hh0o] | TUI lobby footer shows `i/k`, but those keys edit the filter | Misleading key hint. | Use the arrow keys. | Open |
+| [nhcz] | `lif promote` review artifact format is undocumented | You cannot write an artifact without reading the source. | Read `internal/commands/findings-schema.json` in the repository. | Open |
+| [g5dn] | `lif next` and `lif list --ready` return container items | The ready list is not limited to leaf work. | Filter with `-t task,bug`. | Open |
 
 ### Fixed limitations
 - Table: ID, title, version that fixed it with a link to its release note.

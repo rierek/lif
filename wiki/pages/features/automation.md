@@ -48,7 +48,7 @@ Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif grap
 
 A mutation through the CLI works the same way, for example `createItem` with `title` and `type`. Set `status` yourself: see Limits.
 
-`lif promote` takes a review artifact that follows the findings schema. It validates every selected record first and creates one item per record. The artifact format is not documented on the command page. TODO: finding (promote artifact format undocumented). See [`lif promote`](../../reference/commands/lif-promote/). `lif promote` can still fail part-way [z69m].
+`lif promote` takes a review artifact that follows the findings schema. It validates every selected record first and creates one item per record. The artifact format is not documented on the command page. [nhcz] (promote artifact format undocumented). See [`lif promote`](../../reference/commands/lif-promote/). `lif promote` can still fail part-way [z69m].
 
 <details>
 <summary>How to set up agent hooks</summary>

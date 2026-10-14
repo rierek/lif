@@ -36,7 +36,7 @@ Readers who want to understand why Lif is built this way and how it relates to B
 - Source: `wiki/fork-lineage.md` (sections "Origin", "Names", "License and attribution", "Why this fork exists", "What has changed so far", "Related projects", "How to reference Lif"); `README.md` (intro, section "Acknowledgements"); `LICENSE`
 
 ### Legacy compatibility
-- Shows what keeps working from the Beans era: config `.beans.yml` (read-only, never renamed), store `.beans/`, prefix `beans-`, environment variable `BEANS_PATH`.
+- Shows what keeps working from the Beans era: config `.beans.yml` (read in place, never renamed), store `.beans/`, environment variable `BEANS_PATH`. An existing id prefix such as `beans-` is plain data and is not a legacy name in code (FACTS.md §6.6).
 - Explains: `.lif.yml` and `.beans.yml` in the same directory is an error; `LIF_PATH` and `BEANS_PATH` at the same time is an error.
 - Explains: `lif check` reports legacy names as a note (`Legacy names`), they never count as errors.
 - Links to the releases pages for the migration (`releases`).

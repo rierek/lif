@@ -16,7 +16,7 @@ import { Aside } from '@astrojs/starlight/components';
 One command prints the plan from the files in your repository:
 
 <div class="not-content">
-  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} />
+  <TerminalWindow title="~/app" command={demo.roadmap.command} html={demo.roadmap.html} cols={80} narrowHtml={demo.roadmap.narrow} narrowCols={demo.roadmap.narrowCols} label="Roadmap tree of the demo project: milestone v1.0 launch with epics Accounts and sign-in and Dashboard and their features, bugs and tasks, then milestone v1.1 polish; each row shows status, priority, ID and tags." />
 </div>
 
 Each line is an item file under `.lif/`. The type, status and priority columns come from the front matter of that file.

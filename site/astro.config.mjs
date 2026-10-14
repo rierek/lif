@@ -28,7 +28,21 @@ export default defineConfig({
 			title: 'Lif',
 			description: 'Lightweight, Markdown-native work management for humans, AI agents and automation.',
 			components: { Header: './src/components/Header.astro', Hero: './src/components/Hero.astro' },
-			customCss: ['./src/styles/custom.css'],
+			customCss: ['./src/styles/custom.css', './src/styles/elements.css'],
+			// Code blocks use the same Catppuccin flavours as the site; VISUAL-SYSTEM.md §9. Expressive Code lifts token
+			// contrast against the theme base; the panes sit on mantle (--lif-surface), so the floor is above 4.5:1 with
+			// room to spare. Options must stay serializable (a function here breaks the dev stylesheet route).
+			expressiveCode: {
+				themes: ['catppuccin-mocha', 'catppuccin-latte'],
+				minSyntaxHighlightingColorContrast: 6.5,
+				styleOverrides: {
+					borderRadius: '0.5rem',
+					borderWidth: '1px',
+					codeFontSize: '0.875rem',
+					codeLineHeight: '1.7',
+					textMarkers: { lineMarkerAccentWidth: '0px', backgroundOpacity: '35%' },
+				},
+			},
 			// D36/D51: sidebar mode (all chapters or current chapter only) is one switch in src/routeData.ts.
 			routeMiddleware: './src/routeData.ts',
 			// custom.css defines the --ctp-* tones for these two flavours (captured lif output); change both together.

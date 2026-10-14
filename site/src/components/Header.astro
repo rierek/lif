@@ -59,6 +59,16 @@ const active = (href: string) => path.startsWith(base + href);
 	// Reset on new query or dialog close.
 	document.addEventListener('input', () => mark(null));
 	document.addEventListener('close', () => mark(null), true);
+
+	// A table wider than the column scrolls; keyboard users need it focusable (WCAG 2.1.1, axe scrollable-region-focusable).
+	const focusWideTables = () => {
+		for (const t of document.querySelectorAll<HTMLTableElement>('.sl-markdown-content table')) {
+			if (t.scrollWidth > t.clientWidth) t.tabIndex = 0;
+			else t.removeAttribute('tabindex');
+		}
+	};
+	focusWideTables();
+	window.addEventListener('resize', focusWideTables);
 </script>
 
 <style>

@@ -7,7 +7,10 @@ import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 import MediaCell from '../../../site/src/components/MediaCell.astro';
 import WebShot from '../../../site/src/components/WebShot.astro';
 import media from '../../../site/src/data/surface-media.json';
-import { Card, CardGrid, Badge, Aside } from '@astrojs/starlight/components';
+import { Badge } from '@astrojs/starlight/components';
+import KeyValueList from '../../../site/src/components/KeyValueList.astro';
+import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../../site/src/components/WhyItMatters.astro';
 
 **Use the terminal, the board or your editor.** The CLI, the TUI, the Web UI and direct editing of the Markdown files all work on the same items. Agents use the CLI or GraphQL. People use an editor, the TUI or a browser.
 
@@ -45,18 +48,18 @@ The file in your editor holds the same front matter. If you change `status: todo
 
 In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../reference/tui/views/) and [Editing items](../../reference/tui/editing-items/).
 
-<Aside type="tip" title="Why it matters">
-Nobody has to switch tools. A person edits in an editor while an agent uses the CLI, and both change the same files.
-</Aside>
+<WhyItMatters>
+**Nobody has to switch tools.** A person edits in an editor while an agent uses the CLI, and both change the same files.
+</WhyItMatters>
 
 ## What you get
 
-<CardGrid>
-  <Card title="CLI">`lif`. Scriptable, and the path agents use. <Badge text="main program" variant="note" /></Card>
-  <Card title="TUI">`lif tui`. A companion to the CLI: browse and edit without leaving the terminal.</Card>
-  <Card title="Web UI">Embedded in the separate program `lif-serve`. It watches the store directory and pushes changes to subscribers. <Badge text="separate program" variant="caution" /></Card>
-  <Card title="Your editor">Open the Markdown files in any Markdown-capable editor. The format is front matter plus body.</Card>
-</CardGrid>
+<KeyValueList>
+  <KeyValueItem term="CLI">`lif`. Scriptable, and the path agents use. <Badge text="main program" variant="note" /></KeyValueItem>
+  <KeyValueItem term="TUI">`lif tui`. A companion to the CLI: browse and edit without leaving the terminal.</KeyValueItem>
+  <KeyValueItem term="Web UI">Embedded in the separate program `lif-serve`. It watches the store directory and pushes changes to subscribers. <Badge text="separate program" variant="caution" /></KeyValueItem>
+  <KeyValueItem term="Your editor">Open the Markdown files in any Markdown-capable editor. The format is front matter plus body.</KeyValueItem>
+</KeyValueList>
 
 - **No lock-in.** The same information is reachable through different tools.
 - **Same rules everywhere.** CLI commands, GraphQL mutations, the TUI and the Web UI go through the same item logic. They enforce the same configured rules: the rank rule for parents and valid values for type, status and priority.

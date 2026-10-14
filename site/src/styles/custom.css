@@ -23,16 +23,12 @@
   --ctp-peach: #fab387; --ctp-yellow: #f9e2af; --ctp-green: #a6e3a1; --ctp-teal: #94e2d5; --ctp-sky: #89dceb; --ctp-sapphire: #74c7ec;
   --ctp-blue: #89b4fa; --ctp-lavender: #b4befe; --ctp-text: #cdd6f4; --ctp-subtext1: #bac2de; --ctp-subtext0: #a6adc8;
   --ctp-overlay2: #9399b2; --ctp-overlay1: #7f849c; --ctp-overlay0: #6c7086; --ctp-surface2: #585b70; --ctp-surface1: #45475a; --ctp-surface0: #313244; --ctp-base: #1e1e2e;
-  --term-bg: var(--sl-color-gray-7);
-  --term-bar: var(--sl-color-gray-6);
 }
 :root[data-theme='light'] {
   --ctp-rosewater: #dc8a78; --ctp-flamingo: #dd7878; --ctp-pink: #ea76cb; --ctp-mauve: #8839ef; --ctp-red: #d20f39; --ctp-maroon: #e64553;
   --ctp-peach: #fe640b; --ctp-yellow: #df8e1d; --ctp-green: #40a02b; --ctp-teal: #179299; --ctp-sky: #04a5e5; --ctp-sapphire: #209fb5;
   --ctp-blue: #1e66f5; --ctp-lavender: #7287fd; --ctp-text: #4c4f69; --ctp-subtext1: #5c5f77; --ctp-subtext0: #6c6f85;
   --ctp-overlay2: #7c7f93; --ctp-overlay1: #8c8fa1; --ctp-overlay0: #9ca0b0; --ctp-surface2: #acb0be; --ctp-surface1: #bcc0cc; --ctp-surface0: #ccd0da; --ctp-base: #eff1f5;
-  --term-bg: var(--sl-color-gray-6);
-  --term-bar: var(--sl-color-gray-7);
 }
 
 /* Mermaid diagrams: astro-mermaid renders ```mermaid fences in the browser with Mermaid's own 'default' or 'dark'
@@ -57,16 +53,28 @@ pre.mermaid svg .edgeLabel rect { fill: var(--ctp-base) !important; }
 .pair { grid-template-columns: minmax(0, 1fr); }
 .shots { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 40rem) { .shots { grid-template-columns: minmax(0, 1fr); } }
-.window pre.screen { white-space: pre-wrap !important; overflow-wrap: anywhere; }
+/* Captured terminals are dark objects in both site themes (D78): Mocha tones and surface scoped on the window. */
+.window, .anno .card {
+  --ctp-rosewater: #f5e0dc; --ctp-flamingo: #f2cdcd; --ctp-pink: #f5c2e7; --ctp-mauve: #cba6f7; --ctp-red: #f38ba8; --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387; --ctp-yellow: #f9e2af; --ctp-green: #a6e3a1; --ctp-teal: #94e2d5; --ctp-sky: #89dceb; --ctp-sapphire: #74c7ec;
+  --ctp-blue: #89b4fa; --ctp-lavender: #b4befe; --ctp-text: #cdd6f4; --ctp-subtext1: #bac2de; --ctp-subtext0: #a6adc8;
+  --ctp-overlay2: #9399b2; --ctp-overlay1: #7f849c; --ctp-overlay0: #6c7086; --ctp-surface2: #585b70; --ctp-surface1: #45475a; --ctp-surface0: #313244; --ctp-base: #1e1e2e;
+  --term-bg: #181825;
+  --term-bar: #11111b;
+  --term-rule: #313244;
+}
+.window pre.screen, .window .screen { scrollbar-color: var(--ctp-surface2) transparent; }
+.window pre.screen:hover, .window .screen:hover { scrollbar-color: var(--ctp-teal) transparent; }
+.window ::-webkit-scrollbar-thumb, .anno ::-webkit-scrollbar-thumb { background: var(--ctp-surface2); }
 
 * { scrollbar-width: thin; scrollbar-color: var(--ctp-surface2) transparent; }
-pre, .window .screen, .sl-markdown-content :is(pre, table-wrapper, .table-wrapper) { scrollbar-color: var(--ctp-surface2) var(--sl-color-bg-nav); }
+pre, .sl-markdown-content :is(pre, table-wrapper, .table-wrapper) { scrollbar-color: var(--ctp-surface2) var(--sl-color-bg-nav); }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--ctp-surface2); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--sl-color-accent); }
 ::-webkit-scrollbar-corner { background: transparent; }
-pre:hover, .window .screen:hover { scrollbar-color: var(--sl-color-accent) var(--sl-color-bg-nav); }
+pre:hover { scrollbar-color: var(--sl-color-accent) var(--sl-color-bg-nav); }
 
 .sl-markdown-content details {
   --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

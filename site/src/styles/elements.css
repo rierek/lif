@@ -1,0 +1,470 @@
+/* Lif docs: visual system for Starlight elements (VISUAL-SYSTEM.md §3, §9). Unlayered: beats every Starlight and
+   Catppuccin layer. Text uses --lif-*-ink tokens; raw Catppuccin tones only for fills and borders. */
+
+/* ── 1. Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+	--lif-ink: #cdd6f4;
+	--lif-ink-strong: #cdd6f4;
+	--lif-ink-muted: #a6adc8;
+	--lif-accent-ink: #94e2d5;
+	--lif-accent-fill: #94e2d5;
+	--lif-on-accent: #1e1e2e;
+	--lif-accent-tint: color-mix(in srgb, #94e2d5 12%, transparent);
+	--lif-em-ink: #cba6f7;
+	--lif-key-ink: #94e2d5;
+	--lif-ok-ink: #a6e3a1;
+	--lif-warn-ink: #f9e2af;
+	--lif-danger-ink: #f38ba8;
+	--lif-info-ink: #89b4fa;
+	--lif-rule: #585b70;
+	--lif-rule-soft: #313244;
+	--lif-control: #6c7086;
+	--lif-surface: #181825;
+	--lif-chip: #313244;
+	--lif-page: #1e1e2e;
+	--lif-shadow: 0 1.5rem 3rem -1.5rem #11111b;
+}
+:root[data-theme='light'] {
+	--lif-ink: #4c4f69;
+	--lif-ink-strong: #3a3d55;
+	--lif-ink-muted: #5c5f77;
+	--lif-accent-ink: #0e6e73;
+	--lif-accent-fill: #0e6e73;
+	--lif-on-accent: #eff1f5;
+	--lif-accent-tint: color-mix(in srgb, #179299 10%, transparent);
+	--lif-em-ink: #7a2fd6;
+	--lif-key-ink: #0e6e73;
+	--lif-ok-ink: #2a701b;
+	--lif-warn-ink: #8a5a0b;
+	--lif-danger-ink: #b0102f;
+	--lif-info-ink: #1a55c9;
+	--lif-rule: #bcc0cc;
+	--lif-rule-soft: #ccd0da;
+	--lif-control: #7c7f93;
+	--lif-surface: #e6e9ef;
+	--lif-chip: #dce0e8;
+	--lif-page: #eff1f5;
+	--lif-shadow: 0 1.5rem 3rem -1.75rem #8c8fa1;
+}
+
+/* Starlight variables mapped onto the tokens: every built-in component inherits the inks. */
+:root {
+	--sl-font-system-mono: var(--sl-font-mono);
+	--sl-text-h1: clamp(2rem, 1.6rem + 1.6vw, 2.5rem);
+	--sl-text-h2: clamp(1.6rem, 1.35rem + 1vw, 1.95rem);
+	--sl-text-h3: clamp(1.3rem, 1.15rem + 0.6vw, 1.56rem);
+	--sl-text-h4: 1.25rem;
+	--sl-text-h5: 1rem;
+	--sl-text-h6: 1rem;
+	--sl-line-height-headings: 1.2;
+	--sl-color-bg-nav: var(--lif-page);
+	--sl-color-bg-sidebar: var(--lif-page);
+	--sl-color-hairline-shade: var(--lif-rule-soft);
+	--sl-color-hairline-light: var(--lif-rule-soft);
+	--sl-color-bg-inline-code: var(--lif-chip);
+	--sl-color-banner-bg: var(--lif-accent-tint);
+	--sl-color-banner-text: var(--lif-ink);
+}
+:root[data-theme='light'] {
+	--sl-color-text-accent: var(--lif-accent-ink);
+	--sl-color-accent-high: var(--lif-accent-ink);
+	--sl-color-accent-low: color-mix(in srgb, #179299 14%, #eff1f5);
+	--sl-color-gray-2: var(--lif-ink-muted);
+	--sl-color-gray-3: var(--lif-ink-muted);
+}
+
+/* ── 2. Base: selection, focus, motion ─────────────────────────────────────── */
+::selection { background: var(--lif-accent-fill); color: var(--lif-on-accent); }
+html { caret-color: var(--lif-accent-ink); }
+:where(a, button, summary, select, input, textarea, [tabindex]):focus-visible {
+	outline: 2px solid var(--lif-accent-ink);
+	outline-offset: 2px;
+	box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; scroll-behavior: auto !important; }
+}
+
+/* ── 3. Page title and headings ────────────────────────────────────────────── */
+h1#_top { font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: var(--lif-ink-strong); }
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6) { font-weight: 700; color: var(--lif-ink-strong); text-wrap: balance; }
+.sl-markdown-content :is(h2, .level-h2) { letter-spacing: -0.015em; }
+.sl-markdown-content .sl-heading-wrapper.level-h2 { margin-top: 3.5rem; }
+.sl-markdown-content .sl-heading-wrapper.level-h3 { margin-top: 2.25rem; }
+.sl-markdown-content .sl-heading-wrapper:is(.level-h4, .level-h5, .level-h6) { margin-top: 1.75rem; }
+.sl-markdown-content h6 { color: var(--lif-ink-muted); }
+/* Anchor: a `#` in muted ink instead of the link icon, the way Markdown writes a heading. */
+.sl-anchor-link .sl-anchor-icon svg { display: none; }
+.sl-anchor-link .sl-anchor-icon::before { content: '#'; color: var(--lif-ink-muted); font-weight: 400; }
+.sl-anchor-link:hover .sl-anchor-icon::before, .sl-anchor-link:focus-visible .sl-anchor-icon::before { color: var(--lif-accent-ink); }
+
+/* ── 4. Prose ─────────────────────────────────────────────────────────────── */
+.sl-markdown-content :is(p, ul:not(.sl-steps), ol:not(.sl-steps), blockquote, dl) { max-width: 68ch; }
+.sl-markdown-content :is(strong, b) { font-weight: 700; color: var(--lif-ink-strong); }
+.sl-markdown-content :is(em, i):not(:where(.not-content *)) { font-style: normal; color: var(--lif-em-ink); }
+.sl-markdown-content a:not(.not-content, :where(.not-content *), .sl-link-card a) {
+	color: var(--lif-accent-ink);
+	text-decoration-line: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.22em;
+	text-decoration-color: color-mix(in srgb, var(--lif-accent-ink) 45%, transparent);
+	transition: text-decoration-color 150ms ease-out;
+}
+.sl-markdown-content a:not(.not-content, :where(.not-content *), .sl-link-card a):hover { color: var(--lif-accent-ink); text-decoration-color: currentColor; }
+.sl-markdown-content code:not(:where(.not-content *)) {
+	padding: 0.1em 0.35em;
+	border-radius: 0.25rem;
+	font-size: 0.9em;
+	color: var(--lif-ink-strong);
+}
+.sl-markdown-content kbd, .sl-markdown-content kbd kbd {
+	display: inline-block;
+	min-width: 1.6em;
+	padding: 0.05em 0.4em;
+	border: 1px solid var(--lif-control);
+	border-bottom-width: 2px;
+	border-radius: 0.25rem;
+	font: inherit;
+	font-size: 0.85em;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--lif-key-ink);
+	background: var(--lif-page);
+}
+
+/* Lists: the Markdown marker itself, in muted ink. */
+.sl-markdown-content ul:not(.sl-steps, .contains-task-list, :where(.not-content *)) { padding-inline-start: 2ch; list-style: none; }
+.sl-markdown-content ul:not(.sl-steps, .contains-task-list, :where(.not-content *)) > li { position: relative; }
+.sl-markdown-content ul:not(.sl-steps, .contains-task-list, :where(.not-content *)) > li::before { content: '-'; position: absolute; inset-inline-start: -2ch; color: var(--lif-ink-muted); }
+.sl-markdown-content ol:not(.sl-steps, :where(.not-content *)) { padding-inline-start: 3ch; }
+.sl-markdown-content ol:not(.sl-steps, :where(.not-content *)) > li::marker { color: var(--lif-ink-muted); font-variant-numeric: tabular-nums; }
+/* Task list: [ ] and [■], the checkbox Lif writes into item bodies. */
+.sl-markdown-content .contains-task-list { list-style: none; padding-inline-start: 0; }
+.sl-markdown-content .task-list-item input[type='checkbox'] {
+	appearance: none;
+	display: inline-grid;
+	place-content: center;
+	width: 1.1em;
+	height: 1.1em;
+	margin: 0 0.75ch 0 0;
+	vertical-align: -0.15em;
+	border: 1px solid var(--lif-control);
+	border-radius: 0.2rem;
+}
+.sl-markdown-content .task-list-item input[type='checkbox']:checked::before { content: ''; width: 0.55em; height: 0.55em; border-radius: 0.1rem; background: var(--lif-accent-fill); }
+.sl-markdown-content .task-list-item:has(input:checked) { color: var(--lif-ink-muted); }
+
+/* Blockquote: the `>` of Markdown in the gutter, no stripe. */
+.sl-markdown-content blockquote:not(:where(.not-content *)) {
+	position: relative;
+	border: 0;
+	padding-inline-start: 3ch;
+	font-size: 1.125rem;
+	line-height: 1.6;
+	color: var(--lif-ink-strong);
+}
+.sl-markdown-content blockquote:not(:where(.not-content *))::before { content: '>'; position: absolute; inset-inline-start: 0; top: 0; font-weight: 700; color: var(--lif-accent-ink); }
+
+.sl-markdown-content hr { border: 0; border-top: 1px solid var(--lif-rule); margin-block: 3rem; }
+
+/* Definition list = `lif show`: key in accent ink, value beside it. */
+.sl-markdown-content dl:not(:where(.not-content *)) { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 3ch; }
+.sl-markdown-content dl:not(:where(.not-content *)) > dt { font-weight: 700; color: var(--lif-accent-ink); }
+.sl-markdown-content dl:not(:where(.not-content *)) > dt code { color: inherit; background: none; padding: 0; font-size: 1em; }
+.sl-markdown-content dl:not(:where(.not-content *)) > :is(dt, dd) { margin: 0; padding: 0; }
+@media (max-width: 40rem) {
+	.sl-markdown-content dl:not(:where(.not-content *)) { grid-template-columns: 1fr; gap: 0; }
+	.sl-markdown-content dl:not(:where(.not-content *)) > dd + dt { margin-top: 0.75rem; }
+}
+
+/* Footnotes: small, below a rule; the back link is an arrow in accent ink. */
+.sl-markdown-content section[data-footnotes] { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--lif-rule); font-size: 0.875rem; color: var(--lif-ink-muted); }
+.sl-markdown-content sup a[data-footnote-ref] { text-decoration: none; padding-inline: 0.15em; }
+.sl-markdown-content sup a[data-footnote-ref]::before { content: '['; color: var(--lif-ink-muted); }
+.sl-markdown-content sup a[data-footnote-ref]::after { content: ']'; color: var(--lif-ink-muted); }
+
+/* Images and figures: framed like a pane. */
+.sl-markdown-content :is(img, picture) { border: 1px solid var(--lif-rule); border-radius: 0.5rem; }
+.sl-markdown-content figcaption { margin-top: 0.5rem; font-size: 0.875rem; color: var(--lif-ink-muted); }
+
+/* ── 5. Tables = `lif list`: columns, no boxes, no zebra ───────────────────── */
+.sl-markdown-content table:not(:where(.not-content *)) { font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+.sl-markdown-content :is(th, td):not(:where(.not-content *)) { padding: 0.55rem 1.5rem 0.55rem 0; border-bottom: 1px solid var(--lif-rule-soft); }
+.sl-markdown-content :is(th, td):last-child { padding-inline-end: 0; }
+.sl-markdown-content th:not(:where(.not-content *)) { font-weight: 700; color: var(--lif-ink-muted); border-bottom-color: var(--lif-rule); white-space: nowrap; }
+.sl-markdown-content tbody tr:last-child td { border-bottom: 0; }
+.sl-markdown-content tbody tr:hover td { background: var(--lif-accent-tint); }
+@media (max-width: 40rem) { .sl-markdown-content :is(th, td):not(:where(.not-content *)) { padding-inline-end: 1rem; } }
+
+/* ── 6. Asides: pane with a glyph gutter (‼ ! ✓ →), no stripe ──────────────── */
+.starlight-aside {
+	--lif-role: var(--lif-info-ink);
+	--sl-color-asides-text-accent: var(--lif-role);
+	display: grid;
+	grid-template-columns: 2ch minmax(0, 1fr);
+	column-gap: 1.25ch;
+	padding: 0.9rem 1.25rem 1rem 1rem;
+	border: 1px solid color-mix(in srgb, var(--lif-role) 40%, transparent);
+	border-radius: 0.5rem;
+	background: color-mix(in srgb, var(--lif-role) 7%, transparent);
+	color: var(--lif-ink);
+}
+.starlight-aside--note { --lif-role: var(--lif-accent-ink); }
+.starlight-aside--tip { --lif-role: var(--lif-ok-ink); }
+.starlight-aside--caution { --lif-role: var(--lif-warn-ink); }
+.starlight-aside--danger { --lif-role: var(--lif-danger-ink); }
+.starlight-aside::before { grid-row: 1 / span 2; font-weight: 700; line-height: 1.4; color: var(--lif-role); text-align: center; }
+.starlight-aside--note::before { content: '→'; }
+.starlight-aside--tip::before { content: '✓'; }
+.starlight-aside--caution::before { content: '!'; }
+.starlight-aside--danger::before { content: '‼'; }
+.starlight-aside__icon { display: none; }
+.starlight-aside__title { grid-column: 2; font-size: 1rem; font-weight: 700; line-height: 1.4; color: var(--lif-role); }
+.starlight-aside__content { grid-column: 2; min-width: 0; }
+.starlight-aside__title + .starlight-aside__content { margin-top: 0.25rem; }
+.starlight-aside__content a { color: var(--lif-role); }
+.starlight-aside code { background: color-mix(in srgb, var(--lif-role) 14%, transparent) !important; }
+
+/* ── 7. Badges = status chips: role ink on a faint tint, thin border ──────── */
+.sl-badge {
+	--sl-color-text-badge: var(--lif-badge, var(--lif-accent-ink));
+	--sl-color-border-badge: color-mix(in srgb, var(--lif-badge, var(--lif-accent-ink)) 45%, transparent);
+	--sl-color-bg-badge: color-mix(in srgb, var(--lif-badge, var(--lif-accent-ink)) 8%, transparent);
+	font-family: var(--sl-font-mono);
+	font-weight: 400;
+	line-height: 1.3;
+	vertical-align: 0.1em;
+}
+.sl-badge.default { --lif-badge: var(--lif-ink-muted); }
+.sl-badge.note { --lif-badge: var(--lif-info-ink); }
+.sl-badge.success { --lif-badge: var(--lif-ok-ink); }
+.sl-badge.tip { --lif-badge: var(--lif-em-ink); }
+.sl-badge.caution { --lif-badge: var(--lif-warn-ink); }
+.sl-badge.danger { --lif-badge: var(--lif-danger-ink); }
+.sl-badge.small { font-size: 0.75rem; padding: 0.05rem 0.4rem; }
+.sl-badge.medium { font-size: 0.8125rem; padding: 0.1rem 0.45rem; }
+.sl-badge.large { font-size: 0.875rem; padding: 0.15rem 0.5rem; }
+
+/* ── 8. Code: Expressive Code frames ──────────────────────────────────────── */
+.expressive-code { --lif-code-bg: var(--lif-surface); }
+.expressive-code .frame { --code-background: var(--lif-code-bg); box-shadow: none; }
+.expressive-code .frame pre { border-color: var(--lif-rule-soft); border-radius: 0.5rem; background: var(--lif-code-bg); }
+/* Command blocks: no fake window; a `$` the copy button and selection leave out. */
+.expressive-code .frame.is-terminal:not(.has-title) .header { display: none; }
+.expressive-code .frame.is-terminal pre :is(.ec-line:not(.ins, .del, .mark, .tm-label)) .code::before {
+	content: '$ ';
+	color: var(--lif-ink-muted);
+	user-select: none;
+	-webkit-user-select: none;
+}
+/* Titled blocks: the title sits in the top border, like a pane title in the TUI. */
+.expressive-code .frame.has-title { margin-top: 0.75rem; }
+.expressive-code .frame.has-title .header {
+	position: absolute;
+	inset-block-start: -0.7em;
+	inset-inline-start: 0.75rem;
+	z-index: 2;
+	display: block;
+	padding: 0 0.75ch;
+	background: var(--lif-page);
+	border: 0;
+}
+.expressive-code .frame.has-title .header::before, .expressive-code .frame.has-title .header::after { display: none; }
+.expressive-code .frame.has-title .header .title {
+	display: inline;
+	padding: 0;
+	border: 0;
+	background: none;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--lif-ink-muted);
+}
+.expressive-code .frame.has-title .header .title::after { display: none; }
+.expressive-code .frame.has-title pre > code { padding-top: 1rem; }
+/* Copy: a quiet square, visible on hover or focus. */
+.expressive-code .copy button { width: 2rem; height: 2rem; border: 1px solid var(--lif-rule); border-radius: 0.25rem; opacity: 0; }
+.expressive-code .frame:hover .copy button, .expressive-code .copy button:focus-visible { opacity: 1; }
+@media (hover: none) { .expressive-code .copy button { opacity: 1; } }
+/* Markers: tinted lines, no accent bar (unit needed: EC subtracts it inside calc()). */
+.expressive-code .ec-line .code { --ecGtrBrdWd: 0px; }
+/* Only 400 and 700 are loaded: theme italics would be synthesized. */
+.expressive-code .ec-line span[style] { font-style: normal !important; }
+
+/* ── 9. Steps: numbered panes joined by a tree line ───────────────────────── */
+.sl-steps > li::before {
+	border-radius: 0.25rem;
+	background: var(--lif-page);
+	box-shadow: inset 0 0 0 1px var(--lif-rule);
+	color: var(--lif-accent-ink);
+	font-weight: 700;
+	font-size: 0.875rem;
+}
+.sl-steps > li::after { background-color: var(--lif-rule); }
+
+/* ── 10. Tabs: the selected tab is inverse video, like the TUI selection ──── */
+starlight-tabs [role='tablist'] { gap: 0.25rem; border-bottom: 1px solid var(--lif-rule); }
+starlight-tabs .tab > [role='tab'] {
+	padding: 0.35rem 1rem;
+	border-radius: 0.25rem 0.25rem 0 0;
+	box-shadow: none;
+	color: var(--lif-ink-muted);
+	font-weight: 400;
+}
+starlight-tabs .tab > [role='tab']:hover { color: var(--lif-ink-strong); background: var(--lif-accent-tint); }
+starlight-tabs .tab [role='tab'][aria-selected='true'] { color: var(--lif-on-accent); background: var(--lif-accent-fill); font-weight: 700; }
+starlight-tabs .tab > [role='tab']:focus-visible { outline-offset: -2px; }
+
+/* ── 11. File tree = `tree` output: connectors, no icons ───────────────────── */
+starlight-file-tree {
+	--x-space: 3ch;
+	border: 1px solid var(--lif-rule-soft);
+	border-radius: 0.5rem;
+	background: var(--lif-surface);
+	font-size: 0.875rem;
+	line-height: 1.75;
+	padding: 0.75rem 1.25rem;
+}
+starlight-file-tree .tree-icon { display: none; }
+starlight-file-tree ul { border: 0 !important; margin-inline-start: 0; padding: 0; }
+starlight-file-tree ul ul { margin-inline-start: 0.5ch; }
+starlight-file-tree li { position: relative; margin: 0; padding-inline-start: 3ch; }
+starlight-file-tree > ul > li { padding-inline-start: 0; }
+starlight-file-tree ul ul > li::before { content: ''; position: absolute; inset-inline-start: 0; top: 0; width: 2ch; height: 0.875em; border-inline-start: 1px solid var(--lif-rule); border-bottom: 1px solid var(--lif-rule); }
+starlight-file-tree ul ul > li:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 0; top: 0; bottom: 0; border-inline-start: 1px solid var(--lif-rule); }
+starlight-file-tree .file { margin-inline-start: 0; color: var(--lif-ink); }
+/* The boxed <details> of custom.css is for prose; a directory is a plain tree row. */
+.sl-markdown-content starlight-file-tree .directory > details { padding: 0; margin: 0; border: 0; border-radius: 0; background: none; }
+.sl-markdown-content starlight-file-tree .directory > details > summary { margin: 0; padding: 0; border: 0; background: none; color: var(--lif-accent-ink); font-weight: 700; list-style: none; }
+.sl-markdown-content starlight-file-tree .directory > details > summary::before, .sl-markdown-content starlight-file-tree .directory > details > summary::after { content: none; display: none; }
+.sl-markdown-content starlight-file-tree .directory > details > :not(summary) { margin: 0; }
+starlight-file-tree .directory > details > summary::marker, starlight-file-tree .directory > details > summary::-webkit-details-marker { display: none; }
+starlight-file-tree .directory > details > summary:hover { color: var(--lif-accent-ink); text-decoration: underline; text-underline-offset: 0.22em; }
+starlight-file-tree .highlight { padding-inline: 0.5ch; border-radius: 0.2rem; background: var(--lif-accent-fill); color: var(--lif-on-accent); }
+starlight-file-tree .comment { padding-inline-start: 2ch; color: var(--lif-ink-muted); }
+starlight-file-tree .comment::before { content: '# '; }
+starlight-file-tree .empty { padding-inline-start: 3ch; color: var(--lif-ink-muted); }
+
+/* ── 12. Cards, link cards, buttons ───────────────────────────────────────── */
+.card {
+	--sl-card-border: var(--lif-rule);
+	--sl-card-bg: transparent;
+	border: 1px solid var(--lif-rule-soft);
+	border-radius: 0.5rem;
+	background: transparent;
+	padding: 1.25rem 1.5rem;
+}
+.card .title { font-size: 1.125rem; font-weight: 700; color: var(--lif-ink-strong); }
+.card .icon { border: 0; background: none; padding: 0; color: var(--lif-accent-ink); }
+.sl-link-card {
+	border: 1px solid var(--lif-rule);
+	border-radius: 0.5rem;
+	box-shadow: none;
+	padding: 1rem 1.25rem;
+	transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+.sl-link-card .title { font-size: 1.0625rem; font-weight: 700; color: var(--lif-accent-ink); }
+.sl-link-card .description { color: var(--lif-ink-muted); }
+.sl-link-card .icon { color: var(--lif-ink-muted); }
+.sl-link-card:hover { border-color: var(--lif-accent-ink); background: var(--lif-accent-tint) !important; }
+.sl-link-card:hover .icon { color: var(--lif-accent-ink); }
+.sl-link-card:focus-within { outline: 2px solid var(--lif-accent-ink); outline-offset: 2px; }
+.sl-link-card a:focus-visible { outline: none; }
+
+.sl-link-button {
+	border-radius: 0.5rem;
+	font-weight: 700;
+	padding: 0.6rem 1.1rem;
+	transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+}
+.sl-link-button.primary { background: var(--lif-ink-strong); border-color: var(--lif-ink-strong); color: var(--lif-page); }
+.sl-link-button.primary:hover { background: var(--lif-accent-fill); border-color: var(--lif-accent-fill); color: var(--lif-on-accent); }
+.sl-link-button.secondary { border-color: var(--lif-rule); color: var(--lif-ink-strong); }
+.sl-link-button.secondary:hover { border-color: var(--lif-accent-ink); background: var(--lif-accent-tint); }
+.sl-link-button.minimal { color: var(--lif-accent-ink); padding-inline: 0; }
+.sl-link-button.minimal:hover { text-decoration: underline; text-underline-offset: 0.22em; }
+
+/* ── 13. Chrome: header, search, sidebar, TOC, pagination, footer ──────────── */
+header.header { border-bottom: 1px solid var(--lif-rule-soft); }
+.site-title { color: var(--lif-ink-strong); font-weight: 700; }
+site-search button[data-open-modal] { border-color: var(--lif-rule); border-radius: 0.5rem; background: transparent; color: var(--lif-ink-muted); }
+site-search button[data-open-modal]:hover { border-color: var(--lif-accent-ink); color: var(--lif-ink-strong); }
+site-search button[data-open-modal] kbd { background: transparent !important; border: 1px solid var(--lif-rule); color: var(--lif-key-ink); }
+site-search dialog { border: 1px solid var(--lif-rule); border-radius: 0.75rem; background: var(--lif-page); box-shadow: var(--lif-shadow); }
+#starlight__search {
+	--pagefind-ui-border: var(--lif-rule);
+	--pagefind-ui-background: var(--lif-page);
+	--pagefind-ui-border-radius: 0.5rem;
+}
+#starlight__search mark { background: var(--lif-accent-tint); color: var(--lif-accent-ink); font-weight: 700; }
+#starlight__search :is(.pagefind-ui__result-title, .pagefind-ui__result-nested) { background: var(--lif-page); }
+#starlight__search .pagefind-ui__result-link { color: var(--lif-ink-strong); }
+#starlight__search .kb-active, #starlight__search :is(.pagefind-ui__result-title, .pagefind-ui__result-nested):focus-within { outline: 0; background: var(--lif-accent-fill); }
+#starlight__search .kb-active :is(a, p, mark), #starlight__search :is(.pagefind-ui__result-title, .pagefind-ui__result-nested):focus-within :is(a, p, mark) { color: var(--lif-on-accent); background: transparent; }
+
+/* Sidebar: tree connectors for hierarchy, inverse video for the current page. */
+.sidebar-content { --lif-tree-x: 0.75rem; }
+.sidebar-content .large { font-weight: 700; color: var(--lif-ink-strong); }
+.sidebar-content summary { padding-block: 0.25em; }
+.sidebar-content summary .caret { color: var(--lif-ink-muted); }
+.sidebar-content ul ul { margin-inline-start: 0.6rem; }
+.sidebar-content ul ul li { position: relative; margin-inline-start: 0; padding-inline-start: var(--lif-tree-x); border-inline-start: 1px solid var(--lif-rule); }
+.sidebar-content ul ul li:last-child { border-inline-start-color: transparent; }
+.sidebar-content ul ul li::before {
+	content: '';
+	position: absolute;
+	inset-inline-start: -1px;
+	top: 0;
+	width: calc(var(--lif-tree-x) - 0.2rem);
+	height: 1.05em;
+	border-bottom: 1px solid var(--lif-rule);
+}
+.sidebar-content ul ul li:last-child::before { border-inline-start: 1px solid var(--lif-rule); }
+.sidebar-content a { color: var(--lif-ink-muted); border-radius: 0.25rem; }
+.sidebar-content a:hover { color: var(--lif-ink-strong); background: var(--lif-accent-tint); }
+.sidebar-content a[aria-current='page'], .sidebar-content a[aria-current='page']:hover {
+	color: var(--lif-on-accent);
+	background: var(--lif-accent-fill);
+	font-weight: 700;
+}
+
+/* Table of contents: a `▸` cursor marks the section in view (TUI menu cursor). */
+.right-sidebar { border-inline-start: 1px solid var(--lif-rule-soft); }
+starlight-toc h2, mobile-starlight-toc h2 { font-size: 0.875rem !important; font-weight: 700; color: var(--lif-ink-muted) !important; }
+starlight-toc a { position: relative; color: var(--lif-ink-muted) !important; border-radius: 0.25rem; }
+starlight-toc a:hover { color: var(--lif-ink-strong) !important; }
+starlight-toc a[aria-current='true'] { color: var(--lif-accent-ink) !important; font-weight: 700; }
+starlight-toc a[aria-current='true']::before { content: '▸'; position: absolute; inset-inline-start: calc(1rem * var(--depth) - 0.6rem); color: var(--lif-accent-ink); }
+mobile-starlight-toc .toggle { border-color: var(--lif-rule); border-radius: 0.5rem; background: transparent; }
+mobile-starlight-toc .display-current { color: var(--lif-ink); }
+
+/* Pagination: two panes, label muted, title in ink. */
+.pagination-links a {
+	border: 1px solid var(--lif-rule);
+	border-radius: 0.5rem;
+	box-shadow: none;
+	padding: 0.9rem 1.1rem;
+	color: var(--lif-ink-muted);
+	font-size: 0.875rem;
+	transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+.pagination-links a .link-title { font-size: 1.125rem; font-weight: 700; color: var(--lif-ink-strong); }
+.pagination-links a svg { color: var(--lif-ink-muted); }
+.pagination-links a:hover { border-color: var(--lif-accent-ink); background: var(--lif-accent-tint); }
+.pagination-links a:hover :is(svg, .link-title) { color: var(--lif-accent-ink); }
+
+/* Footer meta: a status line. */
+footer .meta { margin-top: 3.5rem; padding-top: 0.75rem; border-top: 1px solid var(--lif-rule-soft); font-size: 0.8125rem; color: var(--lif-ink-muted); }
+footer .meta a { color: var(--lif-ink-muted); }
+footer .meta a:hover { color: var(--lif-accent-ink); }
+
+/* Banner: a message line, not a coloured slab. */
+.sl-banner { border-bottom: 1px solid color-mix(in srgb, var(--lif-accent-ink) 35%, transparent); box-shadow: none; font-size: 0.875rem; }
+.sl-banner a { color: var(--lif-accent-ink); text-underline-offset: 0.22em; }
+
+/* Skip link, notices, mobile menu button. */
+.sl-skip-link:focus { border-radius: 0.25rem; background: var(--lif-accent-fill); color: var(--lif-on-accent); }
+.content-panel p.sl-flex:has(> svg) { border-radius: 0.5rem; }
+.sl-menu-button { border-radius: 0.5rem; background: var(--lif-page); color: var(--lif-ink-strong); border: 1px solid var(--lif-rule); box-shadow: none; }
+
+/* Details: chevron muted, accent only on hover and focus. */
+.sl-markdown-content details { border-radius: 0.5rem; }

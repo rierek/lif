@@ -1,0 +1,13 @@
+---
+// D77 "Why it matters": not an aside. One paragraph like the comment above a command: a `#` gutter in muted ink,
+// the text muted, **bold** sentence in body ink (VISUAL-SYSTEM 4.3).
+---
+
+<div class="why"><span class="gutter" aria-hidden="true">#</span><div class="body"><slot /></div></div>
+
+<style>
+	.why { display: grid; grid-template-columns: 2ch minmax(0, 1fr); margin-block: 1.5rem; color: var(--lif-ink-muted); }
+	.gutter { font-family: var(--sl-font-mono); }
+	.body :global(p) { margin: 0; }
+	.body :global(strong) { font-weight: 700; color: var(--lif-ink); }
+</style>

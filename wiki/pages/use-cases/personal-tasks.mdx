@@ -8,7 +8,7 @@ import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
 **Ask your list what to do next, and get one answer.** Your tasks are Markdown files on your disk. No account, no app. `lif next` picks by priority.
 
 <div class="not-content">
-<TerminalWindow title="~/tasks" command="lif next" cols={80} html={`task  todo-n5gk
+<TerminalWindow title="~/tasks" command="lif next" label="Next item to work on: the task Pay car insurance, todo, critical priority, due 2026-11-01, tagged admin." cols={80} html={`task  todo-n5gk
 Pay car insurance
 <span style="color:var(--ctp-green);font-weight:700">todo</span>  <span style="color:var(--ctp-red)">critical</span>
 <span style="color:var(--ctp-overlay1)">tags:</span> #admin
@@ -20,7 +20,7 @@ Pay car insurance
 Example: five everyday tasks with tags `admin`, `health`, `home` and `family`. One task is `in-progress`, so it is not offered. The critical one wins:
 
 <div class="not-content">
-<TerminalWindow title="~/tasks" command="lif list --ready" cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
+<TerminalWindow title="~/tasks" command="lif list --ready" label="Table of ready tasks: Pay car insurance (critical), Renew passport (high), Call mum, Fix bike brakes (low)." cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
 <span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>
 <span style="color:var(--ctp-overlay1)">TYPE  ID         TITLE                                          STATUS  PRIORITY</span>
 task  todo-n5gk  Pay car insurance                              <span style="color:var(--ctp-green);font-weight:700">todo  </span>  <span style="color:var(--ctp-red);font-weight:700">critical</span>
@@ -48,7 +48,7 @@ Priorities are `critical`, `high`, `normal`, `low` and `deferred`. `lif order` s
 Items do not depend on the preset. A preset only writes the `types` table into `.lif.yml`. To add a hierarchy, replace that table with the one `lif init --profile simple` writes. The example store passed `lif check` after the swap. A milestone then holds tasks:
 
 <div class="not-content">
-<TerminalWindow title="~/tasks" command="lif list --view tree" cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
+<TerminalWindow title="~/tasks" command="lif list --view tree" label="Tree of personal items: tasks Book dentist, Pay car insurance, Renew passport, Call mum and the milestone Move house with the child task Fix bike brakes." cols={80} html={`<span style="color:var(--ctp-mauve);font-weight:700">Items</span>
 <span style="color:var(--ctp-surface2)">────────────────────────────────────────────────────────────────────────────────</span>
 T     Book dentist                                     <span style="color:var(--ctp-peach);font-weight:700">in-progress</span>     todo-109t
 T     Pay car insurance                                <span style="color:var(--ctp-green);font-weight:700">todo       </span>  <span style="color:var(--ctp-red);font-weight:700">‼</span>  todo-n5gk

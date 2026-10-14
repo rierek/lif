@@ -184,6 +184,10 @@ const lifCmd = (...a) => `${q(lif)} ${[...a, ...flags].map(q).join(' ')}`;
 
 const roadmap = capture(80, 30, lifCmd('roadmap', '--tags'), { until: /priority/ });
 const show = capture(80, 30, lifCmd('show', ids.pw), { until: /created/ });
+// Narrow roadmap (NARROW columns, lif reflows its tree) for containers too small for 80 columns; the site swaps it in
+// with a container query. `lif show` has no useful reflow (80-column rules), so it scrolls inside the window instead.
+const NARROW = 42;
+const roadmapNarrow = capture(NARROW, 30, lifCmd('roadmap', '--tags'), { until: /priority/ });
 const [tuiBin, ...tuiArgs] = tui.split(' ');
 const tuiShot = capture(110, 30, [q(tuiBin), ...tuiArgs.map(q), ...flags.map(q)].join(' '), {
 	until: /Browse/,
@@ -217,7 +221,7 @@ const git = (...a) => execFileSync('git', ['-C', root, ...a], { encoding: 'utf8'
 const out = {
 	// --tui-from is free text for the TUI source when it comes from another tree, e.g. "milestone/0.13 5cf6d40".
 	generated: { date: new Date().toISOString().slice(0, 10), cli: `${git('rev-parse', '--abbrev-ref', 'HEAD')} ${git('rev-parse', '--short', 'HEAD')}`, tui: arg('--tui-from') ?? 'same binary as cli' },
-	roadmap: { command: 'lif roadmap --tags', html: ansiToHtml(roadmap) },
+	roadmap: { command: 'lif roadmap --tags', html: ansiToHtml(roadmap), narrow: ansiToHtml(roadmapNarrow), narrowCols: NARROW },
 	show: { command: `lif show ${ids.pw}`, html: ansiToHtml(show) },
 	tui: { command: 'lif tui', html: ansiToHtml(tuiShot) },
 	file: { name: file, html: fileHtml },

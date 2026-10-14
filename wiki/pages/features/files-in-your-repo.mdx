@@ -5,7 +5,9 @@ description: "Your backlog is a folder of files. Everything that reads files alr
 
 import demo from '../../../site/src/data/demo.json';
 import TerminalWindow from '../../../site/src/components/TerminalWindow.astro';
-import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import KeyValueList from '../../../site/src/components/KeyValueList.astro';
+import KeyValueItem from '../../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../../site/src/components/WhyItMatters.astro';
 
 **Your backlog is a folder of files. Everything that reads files already speaks Lif.** You, your editor, Git and your coding agent need no plugin and no server. There is no database and no export step.
 
@@ -14,8 +16,8 @@ import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 An item is one Markdown file with YAML front matter. Here is the item on disk, and the same item printed by `lif show`:
 
 <div class="pair not-content">
-  <TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} />
-  <TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={64} />
+  <TerminalWindow title={`.lif/${demo.file.name}`} html={demo.file.html} cols={64} label="The item Password reset as a Markdown file: YAML front matter, then description and acceptance criteria." />
+  <TerminalWindow title="~/app" command={demo.show.command} html={demo.show.html} cols={64} label="The same item rendered by lif show: title, status, priority, tags, parent, timestamps and the acceptance criteria." />
 </div>
 
 The `.lif/` directory lives inside your repository, so Git versions the backlog with the code. `lif complete --commit HEAD --summary "Mail sent"` changed this item. Excerpt of the real `git diff` (context lines left out):
@@ -38,24 +40,24 @@ The `.lif/` directory lives inside your repository, so Git versions the backlog 
 
 With `lif.anchor: repo-root`, two worktrees read the same store:
 
-<TerminalWindow title="Two worktrees, one store" cols={64} html={`<span style="color:var(--ctp-blue)">repo/</span>                     main worktree
+<TerminalWindow title="Two worktrees, one store" cols={64} label="Directory tree: the main worktree repo holds .lif.yml with lif.anchor repo-root and the one shared .lif store; a second worktree feature-x reads repo/.lif." html={`<span style="color:var(--ctp-blue)">repo/</span>                     main worktree
 ├── .lif.yml              lif.anchor: repo-root
 └── <span style="color:var(--ctp-blue)">.lif/</span>                 the one shared store
 <span style="color:var(--ctp-blue)">worktrees/</span>                
 └── <span style="color:var(--ctp-blue)">feature-x/</span>            second worktree, reads repo/.lif/`} />
 
-<Aside type="tip" title="Why it matters">
-Your backlog outlives any tool: if you stop using Lif, your items stay readable Markdown files. Backlog changes get the same review as code, because they appear in the diff of the branch that makes them.
-</Aside>
+<WhyItMatters>
+**Your backlog outlives any tool: if you stop using Lif, your items stay readable Markdown files.** Backlog changes get the same review as code, because they appear in the diff of the branch that makes them.
+</WhyItMatters>
 
 ## What you get
 
-<CardGrid>
-  <Card title="You own your data">The files are readable, diffable and editable in any editor. Scripts and agents read them without Lif.</Card>
-  <Card title="Small, reviewable diffs">Lif writes fields in a fixed order and keeps unknown keys. A change touches few lines, in a file with a stable name `<id>--<slug>.md`.</Card>
-  <Card title="A backlog that follows the branch">Commit the item change with the code change it belongs to. `lif complete --commit <ref>` writes the commit SHA into the item.</Card>
-  <Card title="One shared store for parallel work">`lif.anchor: repo-root` lets all Git worktrees of a repository share one store, so parallel work does not drift apart.</Card>
-</CardGrid>
+<KeyValueList>
+  <KeyValueItem term="You own your data">The files are readable, diffable and editable in any editor. Scripts and agents read them without Lif.</KeyValueItem>
+  <KeyValueItem term="Small, reviewable diffs">Lif writes fields in a fixed order and keeps unknown keys. A change touches few lines, in a file with a stable name `<id>--<slug>.md`.</KeyValueItem>
+  <KeyValueItem term="A backlog that follows the branch">Commit the item change with the code change it belongs to. `lif complete --commit <ref>` writes the commit SHA into the item.</KeyValueItem>
+  <KeyValueItem term="One shared store for parallel work">`lif.anchor: repo-root` lets all Git worktrees of a repository share one store, so parallel work does not drift apart.</KeyValueItem>
+</KeyValueList>
 
 <details>
 <summary>How to use Lif with Git</summary>

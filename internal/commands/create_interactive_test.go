@@ -82,7 +82,15 @@ func ciFixture(t *testing.T) {
 
 // ciRun runs the interactive core and returns the new item (nil on error),
 // command stdout and the error.
+// The menu between the parent step and the write is one more program: Enter
+// on "create". A run that never reaches it never opens it.
 func ciRun(t *testing.T, args []string, programs ...[]string) (*item.Item, []byte, *bytes.Buffer, error) {
+	t.Helper()
+	return ciRunRaw(t, args, append(programs, []string{keyEnter})...)
+}
+
+// ciRunRaw runs the core with exactly the given programs.
+func ciRunRaw(t *testing.T, args []string, programs ...[]string) (*item.Item, []byte, *bytes.Buffer, error) {
 	t.Helper()
 	before := map[string]bool{}
 	for _, it := range core.All() {

@@ -250,6 +250,9 @@ func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput,
 	if err := runCreateFormWith(&d, in, out); err != nil {
 		return err
 	}
+	if _, err := runCreateMenuWith(&d, in, out); err != nil {
+		return err
+	}
 	b, err := writeCreateDraft(cmd, d)
 	if err != nil {
 		return err

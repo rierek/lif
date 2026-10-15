@@ -47,9 +47,10 @@ var updateCmd = &cobra.Command{
 	Long: `Updates one or more properties of one or more existing items.
 
 Every flag applies to every item named in the call. Every ID is resolved, and
---status's required fields and --parent's type and cycle rules are checked for
-every item, before the first item is written. --if-match carries one item's
-etag, so it accepts exactly one ID.`,
+--status's required fields, --parent's type and cycle rules, and the
+--blocking/--blocked-by rules (no link to the item itself or to an unknown
+item, no cycle) are checked for every item, before the first item is written.
+--if-match carries one item's etag, so it accepts exactly one ID.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -107,6 +108,9 @@ etag, so it accepts exactly one ID.`,
 			return mutationError(updateJSON, err)
 		}
 		if err := preflightType(resolver, targets, input); err != nil {
+			return mutationError(updateJSON, err)
+		}
+		if err := preflightLinks(resolver, targets, input); err != nil {
 			return mutationError(updateJSON, err)
 		}
 
@@ -257,6 +261,38 @@ func preflightParent(resolver *itemgraph.CoreResolver, targets []*item.Item, inp
 			probe.Type = *input.Type
 		}
 		if err := resolver.ValidateAndSetParent(&probe, *input.Parent); err != nil {
+			return fmt.Errorf("%s: %w", target.ID, err)
+		}
+	}
+	return nil
+}
+
+// preflightLinks runs, for every target and before the first write, the checks
+// UpdateItem runs on --blocking and --blocked-by: the link must not point at
+// the item itself or at an item that does not exist, and must not close a
+// cycle (beans-o8bs). What closes a cycle depends on the item, so a batch can
+// pass for one target and fail for the next one, after the first was written.
+func preflightLinks(resolver *itemgraph.CoreResolver, targets []*item.Item, input model.UpdateItemInput) error {
+	if input.AddBlocking == nil && input.AddBlockedBy == nil {
+		return nil
+	}
+	for _, target := range targets {
+		// The probe is the item as UpdateItem has it when it checks the links:
+		// with the new type and parent, which the cycle check counts.
+		probe := target.Clone()
+		if input.Type != nil {
+			probe.Type = *input.Type
+		}
+		if input.Parent != nil {
+			if err := resolver.ValidateAndSetParent(probe, *input.Parent); err != nil {
+				return fmt.Errorf("%s: %w", target.ID, err)
+			}
+		}
+		if err := resolver.ValidateAndAddBlocking(probe, input.AddBlocking); err != nil {
+			return fmt.Errorf("%s: %w", target.ID, err)
+		}
+		resolver.RemoveBlockingRelationships(probe, input.RemoveBlocking)
+		if err := resolver.ValidateAndAddBlockedBy(probe, input.AddBlockedBy); err != nil {
 			return fmt.Errorf("%s: %w", target.ID, err)
 		}
 	}
@@ -436,10 +472,10 @@ func updateParentFlagCompletion(cmd *cobra.Command, args []string, toComplete st
 	return itemFlagCandidates(eligible), completionDirective
 }
 
-// blockedByFlagCompletion and blockingFlagCompletion both offer every other
-// item in the store (candidates.BlockingCandidates, beans-v725) -- neither
-// edge direction excludes descendants (beans-pkq3 AC-04; see pkg/candidates'
-// BlockingCandidates doc comment).
+// blockedByFlagCompletion and blockingFlagCompletion both offer the same
+// items: every other item in the store except the ones in the edited item's
+// own subtree and on its parent chain (candidates.BlockingCandidates,
+// beans-v725, beans-o8bs), because a link to those is refused.
 func blockedByFlagCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return blockingLikeFlagCompletion(args)
 }

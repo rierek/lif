@@ -16,7 +16,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var promoteJSON bool
+var (
+	promoteJSON   bool
+	promoteParent string
+)
 
 // findingRecord is the subset of a WP1 finding record promote needs. Fields
 // is kept as a generic map because its required key set differs per code
@@ -45,9 +48,14 @@ var promoteCmd = &cobra.Command{
 	Short: "Promote selected findings from a review artifact into items",
 	Long: `Validates the named finding records from a review artifact against the
 findings schema and, once every selected record passes, creates one item per
-record by a fixed code-to-type mapping. Writing nothing at all if any
-selected record is malformed, and skipping a finding already promoted by an
-earlier call rather than duplicating it.`,
+record by a fixed code-to-type mapping (B becomes a bug, I becomes a task;
+D, T and Q have no mapping and are rejected). New items get the configured
+default status. With --parent every new item is created under that item.
+
+The whole call is checked before the first write: if any selected record,
+field or the parent is invalid, nothing is written. A finding already
+promoted by an earlier call is skipped rather than duplicated. If a write
+still fails, the error names the items already written.`,
 	Args: cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		artifactPath := args[0]
@@ -108,7 +116,24 @@ earlier call rather than duplicating it.`,
 		resolver := &itemgraph.CoreResolver{Core: core}
 		ctx := context.Background()
 
-		done := make([]*item.Item, 0, len(records))
+		parentID := ""
+		if promoteParent != "" {
+			id, ok := core.NormalizeID(promoteParent)
+			if !ok {
+				return cmdError(promoteJSON, output.ErrNotFound, "parent item not found: %s", promoteParent)
+			}
+			parentID = id
+		}
+
+		// Preflight: prepare and validate every candidate before the first
+		// write, so a bad record, parent or field leaves the store untouched
+		// (beans-z69m).
+		type candidate struct {
+			findingID string
+			input     model.CreateItemInput
+			setMap    map[string]any
+		}
+		var queue []candidate
 		for _, rec := range records {
 			if alreadyPromoted(artifactPath, rec.ID) {
 				if !promoteJSON {
@@ -116,10 +141,24 @@ earlier call rather than duplicating it.`,
 				}
 				continue
 			}
-
-			b, err := createPromotedItem(ctx, resolver, artifactPath, rec)
+			input, setMap, err := preparePromotedItem(artifactPath, parentID, rec)
 			if err != nil {
-				return emitBatchFailure(promoteJSON, done, fmt.Errorf("failed to create item for %s: %v", rec.ID, err))
+				return cmdError(promoteJSON, output.ErrValidation, "record %s: %s", rec.ID, err)
+			}
+			if err := resolver.ValidateCreateInput(input); err != nil {
+				return cmdError(promoteJSON, output.ErrValidation, "record %s: %s", rec.ID, err)
+			}
+			if err := core.ValidateParent(&item.Item{Type: *input.Type}, parentID); err != nil {
+				return cmdError(promoteJSON, output.ErrValidation, "record %s: %s", rec.ID, err)
+			}
+			queue = append(queue, candidate{rec.ID, input, setMap})
+		}
+
+		done := make([]*item.Item, 0, len(queue))
+		for _, c := range queue {
+			b, err := resolver.CreateItem(ctx, c.input, itemcore.WithExtraOps(c.setMap, nil))
+			if err != nil {
+				return emitBatchFailure(promoteJSON, done, fmt.Errorf("failed to create item for %s: %v", c.findingID, err))
 			}
 			done = append(done, b)
 		}
@@ -274,10 +313,11 @@ func alreadyPromoted(artifactPath, findingID string) bool {
 	return len(matches) > 0
 }
 
-// createPromotedItem renders and creates one item from a validated finding
-// record, applying the fixed code-to-type mapping (R-16/AC9) and the extra
-// front matter every promoted item carries (R-27/R-28/R-30/AC10/AC12/AC16).
-func createPromotedItem(ctx context.Context, resolver *itemgraph.CoreResolver, artifactPath string, rec findingRecord) (*item.Item, error) {
+// preparePromotedItem renders one validated finding record into the create
+// input and extra front matter of its item, applying the fixed code-to-type
+// mapping (R-16/AC9) and the extra front matter every promoted item carries
+// (R-27/R-28/R-30/AC10/AC12/AC16). It writes nothing.
+func preparePromotedItem(artifactPath, parentID string, rec findingRecord) (model.CreateItemInput, map[string]any, error) {
 	var itemType string
 	var tags []string
 	switch rec.Code {
@@ -287,7 +327,7 @@ func createPromotedItem(ctx context.Context, resolver *itemgraph.CoreResolver, a
 		itemType = "task"
 		tags = []string{"improvement"}
 	default:
-		return nil, fmt.Errorf("code %s has no promotion mapping", rec.Code)
+		return model.CreateItemInput{}, nil, fmt.Errorf("code %s has no promotion mapping", rec.Code)
 	}
 
 	setMap := map[string]any{
@@ -301,16 +341,17 @@ func createPromotedItem(ctx context.Context, resolver *itemgraph.CoreResolver, a
 		}
 	}
 
-	title := rec.Title
+	body := renderPromotedBody(rec, artifactPath)
 	input := model.CreateItemInput{
-		Title: title,
+		Title: rec.Title,
 		Type:  &itemType,
 		Tags:  tags,
+		Body:  &body,
 	}
-	body := renderPromotedBody(rec, artifactPath)
-	input.Body = &body
-
-	return resolver.CreateItem(ctx, input, itemcore.WithExtraOps(setMap, nil))
+	if parentID != "" {
+		input.Parent = &parentID
+	}
+	return input, setMap, nil
 }
 
 // renderPromotedBody renders a promoted item's body by the fixed mapping
@@ -358,6 +399,7 @@ func renderPromotedBody(rec findingRecord, artifactPath string) string {
 func RegisterPromoteCmd(root *cobra.Command) {
 	if promoteCmd.Flags().Lookup("json") == nil {
 		promoteCmd.Flags().BoolVar(&promoteJSON, "json", false, "Output as JSON")
+		promoteCmd.Flags().StringVar(&promoteParent, "parent", "", "Parent item ID for every promoted item")
 	}
 	root.AddCommand(promoteCmd)
 }

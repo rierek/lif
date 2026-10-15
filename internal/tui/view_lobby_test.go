@@ -377,7 +377,7 @@ func TestLobbyEscReturnsToBrowseWithLiveClient(t *testing.T) {
 // aligned to the new Header/Footer optic here -- key/desc color-separated,
 // no more ":" -- BEHAVIOR (which text shows when) stays byte-for-byte
 // unchanged, only scoped to lobbyExitHint's own two segments (the REST of
-// viewLobby's hint line, "i/k:↑↓  enter:open  type:filter", is untouched --
+// viewLobby's hint line, "↑↓:move  enter:open  type:filter", is untouched --
 // out of scope, a separate ad hoc literal, not this function).
 func TestLobbyHintReflectsSplitEscQBehavior(t *testing.T) {
 	t.Run("live client: esc back, q quit", func(t *testing.T) {
@@ -416,5 +416,21 @@ func TestLobbyExitHintNoColon(t *testing.T) {
 	noClient := model{}
 	if plain := ansi.Strip(lobbyExitHint(noClient)); strings.Contains(plain, ":") {
 		t.Errorf("lobbyExitHint(no client) = %q, must not contain ':' (D06)", plain)
+	}
+}
+
+// TestLobbyHintAdvertisesOnlyKeysThatNavigate guards beans-hh0o: the Lobby has
+// one mode, a filter that takes text, so i/k are typed into it (see
+// TestLobbyQueryDoesNotSwallowArrowAliasLetters). The footer must advertise the arrow
+// keys, never i/k.
+func TestLobbyHintAdvertisesOnlyKeysThatNavigate(t *testing.T) {
+	m := lobbyFixtureModel(t, []string{"/tmp/repo-alpha"})
+	m.width, m.height = 100, 30
+	out := ansi.Strip(m.viewLobby())
+	if strings.Contains(out, "i/k") {
+		t.Fatalf("lobby footer advertises i/k, but they edit the filter:\n%s", out)
+	}
+	if !strings.Contains(out, "↑↓") {
+		t.Fatalf("lobby footer lacks the arrow-key hint:\n%s", out)
 	}
 }

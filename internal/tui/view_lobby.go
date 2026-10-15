@@ -272,7 +272,7 @@ func (m model) viewLobby() string {
 	// via repoPickerWidth's own fix), this literal string has no natural
 	// truncation point of its own -- a narrow terminal must cut it, not
 	// silently word-wrap it into a second, unbudgeted line.
-	hintText := truncate("i/k:↑↓  enter:open  type:filter  "+lobbyExitHint(m), innerW)
+	hintText := truncate("↑↓:move  enter:open  type:filter  "+lobbyExitHint(m), innerW)
 	hint := theme.Muted.Render(centerInto(hintText, innerW))
 	bodyH := innerH - 1 // innerH total inner lines, minus the 1 reserved for hint below
 	if bodyH < 1 {
@@ -300,7 +300,7 @@ func (m model) viewLobby() string {
 // renderBindings here, esc/q/esc-q are ad hoc label pairs, not real
 // bindings). WHICH text shows (esc:back+q:quit vs. the combined esc/q:quit)
 // is UNCHANGED -- only the optic. Scoped to lobbyExitHint's own segment
-// only: the surrounding hint line ("i/k:↑↓  enter:open  type:filter  ",
+// only: the surrounding hint line ("↑↓:move  enter:open  type:filter  ",
 // viewLobby) keeps its own colon format, out of this task's scope.
 func lobbyExitHint(m model) string {
 	if m.client != nil {

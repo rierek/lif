@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/rierek/lif/internal/gitutil"
@@ -59,6 +60,53 @@ func itemFieldIssues(allItems []*item.Item) []string {
 			out = append(out, fmt.Sprintf("item %s (%s) cannot sit under parent %s (%s): parent must rank higher", b.ID, b.Type, p.ID, p.Type))
 		}
 	}
+	return out
+}
+
+// itemIDIssues reports every item whose file name gives another ID than the
+// "# <id>" line inside the file records. The usual cause is a file renamed by
+// hand: the file name wins, so the item answers to the new ID and every link
+// to the recorded one no longer resolves. Each issue names the file, both
+// IDs and the items whose links now dangle. A file that records the ID of
+// another loaded item is a copy; its issue lists no dangling links.
+func itemIDIssues(allItems []*item.Item) []string {
+	loaded := make(map[string]bool, len(allItems))
+	for _, b := range allItems {
+		loaded[b.ID] = true
+	}
+	var out []string
+	for _, b := range allItems {
+		if b.RecordedID == "" || b.RecordedID == b.ID {
+			continue
+		}
+		msg := fmt.Sprintf("item %s: file name %s gives ID %s but the file records ID %s (renamed by hand? rename it back; lif rename changes an ID together with its links)",
+			b.ID, filepath.Base(b.Path), b.ID, b.RecordedID)
+		if !loaded[b.RecordedID] {
+			if dangling := linksTo(allItems, b.RecordedID); len(dangling) > 0 {
+				msg += fmt.Sprintf("; links to %s dangle: %s", b.RecordedID, strings.Join(dangling, ", "))
+			}
+		}
+		out = append(out, msg)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// linksTo lists the links that point at id, as "<item> <link type>", sorted.
+func linksTo(allItems []*item.Item, id string) []string {
+	var out []string
+	for _, b := range allItems {
+		if b.Parent == id {
+			out = append(out, b.ID+" parent")
+		}
+		if b.IsBlocking(id) {
+			out = append(out, b.ID+" blocking")
+		}
+		if b.IsBlockedBy(id) {
+			out = append(out, b.ID+" blocked_by")
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 
@@ -175,6 +223,7 @@ var checkCmd = &cobra.Command{
 - Configuration settings (colors, default status, type, priority and tags, ID prefix)
 - Item types that the configuration still defines
 - Item fields: unknown status or priority, invalid tags, parent of the wrong type rank
+- Item file names: a file whose name gives another ID than the file records in its "# <id>" line (a file renamed by hand), with the links that now dangle
 - Broken links (links to non-existent items)
 - Self-references (items linking to themselves)
 - Circular dependencies (cycles of blocking links, whichever field stores them, and of parent links; a blocker below or above the item it blocks)
@@ -225,6 +274,13 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			configErrors = append(configErrors, issues...)
 		} else if !checkJSON {
 			fmt.Printf("  %s Status, priority, tags and hierarchy are valid\n", ui.Success.Render("✓"))
+		}
+
+		// 2b-4. Check that every file name gives the ID the file records
+		if issues := itemIDIssues(allItems); len(issues) > 0 {
+			configErrors = append(configErrors, issues...)
+		} else if !checkJSON {
+			fmt.Printf("  %s File names give the IDs the files record\n", ui.Success.Render("✓"))
 		}
 
 		// 2c. Check agent.default_effort is a valid effort level

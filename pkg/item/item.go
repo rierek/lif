@@ -170,6 +170,13 @@ type Item struct {
 	// Extra holds front matter keys not covered by any typed field above.
 	Extra map[string]any `yaml:"-" json:"extra,omitempty"`
 
+	// RecordedID is the ID the file names itself in the "# <id>" comment on
+	// its first front matter line, or "" when it has none. ID comes from the
+	// file name, so the two differ after a hand rename; lif check reports
+	// that. It follows the bytes that back the item (see SetContentETag) and
+	// is never written or serialized.
+	RecordedID string `yaml:"-" json:"-"`
+
 	// contentETag is the hash of the bytes this item was parsed from, or of
 	// the bytes last written for it. It is the single source of the etag:
 	// see ETag. Unexported so neither YAML nor JSON ever carries it.
@@ -340,8 +347,40 @@ func Parse(r io.Reader) (*Item, error) {
 		Blocking:    fm.Blocking,
 		BlockedBy:   fm.BlockedBy,
 		Extra:       extra,
+		RecordedID:  recordedID(data),
 		contentETag: ETagOf(onDisk),
 	}, nil
+}
+
+// recordedID returns the ID that the first front matter line of data records
+// as a "# <id>" comment (see Render), or "" when there is none. It finds the
+// opening delimiter the way the front matter reader does, skipping blank
+// lines before it. A comment of several words is a note, not an ID.
+func recordedID(data []byte) string {
+	next := func() (string, bool) {
+		if len(data) == 0 {
+			return "", false
+		}
+		var line []byte
+		line, data, _ = bytes.Cut(data, []byte("\n"))
+		return string(bytes.TrimSpace(line)), true
+	}
+	line, ok := next()
+	for ok && line == "" {
+		line, ok = next()
+	}
+	if !ok || line != "---" {
+		return ""
+	}
+	if line, ok = next(); !ok {
+		return ""
+	}
+	id, found := strings.CutPrefix(line, "#")
+	id = strings.TrimSpace(id)
+	if !found || id == "" || strings.ContainsAny(id, " \t") {
+		return ""
+	}
+	return id
 }
 
 // renderFrontMatter is used for YAML output with yaml.v3 (supports custom marshalers).
@@ -476,10 +515,12 @@ func (b *Item) MarshalJSON() ([]byte, error) {
 }
 
 // SetContentETag records the bytes now backing this item, so that ETag keeps
-// reporting the token the write path validates against. Callers that persist a
-// item MUST call this with the exact bytes they wrote.
+// reporting the token the write path validates against, and RecordedID the ID
+// those bytes record. Callers that persist a item MUST call this with the
+// exact bytes they wrote.
 func (b *Item) SetContentETag(content []byte) {
 	b.contentETag = ETagOf(content)
+	b.RecordedID = recordedID(bytes.TrimPrefix(content, utf8BOM))
 }
 
 // Clone returns an independent copy of the item, safe to hand to a reader

@@ -2,6 +2,7 @@ package item
 
 import (
 	"bytes"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -97,5 +98,73 @@ func TestParseKeepsFiniteNumbersAndQuotedText(t *testing.T) {
 	want := map[string]any{"ratio": 1.5, "zero": 0, "quoted": ".nan", "word": "nan"}
 	if !reflect.DeepEqual(b.Extra, want) {
 		t.Errorf("Extra = %#v, want %#v", b.Extra, want)
+	}
+}
+
+// beans-533z: the ID of an item is the one in its file name, so a file renamed
+// by hand answers to a new ID. Parse keeps the ID the file itself records in
+// its "# <id>" comment, so lif check can tell the two apart.
+func TestParseRecordsTheIDCommentLine(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"as Render writes it", "---\n# ex-ab12\ntitle: T\n---\n", "ex-ab12"},
+		{"CRLF line endings", "---\r\n# ex-ab12\r\ntitle: T\r\n---\r\n", "ex-ab12"},
+		{"behind a BOM", "\xEF\xBB\xBF---\n# ex-ab12\ntitle: T\n---\n", "ex-ab12"},
+		{"blank lines before the opening delimiter", "\n\n---\n# ex-ab12\ntitle: T\n---\n", "ex-ab12"},
+		{"extra spaces after the hash", "---\n#   ex-ab12  \ntitle: T\n---\n", "ex-ab12"},
+		{"no comment", "---\ntitle: T\n---\n", ""},
+		{"a comment of several words is a note, not an ID", "---\n# remember to split this\ntitle: T\n---\n", ""},
+		{"a comment below the first line is not the ID line", "---\ntitle: T\n# ex-ab12\n---\n", ""},
+		{"no front matter", "# ex-ab12\nBody\n", ""},
+		{"empty file", "", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			b, err := Parse(strings.NewReader(tc.input))
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+			if b.RecordedID != tc.want {
+				t.Errorf("RecordedID = %q, want %q", b.RecordedID, tc.want)
+			}
+		})
+	}
+}
+
+// A write puts the item's own ID into the comment; the item must report that
+// ID as recorded from then on, not the one it was loaded with.
+func TestSetContentETagRefreshesTheRecordedID(t *testing.T) {
+	b, err := Parse(strings.NewReader("---\n# ex-old1\ntitle: T\nstatus: todo\n---\n"))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	b.ID = "ex-new1"
+	content, err := b.Render()
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	b.SetContentETag(content)
+	if b.RecordedID != "ex-new1" {
+		t.Errorf("RecordedID after a write = %q, want %q", b.RecordedID, "ex-new1")
+	}
+}
+
+// The recorded ID is for the checks, not for the data: neither JSON nor the
+// written front matter carries it.
+func TestRecordedIDIsNotPartOfTheItemData(t *testing.T) {
+	b, err := Parse(strings.NewReader("---\n# ex-ab12\ntitle: T\nstatus: todo\n---\n"))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	b.ID = "ex-ab12"
+	data, err := json.Marshal(b)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if strings.Contains(string(data), "ecorded") {
+		t.Errorf("JSON carries the recorded ID: %s", data)
 	}
 }

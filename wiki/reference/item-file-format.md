@@ -11,8 +11,8 @@ An item is stored as one Markdown file. **Liff** (plural **Liffs**) is short for
 
 - Layout: `---`, YAML front matter, `---`, Markdown body.
 - A UTF-8 byte order mark (BOM) in front of the first `---` is ignored on read. Lif never writes one.
-- The first front matter line is a YAML comment `# <id>`. Lif writes it when the ID is known.
-- ID and slug are not front matter fields. Lif derives them from the file name.
+- The first front matter line is a YAML comment `# <id>`. Lif writes it when the ID is known. It is a record, not the ID: `lif check` compares it with the ID from the file name.
+- ID and slug are not front matter fields. Lif derives them from the file name. A file renamed by hand therefore changes the ID and breaks every link to the old one.
 
 ## File name and ID
 
@@ -21,7 +21,7 @@ An item is stored as one Markdown file. **Liff** (plural **Liffs**) is short for
 - Slug: title in lower case, spaces and underscores to `-`, only letters, digits and `-`, collapsed, at most 50 bytes. A title change regenerates a slug that came from the title; a slug set by hand stays.
 - Prefix on `lif create --prefix`: starts with a letter, only letters, digits and single hyphens.
 - Accepted on read: `id--slug.md`, `id.slug.md`, legacy `id-slug.md` and `id.md`.
-- Rename a slug, an ID or the project prefix with [`lif rename`](../commands/lif-rename/).
+- Rename a slug, an ID or the project prefix with [`lif rename`](../commands/lif-rename/), which also rewrites the links. A rename by hand is reported by `lif check` (since 0.15).
 
 ## Front matter fields
 
@@ -86,8 +86,9 @@ Editing files by hand is allowed. Lif loads and reloads without validating hiera
 | `lif check` finds | `lif check` does not find |
 |---|---|
 | Unknown type | Duplicate IDs |
-| Unknown status or priority | File name and ID that do not match |
-| Invalid tags | Front matter syntax errors beyond loading |
+| Unknown status or priority | Front matter syntax errors beyond loading |
+| Invalid tags | |
+| File name that gives another ID than the file records in `# <id>` (a hand rename, since 0.15) | |
 | Parent of the wrong type rank | |
 | Broken links, self-references, cycles | |
 | Missing required fields (warning), unknown commit SHAs (warning) | |
@@ -98,6 +99,14 @@ Example, status `bogus` written by hand:
 ```text
 ✗ item <id> carries unknown status 'bogus'
 1 issue found
+```
+
+Example, a file renamed by hand from `ex-zyo0--write-docs.md` to `ex-new1--write-docs.md`, with the item `ex-3ip9` blocked by `ex-zyo0`:
+
+```text
+✗ item ex-new1: file name ex-new1--write-docs.md gives ID ex-new1 but the file records ID ex-zyo0 (renamed by hand? rename it back; lif rename changes an ID together with its links); links to ex-zyo0 dangle: ex-3ip9 blocked_by
+✗ ex-3ip9: broken link blocked_by:ex-zyo0
+2 issues found
 ```
 
 :::caution

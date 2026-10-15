@@ -103,19 +103,18 @@ Run `lif check` after every automated change.
 
 - `lif graph` uses `--format json`. In JSON mode the human-readable lines are omitted.
 - With a server, `lif-serve` offers `/api/graphql` and a playground at `/playground`.
-- `lif promote` takes a review artifact that follows the findings schema. It validates every selected record first and creates one item per record. See [`lif promote`](../../reference/commands/lif-promote/).
+- `lif promote` takes a review artifact that follows the findings schema. It validates every selected record and the `--parent` item first, writes nothing if one fails, and then creates one item per record with the configured default status. The command page describes the artifact format. See [`lif promote`](../../reference/commands/lif-promote/).
 - GraphQL `createItem` without `status` sets the configured default status (0.14).
 - `lif check` returns 1 on at least one problem. Normal errors do not use exit code 2.
 - On a GraphQL error the CLI prints `Error:` and a message. It returns no partial data.
 
 ## Limits
 
-- Read the artifact schema in the source before you write a `lif promote` artifact. The format is not documented on the command page [nhcz]. A run can also stop part-way [z69m]: check the result with `lif list`.
 - Run the command against your own version before you parse `--json`. There are no JSON schema files, and the shapes can change with any release [z9e6].
 - Use the Web server for subscriptions and for the agent, terminal and worktree parts of the schema. They fail in the CLI with messages such as "agent manager not available", and subscriptions run only over the WebSocket of `lif-serve`.
 - Run `lif check` after files you write directly. They bypass the write rules.
 
-See [Known limitations](../../known-limitations/) for [nhcz], [z69m] and [z9e6].
+See [Known limitations](../../known-limitations/) for [z9e6].
 
 ## Reference
 

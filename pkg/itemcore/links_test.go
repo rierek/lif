@@ -2,6 +2,7 @@ package itemcore
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -469,6 +470,184 @@ func TestCheckAllLinksReportsBlockersAboveOrBelowTheBlockedItem(t *testing.T) {
 			t.Errorf("Cycles = %+v, want none", got)
 		}
 	})
+}
+
+// beans-o8bs: the rule reaches up the whole parent chain, so lif check
+// reports a task that waits for its grandparent, and names the item between.
+func TestCheckAllLinksReportsABlockerSeveralLevelsAbove(t *testing.T) {
+	core, _ := setupTestCore(t)
+	createAll(t, core,
+		&item.Item{ID: "m-1", Title: "M", Status: "todo", Type: "milestone"},
+		&item.Item{ID: "e-1", Title: "E", Status: "todo", Type: "epic", Parent: "m-1"},
+		&item.Item{ID: "t-1", Title: "T", Status: "todo", Type: "task", Parent: "e-1", BlockedBy: []string{"m-1"}},
+	)
+	want := []Cycle{{LinkType: "blocking+parent", Path: []string{"e-1", "m-1", "t-1", "e-1"}}}
+	if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+		t.Errorf("Cycles = %+v, want %+v", got, want)
+	}
+}
+
+// beans-et2a: two epics that block each other are one ring, with or without
+// children. The children of a blocked epic join the ring through the epic (a
+// child is blocked while its parent is, and the parent counts as done once its
+// children have had their chance). A walk that entered the ring through a
+// child whose ID sorts first used to report one ring per child, each one
+// running through the same epic twice and labeled a hierarchy cycle.
+func TestCheckAllLinksReportsOneCleanRingWhenAContainerInItHasChildren(t *testing.T) {
+	epics := func() []*item.Item {
+		return []*item.Item{
+			{ID: "x-1", Title: "X", Status: "todo", Type: "epic", Blocking: []string{"w-1"}},
+			{ID: "w-1", Title: "W", Status: "todo", Type: "epic", Blocking: []string{"x-1"}},
+		}
+	}
+	task := func(id, parent string) *item.Item {
+		return &item.Item{ID: id, Title: id, Status: "todo", Type: "task", Parent: parent}
+	}
+	many := epics()
+	for i := 1; i <= 6; i++ {
+		many = append(many, task(fmt.Sprintf("c-%d", i), "x-1"), task(fmt.Sprintf("d-%d", i), "w-1"))
+	}
+
+	cases := map[string][]*item.Item{
+		"no children":                        epics(),
+		"a child that sorts before its epic": append(epics(), task("c-1", "x-1")),
+		"a child that sorts after its epic":  append(epics(), task("y-1", "x-1")),
+		"one child under each epic":          append(epics(), task("c-1", "x-1"), task("c-2", "w-1")),
+		"six children under each epic":       many,
+		"a grandchild": append(epics(),
+			&item.Item{ID: "c-1", Title: "C", Status: "todo", Type: "feature", Parent: "x-1"},
+			task("a-1", "c-1")),
+	}
+	want := []Cycle{{LinkType: "blocking", Path: []string{"w-1", "x-1", "w-1"}}}
+
+	for name, items := range cases {
+		t.Run(name, func(t *testing.T) {
+			core, _ := setupTestCore(t)
+			createAll(t, core, items...)
+			if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+				t.Errorf("Cycles = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+// beans-0ish: a loop of parent links is one cycle however long it is. The
+// graph closes it twice, over the ready events from parent to child and over
+// the sealed events from child to parent, and both rings have to give the same
+// path, read from child to parent like the parent links themselves.
+func TestCheckAllLinksReportsAParentLoopOnce(t *testing.T) {
+	for n := 2; n <= 5; n++ {
+		t.Run(fmt.Sprintf("%d items", n), func(t *testing.T) {
+			core, _ := setupTestCore(t)
+			var path []string
+			for i := 1; i <= n; i++ {
+				id, parent := fmt.Sprintf("p-%d", i), fmt.Sprintf("p-%d", i%n+1)
+				createAll(t, core, &item.Item{ID: id, Title: id, Status: "todo", Parent: parent})
+				path = append(path, id)
+			}
+			want := []Cycle{{LinkType: "parent", Path: append(path, "p-1")}}
+
+			for i := range 20 {
+				if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+					t.Fatalf("run %d: Cycles = %+v, want %+v", i, got, want)
+				}
+			}
+		})
+	}
+
+	t.Run("a loop whose members have children", func(t *testing.T) {
+		core, _ := setupTestCore(t)
+		createAll(t, core,
+			&item.Item{ID: "p-1", Title: "P1", Status: "todo", Parent: "p-2"},
+			&item.Item{ID: "p-2", Title: "P2", Status: "todo", Parent: "p-3"},
+			&item.Item{ID: "p-3", Title: "P3", Status: "todo", Parent: "p-1"},
+			&item.Item{ID: "c-1", Title: "C1", Status: "todo", Parent: "p-2"},
+		)
+		want := []Cycle{{LinkType: "parent", Path: []string{"p-1", "p-2", "p-3", "p-1"}}}
+		if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+			t.Errorf("Cycles = %+v, want %+v", got, want)
+		}
+	})
+}
+
+// beans-0ish: a ring starts at its smallest ID whatever way the walk enters
+// it. Here the walk starts at an item outside the ring that sorts first and
+// reaches the ring at its largest ID.
+func TestCheckAllLinksStartsARingAtItsSmallestIDWhereverTheWalkEntersIt(t *testing.T) {
+	core, _ := setupTestCore(t)
+	createAll(t, core,
+		&item.Item{ID: "a-0", Title: "Outside", Status: "todo", Blocking: []string{"b-3"}},
+		&item.Item{ID: "b-1", Title: "B1", Status: "todo", Blocking: []string{"b-2"}},
+		&item.Item{ID: "b-2", Title: "B2", Status: "todo", Blocking: []string{"b-3"}},
+		&item.Item{ID: "b-3", Title: "B3", Status: "todo", Blocking: []string{"b-1"}},
+	)
+	want := []Cycle{{LinkType: "blocking", Path: []string{"b-1", "b-2", "b-3", "b-1"}}}
+	for i := range 20 {
+		if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+			t.Fatalf("run %d: Cycles = %+v, want %+v", i, got, want)
+		}
+	}
+}
+
+// beans-0ish: two rings that share links are reported the same way on every
+// run. The walk takes its roots and its links in order, so it always starts at
+// the smallest ID and always finds the same ring: a map walk would start
+// elsewhere on some runs and report the other one as well.
+func TestCheckAllLinksReportsOverlappingRingsTheSameWayOnEveryRun(t *testing.T) {
+	core, _ := setupTestCore(t)
+	// r-a -> r-b -> r-c -> r-d -> r-a, and the shortcut r-a -> r-c.
+	createAll(t, core,
+		&item.Item{ID: "r-a", Title: "A", Status: "todo", Blocking: []string{"r-b", "r-c"}},
+		&item.Item{ID: "r-b", Title: "B", Status: "todo", Blocking: []string{"r-c"}},
+		&item.Item{ID: "r-c", Title: "C", Status: "todo", Blocking: []string{"r-d"}},
+		&item.Item{ID: "r-d", Title: "D", Status: "todo", Blocking: []string{"r-a"}},
+	)
+	want := []Cycle{{LinkType: "blocking", Path: []string{"r-a", "r-c", "r-d", "r-a"}}}
+	for i := range 50 {
+		if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+			t.Fatalf("run %d: Cycles = %+v, want %+v", i, got, want)
+		}
+	}
+}
+
+// beans-0ish: when two rings of the same length go through one link, the
+// report always names the same one: the walk takes the links of an item in
+// order, so the way back goes by the smaller ID.
+func TestCheckAllLinksNamesTheSameOneOfTwoEquallyShortRingsOnEveryRun(t *testing.T) {
+	core, _ := setupTestCore(t)
+	// r-1 blocks r-2 and r-3, both block r-4, and r-4 blocks r-1.
+	createAll(t, core,
+		&item.Item{ID: "r-1", Title: "One", Status: "todo", Blocking: []string{"r-2", "r-3"}},
+		&item.Item{ID: "r-2", Title: "Two", Status: "todo", Blocking: []string{"r-4"}},
+		&item.Item{ID: "r-3", Title: "Three", Status: "todo", Blocking: []string{"r-4"}},
+		&item.Item{ID: "r-4", Title: "Four", Status: "todo", Blocking: []string{"r-1"}},
+	)
+	want := []Cycle{{LinkType: "blocking", Path: []string{"r-1", "r-2", "r-4", "r-1"}}}
+	for i := range 50 {
+		if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+			t.Fatalf("run %d: Cycles = %+v, want %+v", i, got, want)
+		}
+	}
+}
+
+// The cycle rules look at the links, never at the status: a ring of finished
+// items is still reported, because reopening one of them would bring the
+// deadlock back.
+func TestCheckAllLinksReportsACycleOfFinishedItems(t *testing.T) {
+	core, _ := setupTestCore(t)
+	createAll(t, core,
+		&item.Item{ID: "f-1", Title: "One", Status: "completed", Blocking: []string{"f-2"}},
+		&item.Item{ID: "f-2", Title: "Two", Status: "scrapped", Blocking: []string{"f-1"}},
+		&item.Item{ID: "f-3", Title: "Three", Status: "completed", Type: "epic", BlockedBy: []string{"f-4"}},
+		&item.Item{ID: "f-4", Title: "Four", Status: "completed", Type: "task", Parent: "f-3"},
+	)
+	want := []Cycle{
+		{LinkType: "blocking", Path: []string{"f-1", "f-2", "f-1"}},
+		{LinkType: "blocking+parent", Path: []string{"f-3", "f-4", "f-3"}},
+	}
+	if got := core.CheckAllLinks().Cycles; !reflect.DeepEqual(got, want) {
+		t.Errorf("Cycles = %+v, want %+v", got, want)
+	}
 }
 
 func TestRemoveLinksTo(t *testing.T) {

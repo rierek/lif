@@ -302,21 +302,52 @@ func (g depGraph) path(from, to depNode) []depNode {
 	return nil
 }
 
-// cycle turns a ring of nodes, whose last node has an edge back to the first,
-// into a Cycle: the items in order, rotated to begin at start (the smallest ID
-// when start is empty) and closed by repeating it. The events of one item that
-// follow each other show as a single step.
-func (g depGraph) cycle(ring []depNode, start string) Cycle {
-	var kinds edgeKind
+// ringItems lists the items of a ring in order. The events of one item that
+// follow each other show as a single step, and a ring that closes on the item
+// it began with does not repeat it.
+func ringItems(ring []depNode) []string {
 	var ids []string
-	for i, n := range ring {
-		kinds |= g[n][ring[(i+1)%len(ring)]]
+	for _, n := range ring {
 		if len(ids) == 0 || ids[len(ids)-1] != n.id {
 			ids = append(ids, n.id)
 		}
 	}
 	if len(ids) > 1 && ids[0] == ids[len(ids)-1] {
 		ids = ids[:len(ids)-1]
+	}
+	return ids
+}
+
+// repeatsAnItem reports whether a ring passes through an item more than once.
+func repeatsAnItem(ring []depNode) bool {
+	ids := ringItems(ring)
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			return true
+		}
+		seen[id] = true
+	}
+	return false
+}
+
+// cycle turns a ring of nodes, whose last node has an edge back to the first,
+// into a Cycle: the items in order, rotated to begin at start (the smallest ID
+// when start is empty) and closed by repeating it.
+func (g depGraph) cycle(ring []depNode, start string) Cycle {
+	var kinds edgeKind
+	for i, n := range ring {
+		kinds |= g[n][ring[(i+1)%len(ring)]]
+	}
+	ids := ringItems(ring)
+
+	if kinds == viaParent && ring[0].ev == evReady {
+		// A loop of parent links closes twice in the graph: over the ready
+		// events, which run from the parent to the child, and over the sealed
+		// events, which run from the child to the parent. It reads like the
+		// parent links do, from the child to the parent, whichever ring found
+		// it, so that both rings give one and the same path.
+		slices.Reverse(ids)
 	}
 
 	first := slices.Index(ids, start)
@@ -336,28 +367,38 @@ func (g depGraph) cycle(ring []depNode, start string) Cycle {
 	return Cycle{LinkType: linkType, Path: path}
 }
 
-// cycles returns one cycle for every back edge of a depth-first walk. The walk
-// takes the nodes and the edges in order, and the result is sorted again by
-// link type and path, so the same graph always gives the same cycles in the
-// same order with the same first item.
+// cycles returns the cycles of the graph. A depth-first walk finds the back
+// edges, and each one stands for the shortest ring through it. The walk takes
+// the nodes and the edges in order, and the result is sorted again by link type
+// and path, so the same graph always gives the same cycles in the same order,
+// each starting at its smallest ID.
+//
+// The ring is the shortest way back and not the walk's own stack, because the
+// stack can wind through one item twice. The children of a blocked container
+// take part in its ring (ready(P) -> ready(C) -> sealed(P) -> done(P)), so a
+// walk that entered the ring through a child would report that detour: a ring
+// that names the container twice. A ring that still repeats an item is left
+// out. The shortest ring of a deadlock never repeats one: two events of the
+// same item that are not next to each other have an edge or a shorter way
+// between them (ready -> done, sealed -> done, ready(C) -> sealed(P)). So every
+// deadlock keeps a report, and it is one that names each item once.
 func (g depGraph) cycles() []Cycle {
 	cycles := []Cycle{}
 	const onStack, finished = 1, 2
 	state := map[depNode]int{}
-	var stack []depNode
 	var visit func(n depNode)
 	visit = func(n depNode) {
 		state[n] = onStack
-		stack = append(stack, n)
 		for _, m := range g.next(n) {
 			switch state[m] {
 			case 0:
 				visit(m)
 			case onStack:
-				cycles = append(cycles, g.cycle(stack[slices.Index(stack, m):], ""))
+				if ring := g.path(m, n); !repeatsAnItem(ring) {
+					cycles = append(cycles, g.cycle(ring, ""))
+				}
 			}
 		}
-		stack = stack[:len(stack)-1]
 		state[n] = finished
 	}
 	for _, n := range slices.SortedFunc(maps.Keys(g), depNode.compare) {
@@ -366,8 +407,8 @@ func (g depGraph) cycles() []Cycle {
 		}
 	}
 
-	// A parent loop closes once over the ready events and once over the sealed
-	// events of the same items: two rings, one report.
+	// A loop of parent links is found twice, over its ready and over its sealed
+	// events. cycle gives both the same path, and the second one is dropped here.
 	slices.SortFunc(cycles, func(a, b Cycle) int {
 		return cmp.Or(strings.Compare(a.LinkType, b.LinkType), slices.Compare(a.Path, b.Path))
 	})

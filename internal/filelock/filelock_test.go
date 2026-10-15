@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -141,4 +142,73 @@ func TestLockEndsWithItsHolderProcess(t *testing.T) {
 		t.Fatalf("Acquire() after the holder died error = %v", err)
 	}
 	l.Release()
+}
+
+// skipWhereOpenFilesCannotMove skips a test that renames or replaces a file
+// while a lock handle is open on it. Unix allows that; Windows refuses it for
+// a handle opened without FILE_SHARE_DELETE, which Go never sets.
+func skipWhereOpenFilesCannotMove(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows cannot rename or replace a file that is open")
+	}
+}
+
+func TestReadFileReturnsTheContentOfTheLockedFile(t *testing.T) {
+	path := lockedFile(t)
+	l, err := Acquire(path, time.Second)
+	if err != nil {
+		t.Fatalf("Acquire() error = %v", err)
+	}
+	defer l.Release()
+
+	for i := range 2 { // a second read starts at the beginning again
+		got, err := l.ReadFile(path)
+		if err != nil || string(got) != "content\n" {
+			t.Fatalf("read %d: ReadFile() = %q, %v; want %q", i, got, err, "content\n")
+		}
+	}
+}
+
+// A writer that waited for the lock may find the file renamed (a title change
+// renames it once it is written), deleted or replaced. The lock then holds a
+// file that has lost its name, and the caller must hear that, not read a
+// stale copy and write the old name again.
+func TestReadFileReportsAFileRenamedAfterTheLock(t *testing.T) {
+	skipWhereOpenFilesCannotMove(t)
+	path := lockedFile(t)
+	l, err := Acquire(path, time.Second)
+	if err != nil {
+		t.Fatalf("Acquire() error = %v", err)
+	}
+	defer l.Release()
+	if err := os.Rename(path, path+".renamed"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := l.ReadFile(path); !os.IsNotExist(err) {
+		t.Errorf("ReadFile() of a renamed file error = %v, want a not-exist error", err)
+	}
+}
+
+func TestReadFileReportsAFileReplacedAfterTheLock(t *testing.T) {
+	skipWhereOpenFilesCannotMove(t)
+	path := lockedFile(t)
+	l, err := Acquire(path, time.Second)
+	if err != nil {
+		t.Fatalf("Acquire() error = %v", err)
+	}
+	defer l.Release()
+	// What an editor's atomic save or a git checkout does: a new file, put in
+	// place of the old one by a rename.
+	if err := os.WriteFile(path+".new", []byte("replacement\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(path+".new", path); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := l.ReadFile(path); !errors.Is(err, ErrReplaced) {
+		t.Errorf("ReadFile() of a replaced file error = %v, want ErrReplaced", err)
+	}
 }

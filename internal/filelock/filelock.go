@@ -7,6 +7,7 @@ package filelock
 
 import (
 	"errors"
+	"io"
 	"os"
 	"time"
 )
@@ -14,6 +15,10 @@ import (
 // ErrTimeout is returned by Acquire when another process holds the lock for
 // the whole wait.
 var ErrTimeout = errors.New("timed out waiting for the file lock")
+
+// ErrReplaced is returned by ReadFile when path no longer names the locked
+// file: another process put a different file under that name.
+var ErrReplaced = errors.New("the locked file was replaced")
 
 // pollInterval is the pause between two attempts on a held lock.
 const pollInterval = 10 * time.Millisecond
@@ -59,4 +64,33 @@ func (l *Lock) Release() error {
 		err = cerr
 	}
 	return err
+}
+
+// ReadFile returns the content of the locked file, provided path still names
+// it. It reads through the locked handle, so the bytes are those of the file
+// the lock protects, and it checks the name afterwards, as close to the
+// caller's next step as it can. A file that was renamed away or deleted since
+// Acquire gives the error of os.Stat (os.IsNotExist), a different file under
+// the name ErrReplaced: either way the lock no longer guards what the name
+// leads to, and a write to path would not be protected by it.
+func (l *Lock) ReadFile(path string) ([]byte, error) {
+	if _, err := l.f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	data, err := io.ReadAll(l.f)
+	if err != nil {
+		return nil, err
+	}
+	named, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	locked, err := l.f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !os.SameFile(locked, named) {
+		return nil, ErrReplaced
+	}
+	return data, nil
 }

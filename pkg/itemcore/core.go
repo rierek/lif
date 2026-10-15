@@ -42,12 +42,17 @@ var ErrNotFound = errors.New("item not found")
 
 // ETagMismatchError is returned when an ETag validation fails.
 // This allows callers to distinguish concurrency conflicts from other errors.
+// Current is empty when there is no file to take an etag from: another process
+// renamed, replaced or deleted the item file after the caller read it.
 type ETagMismatchError struct {
 	Provided string
 	Current  string
 }
 
 func (e *ETagMismatchError) Error() string {
+	if e.Current == "" {
+		return fmt.Sprintf("etag mismatch: provided %s, but the item file was renamed, replaced or deleted by another process", e.Provided)
+	}
 	return fmt.Sprintf("etag mismatch: provided %s, current is %s", e.Provided, e.Current)
 }
 
@@ -995,16 +1000,22 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 
 	// The in-process lock does not stop another lif process from writing
 	// between the etag check and the write below, so an --if-match write to the
-	// main store also holds an exclusive lock on the item file from before
-	// the etag is read until Update returns.
-	if ifMatch != nil && *ifMatch != "" && o.persist && wtPath == "" && storedItem.Path != "" {
-		lock, err := filelock.Acquire(filepath.Join(c.root, storedItem.Path), itemLockTimeout)
+	// main store also holds an exclusive lock on the item file from before the
+	// etag is read until Update returns.
+	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
+	var lock *filelock.Lock
+	if wantsETagFromDisk && o.persist && wtPath == "" && storedItem.Path != "" {
+		var err error
+		lock, err = filelock.Acquire(filepath.Join(c.root, storedItem.Path), itemLockTimeout)
 		switch {
 		case err == nil:
 			defer lock.Release()
 		case os.IsNotExist(err):
-			// The file is gone: nothing to lock and nothing to read, so the
-			// stored etag decides, as it did before the lock existed.
+			// The file the etag names is gone: another process renamed it (a
+			// title change does, once the file is written), moved or deleted it
+			// since this one read the store. The etag cannot match, and a write
+			// would put the old file name back next to the new one.
+			return &ETagMismatchError{Provided: *ifMatch}
 		case errors.Is(err, filelock.ErrTimeout):
 			return fmt.Errorf("item %s is locked by another process (waited %s): %w", b.ID, itemLockTimeout, err)
 		default:
@@ -1026,10 +1037,22 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	var mainContent []byte
 	var haveMainContent bool
 	readsMainFile := storedItem.Path != "" && !c.dirty[b.ID]
-	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
 	wantsStatusFromDisk := wtPath == "" && len(c.requiredFieldsFor(b.Status)) > 0
 	if readsMainFile && (wantsETagFromDisk || wantsStatusFromDisk) {
-		if content, err := os.ReadFile(filepath.Join(c.root, storedItem.Path)); err == nil {
+		mainPath := filepath.Join(c.root, storedItem.Path)
+		if lock != nil {
+			// Read through the lock: it also says whether the name still
+			// leads to the file it guards. A writer that waited may find that
+			// the one that went first renamed or replaced the file.
+			content, err := lock.ReadFile(mainPath)
+			if os.IsNotExist(err) || errors.Is(err, filelock.ErrReplaced) {
+				return &ETagMismatchError{Provided: *ifMatch}
+			}
+			if err != nil {
+				return fmt.Errorf("reading item %s: %w", b.ID, err)
+			}
+			mainContent, haveMainContent = content, true
+		} else if content, err := os.ReadFile(mainPath); err == nil {
 			mainContent, haveMainContent = content, true
 		}
 	}

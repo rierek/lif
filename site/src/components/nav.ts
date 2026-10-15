@@ -1,5 +1,5 @@
 // Header navigation (usememos.com style). Groups with `items` become drop-downs with a one-line description per
-// entry. Hrefs are site-relative and must match page slugs in wiki/pages (chapters: see sidebar in astro.config.mjs).
+// entry. Hrefs are site-relative and must match page slugs in wiki (chapters: see sidebar in astro.config.mjs).
 // "Resources" lists Blog, Releases, Contribute and About. In the sidebar (D57) Blog is its own chapter, while
 // Releases, Known limitations, Contribute and About form the chapter "Resources".
 export interface NavItem {

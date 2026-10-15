@@ -157,7 +157,7 @@ release-clean:
 
 # Generate command reference pages from the Cobra tree
 docs-gen:
-    go run ./cmd/lif-docgen wiki/pages/reference/commands
+    go run ./cmd/lif-docgen wiki/reference/commands
 
 # Build the public docs site into site/dist
 docs-build: docs-gen

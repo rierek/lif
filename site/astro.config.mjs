@@ -9,11 +9,11 @@ export default defineConfig({
 	vite: {
 		preview: { allowedHosts: ['macm.banteng-cardassian.ts.net'] },
 		plugins: [{
-			// Content lives in ../wiki/pages: resolve its bare imports from site/node_modules.
-			name: 'wiki-pages-resolve',
+			// Content lives in ../wiki: resolve its bare imports from site/node_modules.
+			name: 'wiki-resolve',
 			enforce: 'pre',
 			async resolveId(id, importer, opts) {
-				if (!importer || !/[\\/]wiki[\\/]pages[\\/]/.test(importer) || !/^(@astrojs|@lucide)\//.test(id)) return null;
+				if (!importer || !/[\\/]wiki[\\/]/.test(importer) || !/^(@astrojs|@lucide)\//.test(id)) return null;
 				return this.resolve(id, fileURLToPath(new URL('./package.json', import.meta.url)), { ...opts, skipSelf: true });
 			},
 		}],

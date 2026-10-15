@@ -7,15 +7,15 @@ hero: {}
 ---
 
 import { FileText, Globe, LayoutPanelLeft, Terminal } from '@lucide/astro';
-import demo from '../../site/src/data/demo.json';
-import AnnotatedTerminal from '../../site/src/components/AnnotatedTerminal.astro';
-import FeatureTabs from '../../site/src/components/FeatureTabs.astro';
-import HeroSplit from '../../site/src/components/HeroSplit.astro';
-import KeyValueItem from '../../site/src/components/KeyValueItem.astro';
-import KeyValueList from '../../site/src/components/KeyValueList.astro';
-import Section from '../../site/src/components/Section.astro';
-import TerminalWindow from '../../site/src/components/TerminalWindow.astro';
-import WebBoard from '../../site/src/components/WebBoard.astro';
+import demo from '../site/src/data/demo.json';
+import AnnotatedTerminal from '../site/src/components/AnnotatedTerminal.astro';
+import FeatureTabs from '../site/src/components/FeatureTabs.astro';
+import HeroSplit from '../site/src/components/HeroSplit.astro';
+import KeyValueItem from '../site/src/components/KeyValueItem.astro';
+import KeyValueList from '../site/src/components/KeyValueList.astro';
+import Section from '../site/src/components/Section.astro';
+import TerminalWindow from '../site/src/components/TerminalWindow.astro';
+import WebBoard from '../site/src/components/WebBoard.astro';
 
 export const epic = demo.board.find((i) => i.title === 'Accounts and sign-in').id;
 

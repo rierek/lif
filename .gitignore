@@ -14,5 +14,5 @@
 /site/node_modules/
 /site/dist/
 /site/.astro/
-/wiki/pages/reference/commands/lif*.md
-/wiki/pages/reference/commands/_command-tree.md
+/wiki/reference/commands/lif*.md
+/wiki/reference/commands/_command-tree.md

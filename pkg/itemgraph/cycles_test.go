@@ -167,3 +167,149 @@ func TestBlockersAboveOrBelowTheBlockedItemAreRefused(t *testing.T) {
 		}
 	})
 }
+
+// beans-o8bs: the rule reaches up the whole parent chain. A task under a
+// feature under an epic cannot wait for the epic any more than for the feature.
+func TestABlockerSeveralLevelsAboveIsRefused(t *testing.T) {
+	ctx := context.Background()
+	r := newTestResolver(t)
+	createItems(t, r,
+		&item.Item{ID: "m-g", Title: "G", Type: "milestone"},
+		&item.Item{ID: "e-g", Title: "E", Type: "epic", Parent: "m-g"},
+		&item.Item{ID: "t-g", Title: "T", Type: "task", Parent: "e-g"},
+	)
+
+	t.Run("blocked by the grandparent", func(t *testing.T) {
+		_, err := r.UpdateItem(ctx, "t-g", model.UpdateItemInput{AddBlockedBy: []string{"m-g"}})
+		wantRefusal(t, err, "[t-g e-g m-g t-g]", true)
+	})
+	t.Run("blocking the grandparent", func(t *testing.T) {
+		_, err := r.AddBlocking(ctx, "t-g", "m-g", nil)
+		wantRefusal(t, err, "[t-g m-g e-g t-g]", true)
+	})
+	t.Run("the grandparent blocks the grandchild", func(t *testing.T) {
+		_, err := r.AddBlocking(ctx, "m-g", "t-g", nil)
+		wantRefusal(t, err, "[m-g t-g e-g m-g]", true)
+	})
+}
+
+// beans-o8bs: a move takes the children of the moved item along, so it can put
+// a blocker above the item it blocks, or an item below the one it waits for.
+func TestMovingAnItemBringsItsChildrenUnderTheLink(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("under the blocker of one of its children", func(t *testing.T) {
+		r := newTestResolver(t)
+		createItems(t, r,
+			&item.Item{ID: "m-t", Title: "T", Type: "milestone"},
+			&item.Item{ID: "e-p", Title: "P", Type: "epic"},
+			&item.Item{ID: "t-x", Title: "X", Type: "task", Parent: "e-p", BlockedBy: []string{"m-t"}},
+		)
+		_, err := r.SetParent(ctx, "e-p", new("m-t"), nil)
+		wantRefusal(t, err, "[e-p m-t t-x e-p]", true)
+	})
+	t.Run("under an item that waits for one of its children", func(t *testing.T) {
+		r := newTestResolver(t)
+		createItems(t, r,
+			&item.Item{ID: "m-t", Title: "T", Type: "milestone", BlockedBy: []string{"t-x"}},
+			&item.Item{ID: "e-p", Title: "P", Type: "epic"},
+			&item.Item{ID: "t-x", Title: "X", Type: "task", Parent: "e-p"},
+		)
+		_, err := r.SetParent(ctx, "e-p", new("m-t"), nil)
+		wantRefusal(t, err, "[e-p t-x m-t e-p]", true)
+	})
+}
+
+// A move takes the item out of its old parent chain before it joins the new
+// one: the old chain does not count against the new parent.
+func TestAnItemMayMoveUnderTheItemItsOldParentBlocks(t *testing.T) {
+	ctx := context.Background()
+	r := newTestResolver(t)
+	createItems(t, r,
+		&item.Item{ID: "e-op", Title: "Old parent", Type: "epic", Blocking: []string{"e-np"}},
+		&item.Item{ID: "e-np", Title: "New parent", Type: "epic"},
+		&item.Item{ID: "t-x1", Title: "X1", Type: "task", Parent: "e-op"},
+		&item.Item{ID: "t-x2", Title: "X2", Type: "task", Parent: "e-op"},
+	)
+
+	if _, err := r.SetParent(ctx, "t-x1", new("e-np"), nil); err != nil {
+		t.Errorf("SetParent: the old parent blocks the new one, which is no deadlock once the item has left it: %v", err)
+	}
+	if _, err := r.UpdateItem(ctx, "t-x2", model.UpdateItemInput{Parent: new("e-np")}); err != nil {
+		t.Errorf("UpdateItem --parent: the old parent blocks the new one, which is no deadlock once the item has left it: %v", err)
+	}
+	for _, id := range []string{"t-x1", "t-x2"} {
+		got, err := r.Core.Get(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Parent != "e-np" {
+			t.Errorf("%s has parent %q, want e-np", id, got.Parent)
+		}
+	}
+}
+
+// beans-o8bs: update --parent runs the same check as the other write paths.
+func TestUpdateParentIsRefusedWhenItClosesACycle(t *testing.T) {
+	ctx := context.Background()
+	r := newTestResolver(t)
+	createItems(t, r,
+		&item.Item{ID: "e-p", Title: "P", Type: "epic"},
+		&item.Item{ID: "t-a", Title: "A", Type: "task", Blocking: []string{"e-p"}},
+		&item.Item{ID: "t-b", Title: "B", Type: "task", BlockedBy: []string{"e-p"}},
+	)
+
+	t.Run("under the item it blocks", func(t *testing.T) {
+		_, err := r.UpdateItem(ctx, "t-a", model.UpdateItemInput{Parent: new("e-p")})
+		if err == nil || !strings.Contains(err.Error(), "setting parent would create cycle: [t-a e-p t-a]") {
+			t.Fatalf("error = %v, want the refusal to name [t-a e-p t-a]", err)
+		}
+		if !strings.Contains(err.Error(), hierarchyNote) {
+			t.Errorf("error = %q, want the hierarchy note", err)
+		}
+	})
+	t.Run("under the item it waits for", func(t *testing.T) {
+		_, err := r.UpdateItem(ctx, "t-b", model.UpdateItemInput{Parent: new("e-p")})
+		if err == nil || !strings.Contains(err.Error(), "setting parent would create cycle: [t-b e-p t-b]") {
+			t.Fatalf("error = %v, want the refusal to name [t-b e-p t-b]", err)
+		}
+	})
+	t.Run("nothing was written", func(t *testing.T) {
+		for _, id := range []string{"t-a", "t-b"} {
+			got, err := r.Core.Get(id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Parent != "" {
+				t.Errorf("%s has parent %q, want none", id, got.Parent)
+			}
+		}
+	})
+}
+
+// The cycle rules look at the links, never at the status: reopening a finished
+// item would bring the deadlock back, so a link that would close a cycle is
+// refused whatever state the items are in.
+func TestCycleRulesIgnoreStatus(t *testing.T) {
+	ctx := context.Background()
+	for _, status := range []string{"completed", "scrapped"} {
+		t.Run("a "+status+" blocker below the blocked item", func(t *testing.T) {
+			r := newTestResolver(t)
+			createItems(t, r,
+				&item.Item{ID: "e-p", Title: "P", Type: "epic"},
+				&item.Item{ID: "t-d", Title: "D", Type: "task", Parent: "e-p", Status: status},
+			)
+			_, err := r.UpdateItem(ctx, "e-p", model.UpdateItemInput{AddBlockedBy: []string{"t-d"}})
+			wantRefusal(t, err, "[e-p t-d e-p]", true)
+		})
+		t.Run("a "+status+" item in a ring of blocking links", func(t *testing.T) {
+			r := newTestResolver(t)
+			createItems(t, r,
+				&item.Item{ID: "t-a", Title: "A", Type: "task", Status: status, Blocking: []string{"t-b"}},
+				&item.Item{ID: "t-b", Title: "B", Type: "task"},
+			)
+			_, err := r.AddBlocking(ctx, "t-b", "t-a", nil)
+			wantRefusal(t, err, "[t-b t-a t-b]", false)
+		})
+	}
+}

@@ -68,6 +68,14 @@ func TestCheckHelperProcess(t *testing.T) {
 			os.Exit(2)
 		}
 	}
+	if scenario := os.Getenv("BEANS_CHECK_CYCLES"); scenario != "" {
+		for _, b := range checkCycleItems(scenario) {
+			if err := testCore.Create(b); err != nil {
+				os.Stderr.WriteString("creating item: " + err.Error() + "\n")
+				os.Exit(2)
+			}
+		}
+	}
 	core, cfg = testCore, testCfg
 
 	_ = checkCmd.RunE(checkCmd, nil) // may os.Exit(1); that's fine, we're a subprocess
@@ -343,5 +351,83 @@ func TestCheckJSONNamesLinkIssuesWithItemKeys(t *testing.T) {
 	}
 	if _, ok := entry["bean_id"]; ok {
 		t.Errorf("broken-link entry still carries legacy key bean_id: %v", entry)
+	}
+}
+
+// checkCycleItems are the hand-edited stores of the cycle report tests.
+// Core.Create stores the links as given, which is how a manual edit leaves
+// them: only the write paths of the resolver refuse a cycle.
+func checkCycleItems(scenario string) []*item.Item {
+	switch scenario {
+	case "ring":
+		// A blocks B (stored on A), B blocks C and C blocks A (both stored on C).
+		return []*item.Item{
+			{ID: "aaa1", Title: "A", Status: "todo", Blocking: []string{"bbb2"}},
+			{ID: "bbb2", Title: "B", Status: "todo"},
+			{ID: "ccc3", Title: "C", Status: "todo", BlockedBy: []string{"bbb2"}, Blocking: []string{"aaa1"}},
+		}
+	case "subtree":
+		// An epic that waits for its own child.
+		return []*item.Item{
+			{ID: "eee1", Title: "E", Status: "todo", Type: "epic", BlockedBy: []string{"ttt1"}},
+			{ID: "ttt1", Title: "T", Status: "todo", Type: "task", Parent: "eee1"},
+		}
+	}
+	return nil
+}
+
+// runCheckWithCycles runs `lif check` in a subprocess against the named
+// hand-edited store (see TestCheckHelperProcess for why a subprocess) and
+// returns what it printed, without colour, and its exit code.
+func runCheckWithCycles(t *testing.T, scenario string) (string, int) {
+	t.Helper()
+	itemsDir := filepath.Join(t.TempDir(), ".beans")
+	if err := os.MkdirAll(itemsDir, 0755); err != nil {
+		t.Fatalf("creating test store dir: %v", err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCheckHelperProcess$")
+	cmd.Env = append(os.Environ(),
+		"BEANS_CHECK_HELPER=1",
+		"BEANS_CHECK_DIR="+itemsDir,
+		"BEANS_CHECK_THEME="+ui.ActiveTheme().Name,
+		"BEANS_CHECK_CYCLES="+scenario,
+	)
+	out, err := cmd.CombinedOutput()
+	code := 0
+	if err != nil {
+		exitErr, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatalf("running check subprocess: %v\noutput:\n%s", err, out)
+		}
+		code = exitErr.ExitCode()
+	}
+	return stripANSITest(string(out)), code
+}
+
+// beans-et2a: lif check prints a ring whose links sit in both blocking fields
+// as one path that starts at its smallest ID, names the links it runs over, and
+// fails the run.
+func TestCheckPrintsACycleWithItsLinkType(t *testing.T) {
+	out, code := runCheckWithCycles(t, "ring")
+	want := "Circular dependency: aaa1 → bbb2 → ccc3 → aaa1 (via blocking)"
+	if !strings.Contains(out, want) {
+		t.Errorf("check output lacks %q:\n%s", want, out)
+	}
+	if code != 1 {
+		t.Errorf("exit code = %d, want 1 for a store with a cycle", code)
+	}
+}
+
+// beans-o8bs: a blocker inside the subtree of the item it blocks shows as a
+// cycle through the hierarchy, with the sentence that says why it is one.
+func TestCheckExplainsACycleThroughTheHierarchy(t *testing.T) {
+	out, code := runCheckWithCycles(t, "subtree")
+	want := "Circular dependency: eee1 → ttt1 → eee1 (via blocking+parent: " +
+		"a child is blocked while its parent is blocked and counts as done once its parent is done)"
+	if !strings.Contains(out, want) {
+		t.Errorf("check output lacks %q:\n%s", want, out)
+	}
+	if code != 1 {
+		t.Errorf("exit code = %d, want 1 for a store with a cycle", code)
 	}
 }

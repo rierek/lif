@@ -213,3 +213,115 @@ func TestCheckReportsAFileRenamedByHand(t *testing.T) {
 		t.Errorf("lif check --json: exit code = %d, want 1 with the file in config_errors\n%s", exit, jsonOut)
 	}
 }
+
+// beans-1y6w: lif init never replaces a config file that is there. It stops
+// with an error that names the file and the flag that forces it, writes
+// nothing and exits 1, for every way of calling it and for both file names.
+func TestInitRefusesToReplaceAnExistingConfig(t *testing.T) {
+	configs := map[string]string{
+		config.ConfigFileName:       "lif:\n    prefix: keep-\n",
+		config.LegacyConfigFileName: "beans:\n    prefix: keep-\n",
+	}
+	calls := [][]string{{"init"}, {"init", "--profile", "simple"}, {"init", "--json"}}
+	for file, content := range configs {
+		for _, args := range calls {
+			t.Run(file+" "+strings.Join(args, " "), func(t *testing.T) {
+				dir := evalSymlinks(t, t.TempDir())
+				writeFixtureFile(t, filepath.Join(dir, file), content)
+				before := dirNames(t, dir)
+
+				stdout, stderr, exit := runLif(t, dir, args...)
+
+				if exit != 1 {
+					t.Errorf("exit code = %d, want 1\nstdout: %s\nstderr: %s", exit, stdout, stderr)
+				}
+				msg := stderr
+				if args[len(args)-1] == "--json" {
+					msg = stdout
+				}
+				for _, want := range []string{file, "already exists", "--force"} {
+					if !strings.Contains(msg, want) {
+						t.Errorf("error output lacks %q:\n%s", want, msg)
+					}
+				}
+				if got, _ := os.ReadFile(filepath.Join(dir, file)); string(got) != content {
+					t.Errorf("%s changed:\n%s", file, got)
+				}
+				if got := dirNames(t, dir); strings.Join(got, ",") != strings.Join(before, ",") {
+					t.Errorf("directory changed: %v -> %v", before, got)
+				}
+			})
+		}
+	}
+}
+
+// --force replaces the config with the default one, as init always did, and
+// leaves the items alone.
+func TestInitForceReplacesTheConfigAndKeepsTheItems(t *testing.T) {
+	kept := integrityItem("ex-keep", "Keep", "")
+	dir := integrityProject(t, map[string]string{"ex-keep--keep.md": kept})
+
+	if stdout, stderr, exit := runLif(t, dir, "init", "--force", "--profile", "simple"); exit != 0 {
+		t.Fatalf("lif init --force: exit code = %d\nstdout: %s\nstderr: %s", exit, stdout, stderr)
+	}
+
+	loaded, err := config.Load(filepath.Join(dir, config.ConfigFileName))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if want := filepath.Base(dir) + "-"; loaded.Items.Prefix != want {
+		t.Errorf("prefix = %q, want the default %q: the old config was not replaced", loaded.Items.Prefix, want)
+	}
+	if !loaded.TypesExclusive {
+		t.Error("the profile was not written: types_exclusive is off")
+	}
+	if got := readStoreFile(t, dir, "ex-keep--keep.md"); got != kept {
+		t.Errorf("--force touched an item:\n%s", got)
+	}
+}
+
+// A legacy project stays a legacy project under --force: same file, same key.
+func TestInitForceKeepsTheLegacyNames(t *testing.T) {
+	dir := evalSymlinks(t, t.TempDir())
+	writeFixtureFile(t, filepath.Join(dir, config.LegacyConfigFileName), "beans:\n    prefix: keep-\n")
+
+	if stdout, stderr, exit := runLif(t, dir, "init", "--force"); exit != 0 {
+		t.Fatalf("lif init --force: exit code = %d\nstdout: %s\nstderr: %s", exit, stdout, stderr)
+	}
+
+	if got := strings.Join(dirNames(t, dir), ","); got != config.LegacyDefaultStoreDir+","+config.LegacyConfigFileName {
+		t.Errorf("directory = %s, want only the legacy %s and %s", got, config.LegacyDefaultStoreDir, config.LegacyConfigFileName)
+	}
+	loaded, err := config.Load(filepath.Join(dir, config.LegacyConfigFileName))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if loaded.SectionKey() != config.LegacySectionKey || loaded.Items.Prefix == "keep-" {
+		t.Errorf("config: key %q, prefix %q; want the legacy key with the default prefix", loaded.SectionKey(), loaded.Items.Prefix)
+	}
+}
+
+// init writes a .gitignore into a new store directory and leaves one that is
+// there alone, with or without a config file: it may hold the user's rules.
+func TestInitKeepsAnExistingStoreGitignore(t *testing.T) {
+	const mine = "# my own rule\n*.tmp\n.conversations/\n"
+
+	dir := evalSymlinks(t, t.TempDir())
+	ignore := filepath.Join(dir, config.DefaultStoreDir, ".gitignore")
+	writeFixtureFile(t, ignore, mine)
+	if stdout, stderr, exit := runLif(t, dir, "init"); exit != 0 {
+		t.Fatalf("lif init: exit code = %d\nstdout: %s\nstderr: %s", exit, stdout, stderr)
+	}
+	if got, _ := os.ReadFile(ignore); string(got) != mine {
+		t.Errorf("init rewrote the store .gitignore:\n%s", got)
+	}
+
+	scratch := filepath.Join(dir, "scratch")
+	writeFixtureFile(t, filepath.Join(scratch, ".gitignore"), mine)
+	if stdout, stderr, exit := runLif(t, dir, "init", "--lif-path", scratch); exit != 0 {
+		t.Fatalf("lif init --lif-path: exit code = %d\nstdout: %s\nstderr: %s", exit, stdout, stderr)
+	}
+	if got, _ := os.ReadFile(filepath.Join(scratch, ".gitignore")); string(got) != mine {
+		t.Errorf("init --lif-path rewrote the .gitignore:\n%s", got)
+	}
+}

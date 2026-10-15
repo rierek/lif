@@ -142,7 +142,7 @@ func TestCheck_NewProject_ReportsNoLegacyName(t *testing.T) {
 func TestOtherCommands_PrintNoLegacyNotice(t *testing.T) {
 	isolateHome(t)
 	dir := legacyProject(t)
-	for _, args := range [][]string{{"list"}, {"path"}, {"show", "leg-aaa1"}, {"init"}} {
+	for _, args := range [][]string{{"list"}, {"path"}, {"show", "leg-aaa1"}, {"init", "--force"}} {
 		stdout, stderr, err := runInProject(t, dir, args...)
 		if err != nil {
 			t.Fatalf("lif %v error = %v", args, err)
@@ -324,7 +324,7 @@ func TestStoreNameMessages_FollowTheLayout(t *testing.T) {
 
 	t.Run("init --json", func(t *testing.T) {
 		legacy := legacyProject(t)
-		out, _, err := runInProject(t, legacy, "init", "--json")
+		out, _, err := runInProject(t, legacy, "init", "--force", "--json")
 		if err != nil {
 			t.Fatal(err)
 		}

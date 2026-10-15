@@ -16,13 +16,19 @@ import (
 
 var initJSON bool
 var initProfile string
+var initForce bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Args:  cobra.NoArgs,
 	Short: "Initialize a Lif project",
 	Long: `Creates a .lif directory and .lif.yml config file in the current directory.
-A project that already uses the legacy names .beans or .beans.yml keeps them.`,
+A project that already uses the legacy names .beans or .beans.yml keeps them.
+
+init never overwrites what is already there. It stops with an error when a
+config file exists in the current directory, and it keeps an existing
+.gitignore in the store directory. --force replaces the config file with the
+default config; the items are not touched.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var projectDir string
 		var itemsDir string
@@ -111,11 +117,24 @@ A project that already uses the legacy names .beans or .beans.yml keeps them.`,
 			if baseRef, ok := gitutil.DefaultRemoteBranch(projectDir, "origin"); ok {
 				defaultCfg.Worktree.BaseRef = baseRef
 			}
-			if _, _, err := defaultCfg.SaveTarget(projectDir); err != nil {
+			target, _, err := defaultCfg.SaveTarget(projectDir)
+			if err != nil {
 				if initJSON {
 					return output.Error(output.ErrValidation, err.Error())
 				}
 				return err
+			}
+
+			// The config file is the one thing init could destroy. Every check
+			// that needs no write is done by now, so a file that exists stops
+			// the run before the first write.
+			if _, err := os.Stat(target); err == nil && !initForce {
+				msg := fmt.Sprintf("%s already exists in %s; use --force to replace it with the default config",
+					filepath.Base(target), projectDir)
+				if initJSON {
+					return output.Error(output.ErrValidation, msg)
+				}
+				return errors.New(msg)
 			}
 
 			if err := itemcore.New(itemsDir, nil).Init(); err != nil {
@@ -145,5 +164,7 @@ func RegisterInitCmd(root *cobra.Command) {
 	initCmd.Flags().BoolVar(&initJSON, "json", false, "Output as JSON")
 	initCmd.Flags().StringVar(&initProfile, "profile", "",
 		fmt.Sprintf("Type profile to write out (%s)", strings.Join(config.ProfileNames(), ", ")))
+	initCmd.Flags().BoolVar(&initForce, "force", false,
+		"Replace an existing config file with the default config (no effect with --lif-path, which writes no config)")
 	root.AddCommand(initCmd)
 }

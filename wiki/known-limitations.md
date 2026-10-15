@@ -29,7 +29,6 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [3slb] | `lif --version` is rejected | `lif --version` prints `Error: unknown flag: --version`. | Run `lif version`. | Open |
 | [tgph] | `lif promote` creates the item without a parent | A promoted bug sits outside the release subtree and its progress number. | `lif update <id> --parent <feature-id>`. | Open |
 | [1wnd] | Unrecovered panic on a `.nan` front matter value | Lif exits with code 2 and a panic trace. | Remove or quote the value in the file. | Open |
-| [ih2r] | UTF-8 BOM before front matter makes `lif update` duplicate it | The front matter block appears twice after an update. | Save item files without a BOM. | Open |
 | [t5k2] | Persisted search index path is built but never filled | No effect for users: every call indexes in memory. | None needed. | Open |
 | [29wh] | Wiki and README statements disagree with the code | Some older statements (cycle entry fields, `display.theme`, `default_status` check, i386 platforms, `go install` binaries) are wrong. | Trust this site and a run of your binary. | Open |
 | [gbl5] | `lif rename --dry-run` hits the same refusals as a real rename | The dry run stops at the first refusal instead of listing the full plan. | Fix the refusal and run again. | Open |
@@ -45,3 +44,4 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [et2a] | Mixed-field dependency cycles were accepted and not reported | Fixed in 0.15: cycle detection treats `blocking` and `blocked_by` as one set of links, so `lif update`, `lif create`, GraphQL and `lif check` all refuse or report a cycle whichever field stores its links. | n/a | Fixed in 0.15 |
 | [o8bs] | A blocker inside the blocked item's own subtree deadlocked it | Fixed in 0.15: a blocker below the blocked item, or above it, is refused on write and reported by `lif check` as a cycle over `blocking` and `parent` links, with a note that says why; the rule looks at the links only, so a blocker that is already `completed` or `scrapped` is refused too. | n/a | Fixed in 0.15 |
 | [0ish] | Cycle path in `lif check` started at a different item each run | Fixed in 0.15: a cycle path starts at its smallest item ID, and cycles are listed in a fixed order. | n/a | Fixed in 0.15 |
+| [ih2r] | UTF-8 BOM before front matter made `lif update` duplicate it | Fixed in 0.15: a leading BOM is ignored on read, so the item loads normally, and a write produces one front matter block and no BOM. | n/a | Fixed in 0.15 |

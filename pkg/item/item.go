@@ -253,12 +253,20 @@ func normalizeYAMLValue(v any) any {
 	}
 }
 
-// Parse reads an item from a reader (markdown with YAML front matter).
+// utf8BOM is the byte order mark some editors put in front of the first line
+// of a file. The front matter reader does not know it and would treat the
+// whole file as body.
+var utf8BOM = []byte("\xEF\xBB\xBF")
+
+// Parse reads an item from a reader (markdown with YAML front matter). A
+// leading UTF-8 byte order mark is ignored; the etag still hashes the bytes
+// as they are on disk, because Core.Update hashes the file the same way.
 func Parse(r io.Reader) (*Item, error) {
-	data, err := io.ReadAll(r)
+	onDisk, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("reading item: %w", err)
 	}
+	data := bytes.TrimPrefix(onDisk, utf8BOM)
 
 	var fm frontMatter
 	body, err := frontmatter.Parse(bytes.NewReader(data), &fm)
@@ -298,7 +306,7 @@ func Parse(r io.Reader) (*Item, error) {
 		Blocking:    fm.Blocking,
 		BlockedBy:   fm.BlockedBy,
 		Extra:       extra,
-		contentETag: ETagOf(data),
+		contentETag: ETagOf(onDisk),
 	}, nil
 }
 

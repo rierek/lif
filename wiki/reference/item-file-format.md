@@ -10,6 +10,7 @@ Canonical description of the data model. Measured on Lif 0.14, 2026-10-14. Hiera
 An item is stored as one Markdown file. **Liff** (plural **Liffs**) is short for "Lif file": the file that stores an item. Field names, commands, JSON and GraphQL keep the word `item`.
 
 - Layout: `---`, YAML front matter, `---`, Markdown body.
+- A UTF-8 byte order mark (BOM) in front of the first `---` is ignored on read. Lif never writes one.
 - The first front matter line is a YAML comment `# <id>`. Lif writes it when the ID is known.
 - ID and slug are not front matter fields. Lif derives them from the file name.
 

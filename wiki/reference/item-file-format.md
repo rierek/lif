@@ -109,6 +109,8 @@ Example, a file renamed by hand from `ex-zyo0--write-docs.md` to `ex-new1--write
 2 issues found
 ```
 
+Do not remove that link by hand or with `lif check --fix`: `--fix` keeps it and prints `kept broken link blocked_by:ex-zyo0`. Rename the file back, or run `lif rename ex-new1 ex-zyo0`, and the link works again.
+
 :::caution
 Duplicate IDs silently overwrite each other on load. A parse error stops loading. Run `lif check` after hand edits.
 :::

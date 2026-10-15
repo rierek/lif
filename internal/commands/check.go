@@ -70,10 +70,7 @@ func itemFieldIssues(allItems []*item.Item) []string {
 // IDs and the items whose links now dangle. A file that records the ID of
 // another loaded item is a copy; its issue lists no dangling links.
 func itemIDIssues(allItems []*item.Item) []string {
-	loaded := make(map[string]bool, len(allItems))
-	for _, b := range allItems {
-		loaded[b.ID] = true
-	}
+	away := itemcore.RenamedAwayIDs(allItems)
 	var out []string
 	for _, b := range allItems {
 		if b.RecordedID == "" || b.RecordedID == b.ID {
@@ -81,7 +78,7 @@ func itemIDIssues(allItems []*item.Item) []string {
 		}
 		msg := fmt.Sprintf("item %s: file name %s gives ID %s but the file records ID %s (renamed by hand? rename it back; lif rename changes an ID together with its links)",
 			b.ID, filepath.Base(b.Path), b.ID, b.RecordedID)
-		if !loaded[b.RecordedID] {
+		if _, renamed := away[b.RecordedID]; renamed {
 			if dangling := linksTo(allItems, b.RecordedID); len(dangling) > 0 {
 				msg += fmt.Sprintf("; links to %s dangle: %s", b.RecordedID, strings.Join(dangling, ", "))
 			}
@@ -228,7 +225,9 @@ var checkCmd = &cobra.Command{
 - Self-references (items linking to themselves)
 - Circular dependencies (cycles of blocking links, whichever field stores them, and of parent links; a blocker below or above the item it blocks)
 
-Use --fix to automatically remove broken links and self-references.
+Use --fix to automatically remove broken links and self-references. A link to
+the ID that a file renamed by hand still records is kept and reported as kept:
+it works again when the file has its ID back (lif rename <id> <recorded-id>).
 Note: Cycles cannot be auto-fixed and require manual intervention.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var configErrors []string
@@ -389,17 +388,30 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			}
 			fixed = fixedCount
 
-			if !checkJSON {
-				for _, bl := range linkResult.BrokenLinks {
+			// A link to the ID that a renamed file still records is not fixed:
+			// it is kept, shown as kept, and stays a finding.
+			away := itemcore.RenamedAwayIDs(allItems)
+			kept := []itemcore.BrokenLink{}
+			for _, bl := range linkResult.BrokenLinks {
+				if file, renamed := away[bl.Target]; renamed {
+					kept = append(kept, bl)
+					if !checkJSON {
+						fmt.Printf("  %s %s: kept broken link %s:%s, %s still records %s as its ID\n", ui.Warning.Render("!"), bl.ItemID, bl.LinkType, bl.Target, file, bl.Target)
+					}
+					continue
+				}
+				if !checkJSON {
 					fmt.Printf("  %s %s: removed broken link %s:%s\n", ui.Success.Render("✓"), bl.ItemID, bl.LinkType, bl.Target)
 				}
+			}
+			if !checkJSON {
 				for _, sl := range linkResult.SelfLinks {
 					fmt.Printf("  %s %s: removed self-reference in %s link\n", ui.Success.Render("✓"), sl.ItemID, sl.LinkType)
 				}
 			}
 
 			// Clear the fixed issues from the result
-			linkResult.BrokenLinks = []itemcore.BrokenLink{}
+			linkResult.BrokenLinks = kept
 			linkResult.SelfLinks = []itemcore.SelfLink{}
 		} else if !checkJSON {
 			// Report issues without fixing

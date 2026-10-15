@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -323,5 +324,85 @@ func TestInitKeepsAnExistingStoreGitignore(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(filepath.Join(scratch, ".gitignore")); string(got) != mine {
 		t.Errorf("init --lif-path rewrote the .gitignore:\n%s", got)
+	}
+}
+
+// handRenamedProject is a project whose item ex-zyo0 was renamed by hand to
+// ex-new1, with ex-3ip9 blocked by both ex-zyo0 (the recorded ID, which only
+// the renamed file still answers for) and ex-gone (which nothing records).
+func handRenamedProject(t *testing.T) string {
+	t.Helper()
+	dir := integrityProject(t, map[string]string{
+		"ex-zyo0--write-docs.md": integrityItem("ex-zyo0", "Write docs", ""),
+		"ex-3ip9--ship.md":       integrityItem("ex-3ip9", "Ship", "blocked_by:\n    - ex-zyo0\n    - ex-gone\n"),
+	})
+	store := filepath.Join(dir, config.DefaultStoreDir)
+	if err := os.Rename(filepath.Join(store, "ex-zyo0--write-docs.md"), filepath.Join(store, "ex-new1--write-docs.md")); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// beans-533z (review N1): lif check --fix removes the links that point at
+// nothing. The links to the ID of a file renamed by hand point at something:
+// they work again once the file has its ID back. --fix keeps them and says so,
+// and the remedy the check names then restores the item with its links.
+func TestCheckFixKeepsTheLinksOfAFileRenamedByHand(t *testing.T) {
+	dir := handRenamedProject(t)
+
+	stdout, stderr, exit := runLif(t, dir, "check", "--fix")
+
+	out := stripANSITest(stdout)
+	if exit != 1 {
+		t.Errorf("lif check --fix: exit code = %d, want 1, the renamed file is still a finding\nstdout: %s\nstderr: %s", exit, out, stderr)
+	}
+	for _, want := range []string{
+		"removed broken link blocked_by:ex-gone",
+		"kept broken link blocked_by:ex-zyo0",
+		"ex-new1--write-docs.md",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("lif check --fix output lacks %q:\n%s", want, out)
+		}
+	}
+	if ship := readStoreFile(t, dir, "ex-3ip9--ship.md"); !strings.Contains(ship, "- ex-zyo0") || strings.Contains(ship, "ex-gone") {
+		t.Errorf("--fix did not keep exactly the link to the recorded ID:\n%s", ship)
+	}
+
+	// The remedy: give the item the ID its file records and the links resolve.
+	if stdout, stderr, exit := runLif(t, dir, "rename", "ex-new1", "ex-zyo0"); exit != 0 {
+		t.Fatalf("lif rename ex-new1 ex-zyo0: exit code = %d\nstdout: %s\nstderr: %s", exit, stdout, stderr)
+	}
+	if stdout, stderr, exit := runLif(t, dir, "check"); exit != 0 || !strings.Contains(stdout, "All checks passed") {
+		t.Errorf("lif check after lif rename: exit code = %d\nstdout: %s\nstderr: %s", exit, stdout, stderr)
+	}
+}
+
+// The JSON document keeps the link in broken_links, so a script sees that it
+// is still broken, and counts only the removed link as fixed.
+func TestCheckFixJSONKeepsTheBrokenLinksOfAFileRenamedByHand(t *testing.T) {
+	dir := handRenamedProject(t)
+
+	stdout, stderr, exit := runLif(t, dir, "check", "--fix", "--json")
+
+	var result struct {
+		Fixed      int `json:"fixed"`
+		ItemIssues struct {
+			BrokenLinks []struct {
+				ItemID   string `json:"item_id"`
+				LinkType string `json:"link_type"`
+				Target   string `json:"target"`
+			} `json:"broken_links"`
+		} `json:"item_issues"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("lif check --fix --json printed no JSON: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
+	}
+	if exit != 1 || result.Fixed != 1 {
+		t.Errorf("exit code = %d, fixed = %d, want 1 and 1", exit, result.Fixed)
+	}
+	links := result.ItemIssues.BrokenLinks
+	if len(links) != 1 || links[0].ItemID != "ex-3ip9" || links[0].LinkType != "blocked_by" || links[0].Target != "ex-zyo0" {
+		t.Errorf("broken_links = %+v, want only ex-3ip9 blocked_by ex-zyo0", links)
 	}
 }

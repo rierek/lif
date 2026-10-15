@@ -581,11 +581,42 @@ func (c *Core) RemoveLinksTo(targetID string) (int, error) {
 	return removed, nil
 }
 
-// FixBrokenLinks removes all broken links (links to non-existent items) and self-references.
-// Returns the number of issues fixed.
+// RenamedAwayIDs maps each ID that a file records in its "# <id>" line while
+// no loaded item answers to it, to the path of that file. After a rename by
+// hand the item is there under the ID its new file name gives, and the links
+// that still name the old ID dangle only until the file has its ID back, so a
+// repair of dangling links must leave them alone. When several files record
+// the same ID, the smallest path is named.
+func RenamedAwayIDs(items []*item.Item) map[string]string {
+	loaded := make(map[string]bool, len(items))
+	for _, b := range items {
+		loaded[b.ID] = true
+	}
+	away := map[string]string{}
+	for _, b := range items {
+		if b.RecordedID == "" || b.RecordedID == b.ID || loaded[b.RecordedID] {
+			continue
+		}
+		if path, ok := away[b.RecordedID]; !ok || b.Path < path {
+			away[b.RecordedID] = b.Path
+		}
+	}
+	return away
+}
+
+// FixBrokenLinks removes all broken links (links to non-existent items) and
+// self-references. A link to an ID that a file renamed by hand still records
+// is kept (see RenamedAwayIDs). Returns the number of issues fixed.
 func (c *Core) FixBrokenLinks() (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	away := RenamedAwayIDs(c.allItemsLocked())
+	dangles := func(id string) bool {
+		_, loaded := c.items[id]
+		_, renamed := away[id]
+		return !loaded && !renamed
+	}
 
 	fixed := 0
 	for _, b := range c.items {
@@ -598,7 +629,7 @@ func (c *Core) FixBrokenLinks() (int, error) {
 				b.Parent = ""
 				changed = true
 				fixed++
-			} else if _, ok := c.items[b.Parent]; !ok {
+			} else if dangles(b.Parent) {
 				b.Parent = ""
 				changed = true
 				fixed++
@@ -614,7 +645,7 @@ func (c *Core) FixBrokenLinks() (int, error) {
 				continue
 			}
 			// Skip broken links (target doesn't exist)
-			if _, ok := c.items[blocked]; !ok {
+			if dangles(blocked) {
 				continue
 			}
 			newBlocking = append(newBlocking, blocked)
@@ -634,7 +665,7 @@ func (c *Core) FixBrokenLinks() (int, error) {
 				continue
 			}
 			// Skip broken links (target doesn't exist)
-			if _, ok := c.items[blocker]; !ok {
+			if dangles(blocker) {
 				continue
 			}
 			newBlockedBy = append(newBlockedBy, blocker)

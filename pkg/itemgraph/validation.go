@@ -65,9 +65,9 @@ func ValidateTags(tags []string) error {
 	return nil
 }
 
-// validateCreateInput checks every caller-supplied field of a create before
+// ValidateCreateInput checks every caller-supplied field of a create before
 // anything is written.
-func (r *CoreResolver) validateCreateInput(input model.CreateItemInput) error {
+func (r *CoreResolver) ValidateCreateInput(input model.CreateItemInput) error {
 	if err := ValidateTitle(input.Title); err != nil {
 		return err
 	}

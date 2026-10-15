@@ -13,7 +13,7 @@ import (
 
 // CreateItem creates a new item from the given input.
 func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInput, opts ...itemcore.UpdateOption) (*item.Item, error) {
-	if err := r.validateCreateInput(input); err != nil {
+	if err := r.ValidateCreateInput(input); err != nil {
 		return nil, err
 	}
 

@@ -1,5 +1,7 @@
 package data
 
+import "github.com/rierek/lif/pkg/itemcore"
+
 // hierarchy.go — parent-assignment eligibility rules (E3 Task 3, bean
 // bt-p1uz, design decision f, epic-E3-plan.md »Task 3«): validParentTypes
 // mirrors beancore.ValidParentTypes (beans-src pkg/beancore/links.go:
@@ -17,26 +19,12 @@ package data
 // a blocking cycle is a logical PO mistake, not a render hazard) and needs
 // none of this machinery.
 
-// validParentTypes mirrors beancore.ValidParentTypes (beans-src
-// pkg/beancore/links.go:446-459) -- unexported, an own copy (beans-src is a
-// reference clone here, not an import path). milestone -> nil (cannot have a
-// parent at all); epic -> [milestone]; feature -> [milestone, epic];
-// task/bug -> [milestone, epic, feature]; any unrecognized type also gets
-// [milestone, epic, feature] (beancore's own "default" branch for unknown
-// types).
+// validParentTypes returns the type names an item of beanType may hang under:
+// every type on a strictly lower rank of the project's configured type table
+// (the same rule the CLI enforces, itemcore.ValidParentTypes). nil means "cannot
+// have a parent". An unknown type sits at the leaf rank.
 func validParentTypes(beanType string) []string {
-	switch beanType {
-	case "milestone":
-		return nil
-	case "epic":
-		return []string{"milestone"}
-	case "feature":
-		return []string{"milestone", "epic"}
-	case "task", "bug":
-		return []string{"milestone", "epic", "feature"}
-	default:
-		return []string{"milestone", "epic", "feature"}
-	}
+	return itemcore.ValidParentTypes(cur.Load().cfg, beanType)
 }
 
 // CollectDescendants returns every bean ID reachable below id, walking

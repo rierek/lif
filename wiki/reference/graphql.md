@@ -161,8 +161,8 @@ Error: graphql: task items can only have milestone, epic, or feature as parent, 
 
 ## Known gaps
 
-- `createItem` without `status` sets the default status since 0.14. `lif promote` goes through the same path; a part-way failure of `lif promote` stays open ([z69m]).
-- A search in a nested field is ignored (see [Search syntax](../search-syntax/)); `AND`/`OR`/`NOT` in `search` do not work ([xa2j]).
+- `createItem` without `status` sets the default status since 0.14. `lif promote` goes through the same path.
+- A search in a nested field is ignored (see [Search syntax](../search-syntax/)); `AND`/`OR`/`NOT` in `search` are not operators.
 
 ## Schema (SDL)
 

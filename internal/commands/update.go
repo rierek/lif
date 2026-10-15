@@ -9,6 +9,7 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/rierek/lif/pkg/itemgraph"
@@ -355,6 +356,15 @@ func mutationError(jsonOutput bool, err error) error {
 	return cmdError(jsonOutput, mutationErrorCode(err), "%s", err)
 }
 
+// refreshUpdateVocabularyHelp renders the status, type and priority flag texts
+// from c; a nil c yields the built-in names.
+func refreshUpdateVocabularyHelp(c *config.Config) {
+	f := updateCmd.Flags()
+	f.Lookup("status").Usage = "New status (" + strings.Join(c.StatusNames(), ", ") + ")"
+	f.Lookup("type").Usage = "New type (" + strings.Join(c.TypeNames(), ", ") + ")"
+	f.Lookup("priority").Usage = "New priority (" + strings.Join(c.PriorityNames(), ", ") + ", or empty to clear)"
+}
+
 func RegisterUpdateCmd(root *cobra.Command) {
 	// Help text sources its allowed values from cfg's canonical accessors
 	// (pkg/config/config.go StatusNames/TypeNames/PriorityNames), the same
@@ -362,13 +372,11 @@ func RegisterUpdateCmd(root *cobra.Command) {
 	// lists (beans-pkq3 AC-02/AC-08, SC-01). cfg is nil here (Register* runs
 	// before PersistentPreRunE loads it); StatusList/TypeList/PriorityList
 	// are nil-receiver safe and fall back to DefaultStatuses/Types/Priorities.
-	statusNames := cfg.StatusNames()
-	typeNames := cfg.TypeNames()
-	priorityNames := cfg.PriorityNames()
-
-	updateCmd.Flags().StringVarP(&updateStatus, "status", "s", "", "New status ("+strings.Join(statusNames, ", ")+")")
-	updateCmd.Flags().StringVarP(&updateType, "type", "t", "", "New type ("+strings.Join(typeNames, ", ")+")")
-	updateCmd.Flags().StringVarP(&updatePriority, "priority", "p", "", "New priority ("+strings.Join(priorityNames, ", ")+", or empty to clear)")
+	updateCmd.Flags().StringVarP(&updateStatus, "status", "s", "", "")
+	updateCmd.Flags().StringVarP(&updateType, "type", "t", "", "")
+	updateCmd.Flags().StringVarP(&updatePriority, "priority", "p", "", "")
+	refreshUpdateVocabularyHelp(cfg)
+	withConfiguredVocabulary(updateCmd, refreshUpdateVocabularyHelp)
 	updateCmd.Flags().StringVar(&updateTitle, "title", "", "New title")
 	updateCmd.Flags().StringVarP(&updateBody, "body", "d", "", "New body (use '-' to read from stdin)")
 	updateCmd.Flags().StringVar(&updateBodyFile, "body-file", "", "Read body from file")

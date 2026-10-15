@@ -190,7 +190,7 @@ See [GraphQL](../graphql/).
 
 ## `lif promote` findings
 
-`lif promote <artifact> <finding-id>...` checks the chosen finding records against an embedded findings schema and creates one item per record, with a fixed mapping from finding code to item type. If a chosen record is invalid, the command writes nothing. Findings already promoted are skipped. The findings schema is internal and not part of `schemas/` [nhcz]. A known problem of this command is tracked as [z69m].
+`lif promote <artifact> <finding-id>...` checks the chosen finding records against an embedded findings schema and creates one item per record, with a fixed mapping from finding code to item type. The items get the configured default status, and `--parent <id>` puts them under that item. If a chosen record, a field or the parent is invalid, the command writes nothing; if a write still fails, the error lists the items already written. Findings already promoted are skipped. The findings schema is internal and not part of `schemas/`; the artifact format is on the [`lif promote`](../commands/lif-promote/) page.
 
 ## Recipe: open item IDs
 

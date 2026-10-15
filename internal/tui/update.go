@@ -215,6 +215,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.repoDir = msg.repoDir
 	m.watchStop = msg.watchStop
 	m.watchUnavailable = msg.watchStop == nil // I04 precedent: degrade visibly, never silently
+	applyRepoConfig(msg.repoDir)              // the new repo's value lists, BEFORE its index is sorted
 	m.idx = data.NewIndex(msg.beans)
 	m.view = viewBrowseRepo
 	m.err = ""

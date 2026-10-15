@@ -10,8 +10,7 @@ import (
 
 // tryLock takes flock(2) on f without waiting; held reports that another
 // open file description has it. The lock is advisory and tied to the open
-// file, which the kernel closes with its process, like internal/search does
-// for its index.
+// file, which the kernel closes with its process.
 func tryLock(f *os.File) (held bool, err error) {
 	for {
 		err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)

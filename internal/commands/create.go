@@ -6,6 +6,7 @@ import (
 
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
@@ -100,17 +101,24 @@ Without a terminal on stdin the command fails at once and never waits.`,
 	},
 }
 
+// refreshCreateVocabularyHelp renders the status, type and priority flag texts
+// from c; a nil c yields the built-in names.
+func refreshCreateVocabularyHelp(c *config.Config) {
+	f := createCmd.Flags()
+	f.Lookup("status").Usage = "Initial status (" + strings.Join(c.StatusNames(), ", ") + ")"
+	f.Lookup("type").Usage = "Item type (" + strings.Join(c.TypeNames(), ", ") + ")"
+	f.Lookup("priority").Usage = "Priority level (" + strings.Join(c.PriorityNames(), ", ") + ")"
+}
+
 func RegisterCreateCmd(root *cobra.Command) {
 	// Help text sources its allowed values from cfg's canonical accessors --
 	// see RegisterUpdateCmd's identical comment (update.go) for why cfg may
 	// be nil here and why that is safe (beans-pkq3 AC-02/AC-08, SC-01).
-	statusNames := cfg.StatusNames()
-	typeNames := cfg.TypeNames()
-	priorityNames := cfg.PriorityNames()
-
-	createCmd.Flags().StringVarP(&createStatus, "status", "s", "", "Initial status ("+strings.Join(statusNames, ", ")+")")
-	createCmd.Flags().StringVarP(&createType, "type", "t", "", "Item type ("+strings.Join(typeNames, ", ")+")")
-	createCmd.Flags().StringVarP(&createPriority, "priority", "p", "", "Priority level ("+strings.Join(priorityNames, ", ")+")")
+	createCmd.Flags().StringVarP(&createStatus, "status", "s", "", "")
+	createCmd.Flags().StringVarP(&createType, "type", "t", "", "")
+	createCmd.Flags().StringVarP(&createPriority, "priority", "p", "", "")
+	refreshCreateVocabularyHelp(cfg)
+	withConfiguredVocabulary(createCmd, refreshCreateVocabularyHelp)
 	createCmd.Flags().StringVarP(&createBody, "body", "d", "", "Body content (use '-' to read from stdin)")
 	createCmd.Flags().StringVar(&createBodyFile, "body-file", "", "Read body from file")
 	createCmd.Flags().StringArrayVar(&createTag, "tag", nil, "Add tag (can be repeated)")

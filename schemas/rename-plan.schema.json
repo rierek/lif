@@ -92,6 +92,20 @@
         },
         "ConfigWrite": {
           "type": "boolean"
+        },
+        "Refusals": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Refusals lists every reason the plan cannot be applied. A plan with\nrefusals is a dry-run report only; today only a prefix rebrand fills it."
         }
       },
       "type": "object",
@@ -101,7 +115,8 @@
         "RefUpdates",
         "AttachmentMoves",
         "NewPrefix",
-        "ConfigWrite"
+        "ConfigWrite",
+        "Refusals"
       ],
       "description": "RenamePlan is the dry-run result of a rename computation."
     }

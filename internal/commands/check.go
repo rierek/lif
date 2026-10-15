@@ -215,7 +215,7 @@ var checkCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Short: "Validate configuration and item integrity",
 	Long: `Checks configuration and item integrity, including:
-- Configuration settings (colors, default status, type, priority and tags, ID prefix)
+- Configuration settings (colors, default type, priority and tags, ID prefix)
 - Item types that the configuration still defines
 - Item fields: unknown status or priority, invalid tags, parent of the wrong type rank
 - Item file names: a file whose name gives another ID than the file records in its "# <id>" line (a file renamed by hand), with the links that now dangle

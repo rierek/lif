@@ -209,13 +209,12 @@ func TestLegacyProject_ReadCommandsAndInitLeaveItemFilesAlone(t *testing.T) {
 			switch args[0] {
 			case "list":
 				if len(args) > 1 {
-					// a search writes its index under HOME, never next to the items
+					// the index is in memory: a search writes nothing under HOME and nothing next to the items
 					if !strings.Contains(stdout, "leg-aaa1") {
 						t.Errorf("list %v does not find the first item: %q", args[1:], stdout)
 					}
-					// SC-06: the index lives under ~/.lif/index, ~/.beans is untouched
-					if _, err := os.Stat(filepath.Join(home, ".lif", "index")); err != nil {
-						t.Errorf("search left no index under ~/.lif/index: %v", err)
+					if _, err := os.Stat(filepath.Join(home, ".lif", "index")); !os.IsNotExist(err) {
+						t.Errorf("search left an index under ~/.lif/index (stat err = %v)", err)
 					}
 					if _, err := os.Stat(filepath.Join(home, ".beans")); !os.IsNotExist(err) {
 						t.Errorf("search touched ~/.beans (stat err = %v)", err)

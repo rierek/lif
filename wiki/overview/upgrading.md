@@ -80,7 +80,7 @@ Machine-readable output uses the new vocabulary. A parser that reads an old key 
 | --- | --- | --- | --- |
 | `bean` | `item` | `lif milestones --json` entries; message envelopes of single-item results | Read `item`. |
 | `beans` | `items` | message envelopes of multi-item results, for example a failed batch (`{"success": false, "items": [...], "count": n}`) | Read `items`. |
-| `bean_id` | `item_id` | entries of `broken_links`, `self_links` and `cycles` in `lif check --json` | Read `item_id`. |
+| `bean_id` | `item_id` | entries of `broken_links` and `self_links` in `lif check --json` (`cycles` entries never had it; they carry `link_type` and `path`) | Read `item_id`. |
 | `bean_issues` | `item_issues` | `lif check --json` | Read `item_issues`. |
 | `epics` / `features` arrays inside a milestone or the unscheduled group | one ordered `containers` array whose entries hold an `epic` or a `feature` | `lif roadmap --json` | Iterate `containers` instead of two arrays. |
 
@@ -119,7 +119,7 @@ Migration step: search your saved queries, scripts and client code for those nam
 
 ### Stale search cache
 
-The search index moved from `~/.beans/index/` to `~/.lif/index/`. Lif builds the new index on demand, so no step is required. The old directory is no longer used and is safe to delete: `rm -rf ~/.beans/index`.
+Lif builds its search index in memory on every search and stores nothing on disk. The old `~/.beans/index/` directory, and a `~/.lif/index/` directory left by an earlier 0.x build, are no longer used and are safe to delete: `rm -rf ~/.beans/index ~/.lif/index`.
 
 ### Claude Code plugin, hooks and command
 

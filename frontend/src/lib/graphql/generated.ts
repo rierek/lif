@@ -358,8 +358,9 @@ export type ItemFilter = {
    * - "login~2" - fuzzy match (2 edit distance)
    * - "log*" - wildcard prefix
    * - "\"user login\"" - exact phrase
-   * - "user AND login" - both terms required
-   * - "user OR login" - either term
+   * - "user login" - either term (a list of terms is an OR)
+   * - "+user +login" - both terms required
+   * - "login -user" - "login" without "user"
    * - "slug:auth" - search only slug field
    * - "title:login" - search only title field
    * - "body:auth" - search only body field

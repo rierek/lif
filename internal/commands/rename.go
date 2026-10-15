@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +35,9 @@ var renameCmd = &cobra.Command{
   lif rename <id> --suffix k7x2          new suffix, keep the configured prefix
   lif rename --prefix "bew-"             project-wide ID-prefix rebrand (cascades refs)
 
---dry-run shows the plan without applying it (all modes). A prefix rebrand
+--dry-run shows the plan without applying it (all modes). A prefix dry run
+lists every refusal separately after the plan and exits non-zero if there is
+any. A prefix rebrand
 additionally requires --yes (or an interactive y/N confirm) before applying,
 and refuses outright while "lif-serve" is running or active worktrees
 exist.`,
@@ -45,6 +48,7 @@ exist.`,
 			noSlug: renameNoSlug, reslug: renameReslug,
 			suffix: renameSuffix, suffixSet: cmd.Flags().Changed("suffix"),
 			prefix: renamePrefix, prefixSet: cmd.Flags().Changed("prefix"),
+			dryRun: renameDryRun,
 		}
 
 		plan, err := buildRenamePlan(core, args, flags)
@@ -58,6 +62,12 @@ exist.`,
 			if err := renderRenamePlan(cmd, plan, renameJSON); err != nil {
 				return err
 			}
+		}
+
+		// A dry run reports every refusal next to the plan; the exit code
+		// still tells scripts the real run would fail.
+		if len(plan.Refusals) > 0 {
+			return output.Silent(fmt.Sprintf("%d refusal(s); the rename cannot be applied", len(plan.Refusals)))
 		}
 
 		if renameDryRun {
@@ -125,6 +135,9 @@ type renameFlags struct {
 	suffixSet bool
 	prefix    string
 	prefixSet bool
+	// dryRun lets a prefix rebrand return its plan together with all
+	// refusals instead of failing at the first one.
+	dryRun bool
 }
 
 // modeCount reports how many distinct rename modes the flags/args request.
@@ -158,6 +171,9 @@ func buildRenamePlan(c *itemcore.Core, args []string, f renameFlags) (*itemcore.
 	if f.prefixSet {
 		if len(args) > 0 {
 			return nil, fmt.Errorf("--prefix takes no positional arguments")
+		}
+		if f.dryRun {
+			return c.PlanRebrandWithRefusals(f.prefix), nil
 		}
 		return c.PlanRebrand(f.prefix)
 	}
@@ -250,6 +266,12 @@ func renderRenamePlan(cmd *cobra.Command, plan *itemcore.RenamePlan, jsonOut boo
 	}
 	if plan.ConfigWrite {
 		fmt.Fprintf(w, "config: %s prefix -> %q\n", cfg.TargetFileName(cfg.ConfigDir()), plan.NewPrefix)
+	}
+	if len(plan.Refusals) > 0 {
+		fmt.Fprintf(w, "refusals (%d):\n", len(plan.Refusals))
+		for _, r := range plan.Refusals {
+			fmt.Fprintf(w, "  - %s\n", r)
+		}
 	}
 	return nil
 }

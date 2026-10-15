@@ -343,7 +343,11 @@ func mutationErrorCode(err error) string {
 	if errors.As(err, &policyErr) {
 		return output.ErrPolicy
 	}
-	return output.ErrValidation
+	var invalid *itemcore.ValidationError
+	if errors.As(err, &invalid) {
+		return output.ErrValidation
+	}
+	return output.ErrFileError
 }
 
 // mutationError returns a cmdError with the appropriate error code based on the error type.

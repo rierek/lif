@@ -1,8 +1,14 @@
 package commands
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 	"testing"
+
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 // jsonRun runs one lif command with --json over the store of the current test
@@ -63,5 +69,46 @@ func TestJSONRefusalsAreValidationErrors(t *testing.T) {
 				t.Errorf("got success=%v code=%q error=%q, want VALIDATION_ERROR", got.Success, got.Code, got.Error)
 			}
 		})
+	}
+}
+
+// A write that fails for a reason other than a refused request is a store
+// failure; only a typed ValidationError is VALIDATION_ERROR.
+func TestMutationErrorCode(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"typed validation", itemcore.Invalid("bad"), "VALIDATION_ERROR"},
+		{"wrapped validation", fmt.Errorf("x: %w", itemcore.Invalid("bad")), "VALIDATION_ERROR"},
+		{"conflict", &itemcore.ETagMismatchError{}, "CONFLICT"},
+		{"policy", &itemcore.PolicyViolationError{}, "POLICY_VIOLATION"},
+		{"io failure", fmt.Errorf("writing file: %w", os.ErrPermission), "FILE_ERROR"},
+	} {
+		if got := mutationErrorCode(tc.err); got != tc.want {
+			t.Errorf("%s: code = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// An applied rename prints one JSON document, not the plan and the result.
+func TestRenameJSONPrintsOneDocument(t *testing.T) {
+	setupListTest(t)
+	t.Cleanup(func() { resetFlags(sharedTestRoot(t)) })
+
+	id := jsonItemID(t, "Renamable")
+	sharedTestRoot(t).SetOut(nil) // an earlier test may have pointed it at a buffer
+	out := jsonRun(t, "rename", id, "--slug", "new-slug")
+	dec := json.NewDecoder(bytes.NewReader(out))
+	var first, second map[string]any
+	if err := dec.Decode(&first); err != nil {
+		t.Fatalf("output %q: %v", out, err)
+	}
+	if err := dec.Decode(&second); err != io.EOF {
+		t.Errorf("output holds a second document: %q", out)
+	}
+	if first["success"] != true || first["mode"] != "slug" {
+		t.Errorf("document = %v, want the rename result", first)
 	}
 }

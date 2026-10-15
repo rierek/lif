@@ -19,7 +19,7 @@ func JSONOutputs() map[string]any {
 	return map[string]any{
 		"item":        item.Item{},
 		"items":       []*item.Item{},
-		"response":    output.Response{},
+		"response":    new(output.Response),
 		"check":       checkResult{},
 		"graph":       graphModel{},
 		"milestones":  []milestoneEntry{},

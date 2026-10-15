@@ -52,8 +52,12 @@ exist.`,
 			return cmdError(renameJSON, "VALIDATION_ERROR", "%v", err)
 		}
 
-		if err := renderRenamePlan(cmd, plan, renameJSON); err != nil {
-			return err
+		// With --json an applied rename prints only its result; the plan is
+		// the document of --dry-run.
+		if renameDryRun || !renameJSON {
+			if err := renderRenamePlan(cmd, plan, renameJSON); err != nil {
+				return err
+			}
 		}
 
 		if renameDryRun {

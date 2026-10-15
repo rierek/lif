@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // buildChildrenIndex maps each item ID to its direct children.

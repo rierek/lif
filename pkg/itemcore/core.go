@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/search"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/search"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // worktreeItemsDir returns where this store lives inside the worktree at

@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // Scripted keys of a create-next run. Form 1 starts on the title "A" given as

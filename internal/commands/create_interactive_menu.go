@@ -8,8 +8,8 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"github.com/xRiErOS/lif/pkg/candidates"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
+	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 const (

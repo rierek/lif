@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 	"github.com/spf13/cobra"
 )
 

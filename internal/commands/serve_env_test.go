@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/portalloc"
+	"github.com/rierek/lif/internal/portalloc"
 )
 
 // envValue returns the value of name in a KEY=VALUE list and whether it is set.

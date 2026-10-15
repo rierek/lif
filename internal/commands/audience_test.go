@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/pkg/config"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/pkg/config"
 )
 
 // TestIsUserFacingDefaultsClosed pins the direction IsUserFacing itself

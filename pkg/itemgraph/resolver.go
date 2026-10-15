@@ -3,8 +3,8 @@ package itemgraph
 import (
 	"fmt"
 
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 // CoreResolver implements the core item GraphQL operations (CRUD, relationships,

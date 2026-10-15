@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 func mustOpen(t *testing.T, dir string) *Index {

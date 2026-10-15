@@ -1,6 +1,6 @@
 package main
 
-import "github.com/xRiErOS/lif/internal/commands"
+import "github.com/rierek/lif/internal/commands"
 
 func main() {
 	root := commands.NewRootCmd()

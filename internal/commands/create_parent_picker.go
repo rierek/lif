@@ -9,12 +9,12 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/candidates"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
-	"github.com/xRiErOS/lif/pkg/roadmap"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemgraph"
+	"github.com/rierek/lif/pkg/roadmap"
 )
 
 const (

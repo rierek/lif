@@ -1,4 +1,4 @@
-module github.com/xRiErOS/lif
+module github.com/rierek/lif
 
 go 1.26
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // mainPath is the store-relative counterpart of findMainItemFile, for assertions.

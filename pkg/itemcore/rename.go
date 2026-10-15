@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // RenameChange describes a single item's rename (own file move and/or ID

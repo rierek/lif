@@ -1,10 +1,10 @@
-// Writes dist/llms.txt (index) and dist/llms-full.txt (all page text) from wiki/pages. No dependencies.
+// Writes dist/llms.txt (index) and dist/llms-full.txt (all page text) from wiki/. No dependencies.
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const pages = new URL('../../wiki/pages/', import.meta.url).pathname;
+const pages = new URL('../../wiki/', import.meta.url).pathname;
 const out = new URL('../dist/', import.meta.url).pathname;
-const site = 'https://xrieros.github.io/lif/';
+const site = 'https://rierek.github.io/lif/';
 const chapters = ['overview', 'features', 'use-cases', 'reference', 'blog', 'releases', 'contribute', 'about'];
 
 const walk = (d) => readdirSync(d).flatMap((f) => {

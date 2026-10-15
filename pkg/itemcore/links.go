@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // IncomingLink represents a link from another item to a target item.

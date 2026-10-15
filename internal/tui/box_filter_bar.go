@@ -16,7 +16,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // filterBarActive is the D08 "gesetzter Filter = Peach" salience style —

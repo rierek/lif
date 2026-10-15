@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
 )
 
 func TestResolveItemsPath(t *testing.T) {

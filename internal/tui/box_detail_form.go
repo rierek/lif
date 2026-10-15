@@ -17,8 +17,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/xRiErOS/lif/internal/tui/data"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // detailBoxFormGap is the single space column gap between adjacent boxes in

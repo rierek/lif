@@ -135,7 +135,10 @@ func TestWrapTextWideCharacterExactlyFitsTheWidth(t *testing.T) {
 // width differ must size the column by cells.
 func TestSetTypeColumnWidthsIsFedInCells(t *testing.T) {
 	// "Änderung": 8 display cells, 9 bytes. "课题": 2 runes, 4 cells, 6 bytes.
-	for _, tc := range []struct{ name string; cells int }{
+	for _, tc := range []struct {
+		name  string
+		cells int
+	}{
 		{"Änderung", 8},
 		{"课题", 4},
 		{"milestone", 9},

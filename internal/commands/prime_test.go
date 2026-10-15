@@ -9,10 +9,10 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/rierek/lif/internal/graph"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/vektah/gqlparser/v2"
-	"github.com/xRiErOS/lif/internal/graph"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
 )
 
 // primeCmdOutput runs the real primeCmd.RunE against a fresh temp directory

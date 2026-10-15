@@ -3,7 +3,7 @@ package search
 import (
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 func mustNewID(t *testing.T) string {

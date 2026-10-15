@@ -14,10 +14,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/pkg/candidates"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 // errPickAborted is returned whenever nothing was selected -- the user

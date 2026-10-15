@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // AC3: the error and status texts the core returns name the noun as item and

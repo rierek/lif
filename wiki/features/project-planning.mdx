@@ -1,0 +1,101 @@
+---
+title: "Flexible planning"
+description: "Shape the plan to your project: types, ranks, statuses and presets you configure."
+---
+
+import PresetTrees from '../../site/src/components/PresetTrees.astro';
+import KeyValueList from '../../site/src/components/KeyValueList.astro';
+import KeyValueItem from '../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../site/src/components/WhyItMatters.astro';
+
+**Shape the plan to your project.** Types, ranks, status, priority and parents model the structure of your work. Lif enforces the configured rules when it writes. Presets are examples, not a fixed template.
+
+## How it looks
+
+The four presets on one rank axis. Each row is a preset, each column a rank:
+
+<PresetTrees />
+
+`bucket` has `roadmap: false`. It does not appear in `lif roadmap` or `lif milestones`. Full definitions with all ranks: [Configuration, Presets](../../reference/configuration/#presets).
+
+Rank rule on write. A task cannot be the parent of a task:
+
+```text
+$ lif create "Nested" -t task --parent ft-957g
+Error: failed to create item: task items can only have milestone, epic, or feature as parent, not task
+```
+
+`lif update --status foo` is refused too: `invalid status: foo (must be in-progress, todo, draft, completed, scrapped)`.
+
+Roadmap of a small `classic` store, as Markdown (excerpt, `--depth 2`):
+
+```markdown
+# Roadmap
+
+## Milestone: Ship v1 ([ft-2gae](.lif/ft-2gae--ship-v1.md))
+
+### Epic: Login flow ([ft-txrv](.lif/ft-txrv--login-flow.md))
+```
+
+<WhyItMatters>
+**The structure comes from your configuration, not from the tool.** A flat to-do list and a milestone-to-task tree are the same Lif with different presets.
+</WhyItMatters>
+
+## What you get
+
+<KeyValueList>
+  <KeyValueItem term="Your own structure">An item has a `type` (with a rank), a `status`, a `priority`, `tags` and at most one `parent`. A parent is valid if the child's rank is strictly greater than the parent's.</KeyValueItem>
+  <KeyValueItem term="Four presets">`lif init --profile` takes `classic`, `todo`, `simple` or `complex`. One tool covers a flat to-do list, a milestone-to-task tree or a release model.</KeyValueItem>
+  <KeyValueItem term="Rules on every write">Lif checks the configured rules on every write through Lif: CLI, GraphQL, TUI and Web UI.</KeyValueItem>
+  <KeyValueItem term="Planning views">`lif roadmap`, `lif milestones`, `lif progress` and `lif order` (manual order in the field `order`).</KeyValueItem>
+</KeyValueList>
+
+<details>
+<summary>How to use acceptance criteria</summary>
+
+Lif has no special field for acceptance criteria. Write them as a checklist in the item body, one observable criterion per line:
+
+```markdown
+## Acceptance
+- [ ] A reset mail arrives within one minute
+- [ ] The link in the mail works once
+```
+
+Tick the boxes before you run `lif complete`. Put evidence in the item or under `attachments/<item-id>/`. A checklist is a convention, not enforced by Lif. Lif does not read the boxes.
+
+What Lif does enforce is a required field per status. `lif.require_fields_on` maps a status to extra keys:
+
+```yaml
+lif:
+  require_fields_on:
+    completed: [commit]
+```
+
+If a value is missing, `lif create` and `lif update` fail with a policy violation. `lif check` reports it as a warning. `lif check --strict` counts it as a problem (exit 1).
+
+`lif complete --summary "..."` appends a "Summary of Changes" section. `lif complete --commit <ref>` writes the SHA to the configured field (default `commit`).
+
+</details>
+
+## Details
+
+- Built-in types: `milestone` (rank 1), `epic` (2), `feature` (3), `bug` and `task` (4).
+- Built-in status: `in-progress`, `todo`, `draft`, `completed`, `scrapped`. Built-in priorities: `critical`, `high`, `normal`, `low`, `deferred`.
+- Custom types, status and priorities go in `.lif.yml` (`types`, `statuses`, `priorities`). They override or extend the built-in entries. `types_exclusive` replaces the type table completely.
+- Lif writes a preset into the configuration once. The file does not refer to the preset name afterwards.
+- There is no fixed depth limit. Built-in types and `classic` use up to four ranks. Custom types with rank 5 or higher are accepted.
+- Types with the same rank cannot nest. Ranks may have gaps.
+
+## Limits
+
+- Write through Lif if you want the rank rule. It applies to the CLI, GraphQL, the TUI and the Web UI, not to manual edits of the file.
+- Run `lif check` after manual edits. It verifies rank of parent and child, status values, priority values and tags (since 0.14). It also reports unknown types, broken links, self-references, cycles, missing required fields and orphaned attachment directories. It does not report duplicate IDs, a file name that differs from the ID, a `blocking`/`blocked_by` mismatch or mixed-field cycles.
+- Filter with `-t task,bug` when you want leaf work. `lif next` does not exclude containers, and the hint on type `epic` ("do not work on directly") is not enforced [g5dn].
+- Use the CLI for custom status, types and priorities. The TUI offers only the built-in lists [179g]. See [Known limitations](../../known-limitations/).
+
+## Reference
+
+- [Configuration](../../reference/configuration/): types, ranks, status, priorities, presets, `require_fields_on`.
+- [`lif init`](../../reference/commands/lif-init/): option `--profile`.
+- [`lif roadmap`](../../reference/commands/lif-roadmap/), [`lif milestones`](../../reference/commands/lif-milestones/), [`lif progress`](../../reference/commands/lif-progress/), [`lif order`](../../reference/commands/lif-order/): planning views and order.
+- [`lif complete`](../../reference/commands/lif-complete/) and [`lif check`](../../reference/commands/lif-check/): completion and checking.

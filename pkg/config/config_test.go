@@ -1111,7 +1111,7 @@ func TestSaveIncludesComments(t *testing.T) {
 	if !strings.Contains(content, "# Lif configuration") {
 		t.Error("missing header comment 'Lif configuration'")
 	}
-	if !strings.Contains(content, "# See: https://github.com/xRiErOS/lif") {
+	if !strings.Contains(content, "# See: https://github.com/rierek/lif") {
 		t.Error("missing header comment with URL")
 	}
 

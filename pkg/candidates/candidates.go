@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 // ParentCandidates returns the items eligible to become the parent of the

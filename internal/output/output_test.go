@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // captureStdout redirects os.Stdout for the duration of fn and returns

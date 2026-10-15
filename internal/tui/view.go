@@ -23,7 +23,7 @@ import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // breadcrumb renders header Zone 1 (devd wireframe): left `> repo: Title`

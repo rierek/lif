@@ -131,7 +131,7 @@ func TestAllocateSpecificIdempotent(t *testing.T) {
 func TestAllocateSpecificConflict(t *testing.T) {
 	a := New(44000, 10)
 
-	a.Allocate("ws-1") // takes 44000
+	a.Allocate("ws-1")                        // takes 44000
 	port := a.AllocateSpecific("ws-2", 44000) // conflict
 
 	if port == 44000 {

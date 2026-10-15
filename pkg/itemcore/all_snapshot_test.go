@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // benchCore builds a core holding n items without the *testing.T-bound

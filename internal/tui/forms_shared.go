@@ -18,8 +18,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/xRiErOS/lif/internal/tui/theme"
-	"github.com/xRiErOS/lif/internal/ui"
+	"github.com/rierek/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/ui"
 )
 
 // nonEmpty is the shared required-field validator (title etc.) -- Port devd

@@ -3,8 +3,8 @@
 package roadmap
 
 import (
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // SortSiblings sorts one slice of sibling items in place: rank-1 containers

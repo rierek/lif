@@ -1,253 +1,113 @@
 <p align="center"><img src="wiki/assets/lif-banner.webp" alt="Lif" width="720"></p>
 
+<p align="center">
+  <a href="https://github.com/rierek/lif/releases"><img src="https://img.shields.io/github/v/release/rierek/lif?style=for-the-badge" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/rierek/lif?style=for-the-badge" alt="License"></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/github/go-mod/go-version/rierek/lif?style=for-the-badge" alt="Go version"></a>
+  <a href="https://github.com/rierek/lif/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/rierek/lif/test.yml?style=for-the-badge&label=test" alt="Test workflow"></a>
+  <a href="https://github.com/rierek/lif/actions/workflows/docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/rierek/lif/docs.yml?style=for-the-badge&label=docs%20build" alt="Docs workflow"></a>
+  <a href="https://rierek.github.io/lif/"><img src="https://img.shields.io/badge/docs-rierek.github.io%2Flif-blue?style=for-the-badge" alt="Docs"></a>
+  <a href="https://github.com/rierek/lif/stargazers"><img src="https://img.shields.io/github/stars/rierek/lif?style=for-the-badge" alt="GitHub stars"></a>
+</p>
+
+<p align="center">
+  <a href="https://rierek.github.io/lif/">Docs</a> ·
+  <a href="https://rierek.github.io/lif/overview/installation/">Install</a> ·
+  <a href="https://rierek.github.io/lif/overview/first-steps/">First steps</a> ·
+  <a href="https://rierek.github.io/lif/features/">Features</a> ·
+  <a href="https://rierek.github.io/lif/use-cases/">Use cases</a> ·
+  <a href="https://rierek.github.io/lif/reference/">Reference</a> ·
+  <a href="https://rierek.github.io/lif/releases/">Releases</a> ·
+  <a href="https://rierek.github.io/lif/blog/">Blog</a>
+</p>
+
 # Lif
 
-[![License](https://img.shields.io/github/license/xRiErOS/lif?style=for-the-badge)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/xRiErOS/lif?style=for-the-badge)](https://go.dev/)
+**Plan in Markdown. Keep it in Git.**
 
-**A file-based issue tracker for developers, product teams, and AI coding agents.**
-
-Lif stores work as Markdown files beside the code it describes. Humans, scripts, and coding agents share one Git-versioned source of truth instead of synchronizing a second task system. Each piece of work is an *item*: one Markdown file with structured YAML front matter.
-
-Lif originated as a fork of [hmans/beans](https://github.com/hmans/beans) by Hendrik Mans and is licensed under the Apache License 2.0. It preserves the original local-first, agent-first idea and extends it for richer planning models, safer automation, and presentation-ready terminal workflows.
+Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that sits next to your code. Humans edit it, AI agents query it, scripts automate it.
 
 ![A scoped Lif roadmap rendered in a terminal](wiki/assets/roadmap.webp)
 
-[Install](#installation) · [Quick start](#quick-start) · [Choose a profile](#choose-a-project-profile) · [Browse the documentation](wiki/index.md) · [Upgrade guide](wiki/compatibility-and-upgrading.md)
+## One backlog, many surfaces
 
-## Why Lif
-
-Hendrik Mans' original project established the core idea: issues should be plain files that live with the repository and remain equally accessible to people and coding agents. Lif builds on that Apache-2.0 codebase with clear attribution; see the [fork lineage](wiki/fork-lineage.md).
-
-Real product work needed more than a flat task loop. Lif adds configurable project profiles, richer planning types, scoped roadmaps, consistent terminal rendering, batch lifecycle commands, ordering and rename workflows, completion policies, worktree-aware storage, structured automation interfaces, and dedicated browser and terminal applications.
-
-The goal is not to turn Lif into a hosted project-management platform. Lif remains a small, inspectable data and workflow layer that composes with Git, shells, editors, coding agents, and optional user interfaces.
-
-[Read the fork lineage](wiki/fork-lineage.md) · [Review compatibility and upgrading](wiki/compatibility-and-upgrading.md)
-
-## Feature overview
-
-### Markdown-native issue tracking
-
-- Store each item as a Markdown file with structured YAML front matter.
-- Review task changes with the same Git tools used for code.
-- Keep active work and archived project memory readable without a service or proprietary export.
-- Configure types, statuses, priorities, display rules, and lifecycle policies per repository.
-
-### Planning that fits the project
-
-- Select a bundled `classic`, `todo`, `simple`, or `complex` profile at initialization.
-- Model milestones or releases, thematic work, executable stories and tasks, bugs, and roadmap-excluded buckets.
-- Connect work through parent, child, blocking, and blocked-by relationships.
-- Order siblings explicitly without rewriting the complete store.
-
-### Human-readable terminal views
-
-- Render `list`, `milestones`, and `roadmap` as trees or tables with a consistent visual language.
-- Switch roadmap output between terminal presentation and portable Markdown.
-- Scope roadmaps and progress reports to the part of the hierarchy that matters now.
-- Preserve machine-readable JSON modes for scripts and agents.
-
-| Hierarchical list | Item detail |
+| | |
 | --- | --- |
-| ![lif list tree view](wiki/assets/list.webp) | ![lif show detail view](wiki/assets/show.webp) |
+| **CLI**<br>Create, query and update items from the shell. Most commands take `--json`.<br>[→ Commands](https://rierek.github.io/lif/reference/commands/)<br><br>![lif show detail view](wiki/assets/show.webp) | **TUI**<br>Browse the item tree, filter by type, status, priority or tag, and edit without leaving the terminal.<br>[→ TUI reference](https://rierek.github.io/lif/reference/tui/views/)<br><br>![lif tui browse view](wiki/screenshots/browse.png) |
+| **Web**<br>Run `lif-serve` and open `localhost:8080` for the same items as a board in your browser.<br>[→ Web server](https://rierek.github.io/lif/reference/web-server/)<br><br><picture><source media="(prefers-color-scheme: dark)" srcset="site/public/media/web-board-dark.webp"><img src="site/public/media/web-board-light.webp" alt="Lif web board"></picture> | **Markdown**<br>Every item is one Markdown file with YAML front matter. Read it, edit it by hand, diff it like code.<br>[→ Item file format](https://rierek.github.io/lif/reference/item-file-format/)<br><br>`.lif/app-pgha--password-reset.md`<pre>---<br># app-pgha<br>title: Password reset<br>status: in-progress<br>type: feature<br>priority: high<br>tags:<br>    - backend<br>    - security<br>parent: app-dbg0<br>---<br><br>Let users reset a forgotten<br>password with a one-time link.</pre> |
 
-### Agent-native workflows
+## Install
 
-- Run `lif prime` to give a coding agent the current project's types, statuses, relationships, policies, and command contract.
-- Use `lif list --ready` or `lif next` to select actionable work rather than merely open work.
-- Query only the required fields through GraphQL and consume stable JSON output where supported.
-- Validate configuration, links, front matter, and policies with `lif check` before automation proceeds.
+```sh
+brew install rierek/lif/lif
+# or
+curl -fsSL https://raw.githubusercontent.com/rierek/lif/main/install.sh | sh
+```
 
-### Complete work lifecycle
-
-- Create and inspect work with `create`, `list`, `show`, and `next`.
-- Move work through `start`, `complete`, `scrap`, and `archive`.
-- Organize work with `update`, `tag`, `order`, and cascading `rename` modes.
-- Report plans and outcomes with `roadmap`, `milestones`, `progress`, and `graph`.
-
-[Explore every capability](wiki/feature-overview.md) · [Open the full command index](wiki/commands/index.md)
-
-## Choose a project profile
-
-Profiles are expanded into the repository's `.lif.yml` when `lif init --profile` runs. Later releases do not silently replace that explicit project configuration.
-
-### `classic`
-
-- **Existing project migration:** retain the original `milestone → epic → feature → task/bug` hierarchy when adopting Lif.
-- **Milestone-driven software delivery:** organize checkpoints into thematic epics, user-facing features, and executable work.
-
-### `todo`
-
-- **Markdown todo list:** track a flat set of tasks without planning containers or hierarchy overhead.
-- **AI agent backlog:** give a coding agent a small, unambiguous queue grouped through tags.
-
-### `simple`
-
-- **Small project roadmap:** plan milestones while keeping possible future work in roadmap-excluded buckets.
-- **Feature and bug tracking:** separate thematic epics and user-facing features from executable tasks and defects.
-
-### `complex`
-
-- **Release planning for product teams:** group everything that ships together under an explicit release.
-- **Customer-value prioritization:** distinguish new features, visible improvements, internal chores, demonstrable stories, bugs, and tasks.
-
-[Compare exact profile hierarchies and use cases](wiki/project-profiles.md)
-
-## Installation
-
-Pick the channel that matches your platform. All five install the same two binaries: `lif` (CLI and terminal UI, started with `lif tui`) and `lif-serve` (web UI and GraphQL API).
-
-### Homebrew (macOS)
-
-````sh
-brew install xRiErOS/lif/lif
-````
-
-### Install script (Linux, macOS)
-
-````sh
-curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
-````
-
-### Nix (Linux, macOS)
-
-````sh
-nix profile install github:xRiErOS/lif
-````
-
-Run it without installing with `nix run github:xRiErOS/lif -- version`, or open a temporary shell with `nix shell github:xRiErOS/lif`. The flake builds the frontend as part of the package, so `lif-serve` from this channel serves the web UI.
-
-### go install (Linux, macOS, Windows)
-
-````sh
-go install github.com/xRiErOS/lif/cmd/lif@latest
-````
-
-A `lif-serve` built this way has no embedded web assets (only a placeholder is tracked in the source tree) and serves 404 for the browser UI. Use Homebrew, the install script, Nix, or a release archive if you need `lif-serve` with the web UI.
-
-### Build from source
-
-````sh
-git clone https://github.com/xRiErOS/lif.git
-cd lif
-
-mise install
-mise run setup
-mise run build
-
-install -d "$HOME/.local/bin"
-install -m 755 lif lif-serve "$HOME/.local/bin/"
-export PATH="$HOME/.local/bin:$PATH"
-
-lif version
-````
-
-[Installation details and prerequisites](wiki/installation.md) · [Upgrade guide for existing installs](wiki/compatibility-and-upgrading.md)
+→ [All install options](https://rierek.github.io/lif/overview/installation/) (Nix, `go install`, source build) · → [Upgrading](https://rierek.github.io/lif/overview/upgrading/)
 
 ## Quick start
 
-Initialize a disposable project with the smallest profile and create the first ready task:
-
-````sh
-mkdir lif-demo
-cd lif-demo
-
+```sh
+mkdir lif-demo && cd lif-demo
 lif init --profile todo
 lif create "Ship the first documented change" --type task --priority high --status todo
 lif list --ready
 lif next
-````
+```
 
 Lif creates `.lif.yml` plus a `.lif/` directory. Commit both with the repository so task history and code history travel together.
 
-For a hierarchical roadmap, initialize `simple` or `complex`, create top-level planning containers, and connect executable work with `--parent`.
+→ [First steps](https://rierek.github.io/lif/overview/first-steps/) · → [Concepts](https://rierek.github.io/lif/overview/concepts/)
 
-[Follow the complete hierarchy-to-roadmap tutorial](wiki/quick-start.md)
+## Features
 
-## Use Lif with coding agents
+- **Files in your repo.** Your backlog is a folder of files; everything that reads files already speaks Lif. → [Files in your repo](https://rierek.github.io/lif/features/files-in-your-repo/)
+- **Flexible planning.** Types, ranks, statuses and presets shape the plan to your project. → [Flexible planning](https://rierek.github.io/lif/features/project-planning/)
+- **Dependencies.** Blocking links, ready work and the dependency graph show what you can start now. → [Dependencies](https://rierek.github.io/lif/features/dependencies/)
+- **Automation and agents.** JSON output, GraphQL and `lif prime`, with no server. → [Automation](https://rierek.github.io/lif/features/automation/)
+- **Surface independence.** Terminal, board or editor: all of them work on the same files. → [Surface independence](https://rierek.github.io/lif/features/surface-independence/)
 
-The smallest portable integration is a repository instruction that makes the installed binary describe itself and the current project:
+## Use cases
 
-````markdown
+[Software projects](https://rierek.github.io/lif/use-cases/software-projects/) · [Release management](https://rierek.github.io/lif/use-cases/release-management/) · [Personal tasks](https://rierek.github.io/lif/use-cases/personal-tasks/) · [Home lab](https://rierek.github.io/lif/use-cases/homelab/) · [Writing and research](https://rierek.github.io/lif/use-cases/writing-research/)
+
+## Project profiles
+
+`lif init --profile <name>` writes one preset into `.lif.yml`. → [Flexible planning](https://rierek.github.io/lif/features/project-planning/)
+
+| Profile | Shape |
+| --- | --- |
+| `todo` | Flat task list, grouped by tags. |
+| `simple` | Milestones, epics, features, tasks and bugs; roadmap-excluded buckets for future work. |
+| `classic` | `milestone → epic → feature → task/bug`, the original hierarchy. |
+| `complex` | Explicit releases, with customer-value types such as stories and chores. |
+
+## Use with coding agents
+
+Add one line to your repository instructions:
+
+```markdown
 Before managing project work, run `lif prime` and follow its project-specific instructions.
-````
+```
 
-`lif prime` is preferable to a copied command manual because its output reflects the repository's configured types, statuses, priorities, relationships, and completion policies. Agents can then use natural-language requests while operating through exact CLI or GraphQL contracts.
+`lif prime` reflects the configured types, statuses and policies of the repository, so it stays correct where a copied command manual goes stale. → [Agent onboarding](https://rierek.github.io/lif/overview/agent-onboarding/)
 
-Examples of useful requests:
+## Reference
 
-````text
-Inspect the ready items and recommend the highest-value next action.
+[Commands](https://rierek.github.io/lif/reference/commands/) · [Configuration](https://rierek.github.io/lif/reference/configuration/) · [Item file format](https://rierek.github.io/lif/reference/item-file-format/) · [JSON output](https://rierek.github.io/lif/reference/json-output/) · [GraphQL](https://rierek.github.io/lif/reference/graphql/) · [Search syntax](https://rierek.github.io/lif/reference/search-syntax/) · [Web server](https://rierek.github.io/lif/reference/web-server/) · [TUI](https://rierek.github.io/lif/reference/tui/views/) · [Glossary](https://rierek.github.io/lif/reference/glossary/)
 
-Create a bug for the failure you found, relate it to the affected feature, and mark it blocked by the root-cause task.
+## Resources
 
-Summarize progress for the current release and identify incomplete descendants.
-````
+[Releases](https://rierek.github.io/lif/releases/) (latest: [v0.14.1](https://rierek.github.io/lif/releases/v0-14-1/)) · [Blog](https://rierek.github.io/lif/blog/) · [Known limitations](https://rierek.github.io/lif/known-limitations/) · [Troubleshooting](https://rierek.github.io/lif/overview/troubleshooting/)
 
-[Configure Claude Code, OpenCode, and generic agents](wiki/agent-integration.md) · [Read the data model](wiki/data-model.md)
+## Contributing
 
-## Browser workspace with `lif-serve`
-
-`lif-serve` runs the optional planning workspace and GraphQL service over the same `.lif/` store used by the CLI. The browser offers backlog, board, and workspace views without introducing a second database.
-
-````sh
-lif-serve --lif-path .lif
-````
-
-![lif-serve board view](wiki/assets/serve-board.webp)
-
-Network binding, CORS, routes, and authentication posture matter before exposing the service beyond a local machine.
-
-[Configure the Web UI and API](wiki/web-ui-and-api.md)
-
-## Terminal interfaces
-
-The terminal UI is built into the main binary. Run `lif tui` to browse and manage items interactively, or `lif tui <repo-path>` to open a specific repository. It replaces the former separate TUI binary and the `bt` (beans-tui) companion.
-
-![lif tui: browse view with item detail](wiki/screenshots/browse.png)
-
-[Read the terminal UI guide](wiki/tui-companion.md) · [Review the separate binary `lif-serve`](wiki/commands/separate-binaries.md)
-
-## Full feature reference
-
-The reference is grouped by user intent instead of reproducing one long `lif --help` block:
-
-- [Project setup](wiki/commands/project-setup.md): `init`, `path`, `prime`, `pick`, `version`, `help`, `completion`.
-- [Inspection and search](wiki/commands/inspection-and-search.md): `list`, `show`, `next`.
-- [Lifecycle](wiki/commands/lifecycle.md): `create`, `start`, `complete`, `scrap`, `archive`, `delete`.
-- [Organization and relationships](wiki/commands/organization-and-relations.md): `update`, `tag`, `order`, `rename`.
-- [Planning and reporting](wiki/commands/planning-and-reporting.md): `roadmap`, `milestones`, `progress`, `graph`.
-- [Querying and automation](wiki/commands/querying-and-automation.md): `graphql`, JSON output, and structured errors.
-- [Validation and maintenance](wiki/commands/validation-and-maintenance.md): `check`, `promote`, integrity rules, and policies.
-- [Terminal UI](wiki/tui-companion.md): `lif tui`.
-- [Separate applications](wiki/commands/separate-binaries.md): `lif-serve`.
-
-The installed binary remains authoritative for version-specific options:
-
-````sh
-lif --help
-lif <command> --help
-lif prime
-````
-
-## Documentation
-
-- [Documentation index](wiki/index.md) — route to every guide and reference page.
-- [Configuration reference](wiki/configuration.md) — stores, anchors, profiles, custom types, display, and policies.
-- [Data model and file format](wiki/data-model.md) — front matter, bodies, IDs, relationships, order, and archive.
-- [Compatibility and upgrading](wiki/compatibility-and-upgrading.md) — upgrade guide for existing installs and projects.
-- [Troubleshooting](wiki/troubleshooting.md) — diagnose store discovery, ready work, policies, configuration, and server startup.
-
-## Project status
-
-Lif is an actively maintained independent continuation of the project it originated from. Features and file-format contracts may still evolve; review the commit history and the compatibility guide before upgrading a shared store.
-
-Issues, discussions, and focused pull requests are welcome at [xRiErOS/lif](https://github.com/xRiErOS/lif). Pull requests target the current `milestone/0.N` branch, not `main`; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues, discussions and focused pull requests are welcome at [rierek/lif](https://github.com/rierek/lif). Pull requests target the current `milestone/0.N` branch, not `main`; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Acknowledgements
 
-Lif originated as a fork of [hmans/beans](https://github.com/hmans/beans), created by [Hendrik Mans](https://github.com/hmans). This project is possible because that work was released under the Apache License 2.0.
+Lif originated as a fork of [hmans/beans](https://github.com/hmans/beans) by [Hendrik Mans](https://github.com/hmans), released under the Apache License 2.0. See [About](https://rierek.github.io/lif/about/) for the lineage.
 
 ## License
 

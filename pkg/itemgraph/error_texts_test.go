@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 // AC3: the relationship errors name the noun as item. Each case drives the

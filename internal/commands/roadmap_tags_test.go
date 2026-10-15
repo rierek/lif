@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // tagsFixture is a one-milestone roadmap where the milestone and one leaf

@@ -26,9 +26,9 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/xRiErOS/lif/internal/tui/config"
-	"github.com/xRiErOS/lif/internal/tui/data"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // paletteItemKind distinguishes Command-Center row kinds. B13 (design-spec.md

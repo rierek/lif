@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/xRiErOS/lif/internal/version"
+	"github.com/rierek/lif/internal/version"
 	"github.com/spf13/cobra"
 )
 

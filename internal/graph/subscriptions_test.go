@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/agent"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
+	"github.com/rierek/lif/internal/agent"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 // recvWithin returns the next value from ch, or fails the test.

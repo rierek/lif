@@ -16,13 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/agent"
-	"github.com/xRiErOS/lif/internal/gitutil"
-	"github.com/xRiErOS/lif/internal/worktree"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
+	"github.com/rierek/lif/internal/agent"
+	"github.com/rierek/lif/internal/gitutil"
+	"github.com/rierek/lif/internal/worktree"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 // IsDirty is the resolver for the isDirty field.

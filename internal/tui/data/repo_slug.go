@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // repo_slug.go — bt-d3ps (epic-E13-plan.md Item 4, PO-Redefinition Grilling

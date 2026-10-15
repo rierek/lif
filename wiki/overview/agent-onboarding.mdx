@@ -1,0 +1,128 @@
+---
+title: "Have your coding agent working on your backlog in one prompt"
+description: "Paste one prompt and your coding agent picks the next item from your Lif backlog, works it and closes it. Add a hook so it never forgets how."
+sidebar:
+  label: "Agent onboarding"
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import WhyItMatters from '../../site/src/components/WhyItMatters.astro';
+
+**Paste one prompt and your coding agent works your backlog.** It learns Lif from the binary, takes the next ready item, does the work and closes the item with a summary. A hook or a rule keeps it on track in every later session.
+
+## How it looks
+
+Run `lif init` in your project once. Then paste this into your agent:
+
+```text
+This project tracks its work with Lif (.lif.yml in the repo root).
+Before anything else, run `lif prime` and follow its output.
+Then:
+1. Run `lif next --type task` to get the next ready item.
+2. Run `lif start <id>`, do the work, then run
+   `lif complete <id> --summary "what you did"`.
+3. Run `lif check` and fix every problem it reports.
+4. Commit the code and the changed item files together.
+Do one item, then stop and tell me what you did.
+```
+
+The agent needs no website. It learns Lif from the binary: `lif prime` first, then `lif --help` for syntax. Both run without a loaded store.
+
+<WhyItMatters>
+**The agent works from the real configuration of your project, not from what it remembers about Lif.** The backlog stays in plain files that you review in Git.
+</WhyItMatters>
+
+## What `lif prime` does
+
+`lif prime` prints a usage guide for agents. It has no flags. Lif builds the text from the configuration of the project at hand, so it lists your types, statuses and priorities. The real output starts like this (334 lines in total, shortened here):
+
+```text
+<EXTREMELY_IMPORTANT>
+# Lif Usage Guide for Agents
+
+This project uses **lif**, an agentic-first item tracker. Work units are called "items", and you can use the "lif" CLI to manage them.
+
+- **Always use lif instead of TodoWrite to manage your work and tasks.**
+- **Always use lif instead of writing todo lists.**
+…
+## Recipes
+- **Starting work**: Check if there is already an item for it (`lif list -S "<keywords>"`). …
+```
+
+Sections follow for Recipes, CLI Commands, Relationships, Item Types, Statuses, Priorities, body edits, custom front matter, review findings and attachments, manual ordering, output flags, failure output, concurrency control and GraphQL queries. The guide contains no web links.
+
+Outside a Lif project, `lif prime` prints nothing and exits with code 0. Run `lif init` first. See [`lif prime`](../../reference/commands/lif-prime/).
+
+## Rules for agents
+
+- Run `lif complete` only when every todo in the body is checked off.
+- `lif delete` is destructive and cascades to references. Do not pass `-f`, or `--json` (which implies `-f`), unless the user wants an unconditional delete.
+- Run `lif archive` only when asked.
+- Prefer `--blocked-by` for new dependent work.
+- Commit item files in the same commit as the code they track.
+- Try writes against a throwaway store: `lif --lif-path /tmp/scratch-lif create ...`.
+- If the config sets `require_fields_on`, a transition without the required fields fails with `POLICY_VIOLATION` and names the missing fields.
+
+## Hooks keep the agent primed
+
+An agent forgets the guide when its context is compacted. A session hook runs `lif prime` again, so the guide is back. For Claude Code, add this to `.claude/settings.json`. It is the hook configuration in the Lif repository (`extras/claude/plugins/lif-prime/hooks/hooks.json`):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "lif prime" }] }
+    ],
+    "PreCompact": [
+      { "hooks": [{ "type": "command", "command": "lif prime" }] }
+    ]
+  }
+}
+```
+
+OpenCode has no hook file. The Lif repository ships a plugin, `.opencode/plugin/lif-prime.ts`, that injects the `lif prime` output at session start and after compaction. Copy it to `.opencode/plugin/` in your project. It does nothing when `lif` is not on `PATH` or the folder has no Lif config file.
+
+A Git hook catches drift from hand edits. Save this as `.git/hooks/pre-commit` and make it executable (or use your usual hook manager):
+
+```bash
+#!/bin/sh
+lif check
+```
+
+`lif check` exits with 1 when it finds a problem, and Git then aborts the commit. Lif ships neither hook: you set them up yourself. `lif check` finds broken links, self-references, cycles, unknown types and unknown commit SHAs. It does not check parent ranks, status values or duplicate IDs. Warnings count only with `lif check --strict`.
+
+## Rules for agents
+
+A hook runs the command itself. A rule only tells the agent what to do. Use a rule when you cannot use a hook. In Claude Code, a rule file in `.claude/rules/` without `paths:` frontmatter loads at session start, and unscoped rules are re-injected from disk after compaction. A rule with `paths:` loads only when Claude touches a matching file, so it does not fit a start-of-session instruction.
+
+```markdown
+Before you do anything else, run `lif prime` and follow its output.
+```
+
+Agents without a hook mechanism take the same line in `AGENTS.md` or `CLAUDE.md`, or you paste the `lif prime` output once.
+
+These rules keep an agent inside the store:
+
+- Read with `--json` (`lif list --json`, `lif show --json`, `lif next --json`). Do not parse text.
+- Write through the CLI (`lif create`, `lif update`, `lif start`, `lif complete`). Only these paths enforce the rules.
+- Run `lif check` after every manual edit and read the exit code.
+- A short ID and a full ID are both valid. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`.
+
+<Aside type="note" title="About third-party software">
+Statements about Claude Code and OpenCode come from their public documentation and the Lif repository, read on 2026-10-14. They can change, and no warranty is given for them. For Claude Code see [How Claude remembers your project](https://code.claude.com/docs/en/memory), [What survives compaction](https://code.claude.com/docs/en/context-window) and the [`.claude` directory reference](https://code.claude.com/docs/en/claude-directory#ce-rules).
+</Aside>
+
+## Limits
+
+- `lif next` and `lif list --ready` also return container items such as epics [g5dn]. Narrow the prompt with `--type task` or `--type bug`, as the prompt above does.
+- The packaged Claude Code plugin `lif-prime` (`extras/claude/plugins/lif-prime/`, listed in the `lif` marketplace as `lif-prime@lif`) is a work in progress. Use the `.claude/settings.json` snippet above.
+- `lif check` does not yet find every kind of drift (see the list under Hooks). Keep agents on the CLI for writes.
+
+See [Known limitations](../../known-limitations/) for [g5dn].
+
+## Reference
+
+- Skills and per-agent setup: Lif ships no skill. Write your own if your team needs one, and point it at `lif prime`. See [Automation and agents](../../features/automation/).
+- [`lif prime`](../../reference/commands/lif-prime/), [`lif check`](../../reference/commands/lif-check/), [JSON output](../../reference/json-output/).
+- This documentation as plain text for agents: [`llms.txt`](https://rierek.github.io/lif/llms.txt) (page index) and [`llms-full.txt`](https://rierek.github.io/lif/llms-full.txt) (all pages).
+- Next: [Concepts](../concepts/) and [Store management](../store-management/).

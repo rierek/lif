@@ -24,10 +24,10 @@ type streamEvent struct {
 	ContentBlock *contentBlockPayload `json:"content_block,omitempty"`
 
 	// For "result" events
-	SessionID          string              `json:"session_id,omitempty"`
-	Result             string              `json:"result,omitempty"`
-	IsError            bool                `json:"is_error,omitempty"`
-	CostUSD float64 `json:"total_cost_usd,omitempty"`
+	SessionID string  `json:"session_id,omitempty"`
+	Result    string  `json:"result,omitempty"`
+	IsError   bool    `json:"is_error,omitempty"`
+	CostUSD   float64 `json:"total_cost_usd,omitempty"`
 
 	// For error events
 	Error *errorPayload `json:"error,omitempty"`
@@ -87,7 +87,7 @@ type parsedEventType int
 
 const (
 	eventUnknown parsedEventType = iota
-	eventIgnored  // recognized but not actionable (e.g. message_stop, content_block_stop)
+	eventIgnored                 // recognized but not actionable (e.g. message_stop, content_block_stop)
 	eventTextDelta
 	eventNewTextBlock // content_block_start with type=text (signals paragraph break needed)
 	eventAssistantMessage
@@ -95,9 +95,9 @@ const (
 	eventToolInputDelta // input_json_delta for tool_use — accumulates tool input JSON
 	eventResult
 	eventError
-	eventSystemStatus  // system status change (e.g. "compacting")
-	eventTaskProgress  // system task_progress — subagent activity update
-	eventToolResult    // "user" event — tool result returned (signals subagent completion)
+	eventSystemStatus // system status change (e.g. "compacting")
+	eventTaskProgress // system task_progress — subagent activity update
+	eventToolResult   // "user" event — tool result returned (signals subagent completion)
 )
 
 // parseStreamLine parses a single JSON line from Claude Code's stream-json output.

@@ -17,8 +17,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/tui/config"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/theme"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"

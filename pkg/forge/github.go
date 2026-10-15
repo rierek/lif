@@ -22,14 +22,14 @@ type ghPRList struct {
 
 // ghPRView is the JSON shape returned by `gh pr view --json` with full details.
 type ghPRView struct {
-	Number         int              `json:"number"`
-	Title          string           `json:"title"`
-	State          string           `json:"state"` // "OPEN", "CLOSED", "MERGED"
-	URL            string           `json:"url"`
-	IsDraft        bool             `json:"isDraft"`
-	MergeStateStatus string         `json:"mergeStateStatus"` // "CLEAN", "BLOCKED", "BEHIND", "DIRTY", "UNKNOWN"
-	ReviewDecision string           `json:"reviewDecision"`   // "APPROVED", "CHANGES_REQUESTED", "REVIEW_REQUIRED", ""
-	StatusChecks   []ghStatusCheck  `json:"statusCheckRollup"`
+	Number           int             `json:"number"`
+	Title            string          `json:"title"`
+	State            string          `json:"state"` // "OPEN", "CLOSED", "MERGED"
+	URL              string          `json:"url"`
+	IsDraft          bool            `json:"isDraft"`
+	MergeStateStatus string          `json:"mergeStateStatus"` // "CLEAN", "BLOCKED", "BEHIND", "DIRTY", "UNKNOWN"
+	ReviewDecision   string          `json:"reviewDecision"`   // "APPROVED", "CHANGES_REQUESTED", "REVIEW_REQUIRED", ""
+	StatusChecks     []ghStatusCheck `json:"statusCheckRollup"`
 }
 
 type ghStatusCheck struct {

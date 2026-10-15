@@ -14,11 +14,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 const ppLongTitle = "Eine sehr lange Überschrift für das Feature mit Umlauten ÄÖÜ äöü ß und noch mehr Text damit es abgeschnitten wird"

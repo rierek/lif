@@ -24,9 +24,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/xRiErOS/lif/internal/tui/config"
-	"github.com/xRiErOS/lif/internal/tui/data"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // homeLogoLines is a pure-ASCII "lif" banner (figlet "Standard"-style),

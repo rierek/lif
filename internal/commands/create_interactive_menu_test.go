@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/candidates"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/item"
 )
 
 const keyUp = "\x1b[A"

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/tui/clip"
-	"github.com/xRiErOS/lif/internal/tui/config"
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/clip"
+	"github.com/rierek/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/data"
 
 	keybind "github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"

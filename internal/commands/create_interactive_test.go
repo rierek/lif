@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/item"
 )
 
 const (

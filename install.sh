@@ -1,17 +1,17 @@
 #!/bin/sh
-# Installs the xRiErOS/lif project's lif and lif-serve
+# Installs the rierek/lif project's lif and lif-serve
 # binaries from a GitHub release.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/rierek/lif/main/install.sh | sh
 #
 # Configuration (environment variables):
 #   LIF_VERSION  Release tag to install, e.g. "v0.7.0". Default: latest release.
 #   LIF_BIN_DIR  Install directory. Default: "$HOME/.local/bin".
-#   LIF_REPO     GitHub "owner/repo" to install from. Default: "xRiErOS/lif".
+#   LIF_REPO     GitHub "owner/repo" to install from. Default: "rierek/lif".
 set -eu
 
-LIF_REPO="${LIF_REPO:-xRiErOS/lif}"
+LIF_REPO="${LIF_REPO:-rierek/lif}"
 LIF_BIN_DIR="${LIF_BIN_DIR:-$HOME/.local/bin}"
 
 err() {

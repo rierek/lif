@@ -19,6 +19,7 @@ import (
 	"github.com/rierek/lif/internal/gitutil"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/safepath"
 )
 
 // DefaultFetchTimeout is the default timeout for git fetch operations during
@@ -547,13 +548,21 @@ type worktreeMeta struct {
 }
 
 // metaPath returns the path to the metadata file for a worktree ID.
-func (m *Manager) metaPath(id string) string {
-	return filepath.Join(m.worktreeRoot, id+".meta.json")
+// The ID is validated so it cannot escape worktreeRoot.
+func (m *Manager) metaPath(id string) (string, error) {
+	if err := safepath.ValidateItemID(id); err != nil {
+		return "", err
+	}
+	return filepath.Join(m.worktreeRoot, id+".meta.json"), nil
 }
 
 // loadMeta loads the metadata for a worktree, if it exists.
 func (m *Manager) loadMeta(id string) *worktreeMeta {
-	data, err := os.ReadFile(m.metaPath(id))
+	path, err := m.metaPath(id)
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
@@ -570,12 +579,18 @@ func (m *Manager) saveMeta(id string, meta *worktreeMeta) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(m.metaPath(id), data, 0644)
+	path, err := m.metaPath(id)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
 
 // removeMeta removes the metadata file for a worktree.
 func (m *Manager) removeMeta(id string) {
-	os.Remove(m.metaPath(id))
+	if path, err := m.metaPath(id); err == nil {
+		os.Remove(path)
+	}
 }
 
 // SavePort persists the allocated port for a worktree into its metadata file.

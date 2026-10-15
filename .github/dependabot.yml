@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    target-branch: chore/dependabot
+    schedule: {interval: weekly}
+    groups:
+      go: {patterns: ["*"]}
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: chore/dependabot
+    schedule: {interval: weekly}
+    groups:
+      frontend: {patterns: ["*"]}
+  - package-ecosystem: npm
+    directory: /site
+    target-branch: chore/dependabot
+    schedule: {interval: weekly}
+    groups:
+      site: {patterns: ["*"]}
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: chore/dependabot
+    schedule: {interval: weekly}
+    groups:
+      actions: {patterns: ["*"]}

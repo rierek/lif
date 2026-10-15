@@ -26,9 +26,9 @@ const (
 // requires a loaded store. It answers a different question than the
 // audience marker -- "can this run without a store" vs. "should a human
 // see this in a selection view" -- and the two sets differ: prime is
-// bootstrap-skip but audience-user-facing, while path and completion are
-// audience-plumbing but require a store. Folding one into the other would
-// silently change either prime's or path's/completion's runtime behaviour
+// bootstrap-skip but audience-user-facing, while path is
+// audience-plumbing but requires a store. Folding one into the other would
+// silently change either prime's or path's runtime behaviour
 // (beans-bv90).
 const (
 	bootstrapSkipAnnotationKey = "beans.bootstrap-skip"
@@ -40,6 +40,14 @@ func markBootstrapSkip(cmd *cobra.Command) {
 		cmd.Annotations = map[string]string{}
 	}
 	cmd.Annotations[bootstrapSkipAnnotationKey] = bootstrapSkip
+}
+
+// markBootstrapSkipTree marks cmd and all its sub-commands bootstrap-skip.
+func markBootstrapSkipTree(cmd *cobra.Command) {
+	markBootstrapSkip(cmd)
+	for _, sub := range cmd.Commands() {
+		markBootstrapSkipTree(sub)
+	}
 }
 
 // IsBootstrapSkip reports whether cmd was declared to run without a loaded
@@ -132,6 +140,9 @@ func RegisterCoreCommands(root *cobra.Command) {
 	for _, cmd := range root.Commands() {
 		if !preBuiltin[cmd] {
 			markPlumbing(cmd)
+			// help and completion render text only; they need no store, and
+			// the completion scripts' sub-commands inherit that (beans-mgx8).
+			markBootstrapSkipTree(cmd)
 		}
 	}
 

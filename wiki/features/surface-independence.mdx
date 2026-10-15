@@ -70,7 +70,7 @@ In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../refer
 - All paths use the same store. Lif finds it by a fixed precedence: `--lif-path`, configuration, `LIF_PATH`, current directory. See [`lif path`](../../reference/commands/lif-path/).
 - The server has more capabilities (worktrees, agent sessions, terminal). They exist only in `lif-serve`.
 - Direct editing is unrestricted. Lif loads the change without checking it. It watches files only to reload. Run `lif check` afterwards. See [Flexible planning](../project-planning/#limits) for what it covers.
-- For concurrent changes, `--if-match` and GraphQL `ifMatch` protect with an ETag. The configuration `require_if_match` makes it mandatory. The check does not protect two simultaneous processes [9r10]. Without `--if-match` there is no protection, and Lif does not report an overwritten state.
+- For concurrent changes, `--if-match` and GraphQL `ifMatch` protect with an ETag. The configuration `require_if_match` makes it mandatory. The item file is locked from the check to the write, so of two simultaneous processes with the same ETag only one succeeds. Without `--if-match` there is no protection, and Lif does not report an overwritten state.
 
 </details>
 
@@ -85,12 +85,12 @@ In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../refer
 
 - Run `lif check` after manual edits. Lif does not check them while you edit.
 - Start `lif-serve` for the Web UI. `lif serve` in the main program is a hidden stub.
-- Do not expose the `lif-serve` port. It has no authentication or TLS and exposes a terminal [8h4v].
-- Pass `--if-match` for concurrent writers, and run writers one at a time [9r10].
+- Keep `lif-serve` on its default address `127.0.0.1`. It has no TLS and, on loopback, no authentication; `--host` opens it to the network behind an access token [8h4v].
+- Pass `--if-match` for concurrent writers. A writer without it is not protected.
 - Set `lif.anchor: repo-root` if Git worktrees should share one store. Without it, each worktree uses its own.
-- Expect fixed value lists and a fixed theme in the TUI: it ignores `display.theme` [179g].
+- Expect a fixed dark theme in the TUI: it ignores `display.theme` [179g]. It does follow the statuses, types, priorities and colors of `.lif.yml`.
 
-See [Known limitations](../../known-limitations/) for [9r10], [8h4v] and [179g].
+See [Known limitations](../../known-limitations/) for [8h4v] and [179g].
 
 ## Reference
 

@@ -40,7 +40,7 @@ lif dev (135e76e-dirty) built 2026-10-14T18:41:07Z
 custom front matter: preserved
 ```
 
-There is no `lif --version` flag ([3slb]). The command is `lif version`, and `lif version --json` prints the same data as JSON.
+`lif --version` prints the same text as `lif version`. `lif version --json` prints the same data as JSON.
 
 Next, run `lif init` in your project folder. [First steps](../first-steps/) takes you through it.
 
@@ -149,7 +149,3 @@ A plain `go build ./cmd/lif` compiles, but the binary is unstamped and embeds no
 - Before an upgrade, commit pending item changes and read the [release notes](../../releases/) for breaking changes.
 - Uninstall: delete `lif` and `lif-serve` from the install directory (script default: `$HOME/.local/bin`). Lif has no uninstall command. Your stores (`.lif/`, `.lif.yml`) stay as normal files in your projects.
 - Old `.beans` stores are still read in place after you install Lif.
-
-## Limits
-
-- Run `lif completion` and `lif help <cmd>` inside a project folder: outside one they can fail. Known as [mgx8].

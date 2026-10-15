@@ -6,18 +6,17 @@ name: test
 on:
   push:
     branches: ["main"]
-    tags:
-      - "v*"
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Install mise
@@ -28,11 +27,11 @@ jobs:
           fi
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
       - name: Set up Node.js

@@ -2,16 +2,13 @@ package commands
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/rierek/lif/internal/output"
-	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/rierek/lif/pkg/itemgraph"
-	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -38,13 +35,13 @@ var createCmd = &cobra.Command{
 	Args:    cobra.ArbitraryArgs,
 	Aliases: []string{"c", "new"},
 	Short:   "Create a new item",
-	Long:    `Creates a new item (issue) with a generated ID and optional title.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		title := strings.Join(args, " ")
-		if title == "" {
-			title = "Untitled"
-		}
+	Long: `Creates a new item (issue) with a generated ID and optional title.
 
+With -i/--interactive a guided form asks for title, type, priority and parent
+on the terminal, then offers an action menu (body, tags, blocking links,
+status, create next). Flags and the lif.default_* settings pre-fill the form.
+Without a terminal on stdin the command fails at once and never waits.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Validate inputs
 		if createStatus != "" && !cfg.IsValidStatus(createStatus) {
 			return cmdError(createJSON, output.ErrInvalidStatus, "invalid status: %s (must be %s)", createStatus, strings.Join(cfg.StatusNames(), ", "))
@@ -67,112 +64,61 @@ var createCmd = &cobra.Command{
 			return cmdError(createJSON, output.ErrValidation, "invalid order value: %q (must be a non-empty base62 fractional index)", createOrder)
 		}
 
+		// Terminal guard: before anything reads stdin (--body - included).
+		if createInteractive {
+			if err := requireCreateTerminal(); err != nil {
+				return cmdError(createJSON, output.ErrValidation, "%s", err)
+			}
+		}
+
 		body, err := resolveContent(createBody, createBodyFile)
 		if err != nil {
 			return cmdError(createJSON, output.ErrFileError, "%s", err)
 		}
 
-		// Build GraphQL input
-		input := model.CreateItemInput{Title: title}
-		if createStatus != "" {
-			input.Status = &createStatus
-		} else {
-			defaultStatus := cfg.GetDefaultStatus()
-			input.Status = &defaultStatus
-		}
-		if createType != "" {
-			input.Type = &createType
-		} else {
-			defaultType := cfg.GetDefaultType()
-			input.Type = &defaultType
-		}
-		if createPriority != "" {
-			input.Priority = &createPriority
-		}
-		if body != "" {
-			input.Body = &body
-		}
-		if len(createTag) > 0 {
-			input.Tags = createTag
+		if createInteractive {
+			// The form pre-fills Body from createBody; --body - and
+			// --body-file are already resolved to content here.
+			createBody, createBodyFile = body, ""
+			return runCreateInteractive(cmd, args)
 		}
 
-		// Add parent
-		if createParent != "" {
-			input.Parent = &createParent
-		}
-
-		// Add blocking
-		if len(createBlocking) > 0 {
-			input.Blocking = createBlocking
-		}
-
-		// Add blocked_by
-		if len(createBlockedBy) > 0 {
-			input.BlockedBy = createBlockedBy
-		}
-
-		// Add custom prefix
-		if createPrefix != "" {
-			input.Prefix = &createPrefix
-		}
-
-		setMap, err := extraSetMap(createSet)
+		b, err := writeCreateDraft(cmd, createDraft{
+			Title:     strings.Join(args, " "),
+			Type:      createType,
+			Priority:  createPriority,
+			Status:    createStatus,
+			Parent:    createParent,
+			Body:      body,
+			Tags:      createTag,
+			Blocking:  createBlocking,
+			BlockedBy: createBlockedBy,
+		})
 		if err != nil {
-			return cmdError(createJSON, output.ErrValidation, "%s", err)
+			return err
 		}
-
-		// Create via core resolver
-		resolver := &itemgraph.CoreResolver{Core: core}
-		b, err := resolver.CreateItem(context.Background(), input, itemcore.WithExtraOps(setMap, nil))
-		if err != nil {
-			return cmdError(createJSON, output.ErrFileError, "failed to create item: %v", err)
-		}
-
-		// An explicit order and --unset aren't part of the generated
-		// CreateBeanInput type or WithExtraOps (which only sets), so
-		// they're applied and persisted as a second write.
-		needsSecondWrite := len(createUnset) > 0 || cmd.Flags().Changed("order")
-		if needsSecondWrite {
-			// Capture the freshly-created item's own etag before mutating it,
-			// and pass it as ifMatch below instead of nil: nil bypasses
-			// optimistic concurrency control -- silently ignored under a
-			// normal config, and under require_if_match:true it makes the
-			// write fail outright, leaving the item on disk without the
-			// order/unset that were just requested. The item's own current
-			// etag satisfies require_if_match and still catches a genuine
-			// concurrent external write between the two writes.
-			etag := b.ETag()
-			for _, key := range createUnset {
-				delete(b.Extra, key)
-			}
-			if cmd.Flags().Changed("order") {
-				b.Order = createOrder
-			}
-			if err := core.Update(b, &etag); err != nil {
-				return mutationError(createJSON, err)
-			}
-		}
-
-		if createJSON {
-			return output.SuccessSingle(b)
-		}
-
-		fmt.Println(ui.Success.Render("Created ") + ui.ID.Render(b.ID) + " " + ui.Muted.Render(b.Path))
-		return nil
+		return printCreated(b)
 	},
+}
+
+// refreshCreateVocabularyHelp renders the status, type and priority flag texts
+// from c; a nil c yields the built-in names.
+func refreshCreateVocabularyHelp(c *config.Config) {
+	f := createCmd.Flags()
+	f.Lookup("status").Usage = "Initial status (" + strings.Join(c.StatusNames(), ", ") + ")"
+	f.Lookup("type").Usage = "Item type (" + strings.Join(c.TypeNames(), ", ") + ")"
+	f.Lookup("priority").Usage = "Priority level (" + strings.Join(c.PriorityNames(), ", ") + ")"
 }
 
 func RegisterCreateCmd(root *cobra.Command) {
 	// Help text sources its allowed values from cfg's canonical accessors --
 	// see RegisterUpdateCmd's identical comment (update.go) for why cfg may
 	// be nil here and why that is safe (beans-pkq3 AC-02/AC-08, SC-01).
-	statusNames := cfg.StatusNames()
-	typeNames := cfg.TypeNames()
-	priorityNames := cfg.PriorityNames()
-
-	createCmd.Flags().StringVarP(&createStatus, "status", "s", "", "Initial status ("+strings.Join(statusNames, ", ")+")")
-	createCmd.Flags().StringVarP(&createType, "type", "t", "", "Item type ("+strings.Join(typeNames, ", ")+")")
-	createCmd.Flags().StringVarP(&createPriority, "priority", "p", "", "Priority level ("+strings.Join(priorityNames, ", ")+")")
+	createCmd.Flags().StringVarP(&createStatus, "status", "s", "", "")
+	createCmd.Flags().StringVarP(&createType, "type", "t", "", "")
+	createCmd.Flags().StringVarP(&createPriority, "priority", "p", "", "")
+	refreshCreateVocabularyHelp(cfg)
+	withConfiguredVocabulary(createCmd, refreshCreateVocabularyHelp)
 	createCmd.Flags().StringVarP(&createBody, "body", "d", "", "Body content (use '-' to read from stdin)")
 	createCmd.Flags().StringVar(&createBodyFile, "body-file", "", "Read body from file")
 	createCmd.Flags().StringArrayVar(&createTag, "tag", nil, "Add tag (can be repeated)")
@@ -184,6 +130,7 @@ func RegisterCreateCmd(root *cobra.Command) {
 	createCmd.Flags().StringArrayVar(&createUnset, "unset", nil, "Remove an extra front matter key (can be repeated)")
 	createCmd.Flags().StringVar(&createOrder, "order", "", "Explicit fractional-index order value")
 	createCmd.Flags().BoolVar(&createJSON, "json", false, "Output as JSON")
+	createCmd.Flags().BoolVarP(&createInteractive, "interactive", "i", false, "Open a guided form for title, type, priority and parent (needs a terminal)")
 	createCmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	createCmd.ValidArgsFunction = createValidArgs
 	_ = createCmd.RegisterFlagCompletionFunc("status", statusFlagCompletion)

@@ -141,11 +141,11 @@ Useful options: `--no-links`, `--link-prefix`, `--depth`, `--tags`, `--include-d
 - Edit by hand, then run `lif check`. Lif does not check manual edits on load. See [Flexible planning](../project-planning/#limits) for what `lif check` covers.
 - Write within the limits that apply when you write through Lif: body at most 1 MiB, title at most 1000 characters, tags in lower case, starting with a letter, hyphens only between characters.
 - Fix or remove a broken `.md` file before you run other commands. One unparsable file aborts the whole load (`loading <path>: ...`) and Lif then returns no items.
-- Keep file names equal to IDs and IDs unique. `lif check` reports neither a differing file name nor a duplicate ID. With a duplicate ID, the file loaded later silently overwrites the other.
+- Keep file names equal to IDs and IDs unique. The ID comes from the file name, so a file renamed by hand answers to a new ID and every link to the old one breaks. Since 0.15, `lif check` reports a file whose name gives another ID than its `# <id>` line records, with the links that dangle; use `lif rename` to change an ID with its links. `lif check` does not report a duplicate ID: the file loaded later silently overwrites the other.
 - Test Obsidian Bases yourself before you rely on it. Compatibility is unclear: nothing in the code or the docs says anything about it. See [Surface independence](../surface-independence/#editors-such-as-obsidian).
 - Add the hook yourself. Lif ships none, and CI does not run `lif check` either.
 - Set `lif.anchor: repo-root` if worktrees should share items. Without it, changes come together only through a merge.
-- Run `lif check` after a merge, and read the result with care. A merge can combine edits into a state `lif check` does not catch, for example mixed-field cycles [et2a]. See [Known limitations](../../known-limitations/).
+- Run `lif check` after a merge. A merge can combine edits into a state Lif would have refused on write, for example a dependency cycle; `lif check` reports it. See [Flexible planning](../project-planning/#limits) for what it does not cover.
 - Stop `lif-serve` and remove active worktrees before `lif rename --prefix`. It refuses while they exist.
 
 ## Reference

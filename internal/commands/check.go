@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/rierek/lif/internal/gitutil"
@@ -59,6 +60,48 @@ func itemFieldIssues(allItems []*item.Item) []string {
 			out = append(out, fmt.Sprintf("item %s (%s) cannot sit under parent %s (%s): parent must rank higher", b.ID, b.Type, p.ID, p.Type))
 		}
 	}
+	return out
+}
+
+// itemIDIssues reports every item whose file name gives another ID than the
+// "# <id>" line inside the file records (see itemcore.HandRenamed; prefix is
+// the project prefix). The usual cause is a file renamed by hand: the file
+// name wins, so the item answers to the new ID and every link to the
+// recorded one no longer resolves. Each issue names the file, both IDs and
+// the items whose links now dangle. A file that records the ID of another
+// loaded item is a copy; its issue lists no dangling links.
+func itemIDIssues(allItems []*item.Item, prefix string) []string {
+	away := itemcore.RenamedAwayIDs(allItems, prefix)
+	var out []string
+	for _, b := range itemcore.HandRenamed(allItems, prefix) {
+		msg := fmt.Sprintf("item %s: file name %s gives ID %s but the file records ID %s (renamed by hand? rename it back; lif rename changes an ID together with its links)",
+			b.ID, filepath.Base(b.Path), b.ID, b.RecordedID)
+		if _, renamed := away[b.RecordedID]; renamed {
+			if dangling := linksTo(allItems, b.RecordedID); len(dangling) > 0 {
+				msg += fmt.Sprintf("; links to %s dangle: %s", b.RecordedID, strings.Join(dangling, ", "))
+			}
+		}
+		out = append(out, msg)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// linksTo lists the links that point at id, as "<item> <link type>", sorted.
+func linksTo(allItems []*item.Item, id string) []string {
+	var out []string
+	for _, b := range allItems {
+		if b.Parent == id {
+			out = append(out, b.ID+" parent")
+		}
+		if b.IsBlocking(id) {
+			out = append(out, b.ID+" blocking")
+		}
+		if b.IsBlockedBy(id) {
+			out = append(out, b.ID+" blocked_by")
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 
@@ -158,18 +201,31 @@ func attachmentOrphanIssues(c *itemcore.Core) []string {
 	return issues
 }
 
+// cycleVia names the links a cycle runs over, and adds the note that explains
+// a cycle through the hierarchy (itemcore.Cycle.Note) when it has one.
+func cycleVia(c itemcore.Cycle) string {
+	if note := c.Note(); note != "" {
+		return c.LinkType + ": " + note
+	}
+	return c.LinkType
+}
+
 var checkCmd = &cobra.Command{
 	Use:   "check",
 	Args:  cobra.NoArgs,
 	Short: "Validate configuration and item integrity",
 	Long: `Checks configuration and item integrity, including:
-- Configuration settings (colors, default type)
+- Configuration settings (colors, default type, priority and tags, ID prefix)
+- Item types that the configuration still defines
 - Item fields: unknown status or priority, invalid tags, parent of the wrong type rank
+- Item file names: a file whose name gives another ID than the file records in its "# <id>" line (a file renamed by hand), with the links that now dangle
 - Broken links (links to non-existent items)
 - Self-references (items linking to themselves)
-- Circular dependencies (cycles in blocks/parent relationships)
+- Circular dependencies (cycles of blocking links, whichever field stores them, and of parent links; a blocker below or above the item it blocks)
 
-Use --fix to automatically remove broken links and self-references.
+Use --fix to automatically remove broken links and self-references. A link to
+the ID that a file renamed by hand still records is kept and reported as kept:
+it works again when the file has its ID back (lif rename <id> <recorded-id>).
 Note: Cycles cannot be auto-fixed and require manual intervention.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var configErrors []string
@@ -217,6 +273,13 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			fmt.Printf("  %s Status, priority, tags and hierarchy are valid\n", ui.Success.Render("✓"))
 		}
 
+		// 2b-4. Check that every file name gives the ID the file records
+		if issues := itemIDIssues(allItems, cfg.Items.Prefix); len(issues) > 0 {
+			configErrors = append(configErrors, issues...)
+		} else if !checkJSON {
+			fmt.Printf("  %s File names give the IDs the files record\n", ui.Success.Render("✓"))
+		}
+
 		// 2c. Check agent.default_effort is a valid effort level
 		if effort := cfg.GetDefaultEffort(); effort != "" && !config.IsValidEffortLevel(effort) {
 			configErrors = append(configErrors, fmt.Sprintf("agent.default_effort '%s' is not valid (use low, medium, high, or max)", effort))
@@ -233,6 +296,16 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 		if cfg != nil && !ui.IsValidTheme(cfg.GetTheme()) {
 			configErrors = append(configErrors,
 				fmt.Sprintf("unknown display.theme '%s': expected latte, frappe, macchiato or mocha", cfg.GetTheme()))
+		}
+
+		// 2d. Check lif.default_priority and lif.default_tags (pre-fill for create -i)
+		if p := cfg.GetDefaultPriority(); !cfg.IsValidPriority(p) {
+			configErrors = append(configErrors, fmt.Sprintf("default_priority '%s' is not a known priority", p))
+		}
+		for _, tag := range cfg.GetDefaultTags() {
+			if err := item.ValidateTag(tag); err != nil {
+				configErrors = append(configErrors, fmt.Sprintf("default_tags entry '%s' is not valid: %v", tag, err))
+			}
 		}
 
 		// 3. Check all status colours are valid. This must iterate the
@@ -313,17 +386,30 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			}
 			fixed = fixedCount
 
-			if !checkJSON {
-				for _, bl := range linkResult.BrokenLinks {
+			// A link to the ID that a renamed file still records is not fixed:
+			// it is kept, shown as kept, and stays a finding.
+			away := itemcore.RenamedAwayIDs(allItems, cfg.Items.Prefix)
+			kept := []itemcore.BrokenLink{}
+			for _, bl := range linkResult.BrokenLinks {
+				if file, renamed := away[bl.Target]; renamed {
+					kept = append(kept, bl)
+					if !checkJSON {
+						fmt.Printf("  %s %s: kept broken link %s:%s, %s still records %s as its ID\n", ui.Warning.Render("!"), bl.ItemID, bl.LinkType, bl.Target, file, bl.Target)
+					}
+					continue
+				}
+				if !checkJSON {
 					fmt.Printf("  %s %s: removed broken link %s:%s\n", ui.Success.Render("✓"), bl.ItemID, bl.LinkType, bl.Target)
 				}
+			}
+			if !checkJSON {
 				for _, sl := range linkResult.SelfLinks {
 					fmt.Printf("  %s %s: removed self-reference in %s link\n", ui.Success.Render("✓"), sl.ItemID, sl.LinkType)
 				}
 			}
 
 			// Clear the fixed issues from the result
-			linkResult.BrokenLinks = []itemcore.BrokenLink{}
+			linkResult.BrokenLinks = kept
 			linkResult.SelfLinks = []itemcore.SelfLink{}
 		} else if !checkJSON {
 			// Report issues without fixing
@@ -339,9 +425,9 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 		if !checkJSON {
 			for _, c := range linkResult.Cycles {
 				if checkFix {
-					fmt.Printf("  %s Cannot auto-fix cycle: %s (via %s)\n", ui.Warning.Render("!"), formatCycle(c.Path), c.LinkType)
+					fmt.Printf("  %s Cannot auto-fix cycle: %s (via %s)\n", ui.Warning.Render("!"), formatCycle(c.Path), cycleVia(c))
 				} else {
-					fmt.Printf("  %s Circular dependency: %s (via %s)\n", ui.Danger.Render("✗"), formatCycle(c.Path), c.LinkType)
+					fmt.Printf("  %s Circular dependency: %s (via %s)\n", ui.Danger.Render("✗"), formatCycle(c.Path), cycleVia(c))
 				}
 			}
 		}

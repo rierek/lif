@@ -1192,3 +1192,14 @@ func TestLegacyBranchWorktrees_oneGitCall(t *testing.T) {
 		t.Errorf("git calls = %q, want exactly [worktree list --porcelain]", lines)
 	}
 }
+
+func TestMetaRejectsTraversalID(t *testing.T) {
+	root := t.TempDir()
+	m := &Manager{worktreeRoot: filepath.Join(root, "wt")}
+	if err := m.saveMeta("../escape", &worktreeMeta{}); err == nil {
+		t.Fatal("saveMeta accepted traversal ID")
+	}
+	if _, err := os.Stat(filepath.Join(root, "escape.meta.json")); err == nil {
+		t.Fatal("file written outside worktreeRoot")
+	}
+}

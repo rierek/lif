@@ -18,6 +18,11 @@ import (
 // as a page; reference/commands/index.mdx imports it.
 const treeFile = "_command-tree.md"
 
+// supplementDir is the directory below the output dir with optional hand-written supplements (D24). The
+// underscore in the directory and in every file name keeps Starlight (whose page glob tests only the file name) from treating the files as pages. A supplement named after a command page
+// (_lif_create.md for `lif create`) is inserted before that command's "SEE ALSO" section.
+const supplementDir = "_supplements"
+
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: lif-docgen <output-dir>")
@@ -40,6 +45,26 @@ func newRoot() *cobra.Command {
 // deprecated commands are out, and so is Cobra's built-in help, which IsAvailableCommand excludes (D57).
 func documented(c *cobra.Command) bool {
 	return c.IsAvailableCommand() && !c.IsAdditionalHelpTopicCommand()
+}
+
+// supplement returns the hand-written supplement of c, or "" when there is none.
+func supplement(out string, c *cobra.Command) (string, error) {
+	b, err := os.ReadFile(filepath.Join(out, supplementDir, "_"+strings.ReplaceAll(c.CommandPath(), " ", "_")+".md"))
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	return strings.TrimSpace(string(b)), err
+}
+
+// withSupplement inserts sup before the "### SEE ALSO" heading of a generated page, or appends it.
+func withSupplement(md, sup string) string {
+	if sup == "" {
+		return md
+	}
+	if i := strings.Index(md, "### SEE ALSO"); i >= 0 {
+		return md[:i] + sup + "\n\n" + md[i:]
+	}
+	return md + "\n" + sup + "\n"
 }
 
 // generate writes one page per documented command below root into out, plus the command tree partial.
@@ -152,9 +177,15 @@ func writePages(c *cobra.Command, out string) error {
 		}
 		var buf bytes.Buffer
 		for _, s := range sections {
-			if err := doc.GenMarkdownCustom(s, &buf, link); err != nil {
+			var page bytes.Buffer
+			if err := doc.GenMarkdownCustom(s, &page, link); err != nil {
 				return err
 			}
+			sup, err := supplement(out, s)
+			if err != nil {
+				return err
+			}
+			buf.WriteString(withSupplement(page.String(), sup))
 		}
 		_, err := io.WriteString(w, fenceIndentedComments(buf.String()))
 		return err

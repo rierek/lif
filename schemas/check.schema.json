@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/checkResult",
+  "$defs": {
+    "BrokenLink": {
+      "properties": {
+        "item_id": {
+          "type": "string"
+        },
+        "link_type": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "item_id",
+        "link_type",
+        "target"
+      ],
+      "description": "BrokenLink represents a link to a non-existent item."
+    },
+    "Cycle": {
+      "properties": {
+        "link_type": {
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object",
+      "required": [
+        "link_type",
+        "path"
+      ],
+      "description": "Cycle represents a circular dependency in links."
+    },
+    "LinkCheckResult": {
+      "properties": {
+        "broken_links": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/BrokenLink"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "self_links": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SelfLink"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cycles": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Cycle"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object",
+      "required": [
+        "broken_links",
+        "self_links",
+        "cycles"
+      ],
+      "description": "LinkCheckResult contains all link validation issues found."
+    },
+    "SelfLink": {
+      "properties": {
+        "item_id": {
+          "type": "string"
+        },
+        "link_type": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "item_id",
+        "link_type"
+      ],
+      "description": "SelfLink represents an item linking to itself."
+    },
+    "checkResult": {
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "config_errors": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "item_issues": {
+          "$ref": "#/$defs/LinkCheckResult"
+        },
+        "fixed": {
+          "type": "integer"
+        },
+        "policy_warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "attachment_orphans": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "legacy_names": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "required": [
+        "success",
+        "config_errors"
+      ]
+    }
+  }
+}

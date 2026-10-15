@@ -275,13 +275,20 @@ func TestAddRemoveBlockingRoundtrip(t *testing.T) {
 	repo := newTestRepo(t)
 	client := &Client{RepoDir: repo}
 
+	// Not tt-epic: tt-task is its child, and a child that blocks its parent can
+	// never be released (beans-o8bs), so lif refuses that link.
+	target, err := client.Create(CreateOpts{Title: "Blocking Target", Type: "task"})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
 	beans, err := client.List()
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 	task := findBean(t, beans, "tt-task")
 
-	if err := client.AddBlocking(task.ID, "tt-epic", task.ETag); err != nil {
+	if err := client.AddBlocking(task.ID, target.ID, task.ETag); err != nil {
 		t.Fatalf("AddBlocking() error = %v", err)
 	}
 
@@ -290,11 +297,11 @@ func TestAddRemoveBlockingRoundtrip(t *testing.T) {
 		t.Fatalf("List() after AddBlocking error = %v", err)
 	}
 	updated := findBean(t, after, "tt-task")
-	if len(updated.Blocking) != 1 || updated.Blocking[0] != "tt-epic" {
-		t.Fatalf("Blocking after AddBlocking() = %v, want [tt-epic]", updated.Blocking)
+	if len(updated.Blocking) != 1 || updated.Blocking[0] != target.ID {
+		t.Fatalf("Blocking after AddBlocking() = %v, want [%s]", updated.Blocking, target.ID)
 	}
 
-	if err := client.RemoveBlocking(task.ID, "tt-epic", updated.ETag); err != nil {
+	if err := client.RemoveBlocking(task.ID, target.ID, updated.ETag); err != nil {
 		t.Fatalf("RemoveBlocking() error = %v", err)
 	}
 
@@ -331,13 +338,20 @@ func TestSetBlockingAddsAndRemovesInOneCall(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
+	// The seed is a fresh bean too: tt-epic is the parent of tt-task, and a child
+	// that blocks its parent is refused (beans-o8bs).
+	seed, err := client.Create(CreateOpts{Title: "Seed Target", Type: "task"})
+	if err != nil {
+		t.Fatalf("Create() seed error = %v", err)
+	}
+
 	beans, err := client.List()
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 	task := findBean(t, beans, "tt-task")
 
-	if err := client.AddBlocking(task.ID, "tt-epic", task.ETag); err != nil {
+	if err := client.AddBlocking(task.ID, seed.ID, task.ETag); err != nil {
 		t.Fatalf("seed AddBlocking() error = %v", err)
 	}
 
@@ -347,7 +361,7 @@ func TestSetBlockingAddsAndRemovesInOneCall(t *testing.T) {
 	}
 	task = findBean(t, beans, "tt-task")
 
-	if err := client.SetBlocking(task.ID, []string{target.ID}, []string{"tt-epic"}, task.ETag); err != nil {
+	if err := client.SetBlocking(task.ID, []string{target.ID}, []string{seed.ID}, task.ETag); err != nil {
 		t.Fatalf("SetBlocking() error = %v", err)
 	}
 
@@ -359,8 +373,8 @@ func TestSetBlockingAddsAndRemovesInOneCall(t *testing.T) {
 
 	want := map[string]bool{target.ID: true}
 	for _, id := range updated.Blocking {
-		if id == "tt-epic" {
-			t.Fatal("SetBlocking() left the removed blocking target \"tt-epic\" in place")
+		if id == seed.ID {
+			t.Fatalf("SetBlocking() left the removed blocking target %q in place", seed.ID)
 		}
 		if !want[id] {
 			t.Errorf("SetBlocking() left unexpected blocking target %q, want only %v", id, want)
@@ -500,12 +514,10 @@ func TestUpdateWholeSendsOnlyChangedFields(t *testing.T) {
 			t.Fatalf("List() after UpdateWhole error = %v", err)
 		}
 		updated := findBean(t, after, "tt-task")
-		// The CLI's own JSON "body" field always carries a leading "\n"
-		// (the blank line between the frontmatter's closing "---" and the
-		// body text on disk) -- verified against every OTHER body-bearing
-		// fixture in this package (e.g. testrepo_test.go's own bodies).
-		if updated.Body != "\n"+body {
-			t.Fatalf("Body = %q, want %q", updated.Body, "\n"+body)
+		// The CLI's JSON "body" field carries the body text exactly: the
+		// blank line after the front matter is a separator, not content.
+		if updated.Body != body {
+			t.Fatalf("Body = %q, want %q", updated.Body, body)
 		}
 	})
 

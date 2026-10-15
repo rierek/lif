@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/progressResult",
+  "$defs": {
+    "progressResult": {
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "percent": {
+          "type": "integer"
+        }
+      },
+      "type": "object",
+      "required": [
+        "counts",
+        "completed",
+        "total",
+        "percent"
+      ]
+    }
+  }
+}

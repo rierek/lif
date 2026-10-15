@@ -55,3 +55,27 @@ func assertHelpNamesLifAndItem(t *testing.T, root *cobra.Command) {
 	}
 	walk(root)
 }
+
+// The search engine has no AND/OR/NOT keywords and no grouping, so the help
+// of `list --search` must teach +term and -term instead (beans-xa2j).
+func TestListHelpDocumentsOnlyWorkingSearchOperators(t *testing.T) {
+	var list *cobra.Command
+	for _, c := range sharedTestRoot(t).Commands() {
+		if c.Name() == "list" {
+			list = c
+		}
+	}
+	if list == nil {
+		t.Fatal("list command not found")
+	}
+	for _, bad := range []string{" AND ", " OR ", " NOT "} {
+		if strings.Contains(list.Long, bad) {
+			t.Errorf("list help promises unsupported operator %q", strings.TrimSpace(bad))
+		}
+	}
+	for _, want := range []string{"+login", "-user"} {
+		if !strings.Contains(list.Long, want) {
+			t.Errorf("list help does not show %q", want)
+		}
+	}
+}

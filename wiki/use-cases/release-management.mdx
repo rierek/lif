@@ -44,13 +44,13 @@ Rank 3 is unused. The rank rule allows gaps, so the preset has three levels.
 
 ## Findings become items
 
-`lif promote` turns selected records of a review artifact into items. A finding with code `B` becomes a `bug`, and code `I` becomes a `task` tagged `improvement`. Lif writes nothing if one selected record is malformed. A finding that was promoted before is skipped, not duplicated:
+`lif promote` turns selected records of a review artifact into items. A finding with code `B` becomes a `bug`, and code `I` becomes a `task` tagged `improvement`. A finding that was promoted before is skipped, not duplicated:
 
 <div class="not-content">
   <TerminalWindow title="~/shop" label="Message that finding B01 was skipped because it was already promoted from review.json." command={`lif promote review.json B01`} html={`skipped B01: already promoted from review.json`} cols={80} />
 </div>
 
-The promoted item records `review`, `finding` and `axis` in its front matter and has no parent. Attach it with `lif update <id> --parent <feature-id>`. The artifact format is not documented yet [nhcz].
+The promoted item has the configured default status and records `review`, `finding` and `axis` in its front matter. Add `--parent <feature-id>` and every promoted item is created under that feature, so it counts in `lif progress` of the release; without the flag it has no parent. The call is all or nothing: Lif checks every selected record and the parent before it writes, and writes nothing if one fails. The artifact format is on the [`lif promote`](../../reference/commands/lif-promote/) page.
 
 ## Commit SHAs
 
@@ -78,6 +78,7 @@ Error: status "completed" requires front matter field(s) commit: supply them in 
   <span style="color:var(--ctp-green)">✓</span> Default type 'task' is valid
   <span style="color:var(--ctp-green)">✓</span> Every item carries a known type
   <span style="color:var(--ctp-green)">✓</span> Status, priority, tags and hierarchy are valid
+  <span style="color:var(--ctp-green)">✓</span> File names give the IDs the files record
   <span style="color:var(--ctp-green)">✓</span> All status colors valid
   <span style="color:var(--ctp-green)">✓</span> All type colors valid
   <span style="color:var(--ctp-green)">✓</span> Prefix consistency valid
@@ -104,11 +105,8 @@ Without `require_fields_on`, `lif check` does not look at the commit field.
 
 - Create the Git tag and write the release notes yourself. Lif has no command for either.
 - Run `lif check --strict` in your own script or hook, for example before you tag. Lif installs no hook.
-- Write the review artifact by reading the schema in the repository, until the format has a page [nhcz].
-- `lif promote` can stop part-way through a set [z69m]. Run `lif list` after a failed call to see what was created.
-- A promoted item has no parent, so it is outside the release progress. Attach it with `lif update <id> --parent <feature-id>` [tgph].
-
-See [Known limitations](../../known-limitations/) for [nhcz], [z69m] and [tgph].
+- Promote with `--parent <feature-id>` to keep promoted items inside the release progress. Without it a promoted item has no parent and you attach it yourself.
+- Only `B` and `I` findings can be promoted; `D`, `T` and `Q` records are refused.
 
 ## Reference
 

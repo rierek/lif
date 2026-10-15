@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/spf13/pflag"
 )
@@ -35,12 +37,12 @@ func setupPromoteTest(t *testing.T) {
 	t.Cleanup(func() { core, cfg = oldCore, oldCfg })
 }
 
-// resetPromoteFlags clears promoteJSON before/after each test.
+// resetPromoteFlags clears promoteJSON and promoteParent before/after each test.
 func resetPromoteFlags(t *testing.T) {
 	t.Helper()
-	old := promoteJSON
-	promoteJSON = false
-	t.Cleanup(func() { promoteJSON = old })
+	oldJSON, oldParent := promoteJSON, promoteParent
+	promoteJSON, promoteParent = false, ""
+	t.Cleanup(func() { promoteJSON, promoteParent = oldJSON, oldParent })
 }
 
 // captureRunEStdout redirects os.Stdout for the duration of fn and returns
@@ -303,17 +305,12 @@ func TestPromoteSkipsAlreadyPromotedFinding(t *testing.T) {
 	}
 }
 
-// AC6: a write failure after a passing preflight names the items already
-// created rather than asserting the remaining writes also occurred.
-func TestPromoteWriteFailureNamesCreatedItems(t *testing.T) {
+// beans-z69m: a record that fails the create-time validation (here an
+// overlong title) is caught in the preflight, so a good record queued before
+// it is not written either.
+func TestPromoteInvalidCandidateWritesNothing(t *testing.T) {
 	setupPromoteTest(t)
 	resetPromoteFlags(t)
-	// B02's title exceeds itemgraph.MaxTitleLength (1000 characters), which
-	// CreateItem's own preflight rejects deterministically and without
-	// touching the filesystem -- unlike an induced I/O permission failure,
-	// this fails the exact record queued second, after B01 has already been
-	// written, giving a genuine "one succeeded, the next failed" case
-	// entirely inside this one call.
 	overlongTitle := strings.Repeat("x", 1001)
 	secondBug := `{
 		"id": "B02", "code": "B", "title": "` + overlongTitle + `",
@@ -328,16 +325,181 @@ func TestPromoteWriteFailureNamesCreatedItems(t *testing.T) {
 
 	err := promoteCmd.RunE(promoteCmd, []string{path, "B01", "B02"})
 	if err == nil {
-		t.Fatal("expected a write failure, got nil")
+		t.Fatal("expected a preflight failure, got nil")
+	}
+	if got := countItems(t); got != 0 {
+		t.Fatalf("items created = %d, want 0 (nothing written when one candidate is invalid)", got)
+	}
+	if !contains(err.Error(), "B02") {
+		t.Errorf("error %q does not name the invalid record B02", err.Error())
+	}
+}
+
+// beans-z69m: a schema-valid record whose code has no promotion mapping (D)
+// used to fail only after earlier records were written.
+func TestPromoteUnmappedCodeWritesNothing(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	decision := `{
+		"id": "D01", "code": "D", "title": "A decision",
+		"axis": "spec", "evidence": [],
+		"fields": {"Hintergrund": "h", "Entscheidung": "e", "Empfehlung": "r"}
+	}`
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`,`+decision+`]}`)
+
+	err := promoteCmd.RunE(promoteCmd, []string{path, "B01", "D01"})
+	if err == nil {
+		t.Fatal("expected a preflight failure, got nil")
+	}
+	if got := countItems(t); got != 0 {
+		t.Fatalf("items created = %d, want 0", got)
+	}
+}
+
+// beans-z69m: promoted items get the configured default status.
+func TestPromoteAppliesDefaultStatus(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	cfg.Items.DefaultStatus = "in-progress"
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err != nil {
+		t.Fatalf("promoteCmd.RunE() error = %v", err)
+	}
+	all := core.All()
+	if len(all) != 1 {
+		t.Fatalf("items = %d, want 1", len(all))
+	}
+	if all[0].Status != "in-progress" {
+		t.Errorf("status = %q, want configured default %q", all[0].Status, "in-progress")
+	}
+}
+
+// An invalid configured default status is refused like `lif create` refuses
+// it, before anything is written.
+func TestPromoteInvalidDefaultStatusWritesNothing(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	cfg.Items.DefaultStatus = "no-such-status"
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err == nil {
+		t.Fatal("expected an error for an invalid default status, got nil")
+	}
+	if got := countItems(t); got != 0 {
+		t.Fatalf("items created = %d, want 0", got)
+	}
+}
+
+// A require_fields_on rule for the default status that the promoted front
+// matter cannot satisfy is caught in the preflight, so the first record is
+// not written either.
+func TestPromoteRequiredFieldsPolicyWritesNothing(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	cfg.Items.RequireFieldsOn = map[string][]string{"todo": {"estimate"}}
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`,`+validImprovementRecord+`]}`)
+
+	err := promoteCmd.RunE(promoteCmd, []string{path, "B01", "I02"})
+	if err == nil {
+		t.Fatal("expected a policy refusal, got nil")
+	}
+	if got := countItems(t); got != 0 {
+		t.Fatalf("items created = %d, want 0", got)
+	}
+	if !contains(err.Error(), "estimate") {
+		t.Errorf("error %q does not name the missing field", err.Error())
+	}
+}
+
+// A required field that promote itself sets (finding) satisfies the rule.
+func TestPromoteRequiredFieldsPolicySatisfiedByPromotedFields(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	cfg.Items.RequireFieldsOn = map[string][]string{"todo": {"finding"}}
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err != nil {
+		t.Fatalf("promoteCmd.RunE() error = %v", err)
 	}
 	if got := countItems(t); got != 1 {
-		t.Fatalf("beans created = %d, want 1 (B01 written before B02 failed)", got)
+		t.Fatalf("items created = %d, want 1", got)
 	}
-	if !contains(err.Error(), core.All()[0].ID) {
-		t.Errorf("error %q does not name the already-created item %s", err.Error(), core.All()[0].ID)
+}
+
+// A failure after the preflight names the items already written. No
+// deterministic way to fail the second write of a real call exists (IDs are
+// random, the preflight rules out every field error), so this checks the
+// report promote hands the writer.
+func TestPromotePartialWriteReportNamesWrittenItems(t *testing.T) {
+	written := []*item.Item{{ID: "beans-aaaa"}, {ID: "beans-bbbb"}}
+	err := emitBatchFailure(false, written, fmt.Errorf("failed to create item for B03: disk full"))
+	for _, want := range []string{"failed to create item for B03", "already written: beans-aaaa, beans-bbbb"} {
+		if !contains(err.Error(), want) {
+			t.Errorf("error %q lacks %q", err.Error(), want)
+		}
 	}
-	if !contains(err.Error(), "failed to create item for B02") {
-		t.Errorf("error %q does not say which finding failed as an item", err.Error())
+}
+
+// beans-tgph: --parent attaches every promoted item to the given item.
+func TestPromoteParentFlagSetsParent(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	if err := core.Create(&item.Item{ID: "feat1", Title: "Feature", Type: "feature", Status: "todo"}); err != nil {
+		t.Fatalf("creating parent: %v", err)
+	}
+	promoteParent = "feat1"
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`,`+validImprovementRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01", "I02"}); err != nil {
+		t.Fatalf("promoteCmd.RunE() error = %v", err)
+	}
+	promoted := 0
+	for _, b := range core.All() {
+		if b.ID == "feat1" {
+			continue
+		}
+		promoted++
+		if b.Parent != "feat1" {
+			t.Errorf("item %s parent = %q, want feat1", b.ID, b.Parent)
+		}
+	}
+	if promoted != 2 {
+		t.Errorf("promoted items = %d, want 2", promoted)
+	}
+}
+
+// beans-tgph: an unknown parent is rejected before anything is written.
+func TestPromoteUnknownParentWritesNothing(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	promoteParent = "nope"
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err == nil {
+		t.Fatal("expected an error for an unknown parent, got nil")
+	}
+	if got := countItems(t); got != 0 {
+		t.Fatalf("items created = %d, want 0", got)
+	}
+}
+
+// beans-tgph: a parent of a type that cannot parent the promoted type is
+// rejected before anything is written.
+func TestPromoteInvalidParentTypeWritesNothing(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	if err := core.Create(&item.Item{ID: "leaf1", Title: "Leaf", Type: "bug", Status: "todo"}); err != nil {
+		t.Fatalf("creating parent: %v", err)
+	}
+	promoteParent = "leaf1"
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err == nil {
+		t.Fatal("expected an error for a bug as parent of a bug, got nil")
+	}
+	if got := countItems(t); got != 1 {
+		t.Fatalf("items = %d, want 1 (only the parent)", got)
 	}
 }
 

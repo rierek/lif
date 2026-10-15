@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/Info",
+  "$defs": {
+    "Info": {
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "custom_front_matter": {
+          "type": "boolean"
+        },
+        "tree": {
+          "type": "string"
+        },
+        "tree_kind": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "version",
+        "commit",
+        "date",
+        "custom_front_matter"
+      ],
+      "description": "Info is the machine-readable shape of `lif version --json`."
+    }
+  }
+}

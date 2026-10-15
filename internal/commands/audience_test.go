@@ -102,7 +102,7 @@ func TestAudienceCoversDeprecatedStubs(t *testing.T) {
 
 // TestBootstrapSkipMarksExactlyInitPrimeVersionTui pins beans-bv90 AC-2/AC-3
 // (SC-01): the bootstrap-skip marker is set if and only if the command is
-// init, prime, version, or tui -- the exact set PersistentPreRunE used to decide
+// init, prime, version, tui, help, or completion -- the exact set PersistentPreRunE used to decide
 // by comparing cmd.Name() against a literal string set.
 func TestBootstrapSkipMarksExactlyInitPrimeVersionTui(t *testing.T) {
 	root := sharedTestRoot(t)
@@ -111,6 +111,9 @@ func TestBootstrapSkipMarksExactlyInitPrimeVersionTui(t *testing.T) {
 		"prime":   true,
 		"version": true,
 		"tui":     true, // the Lobby outside a repo has no store to load
+		// cobra's text-only built-ins need no store either (beans-mgx8)
+		"help":       true,
+		"completion": true,
 	}
 	for _, cmd := range root.Commands() {
 		want := skip[cmd.Name()]
@@ -124,7 +127,7 @@ func TestBootstrapSkipMarksExactlyInitPrimeVersionTui(t *testing.T) {
 // TestBootstrapSkipMarkerIsDistinctFromAudienceMarker pins AC-4/AC-5: the
 // bootstrap-skip set {init, prime, version} and the audience-plumbing set
 // {completion, help, init, path, version} are independent axes -- prime is
-// bootstrap-skip but audience-user-facing, while path and completion are
+// bootstrap-skip but audience-user-facing, while path is
 // audience-plumbing but not bootstrap-skip. Collapsing the two markers
 // would flip one of these four checks.
 func TestBootstrapSkipMarkerIsDistinctFromAudienceMarker(t *testing.T) {
@@ -141,7 +144,7 @@ func TestBootstrapSkipMarkerIsDistinctFromAudienceMarker(t *testing.T) {
 		t.Error("prime: user-facing=false, want true (audience marker must be unaffected)")
 	}
 
-	for _, name := range []string{"path", "completion"} {
+	for _, name := range []string{"path"} {
 		cmd, _, err := root.Find([]string{name})
 		if err != nil {
 			t.Fatalf("finding %q: %v", name, err)

@@ -522,6 +522,55 @@ func TestUpdateCmdBatchPreflightsParent(t *testing.T) {
 	}
 }
 
+// childOfEpicFixtures puts beans-upt02 under beans-upe01, so that the epic can
+// neither wait for its child nor block it (beans-o8bs).
+func childOfEpicFixtures(t *testing.T) {
+	t.Helper()
+	setupUpdateTest(t)
+	batchUpdateFixtures(t)
+	child, err := core.Get("beans-upt02")
+	if err != nil {
+		t.Fatalf("core.Get(beans-upt02) error = %v", err)
+	}
+	child.Parent = "beans-upe01"
+	if err := core.Update(child, nil); err != nil {
+		t.Fatalf("core.Update(beans-upt02) error = %v", err)
+	}
+}
+
+// A batch whose second item would close a cycle writes nothing, not even the
+// first item: the blocking links are checked for every target before the first
+// write, like the parent and the type.
+func TestUpdateCmdBatchPreflightsBlockedBy(t *testing.T) {
+	childOfEpicFixtures(t)
+
+	_, _, err := runRootInDir(t, core.Root(), "update", "--blocked-by", "beans-upt02", "beans-test1", "beans-upe01")
+	if err == nil || !strings.Contains(err.Error(), "beans-upe01") || !strings.Contains(err.Error(), "would create cycle") {
+		t.Fatalf("err = %v, want beans-upe01 ... would create cycle", err)
+	}
+	if strings.Contains(err.Error(), "already written") {
+		t.Errorf("err = %q, want a refusal before the first write", err)
+	}
+	if got := diskItem(t, "beans-test1").BlockedBy; len(got) != 0 {
+		t.Errorf("beans-test1 blocked_by = %v, want none: the batch was refused as a whole", got)
+	}
+}
+
+func TestUpdateCmdBatchPreflightsBlocking(t *testing.T) {
+	childOfEpicFixtures(t)
+
+	_, _, err := runRootInDir(t, core.Root(), "update", "--blocking", "beans-upe01", "beans-test1", "beans-upt02")
+	if err == nil || !strings.Contains(err.Error(), "beans-upt02") || !strings.Contains(err.Error(), "would create cycle") {
+		t.Fatalf("err = %v, want beans-upt02 ... would create cycle", err)
+	}
+	if strings.Contains(err.Error(), "already written") {
+		t.Errorf("err = %q, want a refusal before the first write", err)
+	}
+	if got := diskItem(t, "beans-test1").Blocking; len(got) != 0 {
+		t.Errorf("beans-test1 blocking = %v, want none: the batch was refused as a whole", got)
+	}
+}
+
 func TestUpdateCmdIfMatchTakesOneID(t *testing.T) {
 	setupUpdateTest(t)
 	batchUpdateFixtures(t)

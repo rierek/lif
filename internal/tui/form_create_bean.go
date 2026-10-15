@@ -117,15 +117,15 @@ func buildCreateBeanForm(idx *data.Index, d beanDraft) *huh.Form {
 	title, parent, tags, body := d.title, d.parent, d.tags, d.body
 	typ := d.typ
 	if typ == "" {
-		typ = "task"
+		typ = data.DefaultType()
 	}
 	prio := d.priority
 	if prio == "" {
-		prio = "normal"
+		prio = data.DefaultPriority()
 	}
 	status := d.status
 	if status == "" {
-		status = "todo"
+		status = data.DefaultStatus()
 	}
 
 	fields := []huh.Field{

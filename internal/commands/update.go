@@ -9,6 +9,7 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/candidates"
+	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/rierek/lif/pkg/itemgraph"
@@ -47,9 +48,10 @@ var updateCmd = &cobra.Command{
 	Long: `Updates one or more properties of one or more existing items.
 
 Every flag applies to every item named in the call. Every ID is resolved, and
---status's required fields and --parent's type and cycle rules are checked for
-every item, before the first item is written. --if-match carries one item's
-etag, so it accepts exactly one ID.`,
+--status's required fields, --parent's type and cycle rules, and the
+--blocking/--blocked-by rules (no link to the item itself or to an unknown
+item, no cycle) are checked for every item, before the first item is written.
+--if-match carries one item's etag, so it accepts exactly one ID.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -107,6 +109,9 @@ etag, so it accepts exactly one ID.`,
 			return mutationError(updateJSON, err)
 		}
 		if err := preflightType(resolver, targets, input); err != nil {
+			return mutationError(updateJSON, err)
+		}
+		if err := preflightLinks(resolver, targets, input); err != nil {
 			return mutationError(updateJSON, err)
 		}
 
@@ -263,6 +268,38 @@ func preflightParent(resolver *itemgraph.CoreResolver, targets []*item.Item, inp
 	return nil
 }
 
+// preflightLinks runs, for every target and before the first write, the checks
+// UpdateItem runs on --blocking and --blocked-by: the link must not point at
+// the item itself or at an item that does not exist, and must not close a
+// cycle (beans-o8bs). What closes a cycle depends on the item, so a batch can
+// pass for one target and fail for the next one, after the first was written.
+func preflightLinks(resolver *itemgraph.CoreResolver, targets []*item.Item, input model.UpdateItemInput) error {
+	if input.AddBlocking == nil && input.AddBlockedBy == nil {
+		return nil
+	}
+	for _, target := range targets {
+		// The probe is the item as UpdateItem has it when it checks the links:
+		// with the new type and parent, which the cycle check counts.
+		probe := target.Clone()
+		if input.Type != nil {
+			probe.Type = *input.Type
+		}
+		if input.Parent != nil {
+			if err := resolver.ValidateAndSetParent(probe, *input.Parent); err != nil {
+				return fmt.Errorf("%s: %w", target.ID, err)
+			}
+		}
+		if err := resolver.ValidateAndAddBlocking(probe, input.AddBlocking); err != nil {
+			return fmt.Errorf("%s: %w", target.ID, err)
+		}
+		resolver.RemoveBlockingRelationships(probe, input.RemoveBlocking)
+		if err := resolver.ValidateAndAddBlockedBy(probe, input.AddBlockedBy); err != nil {
+			return fmt.Errorf("%s: %w", target.ID, err)
+		}
+	}
+	return nil
+}
+
 // preflightType runs, for every target and before the first write, the
 // hierarchy check UpdateItem runs on a type change, so a batch cannot be
 // left half-written by a violation on a later item.
@@ -307,12 +344,25 @@ func mutationErrorCode(err error) string {
 	if errors.As(err, &policyErr) {
 		return output.ErrPolicy
 	}
-	return output.ErrValidation
+	var invalid *itemcore.ValidationError
+	if errors.As(err, &invalid) {
+		return output.ErrValidation
+	}
+	return output.ErrFileError
 }
 
 // mutationError returns a cmdError with the appropriate error code based on the error type.
 func mutationError(jsonOutput bool, err error) error {
 	return cmdError(jsonOutput, mutationErrorCode(err), "%s", err)
+}
+
+// refreshUpdateVocabularyHelp renders the status, type and priority flag texts
+// from c; a nil c yields the built-in names.
+func refreshUpdateVocabularyHelp(c *config.Config) {
+	f := updateCmd.Flags()
+	f.Lookup("status").Usage = "New status (" + strings.Join(c.StatusNames(), ", ") + ")"
+	f.Lookup("type").Usage = "New type (" + strings.Join(c.TypeNames(), ", ") + ")"
+	f.Lookup("priority").Usage = "New priority (" + strings.Join(c.PriorityNames(), ", ") + ", or empty to clear)"
 }
 
 func RegisterUpdateCmd(root *cobra.Command) {
@@ -322,13 +372,11 @@ func RegisterUpdateCmd(root *cobra.Command) {
 	// lists (beans-pkq3 AC-02/AC-08, SC-01). cfg is nil here (Register* runs
 	// before PersistentPreRunE loads it); StatusList/TypeList/PriorityList
 	// are nil-receiver safe and fall back to DefaultStatuses/Types/Priorities.
-	statusNames := cfg.StatusNames()
-	typeNames := cfg.TypeNames()
-	priorityNames := cfg.PriorityNames()
-
-	updateCmd.Flags().StringVarP(&updateStatus, "status", "s", "", "New status ("+strings.Join(statusNames, ", ")+")")
-	updateCmd.Flags().StringVarP(&updateType, "type", "t", "", "New type ("+strings.Join(typeNames, ", ")+")")
-	updateCmd.Flags().StringVarP(&updatePriority, "priority", "p", "", "New priority ("+strings.Join(priorityNames, ", ")+", or empty to clear)")
+	updateCmd.Flags().StringVarP(&updateStatus, "status", "s", "", "")
+	updateCmd.Flags().StringVarP(&updateType, "type", "t", "", "")
+	updateCmd.Flags().StringVarP(&updatePriority, "priority", "p", "", "")
+	refreshUpdateVocabularyHelp(cfg)
+	withConfiguredVocabulary(updateCmd, refreshUpdateVocabularyHelp)
 	updateCmd.Flags().StringVar(&updateTitle, "title", "", "New title")
 	updateCmd.Flags().StringVarP(&updateBody, "body", "d", "", "New body (use '-' to read from stdin)")
 	updateCmd.Flags().StringVar(&updateBodyFile, "body-file", "", "Read body from file")
@@ -345,7 +393,7 @@ func RegisterUpdateCmd(root *cobra.Command) {
 	updateCmd.Flags().StringArrayVar(&updateRemoveTag, "remove-tag", nil, "Remove tag (can be repeated)")
 	updateCmd.Flags().StringArrayVar(&updateSet, "set", nil, "Set an extra front matter key as key=value (can be repeated)")
 	updateCmd.Flags().StringArrayVar(&updateUnset, "unset", nil, "Remove an extra front matter key (can be repeated)")
-	updateCmd.Flags().StringVar(&updateIfMatch, "if-match", "", "Only update if etag matches (optimistic locking)")
+	updateCmd.Flags().StringVar(&updateIfMatch, "if-match", "", "Only update if etag matches (optimistic locking); the item file is locked from the check to the write, so of two simultaneous updates with the same etag only one succeeds")
 	updateCmd.MarkFlagsMutuallyExclusive("parent", "remove-parent")
 	updateCmd.Flags().BoolVar(&updateJSON, "json", false, "Output as JSON")
 	// body and body-file are mutually exclusive with body modifications
@@ -436,10 +484,10 @@ func updateParentFlagCompletion(cmd *cobra.Command, args []string, toComplete st
 	return itemFlagCandidates(eligible), completionDirective
 }
 
-// blockedByFlagCompletion and blockingFlagCompletion both offer every other
-// item in the store (candidates.BlockingCandidates, beans-v725) -- neither
-// edge direction excludes descendants (beans-pkq3 AC-04; see pkg/candidates'
-// BlockingCandidates doc comment).
+// blockedByFlagCompletion and blockingFlagCompletion both offer the same
+// items: every other item in the store except the ones in the edited item's
+// own subtree and on its parent chain (candidates.BlockingCandidates,
+// beans-v725, beans-o8bs), because a link to those is refused.
 func blockedByFlagCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return blockingLikeFlagCompletion(args)
 }

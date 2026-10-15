@@ -384,7 +384,9 @@ type ServerConfig struct {
 	Port int `yaml:"port,omitempty"`
 	// CORSOrigins is the list of allowed origins for CORS and WebSocket.
 	// Supports exact origins and port wildcards (e.g. "http://localhost:*").
-	// Use "*" to allow all origins (not recommended for production).
+	// Use "*" to send the CORS header for every origin so any page can read
+	// the answers; it allows nothing else: changes and the terminal need a
+	// listed origin, and the host check stays on.
 	// Default: ["http://localhost:*", "http://127.0.0.1:*"]
 	CORSOrigins []string `yaml:"cors_origins,omitempty"`
 }
@@ -446,12 +448,16 @@ type ItemsConfig struct {
 	// config file's own directory, so a secondary worktree gets its own store.
 	// AnchorRepoRoot resolves against the main worktree's root instead, so every
 	// worktree of a repository shares one store.
-	Anchor         string `yaml:"anchor,omitempty"`
-	Prefix         string `yaml:"prefix"`
-	IDLength       int    `yaml:"id_length"`
-	DefaultStatus  string `yaml:"default_status,omitempty"`
-	DefaultType    string `yaml:"default_type,omitempty"`
-	RequireIfMatch bool   `yaml:"require_if_match,omitempty"`
+	Anchor        string `yaml:"anchor,omitempty"`
+	Prefix        string `yaml:"prefix"`
+	IDLength      int    `yaml:"id_length"`
+	DefaultStatus string `yaml:"default_status,omitempty"`
+	DefaultType   string `yaml:"default_type,omitempty"`
+	// DefaultPriority and DefaultTags are pre-filled by `lif create -i` only;
+	// plain create, GraphQL createItem and the TUI form ignore them.
+	DefaultPriority string   `yaml:"default_priority,omitempty"`
+	DefaultTags     []string `yaml:"default_tags,omitempty"`
+	RequireIfMatch  bool     `yaml:"require_if_match,omitempty"`
 	// RequireFieldsOn maps a target status to front matter keys that must carry
 	// a non-empty value whenever an item is written into that status.
 	RequireFieldsOn map[string][]string `yaml:"require_fields_on,omitempty"`
@@ -1045,6 +1051,22 @@ func (c *Config) toYAMLNode() *yaml.Node {
 		itemsMapping.Content = append(itemsMapping.Content, key, strNode(c.Items.DefaultType))
 	}
 
+	if c.Items.DefaultPriority != "" {
+		key := strNode("default_priority")
+		key.HeadComment = "Default priority pre-filled by `lif create -i` (plain create ignores it)"
+		itemsMapping.Content = append(itemsMapping.Content, key, strNode(c.Items.DefaultPriority))
+	}
+
+	if len(c.Items.DefaultTags) > 0 {
+		key := strNode("default_tags")
+		key.HeadComment = "Default tags pre-filled by `lif create -i` (plain create ignores them)"
+		seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle}
+		for _, tag := range c.Items.DefaultTags {
+			seq.Content = append(seq.Content, strNode(tag))
+		}
+		itemsMapping.Content = append(itemsMapping.Content, key, seq)
+	}
+
 	if c.Items.RequireIfMatch {
 		key := strNode("require_if_match")
 		key.HeadComment = "Require ETag for updates (optimistic concurrency)"
@@ -1418,6 +1440,24 @@ func (c *Config) GetDefaultType() string {
 	return c.Items.DefaultType
 }
 
+// GetDefaultPriority returns lif.default_priority, or "" when unset.
+// Only `lif create -i` reads it.
+func (c *Config) GetDefaultPriority() string {
+	if c == nil {
+		return ""
+	}
+	return c.Items.DefaultPriority
+}
+
+// GetDefaultTags returns lif.default_tags in file order, or nil when unset.
+// Only `lif create -i` reads it.
+func (c *Config) GetDefaultTags() []string {
+	if c == nil || len(c.Items.DefaultTags) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.Items.DefaultTags...)
+}
+
 // IsArchiveStatus returns true if the given status is marked for archiving.
 func (c *Config) IsArchiveStatus(name string) bool {
 	if s := c.GetStatus(name); s != nil {
@@ -1507,6 +1547,18 @@ func (c *Config) TypesAtRank(rank int) []string {
 		if r == rank {
 			names = append(names, t.Name)
 		}
+	}
+	return names
+}
+
+// ContainerTypeNames returns the names of every type on a container rank (1
+// through MaxContainerRank), in rank order and, within a rank, in the order of
+// the merged list. It is the one loop over the container ranks: the roadmap
+// commands and the ready filter all read it (beans-v2ox, beans-g5dn).
+func (c *Config) ContainerTypeNames() []string {
+	var names []string
+	for rank := 1; rank <= MaxContainerRank; rank++ {
+		names = append(names, c.TypesAtRank(rank)...)
 	}
 	return names
 }

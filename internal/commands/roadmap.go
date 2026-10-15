@@ -17,6 +17,7 @@ import (
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemgraph"
+	"github.com/rierek/lif/pkg/roadmap"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -403,7 +404,7 @@ func buildRoadmap(allItems []*item.Item, includeDone bool, statusFilter, noStatu
 	}
 
 	// Sort milestones by status, then dependency, then manual order, then priority, then created date
-	item.SortRoadmapContainers(milestones, cfg.StatusNames(), cfg.PriorityNames())
+	roadmap.SortSiblings(cfg, milestones)
 
 	// Build milestone groups
 	var milestoneGroups []milestoneGroup
@@ -479,7 +480,7 @@ func buildRoadmap(allItems []*item.Item, includeDone bool, statusFilter, noStatu
 	}
 
 	// Sort unscheduled epics and features together
-	sortRoadmapContainers(unscheduledContainers, cfg.StatusNames(), cfg.PriorityNames())
+	sortRoadmapContainers(unscheduledContainers)
 
 	// Find orphan items (not milestone, not epic, no parent or parent is not milestone/epic)
 	var orphanItems []*item.Item
@@ -550,19 +551,6 @@ func buildRoadmap(allItems []*item.Item, includeDone bool, statusFilter, noStatu
 // isRank reports whether an item sits on the given hierarchy rank.
 func isRank(b *item.Item, rank int) bool {
 	return cfg.RankOf(b.Type) == rank
-}
-
-// containerTypeNames returns the names of every type occupying a
-// container rank (1 through config.MaxContainerRank), in TypesAtRank's
-// per-rank order. isContainerRank and pick.go's roadmapScopeTypes both
-// route through this one loop instead of each looping 1..MaxContainerRank
-// on its own (beans-v2ox).
-func containerTypeNames() []string {
-	var names []string
-	for rank := 1; rank <= config.MaxContainerRank; rank++ {
-		names = append(names, cfg.TypesAtRank(rank)...)
-	}
-	return names
 }
 
 // isContainerRank reports whether an item sits on a container rank. Leaves
@@ -677,7 +665,7 @@ func validateRoadmapRootType(b *item.Item) error {
 	if isContainerRank(b) {
 		return nil
 	}
-	containers := containerTypeNames()
+	containers := cfg.ContainerTypeNames()
 	if len(containers) == 0 {
 		return fmt.Errorf("this project defines no container types (ranks 1-3), so %s (%s) cannot be a roadmap root",
 			b.Type, b.ID)
@@ -748,7 +736,7 @@ func buildMilestoneGroup(m *item.Item, children map[string][]*item.Item, include
 	}
 
 	// Sort epics and features together
-	sortRoadmapContainers(group.Containers, cfg.StatusNames(), cfg.PriorityNames())
+	sortRoadmapContainers(group.Containers)
 
 	// Sort other items
 	item.SortRoadmapLeaves(filteredOther, cfg.StatusNames(), cfg.PriorityNames(), cfg.TypeNames())
@@ -789,7 +777,7 @@ func buildEpicGroup(epic *item.Item, children map[string][]*item.Item, includeDo
 	item.SortRoadmapLeaves(leafItems, cfg.StatusNames(), cfg.PriorityNames(), cfg.TypeNames())
 	eg.Items = leafItems
 
-	sortFeatureGroups(eg.Features, cfg.StatusNames(), cfg.PriorityNames())
+	sortFeatureGroups(eg.Features)
 	return eg
 }
 
@@ -911,15 +899,15 @@ func containsStatus(statuses []string, status string) bool {
 }
 
 // sortRoadmapContainers sorts mixed epic/feature container slots by their
-// own item, following the same status → dependency → order → priority →
-// created_at chain as item.SortRoadmapContainers -- across the epic/feature
+// own item, following the shared roadmap order (roadmap.SortSiblings) --
+// across the epic/feature
 // rank boundary, not within one rank (beans-swy1).
-func sortRoadmapContainers(containers []roadmapContainer, statusNames, priorityNames []string) {
+func sortRoadmapContainers(containers []roadmapContainer) {
 	items := make([]*item.Item, len(containers))
 	for i, c := range containers {
 		items[i] = containerItem(c)
 	}
-	item.SortRoadmapContainers(items, statusNames, priorityNames)
+	roadmap.SortSiblings(cfg, items)
 	rank := make(map[string]int, len(items))
 	for i, b := range items {
 		rank[b.ID] = i
@@ -940,13 +928,13 @@ func containerItem(c roadmapContainer) *item.Item {
 
 // sortFeatureGroups sorts featureGroups by their Feature item, following the
 // same status → dependency → order → priority → created_at chain as
-// item.SortRoadmapContainers.
-func sortFeatureGroups(groups []featureGroup, statusNames, priorityNames []string) {
+// roadmap.SortSiblings.
+func sortFeatureGroups(groups []featureGroup) {
 	items := make([]*item.Item, len(groups))
 	for i, g := range groups {
 		items[i] = g.Feature
 	}
-	item.SortRoadmapContainers(items, statusNames, priorityNames)
+	roadmap.SortSiblings(cfg, items)
 	rank := make(map[string]int, len(items))
 	for i, b := range items {
 		rank[b.ID] = i

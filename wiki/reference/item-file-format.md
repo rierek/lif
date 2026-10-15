@@ -10,8 +10,9 @@ Canonical description of the data model. Measured on Lif 0.14, 2026-10-14. Hiera
 An item is stored as one Markdown file. **Liff** (plural **Liffs**) is short for "Lif file": the file that stores an item. Field names, commands, JSON and GraphQL keep the word `item`.
 
 - Layout: `---`, YAML front matter, `---`, Markdown body.
-- The first front matter line is a YAML comment `# <id>`. Lif writes it when the ID is known.
-- ID and slug are not front matter fields. Lif derives them from the file name.
+- A UTF-8 byte order mark (BOM) in front of the first `---` is ignored on read. Lif never writes one.
+- The first front matter line is a YAML comment `# <id>`. Lif writes it when the ID is known. It is a record, not the ID: `lif check` compares it with the ID from the file name. A comment counts as a record only when it is one word that starts with the project prefix or that some item links to; a note such as `# WIP` is ignored.
+- ID and slug are not front matter fields. Lif derives them from the file name. A file renamed by hand therefore changes the ID and breaks every link to the old one.
 
 ## File name and ID
 
@@ -20,7 +21,7 @@ An item is stored as one Markdown file. **Liff** (plural **Liffs**) is short for
 - Slug: title in lower case, spaces and underscores to `-`, only letters, digits and `-`, collapsed, at most 50 bytes. A title change regenerates a slug that came from the title; a slug set by hand stays.
 - Prefix on `lif create --prefix`: starts with a letter, only letters, digits and single hyphens.
 - Accepted on read: `id--slug.md`, `id.slug.md`, legacy `id-slug.md` and `id.md`.
-- Rename a slug, an ID or the project prefix with [`lif rename`](../commands/lif-rename/).
+- Rename a slug, an ID or the project prefix with [`lif rename`](../commands/lif-rename/), which also rewrites the links. A rename by hand is reported by `lif check` (since 0.15).
 
 ## Front matter fields
 
@@ -62,10 +63,12 @@ Every other front matter key is kept and written alphabetically after the fields
 
 `summary:` is an ordinary extra key with no special handling. `lif list --where key=value` filters on it; repeat the flag for AND. Extra keys are not searchable ([Search syntax](../search-syntax/)). `require_fields_on` and `commit_field` use extra keys: [Configuration](../configuration/#status-dependent-required-fields).
 
+An extra key must not hold `.nan`, `.inf` or `-.inf`, alone or inside a list or map: JSON cannot carry them. Loading stops with `loading <path>: parsing front matter: key "<key>" holds NaN: ...`. Quote the value (`".nan"`) to keep it as text.
+
 ## Body
 
 - The body is the Markdown after the front matter. A trailing line break is not part of it. At most 1 MiB on write.
-- The ETag is a hash of the file bytes. It supports optimistic locking with `--if-match` and GraphQL `ifMatch`. `require_if_match: true` makes it mandatory.
+- The ETag is a hash of the file bytes. It supports optimistic locking with `--if-match` and GraphQL `ifMatch`. `require_if_match: true` makes it mandatory. Since 0.15 the update holds a lock on the item file from the check to the write, so two simultaneous writers with the same ETag cannot both succeed. A writer that finds the file renamed (a title change renames it), replaced or deleted by the other one gets the same conflict, `etag mismatch: provided <etag>, but the item file was renamed, replaced or deleted by another process`. On a file system without working file locks (some NFS or FUSE mounts) an update with `--if-match` fails with a locking error.
 - `lif complete --summary` appends a section `## Summary of Changes`. `lif scrap --reason` appends `## Reason for Scrapping`.
 
 ## Where files live
@@ -83,8 +86,9 @@ Editing files by hand is allowed. Lif loads and reloads without validating hiera
 | `lif check` finds | `lif check` does not find |
 |---|---|
 | Unknown type | Duplicate IDs |
-| Unknown status or priority | File name and ID that do not match |
-| Invalid tags | Front matter syntax errors beyond loading |
+| Unknown status or priority | Front matter syntax errors beyond loading |
+| Invalid tags | |
+| File name that gives another ID than the file records in `# <id>` (a hand rename, since 0.15) | |
 | Parent of the wrong type rank | |
 | Broken links, self-references, cycles | |
 | Missing required fields (warning), unknown commit SHAs (warning) | |
@@ -96,6 +100,16 @@ Example, status `bogus` written by hand:
 ✗ item <id> carries unknown status 'bogus'
 1 issue found
 ```
+
+Example, a file renamed by hand from `ex-zyo0--write-docs.md` to `ex-new1--write-docs.md`, with the item `ex-3ip9` blocked by `ex-zyo0`:
+
+```text
+✗ item ex-new1: file name ex-new1--write-docs.md gives ID ex-new1 but the file records ID ex-zyo0 (renamed by hand? rename it back; lif rename changes an ID together with its links); links to ex-zyo0 dangle: ex-3ip9 blocked_by
+✗ ex-3ip9: broken link blocked_by:ex-zyo0
+2 issues found
+```
+
+Do not remove that link by hand or with `lif check --fix`: `--fix` keeps it and prints `kept broken link blocked_by:ex-zyo0`. Rename the file back, or run `lif rename ex-new1 ex-zyo0`, and the link works again.
 
 :::caution
 Duplicate IDs silently overwrite each other on load. A parse error stops loading. Run `lif check` after hand edits.

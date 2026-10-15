@@ -7,32 +7,11 @@ import (
 	"github.com/rierek/lif/pkg/item"
 )
 
-// Index wraps a Bleve index for searching items. It may be a private
-// in-memory index (persistent == false) or one backed by a persisted,
-// locked on-disk index shared across invocations of this store
-// (persistent == true); see Open.
+// Index wraps a private in-memory Bleve index for searching items. Every
+// process builds its own index; nothing is persisted.
 type Index struct {
-	index      bleve.Index
-	persistent bool
-	dir        string            // index directory; empty for in-memory indexes
-	etags      map[string]string // item ID -> last-synced ETag; nil for in-memory indexes
-	lock       *indexLock        // held only when persistent
-	// readOnly is true exactly when this Index was obtained through
-	// OpenRead (lockModeShared) AND a real persisted index was opened --
-	// never for the in-memory fallback, which is always writable even
-	// when OpenRead is the caller that triggered it. IndexItem, DeleteItem,
-	// and Sync all hang forever on a readOnly index (see OpenRead's doc
-	// comment); a caller that needs to write MUST Close this handle and
-	// reopen the same dir with Open instead. See ReadOnly.
-	readOnly bool
-}
-
-// ReadOnly reports whether this index was opened in shared, read-only mode
-// (see OpenRead) and therefore must never be written to directly. The
-// supported way to start writing is to Close this handle -- releasing the
-// shared lock -- and reopen the same directory exclusively via Open.
-func (idx *Index) ReadOnly() bool {
-	return idx.readOnly
+	index bleve.Index
+	etags map[string]string // item ID -> staleKey of the last indexed version
 }
 
 // itemDocument is the structure stored in the Bleve index.
@@ -86,12 +65,9 @@ func buildIndexMapping() mapping.IndexMapping {
 	return indexMapping
 }
 
-// Close closes the index and, for a persistent index, releases the
-// cross-process lock acquired by Open.
+// Close closes the index.
 func (idx *Index) Close() error {
-	err := idx.index.Close()
-	idx.lock.release()
-	return err
+	return idx.index.Close()
 }
 
 // staleKey is the freshness signal Sync/IndexItem record and compare: the
@@ -105,10 +81,8 @@ func staleKey(b *item.Item) string {
 	return b.ETag() + "\x1f" + b.Path
 }
 
-// IndexItem adds or updates an item in the search index. For a persistent
-// index this also records the item's current staleness key in the sidecar,
-// so a later Sync in another process recognizes this item as already
-// current.
+// IndexItem adds or updates an item in the search index and records its
+// current staleness key, so a later Sync sees the item as already current.
 func (idx *Index) IndexItem(b *item.Item) error {
 	doc := itemDocument{
 		ID:    b.ID,
@@ -120,22 +94,15 @@ func (idx *Index) IndexItem(b *item.Item) error {
 		return err
 	}
 	idx.etags[b.ID] = staleKey(b)
-	if idx.persistent {
-		return saveETags(idx.dir, idx.etags)
-	}
 	return nil
 }
 
-// DeleteItem removes an item from the search index and, for a persistent
-// index, its ETag sidecar entry.
+// DeleteItem removes an item from the search index and its staleness key.
 func (idx *Index) DeleteItem(id string) error {
 	if err := idx.index.Delete(id); err != nil {
 		return err
 	}
 	delete(idx.etags, id)
-	if idx.persistent {
-		return saveETags(idx.dir, idx.etags)
-	}
 	return nil
 }
 
@@ -151,7 +118,7 @@ func (idx *Index) Search(queryStr string, limit int) ([]string, error) {
 
 	// Use query string syntax which supports:
 	// - Simple terms: "authentication"
-	// - Boolean operators: "user AND password"
+	// - Required/excluded terms: "+user -password" (no AND/OR/NOT, no grouping)
 	// - Wildcards: "auth*"
 	// - Phrases: "\"user login\""
 	// - Field-specific: "title:login"
@@ -182,13 +149,10 @@ func (idx *Index) Search(queryStr string, limit int) ([]string, error) {
 // removed. ETag, not mtime, is the staleness signal (AC-03); Path is folded
 // in because a rename alone never changes ETag (AC-02).
 //
-// The diff runs the same way for a persistent and an in-memory index: only
-// the persisted sidecar write at the end is conditional. An in-memory index
-// starts with an empty idx.etags (see NewIndex), so its first Sync in a
-// fresh process still reindexes everything; within one process, a later
-// Sync on the same Index is incremental exactly like the persistent case,
-// including retracting items no longer present -- swapping the underlying
-// Bleve index instead would race Core.Search, which reads idx.index after
+// The index starts with an empty idx.etags (see NewIndex), so its first Sync
+// reindexes everything; a later Sync on the same Index is incremental and
+// also retracts items no longer present -- swapping the underlying Bleve
+// index instead would race Core.Search, which reads idx.index after
 // releasing its lock.
 func (idx *Index) Sync(items []*item.Item) error {
 	changed, removed := diffAgainstETags(idx.etags, items)
@@ -209,21 +173,14 @@ func (idx *Index) Sync(items []*item.Item) error {
 		delete(idx.etags, id)
 	}
 	if batch.Size() > 0 {
-		if err := idx.index.Batch(batch); err != nil {
-			return err
-		}
-	}
-	if idx.persistent {
-		return saveETags(idx.dir, idx.etags)
+		return idx.index.Batch(batch)
 	}
 	return nil
 }
 
 // diffAgainstETags compares items against etags (the ID -> staleKey map an
 // Index carries) and reports which items are new or changed and which
-// previously-seen IDs are no longer present. Sync and NeedsSync both go
-// through this single comparison so they cannot drift: Sync acts on the
-// result, NeedsSync only asks whether it is non-empty.
+// previously-seen IDs are no longer present.
 func diffAgainstETags(etags map[string]string, items []*item.Item) (changed []*item.Item, removed []string) {
 	seen := make(map[string]struct{}, len(items))
 	for _, b := range items {
@@ -238,17 +195,4 @@ func diffAgainstETags(etags map[string]string, items []*item.Item) (changed []*i
 		}
 	}
 	return changed, removed
-}
-
-// NeedsSync reports whether calling Sync(items) on this index would change
-// anything: an item added, removed, or edited (its ETag or Path changed)
-// since this index's etags were last recorded. It runs the exact same
-// comparison Sync itself uses (diffAgainstETags) without mutating the
-// index or its etags, so a caller can safely ask this of a read-only
-// index -- unlike Sync, which hangs forever on one (see OpenRead's doc
-// comment) -- to decide whether it is actually behind before upgrading to
-// a writable handle just to sync it.
-func (idx *Index) NeedsSync(items []*item.Item) bool {
-	changed, removed := diffAgainstETags(idx.etags, items)
-	return len(changed) > 0 || len(removed) > 0
 }

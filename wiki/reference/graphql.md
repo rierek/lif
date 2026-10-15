@@ -29,7 +29,7 @@ lif graphql -v '{"id":"abc"}' 'query($id: ID!) { item(id: $id) { title } }'
 lif graphql --schema
 ```
 
-Over HTTP the server has **no authentication** ([8h4v]); read the warning on [Web server](../web-server/) first.
+Over HTTP a server on loopback, the default, has no authentication; a server beyond loopback asks every client for an access token ([8h4v]). Read [Web server](../web-server/) first. The example below works against a loopback server; beyond loopback add `-H 'Authorization: Bearer <token>'`.
 
 ```sh
 curl -s -X POST http://localhost:8080/api/graphql \
@@ -76,6 +76,8 @@ Main fields of `Item`:
 
 Set fields combine with AND; values inside one list are OR. The nested `children`, `blocking` and `blockedBy` fields ignore `search`.
 
+GraphQL has no `ready` argument. `lif next` and `lif list --ready` build "ready" from these fields: `isBlocked: false`, `excludeImplicitTerminal: true`, `excludeStatus` with `in-progress`, `draft` and every archive status, and `excludeType` with every container type (rank 1 to 3). A client that wants the same list sets the same fields.
+
 ## Mutations
 
 - `createItem(input: CreateItemInput!)`: `title`, `type`, `status`, `priority`, `tags`, `body`, `parent`, `blocking`, `blockedBy`, `prefix`.
@@ -87,7 +89,7 @@ Set fields combine with AND; values inside one list are OR. The nested `children
 
 `bodyMod` edits the body in place: `replace: [{old, new}]` or `append`. It cannot be combined with `body`, and `tags` cannot be combined with `addTags` or `removeTags`.
 
-`ifMatch` compares the ETag with the current file. If the item changed meanwhile, the call fails with a conflict. The `etag` field gives the current value. With `lif.require_if_match: true` the value is mandatory.
+`ifMatch` compares the ETag with the current file. If the item changed meanwhile, the call fails with a conflict. The item file is locked from the compare to the write, so of two simultaneous writers with the same ETag only one succeeds; a write without `ifMatch` takes no lock. The `etag` field gives the current value. With `lif.require_if_match: true` the value is mandatory.
 
 ## Subscriptions
 
@@ -155,12 +157,12 @@ Error: graphql: invalid title: must not be empty
 Error: graphql: task items can only have milestone, epic, or feature as parent, not task
 ```
 
-- A WebSocket from a disallowed origin gets 403 `origin not allowed` ([Web server](../web-server/#network-and-cors)).
+- A request that changes state from a disallowed origin, a WebSocket upgrade included, gets 403 `origin "…" is not allowed`. On loopback a request with a disallowed `Host` gets 403 `host "…" is not allowed` ([Web server](../web-server/#network-and-cors)).
 
 ## Known gaps
 
-- `createItem` without `status` sets the default status since 0.14. `lif promote` goes through the same path; a part-way failure of `lif promote` stays open ([z69m]).
-- A search in a nested field is ignored (see [Search syntax](../search-syntax/)); `AND`/`OR`/`NOT` in `search` do not work ([xa2j]).
+- `createItem` without `status` sets the default status since 0.14. `lif promote` goes through the same path.
+- A search in a nested field is ignored (see [Search syntax](../search-syntax/)); `AND`/`OR`/`NOT` in `search` are not operators.
 
 ## Schema (SDL)
 

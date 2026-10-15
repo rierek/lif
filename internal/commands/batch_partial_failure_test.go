@@ -114,8 +114,8 @@ func TestTagBatchPartialFailure(t *testing.T) {
 		if int(count) != 1 {
 			t.Errorf("count = %v, want 1", doc["count"])
 		}
-		if code, _ := doc["code"].(string); code != "VALIDATION_ERROR" {
-			t.Errorf("code = %q, want VALIDATION_ERROR (mutationErrorCode's default for a non-conflict, non-policy error)", code)
+		if code, _ := doc["code"].(string); code != "FILE_ERROR" {
+			t.Errorf("code = %q, want FILE_ERROR (a permission failure is a store failure, not a refused request)", code)
 		}
 		if errMsg, _ := doc["error"].(string); errMsg == "" {
 			t.Errorf("error = %q, want a non-empty permission-denied message", errMsg)
@@ -156,8 +156,8 @@ func TestTagBatchPartialFailure(t *testing.T) {
 		if v, ok := doc["count"]; ok {
 			t.Errorf(`"count" key = %v, want the key absent (zero count, omitempty)`, v)
 		}
-		if code, _ := doc["code"].(string); code != "VALIDATION_ERROR" {
-			t.Errorf("code = %q, want VALIDATION_ERROR", code)
+		if code, _ := doc["code"].(string); code != "FILE_ERROR" {
+			t.Errorf("code = %q, want FILE_ERROR", code)
 		}
 		if errMsg, _ := doc["error"].(string); errMsg == "" {
 			t.Errorf("error = %q, want a non-empty permission-denied message", errMsg)

@@ -136,18 +136,6 @@ func TestRebrandConfigWriteError_NamesTheConfigFileInUse(t *testing.T) {
 	}
 }
 
-func TestIndexDir_LivesUnderTheLifHome(t *testing.T) {
-	home := t.TempDir()
-	c, _ := setupTestCoreWithHome(t, home)
-	dir, err := c.indexDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := filepath.Dir(dir), filepath.Join(home, ".lif", "index"); got != want {
-		t.Errorf("index parent = %q, want %q", got, want)
-	}
-}
-
 // The failure warnings of the orphan-backup repair name the store directory
 // in use too. A read-only repository directory makes each of them fire.
 func TestOrphanBackupFailureWarnings_NameTheStoreDirectoryInUse(t *testing.T) {

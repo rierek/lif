@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -34,8 +36,10 @@ import (
 )
 
 var (
-	servePort   int
-	corsOrigins []string
+	serveHost           string
+	servePort           int
+	corsOrigins         []string
+	allowRemoteTerminal bool
 )
 
 const centralAgentPrompt = `You are the planning agent for this project. Your primary role is to help manage and organize work through items.
@@ -58,6 +62,12 @@ var serveCmd = &cobra.Command{
 	Use:     "serve",
 	Aliases: []string{"server", "s"},
 	Short:   "Start the web server",
+	Long: `Start the web server.
+
+By default the server listens on 127.0.0.1 only, so only this machine can reach
+it. --host with any other address makes it reachable from the network. The
+server then asks every client for an access token, printed at startup, and
+serves the terminal only with --allow-remote-terminal. There is no TLS.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine the port: CLI flag > config > default
 		port := servePort
@@ -71,7 +81,7 @@ var serveCmd = &cobra.Command{
 			origins = cfg.GetCORSOrigins()
 		}
 
-		return runServer(port, origins)
+		return runServer(serveHost, port, origins, allowRemoteTerminal)
 	},
 }
 
@@ -95,7 +105,25 @@ func (g gqlWebsocketImplementation) Accept(w http.ResponseWriter, r *http.Reques
 	return impl.Accept(w, r, options)
 }
 
-func runServer(port int, origins []string) error {
+// runServer serves the web UI and the API on host:port until it is told to
+// stop. The address the listener really gets decides who may use the server;
+// see serveAccess.
+func runServer(host string, port int, origins []string, allowRemoteTerminal bool) error {
+	// Bind first: a taken port fails before anything else starts, and the real
+	// address, not the text of --host, decides the access rules.
+	ln, err := net.Listen("tcp", net.JoinHostPort(strings.Trim(host, "[]"), strconv.Itoa(port)))
+	if err != nil {
+		return fmt.Errorf("server error: %w", err)
+	}
+	defer ln.Close()
+	access, err := newServeAccess(ln.Addr(), allowRemoteTerminal)
+	if err != nil {
+		return err
+	}
+	// A loopback listener also answers under its own address (::1, 127.0.0.2),
+	// which the default list does not name.
+	origins = access.withOwnAddress(origins)
+
 	// Start file watcher for subscriptions
 	if err := core.StartWatching(); err != nil {
 		return fmt.Errorf("failed to start file watcher: %w", err)
@@ -112,8 +140,12 @@ func runServer(port int, origins []string) error {
 	router := gin.New()
 
 	// Add middleware
-	router.Use(gin.Logger())
+	router.Use(accessLog(gin.DefaultWriter))
 	router.Use(gin.Recovery())
+
+	// Access guards come first: a refused request takes no WebSocket slot and
+	// reaches no handler.
+	router.Use(access.middleware(checker)...)
 
 	// Resource limits: bound each request body, and cap concurrent WebSocket
 	// connections across every upgrade endpoint.
@@ -190,9 +222,14 @@ func runServer(port int, origins []string) error {
 		}
 	}
 
-	// Create terminal session manager with workspace port injection.
-	termMgr := terminal.NewManager(workspaceEnvFunc(portAlloc))
-	defer termMgr.Shutdown()
+	// Create terminal session manager with workspace port injection. Left nil
+	// when the terminal is disabled: the GraphQL terminal and run operations
+	// then fail with "terminal support not available", as in `lif graphql`.
+	var termMgr *terminal.Manager
+	if access.terminalEnabled() {
+		termMgr = terminal.NewManager(workspaceEnvFunc(portAlloc))
+		defer termMgr.Shutdown()
+	}
 
 	// Create agent session manager (with conversation persistence)
 	agentMgr := agent.NewManager(core.Root(), func(itemID string) string {
@@ -390,14 +427,17 @@ func runServer(port int, origins []string) error {
 	})
 
 	// Terminal WebSocket endpoint
-	RegisterTerminalRoute(router, termMgr, wtManager, checker.CheckOriginFunc(), filepath.Dir(core.Root()))
+	if access.terminalEnabled() {
+		RegisterTerminalRoute(router, termMgr, wtManager, checker.CheckOriginFunc(), filepath.Dir(core.Root()))
+	} else {
+		registerTerminalDisabled(router)
+	}
 
 	// Serve the embedded frontend SPA
 	router.NoRoute(gin.WrapH(web.Handler()))
 
 	// Create HTTP server
-	addr := fmt.Sprintf(":%d", port)
-	server := newHTTPServer(addr, router)
+	server := newHTTPServer(ln.Addr().String(), router)
 
 	// Set up signal handling with context
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -406,12 +446,13 @@ func runServer(port int, origins []string) error {
 	// Channel to listen for server errors
 	serverErr := make(chan error, 1)
 
-	// Start server in goroutine
+	// The listener is already open: print what it exposes, then serve on it.
+	interfaceAddrs, _ := net.InterfaceAddrs() // none: a listener on all interfaces is shown as localhost
+	for _, line := range access.startupLines(origins, interfaceAddrs) {
+		fmt.Println(line)
+	}
 	go func() {
-		fmt.Printf("[lif] Starting server at http://localhost:%d/\n", port)
-		fmt.Printf("[lif] GraphQL Playground: http://localhost:%d/playground\n", port)
-		fmt.Printf("[lif] Allowed origins: %s\n", strings.Join(origins, ", "))
-		serverErr <- server.ListenAndServe()
+		serverErr <- server.Serve(ln)
 	}()
 
 	// Wait for shutdown signal or server error
@@ -458,8 +499,10 @@ func newWorktreeManager(c *config.Config, storeRoot, worktreeRoot string) *workt
 }
 
 func RegisterServeCmd(root *cobra.Command) {
+	serveCmd.Flags().StringVar(&serveHost, "host", "127.0.0.1", "Address to listen on; any address but a loopback one makes the server reachable from the network and requires the access token")
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", config.DefaultServerPort, "Port to listen on")
-	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", cors.DefaultOrigins, "Allowed CORS origins (use * to allow all)")
+	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", cors.DefaultOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
+	serveCmd.Flags().BoolVar(&allowRemoteTerminal, "allow-remote-terminal", false, "Serve the terminal even when the server listens beyond loopback")
 	root.AddCommand(serveCmd)
 }
 

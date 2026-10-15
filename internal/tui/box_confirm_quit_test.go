@@ -15,7 +15,7 @@ import (
 )
 
 // TestQuitBoxTextIsQuestion guards A1: the confirm text is a QUESTION
-// ("Really quit bt?"), not a statement ("Really quit bt.") -- the modal
+// ("Really quit lif?"), not a statement ("Really quit lif.") -- the modal
 // prompts a decision, it does not assert a fact.
 func TestQuitBoxTextIsQuestion(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
@@ -23,10 +23,10 @@ func TestQuitBoxTextIsQuestion(t *testing.T) {
 	m.confirmQuit = true
 
 	out := m.quitBox()
-	if !strings.Contains(out, "Really quit bt?") {
+	if !strings.Contains(out, "Really quit lif?") {
 		t.Fatalf("quitBox() does not contain the question form, got:\n%s", out)
 	}
-	if strings.Contains(out, "Really quit bt.") {
+	if strings.Contains(out, "Really quit lif.") {
 		t.Fatalf("quitBox() still contains the old statement form, got:\n%s", out)
 	}
 }

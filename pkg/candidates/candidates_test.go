@@ -109,7 +109,13 @@ func TestParentCandidates_ExcludesDescendants(t *testing.T) {
 	}
 }
 
-func TestBlockingCandidates_ExcludesDescendants(t *testing.T) {
+// TestBlockingCandidates_ExcludesTheSubtreeAndTheParentChain pins what the
+// blocking pickers and the --blocking/--blocked-by completion offer
+// (beans-o8bs): an item can neither block nor wait for an item in its own
+// subtree or on its own parent chain, because lif refuses the link. For
+// beans-f1 that leaves out its descendants beans-t1 and beans-m3 and its
+// ancestors beans-e1 and beans-m1.
+func TestBlockingCandidates_ExcludesTheSubtreeAndTheParentChain(t *testing.T) {
 	resolver, cfg := fixture(t)
 
 	got, err := BlockingCandidates(context.Background(), resolver, cfg, "beans-f1")
@@ -117,15 +123,49 @@ func TestBlockingCandidates_ExcludesDescendants(t *testing.T) {
 		t.Fatalf("BlockingCandidates: %v", err)
 	}
 
-	mustEqual(t, ids(got), []string{"beans-m1", "beans-m2", "beans-e1", "beans-e2", "beans-f2"})
+	mustEqual(t, ids(got), []string{"beans-m2", "beans-e2", "beans-f2"})
+}
 
-	for _, excluded := range []string{"beans-t1", "beans-m3"} {
-		for _, id := range ids(got) {
-			if id == excluded {
-				t.Fatalf("expected %s (descendant of beans-f1) to be excluded from blocking candidates, got %v", excluded, ids(got))
-			}
+// A task three levels down has the whole chain above it excluded, not only
+// its direct parent.
+func TestBlockingCandidates_ExcludesEveryAncestor(t *testing.T) {
+	resolver, cfg := fixture(t)
+
+	got, err := BlockingCandidates(context.Background(), resolver, cfg, "beans-t1")
+	if err != nil {
+		t.Fatalf("BlockingCandidates: %v", err)
+	}
+
+	// beans-f1, beans-e1 and beans-m1 are its ancestors, beans-m3 its child.
+	mustEqual(t, ids(got), []string{"beans-m2", "beans-e2", "beans-f2"})
+}
+
+// A hand-edited parent loop must not hang the ancestor walk.
+func TestBlockingCandidates_SurvivesAParentLoop(t *testing.T) {
+	itemsDir := filepath.Join(t.TempDir(), ".beans")
+	if err := os.MkdirAll(itemsDir, 0755); err != nil {
+		t.Fatalf("creating test .beans dir: %v", err)
+	}
+	cfg := config.Default()
+	core := itemcore.New(itemsDir, cfg)
+	if err := core.Load(); err != nil {
+		t.Fatalf("loading core: %v", err)
+	}
+	for _, b := range []*item.Item{
+		{ID: "loop-a", Slug: "a", Title: "A", Status: "todo", Type: "task", Parent: "loop-b"},
+		{ID: "loop-b", Slug: "b", Title: "B", Status: "todo", Type: "task", Parent: "loop-a"},
+		{ID: "loop-c", Slug: "c", Title: "C", Status: "todo", Type: "task"},
+	} {
+		if err := core.Create(b); err != nil {
+			t.Fatalf("core.Create(%s): %v", b.ID, err)
 		}
 	}
+
+	got, err := BlockingCandidates(context.Background(), &itemgraph.CoreResolver{Core: core}, cfg, "loop-a")
+	if err != nil {
+		t.Fatalf("BlockingCandidates: %v", err)
+	}
+	mustEqual(t, ids(got), []string{"loop-c"})
 }
 
 // TestStatusCandidates_ReflectsConfigOverride builds a *config.Config
@@ -267,5 +307,79 @@ func TestParentCandidates_IntersectsValidTypesAcrossMultipleSelectedItems(t *tes
 				t.Fatalf("beanIDs=%v: expected beans-e2 (epic, outside the type intersection) to be excluded, got %v", itemIDs, ids(got))
 			}
 		}
+	}
+}
+
+// addArchivedEpics adds a completed and a scrapped epic to the fixture's
+// store; the fixture's open epics stay as they are.
+func addArchivedEpics(t *testing.T, resolver *itemgraph.CoreResolver) {
+	t.Helper()
+	for _, b := range []*item.Item{
+		{ID: "beans-ec", Slug: item.Slugify("Epic Done"), Title: "Epic Done", Status: "completed", Type: "epic", Tags: []string{"zulu"}},
+		{ID: "beans-es", Slug: item.Slugify("Epic Scrapped"), Title: "Epic Scrapped", Status: "scrapped", Type: "epic"},
+	} {
+		if err := resolver.Core.Create(b); err != nil {
+			t.Fatalf("core.Create(%s): %v", b.ID, err)
+		}
+	}
+}
+
+func TestParentCandidates_ExcludesArchivedItems(t *testing.T) {
+	resolver, cfg := fixture(t)
+	addArchivedEpics(t, resolver)
+
+	got, err := ParentCandidates(context.Background(), resolver, cfg, []string{"beans-f1"}, []string{"feature"})
+	if err != nil {
+		t.Fatalf("ParentCandidates: %v", err)
+	}
+	mustEqual(t, ids(got), []string{"beans-m1", "beans-m2", "beans-e1", "beans-e2"})
+}
+
+// TestParentCandidates_ArchiveFollowsConfig proves the predicate is
+// Config.IsArchiveStatus and not a status literal: with archive: false on
+// completed, the completed epic is a candidate again.
+func TestParentCandidates_ArchiveFollowsConfig(t *testing.T) {
+	resolver, cfg := fixture(t)
+	addArchivedEpics(t, resolver)
+	off := false
+	cfg.Statuses = []config.StatusOverride{{Name: "completed", Archive: &off}}
+
+	got, err := ParentCandidates(context.Background(), resolver, cfg, []string{"beans-f1"}, []string{"feature"})
+	if err != nil {
+		t.Fatalf("ParentCandidates: %v", err)
+	}
+	mustEqual(t, ids(got), []string{"beans-m1", "beans-m2", "beans-e1", "beans-e2", "beans-ec"})
+}
+
+// TestBlockingAndTagCandidates_KeepArchivedItems pins that the archive
+// filter is ParentCandidates-only (R-14 forbidden side effect).
+func TestBlockingAndTagCandidates_KeepArchivedItems(t *testing.T) {
+	resolver, cfg := fixture(t)
+	addArchivedEpics(t, resolver)
+
+	blocking, err := BlockingCandidates(context.Background(), resolver, cfg, "beans-f1")
+	if err != nil {
+		t.Fatalf("BlockingCandidates: %v", err)
+	}
+	have := map[string]bool{}
+	for _, id := range ids(blocking) {
+		have[id] = true
+	}
+	if !have["beans-ec"] || !have["beans-es"] {
+		t.Fatalf("BlockingCandidates must keep archived items, got %v", ids(blocking))
+	}
+
+	tags, err := TagCandidates(context.Background(), resolver)
+	if err != nil {
+		t.Fatalf("TagCandidates: %v", err)
+	}
+	found := false
+	for _, tc := range tags {
+		if tc.Tag == "zulu" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("TagCandidates must count tags of archived items, got %v", tags)
 	}
 }

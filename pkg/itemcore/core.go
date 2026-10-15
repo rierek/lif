@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rierek/lif/internal/filelock"
 	"github.com/rierek/lif/internal/search"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
@@ -41,12 +42,17 @@ var ErrNotFound = errors.New("item not found")
 
 // ETagMismatchError is returned when an ETag validation fails.
 // This allows callers to distinguish concurrency conflicts from other errors.
+// Current is empty when there is no file to take an etag from: another process
+// renamed, replaced or deleted the item file after the caller read it.
 type ETagMismatchError struct {
 	Provided string
 	Current  string
 }
 
 func (e *ETagMismatchError) Error() string {
+	if e.Current == "" {
+		return fmt.Sprintf("etag mismatch: provided %s, but the item file was renamed, replaced or deleted by another process", e.Provided)
+	}
 	return fmt.Sprintf("etag mismatch: provided %s, current is %s", e.Provided, e.Current)
 }
 
@@ -68,6 +74,25 @@ type PolicyViolationError struct {
 func (e *PolicyViolationError) Error() string {
 	return fmt.Sprintf("status %q requires front matter field(s) %s: supply them in the same write (e.g. `lif complete %s --commit HEAD`)",
 		e.Status, strings.Join(e.Missing, ", "), e.ItemID)
+}
+
+// ValidationError is returned when the request itself is refused: an invalid
+// field, an unknown link target, a parent the type hierarchy forbids, or a
+// link that would close a cycle. It is distinct from a failure of the store
+// (file, lock, index), so callers map the two to different error codes
+// without matching message text.
+type ValidationError struct {
+	Err error
+}
+
+func (e *ValidationError) Error() string { return e.Err.Error() }
+
+func (e *ValidationError) Unwrap() error { return e.Err }
+
+// Invalid returns a ValidationError with the given message. A %w verb in
+// format keeps its operand in the error chain.
+func Invalid(format string, args ...any) error {
+	return &ValidationError{Err: fmt.Errorf(format, args...)}
 }
 
 // Core provides thread-safe in-memory storage for items with filesystem persistence.
@@ -340,14 +365,9 @@ func (c *Core) loadFromDisk() error {
 
 	// Resync the search index if it was active: diff against the freshly
 	// reloaded items instead of closing and rebuilding from scratch, so a
-	// reload only reindexes what actually changed (AC-02). A cached
-	// shared, read-only handle is upgraded to writable first (beans-4t2m):
-	// Sync itself would otherwise hang forever on one (see
-	// search.OpenRead's doc comment).
+	// reload only reindexes what actually changed (AC-02).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index before resync: %v", err)
-		} else if err := c.searchIndex.Sync(c.allItemsLocked()); err != nil {
+		if err := c.searchIndex.Sync(c.allItemsLocked()); err != nil {
 			c.logWarn("failed to resync search index after reload: %v", err)
 		}
 	}
@@ -423,162 +443,33 @@ func (c *Core) allItemsLocked() []*item.Item {
 	return allItems
 }
 
-// ensureSearchIndexLocked initializes the search index if not already
-// created, or upgrades an already-cached shared, read-only handle to a
-// writable one when write is true. Must be called with lock held or from a
-// method that holds the lock. It prefers a persisted, cross-process index
-// at c.indexDir() (AC-01, AC-04); on any error resolving that location,
-// opening it, or acquiring its lock, it falls back to a private in-memory
-// index rather than fail (AC-05, AC-07).
-//
-// write distinguishes the caller's intent (beans-dfdw, beans-4t2m): false
-// opens the persisted index in shared mode on first use (search.OpenRead),
-// letting concurrent readers each get the warm on-disk index instead of
-// degrading (AC-03); true opens it exclusively on first use (search.Open,
-// beans-6y60 AC-07), and upgrades an already-cached shared handle in place
-// (see upgradeSearchIndexLocked) rather than ever writing to it directly.
-//
-// A shared-mode index is never Sync'd here unconditionally: Sync on a
-// Bleve index opened read-only hangs forever rather than erroring, because
-// its background persister never starts (see search.OpenRead's doc
-// comment), and a just-opened persisted index is already populated, so
-// there is normally nothing to sync anyway. Instead this function asks the
-// freshly opened shared index itself whether the current in-memory items
-// have moved on since its etags were last saved (search.Index.NeedsSync);
-// only then does it upgrade to a writable handle and sync that. An
-// in-memory fallback (from either open mode) is always writable, so it is
-// still synced unconditionally, exactly as before beans-4t2m.
-//
-// Search, the read-only production caller, now safely passes false:
-// c.searchIndex is cached for the rest of this Core's lifetime and later
-// reused by Create/Update/Delete and the file watcher for real writes, but
-// every one of those write paths calls ensureWritableSearchIndexLocked
-// first, which routes back through upgradeSearchIndexLocked whenever the
-// cached handle is still read-only. The cache can therefore start life as
-// a shared handle and only pay the exclusive-reopen cost on the first
-// actual write, instead of every Core paying it up front regardless of
-// whether it ever writes.
-func (c *Core) ensureSearchIndexLocked(write bool) error {
+// ensureSearchIndexLocked lazily creates the private in-memory search index
+// and fills it from the in-memory items. Must be called with lock held. The
+// index lives for the lifetime of this Core; nothing is persisted, so each
+// process indexes the store once, on its first search.
+func (c *Core) ensureSearchIndexLocked() error {
 	if c.searchIndex != nil {
-		if write && c.searchIndex.ReadOnly() {
-			return c.upgradeSearchIndexLocked()
-		}
 		return nil
 	}
-
-	openPersisted := search.OpenRead
-	if write {
-		openPersisted = search.Open
+	idx, err := search.NewIndex()
+	if err != nil {
+		return fmt.Errorf("initializing search index: %w", err)
 	}
-
-	var idx *search.Index
-	if dir, err := c.indexDir(); err != nil {
-		c.logWarn("resolving persisted search index location: %v", err)
-	} else if pidx, err := openPersisted(dir); err != nil {
-		c.logWarn("opening persisted search index: %v", err)
-	} else {
-		idx = pidx
-		c.maintainIndexDir(dir)
-	}
-
-	if idx == nil {
-		memIdx, err := search.NewIndex()
-		if err != nil {
-			return fmt.Errorf("initializing search index: %w", err)
-		}
-		idx = memIdx
-	}
-
-	c.searchIndex = idx
-
-	if idx.ReadOnly() {
-		if idx.NeedsSync(c.allItemsLocked()) {
-			return c.upgradeSearchIndexLocked()
-		}
-		return nil
-	}
-
 	if err := idx.Sync(c.allItemsLocked()); err != nil {
 		idx.Close()
-		c.searchIndex = nil
 		return fmt.Errorf("populating search index: %w", err)
 	}
-
-	return nil
-}
-
-// ensureWritableSearchIndexLocked upgrades c.searchIndex in place when it
-// is currently a shared, read-only handle (search.Index.ReadOnly), so a
-// caller about to write to it -- IndexItem, DeleteItem, or Sync -- never
-// touches a read-only-opened Bleve index, which hangs on its first write
-// (see search.OpenRead's doc comment) rather than erroring. Every write
-// path (Create, Update, Delete, the file watcher's incremental
-// maintenance, and loadFromDisk's resync) calls this before touching
-// c.searchIndex, so a future write path can't forget the upgrade by
-// construction. A nil index (never lazily initialized -- a write never
-// forces that) is left nil: there is nothing to upgrade.
-//
-// Must be called with c.mu already held; it never itself locks or unlocks.
-func (c *Core) ensureWritableSearchIndexLocked() error {
-	if c.searchIndex == nil || !c.searchIndex.ReadOnly() {
-		return nil
-	}
-	return c.upgradeSearchIndexLocked()
-}
-
-// upgradeSearchIndexLocked closes the current shared, read-only
-// c.searchIndex -- releasing the shared lock -- and reopens the same
-// directory exclusively via search.Open, syncs it to the current
-// in-memory items, and caches the result back onto c.searchIndex. The
-// shared lock MUST be released before the exclusive open is attempted, or
-// this process would be contending against its own lock rather than
-// another process's (see search.Open's doc comment); Close does exactly
-// that. If the exclusive open degrades to an in-memory index because
-// another process holds the lock, that is the existing, accepted AC-07
-// behaviour: this function syncs the fallback and carries on rather than
-// erroring.
-//
-// Must be called with c.mu already held; it never itself locks or unlocks.
-func (c *Core) upgradeSearchIndexLocked() error {
-	dir, err := c.indexDir()
-	if err != nil {
-		return fmt.Errorf("resolving persisted search index location for upgrade: %w", err)
-	}
-
-	if closeErr := c.searchIndex.Close(); closeErr != nil {
-		c.logWarn("closing shared search index before upgrade: %v", closeErr)
-	}
-
-	idx, err := search.Open(dir)
-	if err != nil {
-		c.searchIndex = nil
-		return fmt.Errorf("reopening search index for write: %w", err)
-	}
-	c.maintainIndexDir(dir)
 	c.searchIndex = idx
-
-	if err := idx.Sync(c.allItemsLocked()); err != nil {
-		idx.Close()
-		c.searchIndex = nil
-		return fmt.Errorf("syncing upgraded search index: %w", err)
-	}
-
 	return nil
 }
 
 // Search performs full-text search and returns matching items. The search
-// index is lazily initialized on first use, in shared read-only mode
-// (write=false): that is finally safe (beans-4t2m), because every later
-// write to this same cached c.searchIndex -- Create, Update, Delete, the
-// file watcher, and loadFromDisk's resync -- upgrades it to a writable
-// handle itself through ensureWritableSearchIndexLocked before ever
-// calling IndexItem/DeleteItem/Sync on it, instead of Search having to
-// pre-emptively open exclusively just in case this Core is later asked to
-// write.
+// index is created lazily on first use; Create, Update, Delete, the file
+// watcher and loadFromDisk keep it current afterwards.
 func (c *Core) Search(query string) ([]*item.Item, error) {
 	// Ensure index is initialized (needs write lock for lazy init)
 	c.mu.Lock()
-	if err := c.ensureSearchIndexLocked(false); err != nil {
+	if err := c.ensureSearchIndexLocked(); err != nil {
 		c.mu.Unlock()
 		return nil, err
 	}
@@ -939,13 +830,8 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	c.setItemLocked(b.ID, b.Clone())
 
 	// Update search index if active (best-effort, don't fail create).
-	// ensureWritableSearchIndexLocked upgrades a cached shared, read-only
-	// handle before this ever calls IndexItem, which would otherwise hang
-	// forever on one (beans-4t2m).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index for item %s: %v", b.ID, err)
-		} else if err := c.searchIndex.IndexItem(b); err != nil {
+		if err := c.searchIndex.IndexItem(b); err != nil {
 			c.logWarn("failed to index item %s: %v", b.ID, err)
 		}
 	}
@@ -953,8 +839,17 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	return nil
 }
 
+// itemLockTimeout bounds the wait of an --if-match update for another process
+// that holds the item's file lock. A holder keeps it for one read and one
+// write of a small file, so the bound only matters for a stuck process. It is
+// a variable so that a test can shorten it.
+var itemLockTimeout = 10 * time.Second
+
 // Update modifies an existing item.
 // If ifMatch is provided, validates the current version's etag matches before updating.
+// The check and the write run under a lock on the item's file that every lif
+// process respects, so of two simultaneous updates with the same etag only
+// one succeeds. An update without ifMatch has no check and takes no lock.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error {
 	o := defaultUpdateOptions()
@@ -984,6 +879,31 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 		wtPath = c.worktreeLinks[b.ID]
 	}
 
+	// The in-process lock does not stop another lif process from writing
+	// between the etag check and the write below, so an --if-match write to the
+	// main store also holds an exclusive lock on the item file from before the
+	// etag is read until Update returns.
+	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
+	var lock *filelock.Lock
+	if wantsETagFromDisk && o.persist && wtPath == "" && storedItem.Path != "" {
+		var err error
+		lock, err = filelock.Acquire(filepath.Join(c.root, storedItem.Path), itemLockTimeout)
+		switch {
+		case err == nil:
+			defer lock.Release()
+		case os.IsNotExist(err):
+			// The file the etag names is gone: another process renamed it (a
+			// title change does, once the file is written), moved or deleted it
+			// since this one read the store. The etag cannot match, and a write
+			// would put the old file name back next to the new one.
+			return &ETagMismatchError{Provided: *ifMatch}
+		case errors.Is(err, filelock.ErrTimeout):
+			return fmt.Errorf("item %s is locked by another process (waited %s): %w", b.ID, itemLockTimeout, err)
+		default:
+			return fmt.Errorf("locking item %s: %w", b.ID, err)
+		}
+	}
+
 	// The main-store file backs both checks below: the etag If-Match is
 	// validated against, and the previous status the field policy is measured
 	// from. On the common path — a write to main — both want the same bytes, so
@@ -998,10 +918,22 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	var mainContent []byte
 	var haveMainContent bool
 	readsMainFile := storedItem.Path != "" && !c.dirty[b.ID]
-	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
 	wantsStatusFromDisk := wtPath == "" && len(c.requiredFieldsFor(b.Status)) > 0
 	if readsMainFile && (wantsETagFromDisk || wantsStatusFromDisk) {
-		if content, err := os.ReadFile(filepath.Join(c.root, storedItem.Path)); err == nil {
+		mainPath := filepath.Join(c.root, storedItem.Path)
+		if lock != nil {
+			// Read through the lock: it also says whether the name still
+			// leads to the file it guards. A writer that waited may find that
+			// the one that went first renamed or replaced the file.
+			content, err := lock.ReadFile(mainPath)
+			if os.IsNotExist(err) || errors.Is(err, filelock.ErrReplaced) {
+				return &ETagMismatchError{Provided: *ifMatch}
+			}
+			if err != nil {
+				return fmt.Errorf("reading item %s: %w", b.ID, err)
+			}
+			mainContent, haveMainContent = content, true
+		} else if content, err := os.ReadFile(mainPath); err == nil {
 			mainContent, haveMainContent = content, true
 		}
 	}
@@ -1070,13 +1002,8 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	c.setItemLocked(b.ID, b.Clone())
 
 	// Update search index if active (best-effort, don't fail update).
-	// ensureWritableSearchIndexLocked upgrades a cached shared, read-only
-	// handle before this ever calls IndexItem, which would otherwise hang
-	// forever on one (beans-4t2m).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index for item %s: %v", b.ID, err)
-		} else if err := c.searchIndex.IndexItem(b); err != nil {
+		if err := c.searchIndex.IndexItem(b); err != nil {
 			c.logWarn("failed to update item %s in search index: %v", b.ID, err)
 		}
 	}
@@ -1185,13 +1112,8 @@ func (c *Core) Delete(id string) error {
 	delete(c.mainPaths, targetID)
 
 	// Update search index if active (best-effort, don't fail delete).
-	// ensureWritableSearchIndexLocked upgrades a cached shared, read-only
-	// handle before this ever calls DeleteItem, which would otherwise hang
-	// forever on one (beans-4t2m).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index for item %s: %v", targetID, err)
-		} else if err := c.searchIndex.DeleteItem(targetID); err != nil {
+		if err := c.searchIndex.DeleteItem(targetID); err != nil {
 			c.logWarn("failed to remove item %s from search index: %v", targetID, err)
 		}
 	}
@@ -1400,8 +1322,9 @@ func (c *Core) LoadAndUnarchive(id string) (*item.Item, error) {
 	return b.Clone(), nil
 }
 
-// Init creates the .beans directory if it doesn't exist,
-// and writes a .gitignore to exclude generated content.
+// Init creates the items directory if it doesn't exist, and writes a
+// .gitignore to exclude generated content unless the directory has one: an
+// existing .gitignore may hold the user's own rules.
 func (c *Core) Init() error {
 	if err := os.MkdirAll(c.root, 0755); err != nil {
 		return err
@@ -1515,13 +1438,25 @@ func (c *Core) ValidatePrefixConsistency() string {
 	return ""
 }
 
-// writeGitignore creates or overwrites a .gitignore in the items directory
-// to exclude conversation logs from version control.
+// writeGitignore creates a .gitignore in the items directory to exclude
+// conversation logs from version control. A .gitignore that is already there
+// stays as it is: it may hold the user's own rules.
 // Note: worktrees are stored outside the repo (in ~/.lif/worktrees/<project>/,
 // or ~/.beans/worktrees/<project>/ for a project that already has that root).
 func writeGitignore(itemsDir string) error {
 	content := "# Generated by lif init\n.conversations/\n"
-	return os.WriteFile(filepath.Join(itemsDir, ".gitignore"), []byte(content), 0644)
+	f, err := os.OpenFile(filepath.Join(itemsDir, ".gitignore"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if os.IsExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(content)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }
 
 // migrateLegacyDirs renames old-style directories (worktrees/, conversations/)

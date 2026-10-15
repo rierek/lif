@@ -19,7 +19,27 @@ Review the [Releases](../../releases/) pages for the version you are upgrading t
 
 ## Upgrade guide: breaking changes
 
-Each entry lists the old form, the new form and the migration step. Work through the groups that apply to your setup; the order does not matter. The owner rename is the latest change; the other groups come from the rename from beans to Lif.
+Each entry lists the old form, the new form and the migration step. Work through the groups that apply to your setup; the order does not matter. The 0.15 changes are the latest; the owner rename comes from 0.14.1; the other groups come from the rename from beans to Lif.
+
+### lif-serve network defaults (0.15)
+
+| Old form | New form | Migration step |
+| --- | --- | --- |
+| `lif-serve` listens on all interfaces | `lif-serve` listens on `127.0.0.1` | For LAN, Docker or VPN access pass `--host <address>`. |
+| no authentication beyond loopback | an access token, new on every start | Open the printed `/?token=<token>` address once in the browser; scripts send `Authorization: Bearer <token>`. |
+| terminal available from the network | terminal off beyond loopback | Pass `--allow-remote-terminal` if you need it; the token is still required. |
+| `--cors-origin '*'` allows every origin to change data | `*` only lets every page read answers | List the origins that may change data in `--cors-origin`. |
+
+### JSON output and CLI behaviour (0.15)
+
+| Old form | New form | Migration step |
+| --- | --- | --- |
+| `lif init` overwrites an existing config | `lif init` stops with an error | Use `lif init --force` to replace the config on purpose. |
+| `show --json` body starts with a newline | no leading newline, as in `create --json` | Remove trimming workarounds. |
+| refused create: `FILE_ERROR` | `VALIDATION_ERROR` | Match on the code, not the message. |
+| I/O failure on update: `VALIDATION_ERROR` | `FILE_ERROR` | Match on the code, not the message. |
+| applied `lif rename --json` prints the plan and the result | prints only the result | Parse stdout as one document; use `--dry-run --json` for the plan. |
+| `lif check --json` cycle `link_type` `blocked_by` | `blocking` (`blocking+parent` for a blocker in its own subtree) | Read both fields as one set of links. |
 
 ### GitHub owner and Go module path (0.14.1)
 
@@ -80,7 +100,7 @@ Machine-readable output uses the new vocabulary. A parser that reads an old key 
 | --- | --- | --- | --- |
 | `bean` | `item` | `lif milestones --json` entries; message envelopes of single-item results | Read `item`. |
 | `beans` | `items` | message envelopes of multi-item results, for example a failed batch (`{"success": false, "items": [...], "count": n}`) | Read `items`. |
-| `bean_id` | `item_id` | entries of `broken_links`, `self_links` and `cycles` in `lif check --json` | Read `item_id`. |
+| `bean_id` | `item_id` | entries of `broken_links` and `self_links` in `lif check --json` (`cycles` entries never had it; they carry `link_type` and `path`) | Read `item_id`. |
 | `bean_issues` | `item_issues` | `lif check --json` | Read `item_issues`. |
 | `epics` / `features` arrays inside a milestone or the unscheduled group | one ordered `containers` array whose entries hold an `epic` or a `feature` | `lif roadmap --json` | Iterate `containers` instead of two arrays. |
 
@@ -119,7 +139,7 @@ Migration step: search your saved queries, scripts and client code for those nam
 
 ### Stale search cache
 
-The search index moved from `~/.beans/index/` to `~/.lif/index/`. Lif builds the new index on demand, so no step is required. The old directory is no longer used and is safe to delete: `rm -rf ~/.beans/index`.
+Lif builds its search index in memory on every search and stores nothing on disk. The old `~/.beans/index/` directory, and a `~/.lif/index/` directory left by an earlier 0.x build, are no longer used and are safe to delete: `rm -rf ~/.beans/index ~/.lif/index`.
 
 ### Claude Code plugin, hooks and command
 
@@ -187,7 +207,7 @@ Run `lif check` afterwards; it must print no `Legacy names` section. Having a le
 
 ## After upgrading: validate your project
 
-Run `lif check` against your project to validate configuration and item integrity, including broken links, self-references, and circular dependencies; `lif check --strict` additionally treats policy warnings as failures, and `lif check --fix` can automatically remove broken links and self-references (cycles still require manual resolution).
+Run `lif check` against your project to validate configuration and item integrity, including broken links, self-references, and circular dependencies; `lif check --strict` additionally treats policy warnings as failures, and `lif check --fix` can automatically remove broken links and self-references (cycles still require manual resolution; a link to the ID that a file renamed by hand still records is kept).
 
 Run `lif path` to confirm which data directory the binary resolved. Precedence is `--lif-path`, then a found or explicitly named `.lif.yml` (or the legacy config file, when no `.lif.yml` exists) and its anchored path, then `LIF_PATH` only when no config was found, then the default `.lif` directory.
 

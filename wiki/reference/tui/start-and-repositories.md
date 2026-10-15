@@ -44,7 +44,7 @@ Repo-Picker
 
 - `p` opens the picker from any view, also with fewer than two repositories. The "at least two" rule applies only to startup.
 - Typing filters the list (substring of the path). `↑`/`↓` move, `enter` opens, `esc` goes back.
-- The footer shows `i/k`, but `i` and `k` are typed into the filter in the lobby; use the arrow keys [hh0o].
+- The footer shows `↑↓` for moving. `i` and `k` are typed into the filter in the lobby, so they do not move the cursor.
 - Config edits made while the TUI runs appear the next time you press `p`.
 - After each switch the TUI writes `last_repo` to `state.json`. Nothing reads it back.
 
@@ -71,4 +71,3 @@ All keys: [Settings and themes](../settings-and-themes/).
 - `ctrl+c` quits at once, without confirmation.
 - `?` opens the help overlay, generated from the same key map as [Key bindings](../key-bindings/). The overlay is 54 rows high and is clipped on shorter terminals.
 - `K` opens the command palette.
-- The dialog text says `Really quit bt?`: the old product name. Tracked as [179g].

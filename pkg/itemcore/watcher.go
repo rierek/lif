@@ -325,14 +325,9 @@ func (c *Core) handleChanges(changes map[string]fsnotify.Op) {
 					c.removeItemLocked(id)
 					delete(c.mainPaths, id)
 
-					// Update search index. ensureWritableSearchIndexLocked
-					// upgrades a cached shared, read-only handle first
-					// (beans-4t2m): DeleteItem would otherwise hang forever
 					// on one.
 					if c.searchIndex != nil {
-						if err := c.ensureWritableSearchIndexLocked(); err != nil {
-							c.logWarn("failed to upgrade search index for item %s: %v", id, err)
-						} else if err := c.searchIndex.DeleteItem(id); err != nil {
+						if err := c.searchIndex.DeleteItem(id); err != nil {
 							c.logWarn("failed to remove item %s from search index: %v", id, err)
 						}
 					}
@@ -364,13 +359,8 @@ func (c *Core) handleChanges(changes map[string]fsnotify.Op) {
 			c.mainPaths[newItem.ID] = newItem.Path
 			delete(c.dirty, newItem.ID) // Disk is now up-to-date
 
-			// Update search index. ensureWritableSearchIndexLocked upgrades
-			// a cached shared, read-only handle first (beans-4t2m):
-			// IndexItem would otherwise hang forever on one.
 			if c.searchIndex != nil {
-				if err := c.ensureWritableSearchIndexLocked(); err != nil {
-					c.logWarn("failed to upgrade search index for item %s: %v", newItem.ID, err)
-				} else if err := c.searchIndex.IndexItem(newItem); err != nil {
+				if err := c.searchIndex.IndexItem(newItem); err != nil {
 					c.logWarn("failed to index item %s: %v", newItem.ID, err)
 				}
 			}

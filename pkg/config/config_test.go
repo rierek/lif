@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -247,6 +248,68 @@ func TestLoadAndSave(t *testing.T) {
 	// Statuses are hardcoded, not stored in config
 	if len(loaded.StatusNames()) != 5 {
 		t.Errorf("len(StatusNames()) = %d, want 5", len(loaded.StatusNames()))
+	}
+}
+
+func TestLoadDefaultPriorityAndTags(t *testing.T) {
+	for _, section := range []string{SectionKey, LegacySectionKey} {
+		t.Run(section, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, ConfigFileName)
+			body := section + ":\n  prefix: t-\n  default_priority: high\n  default_tags: [backend, api]\n"
+			if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if got := cfg.GetDefaultPriority(); got != "high" {
+				t.Errorf("GetDefaultPriority() = %q, want high", got)
+			}
+			if got := cfg.GetDefaultTags(); len(got) != 2 || got[0] != "backend" || got[1] != "api" {
+				t.Errorf("GetDefaultTags() = %v, want [backend api]", got)
+			}
+
+			// Round trip keeps both keys under the file's own section key.
+			if err := cfg.Save(dir); err != nil {
+				t.Fatalf("Save() error = %v", err)
+			}
+			again, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load() after Save error = %v", err)
+			}
+			if again.GetDefaultPriority() != "high" {
+				t.Errorf("priority after round trip = %q, want high", again.GetDefaultPriority())
+			}
+			if got := again.GetDefaultTags(); len(got) != 2 || got[0] != "backend" || got[1] != "api" {
+				t.Errorf("tags after round trip = %v, want [backend api]", got)
+			}
+		})
+	}
+}
+
+func TestDefaultPriorityAndTagsUnset(t *testing.T) {
+	var nilCfg *Config
+	if nilCfg.GetDefaultPriority() != "" || nilCfg.GetDefaultTags() != nil {
+		t.Error("nil config must return empty priority and no tags")
+	}
+
+	dir := t.TempDir()
+	cfg := DefaultWithPrefix("t-")
+	cfg.SetConfigDir(dir)
+	if cfg.GetDefaultPriority() != "" || len(cfg.GetDefaultTags()) != 0 {
+		t.Error("default config must leave both keys unset")
+	}
+	if err := cfg.Save(dir); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ConfigFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "default_priority") || strings.Contains(string(data), "default_tags") {
+		t.Errorf("saved file contains unset keys:\n%s", data)
 	}
 }
 
@@ -2599,6 +2662,26 @@ func TestTypesAtRankReturnsListOrder(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("TypesAtRank(2)[%d] = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+// A container type is one on rank 1 through MaxContainerRank, whatever its
+// name: a configured type joins the list by its rank, and a type on rank 0 or
+// beyond the container ranks stays out.
+func TestContainerTypeNamesFollowsTheRanks(t *testing.T) {
+	if got, want := (&Config{}).ContainerTypeNames(), []string{"milestone", "epic", "feature"}; !slices.Equal(got, want) {
+		t.Errorf("ContainerTypeNames() on the built-in types = %v, want %v", got, want)
+	}
+
+	two, zero, five := 2, 0, 5
+	c := &Config{Types: []TypeOverride{
+		{Name: "package", Rank: &two},
+		{Name: "root", Rank: &zero},
+		{Name: "subtask", Rank: &five},
+		{Name: "chore"},
+	}}
+	if got, want := c.ContainerTypeNames(), []string{"milestone", "epic", "package", "feature"}; !slices.Equal(got, want) {
+		t.Errorf("ContainerTypeNames() with custom ranks = %v, want %v", got, want)
 	}
 }
 

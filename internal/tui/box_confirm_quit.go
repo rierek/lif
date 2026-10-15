@@ -58,13 +58,13 @@ func (m model) keyConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // quitBox renders the floating quit-confirm modal. The confirm text is a
 // QUESTION (A1, bean bt-1u0t: was "Really quit bt." -- a statement, fixed
-// to "Really quit bt?"). The hint line is deliberately context-sensitive
+// to a question; the product is called lif, beans-179g). The hint line is deliberately context-sensitive
 // (Planner add-on over B08's literal wording, bt-1u0t's own body): while
 // enter would only land on the Lobby (stage 1), the hint says so up front
 // rather than promising "quit" and then not quitting -- lean-stack's own
 // "kein Ueberraschungsverhalten" principle applied to this modal's copy.
 func (m model) quitBox() string {
-	body := "\n" + theme.Dim.Render("Really quit bt?") + "\n\n"
+	body := "\n" + theme.Dim.Render("Really quit lif?") + "\n\n"
 	if m.quitBoxWillGoToLobby() {
 		body += theme.Accent.Render("enter") + theme.Dim.Render(": go to lobby   ") +
 			theme.Accent.Render("esc") + theme.Dim.Render(": cancel")

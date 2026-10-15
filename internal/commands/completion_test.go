@@ -1102,3 +1102,57 @@ func writeBlockingFixtureStore(t *testing.T, itemsDir string) {
 		t.Fatalf("creating fixture bean b: %v", err)
 	}
 }
+
+// writeArchivedParentFixtureStore creates an open, a completed and a
+// scrapped epic plus a task, for the archive filter on --parent completion.
+func writeArchivedParentFixtureStore(t *testing.T, itemsDir string) {
+	t.Helper()
+	if err := os.MkdirAll(itemsDir, 0755); err != nil {
+		t.Fatalf("creating fixture store dir: %v", err)
+	}
+	c := itemcore.New(itemsDir, config.Default())
+	if err := c.Load(); err != nil {
+		t.Fatalf("loading fixture core: %v", err)
+	}
+	for _, b := range []*item.Item{
+		{ID: "archflag-open", Slug: "fixture", Title: "Open epic", Status: "todo", Type: "epic"},
+		{ID: "archflag-done", Slug: "fixture", Title: "Done epic", Status: "completed", Type: "epic"},
+		{ID: "archflag-scrap", Slug: "fixture", Title: "Scrapped epic", Status: "scrapped", Type: "epic"},
+		{ID: "archflag-task", Slug: "fixture", Title: "Task", Status: "todo", Type: "task"},
+	} {
+		if err := c.Create(b); err != nil {
+			t.Fatalf("creating fixture item %s: %v", b.ID, err)
+		}
+	}
+}
+
+// TestParentCompletionOmitsArchivedItems pins SC-01 of R-14: --parent
+// completion through ParentCandidates leaves out archived containers, while
+// the any-ID completion of --blocked-by still offers them.
+func TestParentCompletionOmitsArchivedItems(t *testing.T) {
+	storeDir := t.TempDir()
+	writeArchivedParentFixtureStore(t, filepath.Join(storeDir, ".beans"))
+
+	out, err := runItemsCompletion(t, storeDir, nil, []string{"__complete", "create", "--parent", ""})
+	if err != nil {
+		t.Fatalf("__complete create --parent \"\": %v\nstdout: %s", err, out)
+	}
+	if !strings.Contains(out, "archflag-open") {
+		t.Errorf("completion output = %q, want the open epic", out)
+	}
+	for _, id := range []string{"archflag-done", "archflag-scrap"} {
+		if strings.Contains(out, id) {
+			t.Errorf("completion output = %q, must not contain archived %q", out, id)
+		}
+	}
+
+	out, err = runItemsCompletion(t, storeDir, nil, []string{"__complete", "update", "archflag-task", "--blocked-by", ""})
+	if err != nil {
+		t.Fatalf("__complete update --blocked-by \"\": %v\nstdout: %s", err, out)
+	}
+	for _, id := range []string{"archflag-done", "archflag-scrap"} {
+		if !strings.Contains(out, id) {
+			t.Errorf("--blocked-by output = %q, want archived %q still offered", out, id)
+		}
+	}
+}

@@ -51,15 +51,17 @@ var listCmd = &cobra.Command{
 	Long: `Lists all items in the .lif directory (or in the legacy .beans directory of a project that still uses it).
 
 Search Syntax (--search/-S):
-  The search flag supports Bleve query string syntax:
+  The search flag supports Bleve query string syntax. There are no AND/OR/NOT
+  keywords and no parentheses; use +term and -term:
 
   login          Exact term match
   login~         Fuzzy match (1 edit distance, finds "loggin", "logins")
   login~2        Fuzzy match (2 edit distance)
   log*           Wildcard prefix match
   "user login"   Exact phrase match
-  user AND login Both terms required
-  user OR login  Either term matches
+  user login     Either term matches (a list of terms is an OR)
+  +user +login   Both terms required
+  login -user    "login" without "user"
   slug:auth      Search only in slug field
   title:login    Search only in title field
   body:auth      Search only in body field`,
@@ -135,8 +137,8 @@ Search Syntax (--search/-S):
 			filter.IsBlocked = &unblocked
 		}
 
-		// --ready: items available to start (not blocked, excludes in-progress/completed/scrapped/draft,
-		// and excludes items with implicit terminal status from a scrapped/completed ancestor)
+		// --ready: leaf items available to start (not blocked, excludes in-progress/completed/scrapped/draft
+		// and container types, and excludes items with implicit terminal status from a scrapped/completed ancestor)
 		if listReady {
 			applyReadyFilter(filter, cfg)
 		}
@@ -229,8 +231,11 @@ Search Syntax (--search/-S):
 // (default: completed/scrapped, but any custom status marked `archive:
 // true` is picked up too -- a hardcoded literal list would silently treat
 // a future archive-flagged status, e.g. a project-defined "po-review", as
-// still ready), and excludes items with implicit terminal status from a
-// scrapped/completed ancestor. It mutates an already partially-built
+// still ready), excludes items with implicit terminal status from a
+// scrapped/completed ancestor, and excludes every container type (a type on
+// rank 1 through config.MaxContainerRank: milestone, epic and feature by
+// default, whatever the configuration puts there otherwise), because ready
+// work is leaf work. It mutates an already partially-built
 // *model.ItemFilter (e.g. one that already carries --type/--status flags)
 // rather than constructing a fresh one, so callers keep whatever filters
 // they set beforehand.
@@ -244,6 +249,7 @@ func applyReadyFilter(filter *model.ItemFilter, cfg *config.Config) {
 			filter.ExcludeStatus = append(filter.ExcludeStatus, s.Name)
 		}
 	}
+	filter.ExcludeType = append(filter.ExcludeType, cfg.ContainerTypeNames()...)
 	filter.ExcludeImplicitTerminal = &excludeImplicitTerminal
 }
 
@@ -453,7 +459,7 @@ func RegisterListCmd(root *cobra.Command) {
 		listCmd.Flags().BoolVar(&listNoBlocking, "no-blocking", false, "Filter items that aren't blocking others")
 		listCmd.Flags().BoolVar(&listIsBlocked, "is-blocked", false, "Filter items that are blocked by others")
 		listCmd.Flags().BoolVar(&listUnblocked, "unblocked", false, "Filter items with no unresolved blocker")
-		listCmd.Flags().BoolVar(&listReady, "ready", false, "Filter items available to start (not blocked, excludes in-progress/completed/scrapped/draft)")
+		listCmd.Flags().BoolVar(&listReady, "ready", false, "Filter leaf items available to start (not blocked, excludes in-progress/completed/scrapped/draft and container types)")
 		listCmd.Flags().BoolVarP(&listQuiet, "quiet", "q", false, "Only output IDs (one per line)")
 		listCmd.Flags().StringVar(&listSort, "sort", "", "Sort by: created, updated, status, priority, id, order (order is scoped per parent) (default: status, manual order, priority, type, title)")
 		listCmd.Flags().BoolVar(&listDesc, "desc", false, "Reverse the sort order")

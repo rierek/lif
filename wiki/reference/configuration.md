@@ -67,6 +67,8 @@ server:
 | | `id_length` | 4 |
 | | `default_status` | `todo` |
 | | `default_type` | `task` (without `task` in the type table: the first type) |
+| | `default_priority` | unset; read only by `lif create -i` |
+| | `default_tags` | unset (list of strings); read only by `lif create -i` |
 | | `require_if_match` | false |
 | | `require_fields_on` | none |
 | | `commit_field` | `commit` |
@@ -79,11 +81,13 @@ server:
 | | `default_mode` | `act` (or `plan`). `act` runs autonomously, `plan` is read-only. `yolo` is accepted as an alias for `act`; any other value falls back to `act`. |
 | | `default_effort` | empty = the tool's own default (`low`, `medium`, `high`, `max`) |
 | `server` | `port` | 8080 |
-| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` allows all |
-| `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`) |
+| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` adds the CORS header for every origin and allows nothing else (pages can read, not change) |
+| `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`). Colors the CLI output only: the TUI uses a fixed dark palette and the web UI follows the operating system. |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 
-`lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/).
+`lif.default_priority` and `lif.default_tags` are read only by the guided `lif create -i` form, which pre-fills them. Plain `lif create`, the GraphQL `createItem` mutation and the TUI create form ignore them. `lif check` fails if `default_priority` names an unknown priority (built-in or configured), or if a `default_tags` entry is empty or not a valid tag. An empty list behaves like an unset key.
+
+`lif check` does not validate `lif.default_status`: it prints "Default status exists" without a real test, because the status table is built in. `lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/). The bind address and the remote terminal have no key on purpose: they are the flags `--host` and `--allow-remote-terminal`.
 
 New worktrees get the branch `lif/<id>`. Worktrees on legacy `beans/` branches are still listed and used.
 
@@ -125,7 +129,7 @@ To rename a type, add the new type, then change the old items: `lif update <id> 
 ## Types, ranks and hierarchy rules
 
 - Every type has an integer `rank`. A parent is valid if the child's rank is **strictly greater** than the parent's. Types of equal rank do not nest. "Level" is only a prose synonym for rank.
-- Ranks 1 to 3 are container ranks, rank 4 is the leaf rank. A type without `rank` gets 4, an unknown type counts as 4. Gaps are allowed.
+- Ranks 1 to 3 are container ranks, rank 4 is the leaf rank. A type without `rank` gets 4, an unknown type counts as 4. Gaps are allowed. Container ranks also decide what is ready: `lif next` and `lif list --ready` never return an item whose type sits on rank 1 to 3.
 - Depth: the built-in types and the preset `classic` have four levels (`milestone` > `epic` > `feature` > `bug`/`task`). Custom types can go deeper; there is no upper limit (ranks 5 to 7 were accepted). "Four levels" describes the built-in scale, not a maximum.
 - Enforced on write: on `lif create --parent`, `lif update --parent`, `lif update --type` and the GraphQL mutations `createItem`, `updateItem`, `setParent`. The CLI, GraphQL and the TUI go through the same checks. Errors:
 
@@ -143,9 +147,10 @@ would create cycle: [...]
 
 | Verified | Not verified |
 |---|---|
-| Configuration: default type, colors, theme, effort, prefix consistency | Duplicate IDs |
-| Type of every item against the type table | File name and ID that do not match |
-| Status and priority values, tag format | Front matter syntax beyond loading |
+| Configuration: default type, default priority and tags, colors, theme, effort, prefix consistency | Duplicate IDs |
+| Type of every item against the type table | Front matter syntax beyond loading |
+| Status and priority values, tag format | |
+| File name against the ID the file records in its `# <id>` line, with the links that dangle (a hand rename, since 0.15) | |
 | Parent of the wrong type rank: `✗ item <id> (epic) cannot sit under parent <id> (task): parent must rank higher` | |
 | Broken links, self-references, cycles in `parent`, `blocking`, `blocked_by` | |
 | Orphaned `attachments/<id>` directories | |

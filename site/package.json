@@ -17,5 +17,9 @@
     "astro-mermaid": "^2.1.0",
     "mermaid": "^11.17.2",
     "sharp": "^0.35.3"
+  },
+  "overrides": {
+    "postcss-selector-parser": ">=7.1.6",
+    "katex": ">=0.18.2"
   }
 }

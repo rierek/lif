@@ -224,8 +224,8 @@ func TestOrderMapsDerivedFromValueSlices(t *testing.T) {
 		}
 	}
 	for i, ty := range TypeValues() {
-		if rank(typeOrder, ty) != i {
-			t.Fatalf("typeOrder[%q]=%d, want %d (position in TypeValues())", ty, rank(typeOrder, ty), i)
+		if rank(cur.Load().typeOrder, ty) != i {
+			t.Fatalf("typeOrder[%q]=%d, want %d (position in TypeValues())", ty, rank(cur.Load().typeOrder, ty), i)
 		}
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/rierek/lif/internal/tui/config"
 	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/ui"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -68,6 +69,9 @@ func Run(client *data.Client, repoDir string, settings config.Settings) error {
 	configuredEditor = settings.Editor     // design decision c: Settings > $VISUAL > $EDITOR > vi (editor.go)
 	theme.SetAccent(settings.Theme.Accent) // No-Op on empty/invalid (theme.go's own guard) -- built-in Mauve stays by default
 
+	if client != nil {
+		applyRepoConfig(repoDir) // the project's value lists and colours, before the first index is built
+	}
 	m := newModel(client, repoDir)
 	m.settings = settings
 	if client == nil {
@@ -150,4 +154,21 @@ func (m model) Init() tea.Cmd {
 		return func() tea.Msg { return beansLoadedMsg{err: errNilClient} }
 	}
 	return loadCmd(m.client)
+}
+
+// applyRepoConfig makes repoDir's project config the TUI's source for
+// status/type/priority lists, type ranks and explicitly configured colours.
+// display.theme is NOT applied: the TUI palette is fixed (dark, Catppuccin
+// Macchiato), see wiki settings-and-themes.
+func applyRepoConfig(repoDir string) {
+	data.ApplyRepoConfig(repoDir)
+	resolve := func(specs map[string]string) map[string]lipgloss.Color {
+		out := make(map[string]lipgloss.Color, len(specs))
+		for name, spec := range specs {
+			out[name] = ui.ResolveColor(spec)
+		}
+		return out
+	}
+	s, t, p := data.ConfiguredColors()
+	theme.SetConfiguredColors(resolve(s), resolve(t), resolve(p))
 }

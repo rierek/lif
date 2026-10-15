@@ -23,7 +23,6 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [mgx8] | `create`/`update` help lists built-in names; completion and help fail outside a project | Help shows built-in type names even with custom types. `lif completion`, `lif help <cmd>` and `lif __complete` fail outside an initialised project. | Run them inside a project. | Open |
 | [3slb] | `lif --version` is rejected | `lif --version` prints `Error: unknown flag: --version`. | Run `lif version`. | Open |
 | [tgph] | `lif promote` creates the item without a parent | A promoted bug sits outside the release subtree and its progress number. | `lif update <id> --parent <feature-id>`. | Open |
-| [29wh] | Wiki and README statements disagree with the code | The `display.theme` statement in the configuration page may still disagree with the TUI. Other statements (cycle entry fields, `default_status` check, i386 platforms, `go install` binaries) were corrected in 0.15. | Trust this site and a run of your binary. | Open |
 | [gbl5] | `lif rename --dry-run` hits the same refusals as a real rename | The dry run stops at the first refusal instead of listing the full plan. | Fix the refusal and run again. | Open |
 
 ## Fixed
@@ -37,6 +36,7 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [9kej] | Help text omitted manual order in the default sort | Fixed in 0.14: help names the manual order. | n/a | Fixed in 0.14 |
 | [g5dn] | `lif next` and `lif list --ready` returned container items | Fixed in 0.15: both leave out every container type (rank 1 to 3), so the ready list is leaf work only. | n/a | Fixed in 0.15 |
 | [hh0o] | TUI lobby footer showed `i/k`, but those keys edit the filter | Fixed in 0.15: the lobby footer shows `↑↓` for moving. | n/a | Fixed in 0.15 |
+| [29wh] | Wiki and README statements disagreed with the code | Fixed in 0.15: the cycle entry fields, the `default_status` check, the i386 platforms, the `go install` binaries and the `display.theme` scope (CLI output only, not the TUI) now match the code. | n/a | Fixed in 0.15 |
 | [et2a] | Mixed-field dependency cycles were accepted and not reported | Fixed in 0.15: cycle detection treats `blocking` and `blocked_by` as one set of links, so `lif update`, `lif create`, GraphQL and `lif check` all refuse or report a cycle whichever field stores its links. | n/a | Fixed in 0.15 |
 | [o8bs] | A blocker inside the blocked item's own subtree deadlocked it | Fixed in 0.15: a blocker below the blocked item, or above it, is refused on write and reported by `lif check` as a cycle over `blocking` and `parent` links, with a note that says why; the rule looks at the links only, so a blocker that is already `completed` or `scrapped` is refused too. | n/a | Fixed in 0.15 |
 | [0ish] | Cycle path in `lif check` started at a different item each run | Fixed in 0.15: a cycle path starts at its smallest item ID, and cycles are listed in a fixed order. | n/a | Fixed in 0.15 |

@@ -81,7 +81,7 @@ server:
 | | `default_mode` | `act` (or `plan`). `act` runs autonomously, `plan` is read-only. `yolo` is accepted as an alias for `act`; any other value falls back to `act`. |
 | | `default_effort` | empty = the tool's own default (`low`, `medium`, `high`, `max`) |
 | `server` | `port` | 8080 |
-| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` allows all |
+| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` adds the CORS header for every origin and allows nothing else (pages can read, not change) |
 | `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`) |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 

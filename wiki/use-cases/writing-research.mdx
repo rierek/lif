@@ -45,8 +45,8 @@ types:
 
 ```sh
 lif create "Methods" -t chapter
-lif create "Sampling" -t section --parent <chapter-id> --tag methods
-lif create "Ethics approval letter" -t source --parent <chapter-id>
+lif create "Sampling" -t section --parent <chapter-id>
+lif create "Ethics approval letter" -t source --parent <chapter-id> --tag methods
 lif update <sampling-id> --blocked-by <letter-id>
 ```
 
@@ -67,7 +67,7 @@ Place the blocker outside the item it blocks, and not above it either. A blocked
 <span style="color:var(--ctp-green)">━━━━━━━━</span><span style="color:var(--ctp-surface2)">░░░░░░░░░░░░</span> 40% complete`} />
 </div>
 
-`lif next --tag methods` names the next piece of work. `lif order <id> --after <id>` sets the order of sections. Put working notes in the item body.
+`lif next --tag methods` names the next piece of work tagged `methods`, here the ethics approval letter. Only leaf items can be ready (`source` and `question`, rank 4), so tag those: a chapter or a section never comes back, and "Sampling" waits for the letter anyway. `lif order <id> --after <id>` sets the order of sections. Put working notes in the item body.
 
 ## What you get
 

@@ -89,7 +89,7 @@ GraphQL has no `ready` argument. `lif next` and `lif list --ready` build "ready"
 
 `bodyMod` edits the body in place: `replace: [{old, new}]` or `append`. It cannot be combined with `body`, and `tags` cannot be combined with `addTags` or `removeTags`.
 
-`ifMatch` compares the ETag with the current file. If the item changed meanwhile, the call fails with a conflict. The `etag` field gives the current value. With `lif.require_if_match: true` the value is mandatory.
+`ifMatch` compares the ETag with the current file. If the item changed meanwhile, the call fails with a conflict. The compare and the write are not atomic across processes: two writers that pass the same ETag at the same moment can both succeed [9r10]. The `etag` field gives the current value. With `lif.require_if_match: true` the value is mandatory.
 
 ## Subscriptions
 

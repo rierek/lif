@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rierek/lif/internal/commands"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"github.com/xRiErOS/lif/internal/commands"
 )
 
 // treeFile is the generated partial with the command hierarchy. The underscore keeps Starlight from treating it

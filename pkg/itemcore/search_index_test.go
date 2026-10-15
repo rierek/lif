@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // TestIndexDir_OutsideStoreRoot proves AC-04: the persisted index location is

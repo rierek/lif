@@ -2,8 +2,8 @@
 
 ## Where to go
 
-- **Bug or concrete feature request:** open an [issue](https://github.com/xRiErOS/lif/issues). Include observed behavior, expected behavior, `lif version`, and the smallest store shape that reproduces it.
-- **Questions, ideas, and projects built around Lif:** use [Discussions](https://github.com/xRiErOS/lif/discussions).
+- **Bug or concrete feature request:** open an [issue](https://github.com/rierek/lif/issues). Include observed behavior, expected behavior, `lif version`, and the smallest store shape that reproduces it.
+- **Questions, ideas, and projects built around Lif:** use [Discussions](https://github.com/rierek/lif/discussions).
 - **Code or docs change:** open a pull request. For anything larger than a small fix, start with an issue or discussion so the direction is agreed before you build it.
 
 ## Branches

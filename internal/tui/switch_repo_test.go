@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // fakeLifEmptyList installs a fake "lif" for a repo made by newTestRepoTUI:

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // epicGroupsOf extracts the epic-slot groups from a mixed container list, in
@@ -47,12 +47,12 @@ func TestBuildRoadmap(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name                  string
-		items                 []*item.Item
-		includeDone           bool
-		wantMilestones        int
-		wantUnscheduledEpics  int
-		wantUnscheduledOther  int
+		name                 string
+		items                []*item.Item
+		includeDone          bool
+		wantMilestones       int
+		wantUnscheduledEpics int
+		wantUnscheduledOther int
 	}{
 		{
 			name:           "empty beans",
@@ -159,9 +159,9 @@ func TestBuildRoadmap(t *testing.T) {
 
 func TestFirstParagraph(t *testing.T) {
 	tests := []struct {
-		name  string
-		body  string
-		want  string
+		name string
+		body string
+		want string
 	}{
 		{
 			name: "empty body",
@@ -970,7 +970,6 @@ func TestRoadmapMarkdownByteIdentical(t *testing.T) {
 		})
 	}
 }
-
 
 func TestBuildScopedRoadmapMilestoneRoot(t *testing.T) {
 	oldCfg := cfg

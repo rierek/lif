@@ -380,7 +380,7 @@ func TestFindingsSchema_NamesLif(t *testing.T) {
 	if err := json.Unmarshal([]byte(FindingsSchema), &head); err != nil {
 		t.Fatalf("decoding the embedded schema: %v", err)
 	}
-	if want := "https://github.com/xRiErOS/lif/schemas/findings-artifact.schema.json"; head.ID != want {
+	if want := "https://github.com/rierek/lif/schemas/findings-artifact.schema.json"; head.ID != want {
 		t.Errorf("$id = %q, want %q", head.ID, want)
 	}
 	if !strings.Contains(head.Description, "`lif promote`") {

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 // The store path is resolved in exactly one place (resolveStorePath). Scripts

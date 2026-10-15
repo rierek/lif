@@ -93,18 +93,18 @@ type AskUserQuestion struct {
 // For plan/mode interactions, the process has been killed and will resume with --resume.
 type PendingInteraction struct {
 	Type        InteractionType
-	PlanContent string             // plan file content (for exit_plan only)
-	Questions   []AskUserQuestion  // structured questions (for ask_user only)
+	PlanContent string            // plan file content (for exit_plan only)
+	Questions   []AskUserQuestion // structured questions (for ask_user only)
 }
 
 // Session represents an active or idle agent conversation for a worktree.
 type Session struct {
-	ID        string        // itemID — one session per worktree
-	AgentType string        // "claude" for now
-	SessionID string        // CLI session ID for --resume
-	Status    SessionStatus // idle, running, error
-	Messages  []Message
-	Error     string // last error message, if status == error
+	ID           string        // itemID — one session per worktree
+	AgentType    string        // "claude" for now
+	SessionID    string        // CLI session ID for --resume
+	Status       SessionStatus // idle, running, error
+	Messages     []Message
+	Error        string // last error message, if status == error
 	WorkDir      string // worktree filesystem path
 	Effort       string // thinking effort level (e.g. "low", "medium", "high", "max"); empty = CLI default
 	PlanMode     bool   // when true, agent uses --permission-mode plan (read-only)
@@ -139,17 +139,17 @@ type Session struct {
 // snapshot returns a deep copy of the session for safe concurrent reads.
 func (s *Session) snapshot() Session {
 	snap := Session{
-		ID:                 s.ID,
-		AgentType:          s.AgentType,
-		SessionID:          s.SessionID,
-		Status:             s.Status,
-		Messages:           make([]Message, len(s.Messages)),
-		Error:              s.Error,
-		WorkDir:            s.WorkDir,
-		Effort:             s.Effort,
-		PlanMode:           s.PlanMode,
-		ActMode:           s.ActMode,
-		SystemStatus:       s.SystemStatus,
+		ID:           s.ID,
+		AgentType:    s.AgentType,
+		SessionID:    s.SessionID,
+		Status:       s.Status,
+		Messages:     make([]Message, len(s.Messages)),
+		Error:        s.Error,
+		WorkDir:      s.WorkDir,
+		Effort:       s.Effort,
+		PlanMode:     s.PlanMode,
+		ActMode:      s.ActMode,
+		SystemStatus: s.SystemStatus,
 	}
 	// Deep copy PendingInteraction if it has Questions
 	if s.PendingInteraction != nil {

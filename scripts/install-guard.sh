@@ -12,7 +12,7 @@
 #      dem Hauptbaum, sind aber selbst nicht der Hauptbaum.
 #   2. `lif.installHome`-Marker in der lokalen Git-Config: den setzt nur
 #      der eine als Installationsquelle vorgesehene Checkout (einmalig,
-#      siehe wiki/development.md). Ein frischer Clone -- Wegwerf- oder
+#      siehe wiki/overview/upgrading.md, Abschnitt Contributor tooling). Ein frischer Clone -- Wegwerf- oder
 #      Ad-hoc-Baum -- hat ihn nicht, selbst wenn er (wie im Anlass) sein
 #      eigener Hauptbaum ist.
 #

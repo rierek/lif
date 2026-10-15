@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 // resolveBatchTargets resolves every ID a batch verb was given before any of

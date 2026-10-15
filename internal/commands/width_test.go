@@ -3,7 +3,7 @@ package commands
 import (
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 func TestResolveWidthPrefersTheFlag(t *testing.T) {

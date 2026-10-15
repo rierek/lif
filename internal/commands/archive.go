@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/pkg/item"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/pkg/item"
 )
 
 var archiveJSON bool

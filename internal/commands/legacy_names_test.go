@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // isolateHome points HOME at a temp directory, so a search index or a worktree
@@ -482,7 +482,7 @@ func TestRepositoryConfig_IsTheLifFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"https://github.com/xRiErOS/lif", "lif-serve"} {
+	for _, want := range []string{"https://github.com/rierek/lif", "lif-serve"} {
 		if !strings.Contains(string(raw), want) {
 			t.Errorf("%s lacks %q", config.ConfigFileName, want)
 		}

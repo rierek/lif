@@ -3,10 +3,10 @@ package itemgraph
 import (
 	"context"
 
-	"github.com/xRiErOS/lif/internal/gitutil"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/internal/gitutil"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 // Item returns a single item by ID, or nil if not found.

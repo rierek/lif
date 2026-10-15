@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/pkg/itemcore"
 )
 
 var (

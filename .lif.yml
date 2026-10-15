@@ -1,5 +1,5 @@
 # Lif configuration
-# See: https://github.com/xRiErOS/lif
+# See: https://github.com/rierek/lif
 project:
   # Human-readable project name (displayed in the UI)
   name: beans

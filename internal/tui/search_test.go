@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- Local live filter (flattenTreeFiltered / beanMatchesSearch) ---

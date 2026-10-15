@@ -505,23 +505,23 @@ func RenderPrioritySymbol(priority, color string) string {
 
 // ItemRowConfig holds configuration for rendering an item row
 type ItemRowConfig struct {
-	StatusColor   string
-	TypeColor     string
-	PriorityColor string
-	Priority      string // Priority value (critical, high, normal, low, deferred)
-	IsArchive     bool
-	MaxTitleWidth int  // 0 means no truncation
-	ShowCursor    bool // Show selection cursor
-	IsSelected    bool
-	IsMarked      bool     // Marked for multi-select batch operations
-	Tags          []string // Tags to display (optional)
-	ShowTags      bool     // Whether to show tags column
-	TagsColWidth  int      // Width of tags column (0 = default)
-	MaxTags       int      // Max tags to show (0 = default of 1)
-	TreePrefix      string   // Tree prefix (e.g., "├─" or "  └─") to prepend to ID
-	Dimmed          bool     // Render row dimmed (for unmatched ancestor items in tree)
-	IDColWidth      int      // Width of ID column (0 = default of ColWidthID)
-	UseFullNames    bool     // Use full type/status names instead of single-char abbreviations
+	StatusColor    string
+	TypeColor      string
+	PriorityColor  string
+	Priority       string // Priority value (critical, high, normal, low, deferred)
+	IsArchive      bool
+	MaxTitleWidth  int  // 0 means no truncation
+	ShowCursor     bool // Show selection cursor
+	IsSelected     bool
+	IsMarked       bool     // Marked for multi-select batch operations
+	Tags           []string // Tags to display (optional)
+	ShowTags       bool     // Whether to show tags column
+	TagsColWidth   int      // Width of tags column (0 = default)
+	MaxTags        int      // Max tags to show (0 = default of 1)
+	TreePrefix     string   // Tree prefix (e.g., "├─" or "  └─") to prepend to ID
+	Dimmed         bool     // Render row dimmed (for unmatched ancestor items in tree)
+	IDColWidth     int      // Width of ID column (0 = default of ColWidthID)
+	UseFullNames   bool     // Use full type/status names instead of single-char abbreviations
 	ImplicitStatus string   // Implicit terminal status from an ancestor (e.g., "scrapped")
 }
 
@@ -543,7 +543,7 @@ type ResponsiveColumns struct {
 	Status            int
 	Type              int
 	Tags              int
-	MaxTags           int  // How many tags to show
+	MaxTags           int // How many tags to show
 	ShowTags          bool
 	UseFullTypeStatus bool // Use full names instead of single-char abbreviations
 }

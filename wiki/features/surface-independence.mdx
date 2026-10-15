@@ -1,0 +1,100 @@
+---
+title: "Surface independence"
+description: "Use the terminal, the board or your editor: all of them work on the same files."
+---
+
+import TerminalWindow from '../../site/src/components/TerminalWindow.astro';
+import MediaCell from '../../site/src/components/MediaCell.astro';
+import WebShot from '../../site/src/components/WebShot.astro';
+import media from '../../site/src/data/surface-media.json';
+import { Badge } from '@astrojs/starlight/components';
+import KeyValueList from '../../site/src/components/KeyValueList.astro';
+import KeyValueItem from '../../site/src/components/KeyValueItem.astro';
+import WhyItMatters from '../../site/src/components/WhyItMatters.astro';
+
+**Use the terminal, the board or your editor.** The CLI, the TUI, the Web UI and direct editing of the Markdown files all work on the same items. Agents use the CLI or GraphQL. People use an editor, the TUI or a browser.
+
+## How it looks
+
+Four paths to the same files:
+
+<div class="shots not-content">
+  <MediaCell caption="CLI: lif list and lif show in a terminal"><TerminalWindow title="lif" html={media.cli.html} cols={media.cli.cols} /></MediaCell>
+  <MediaCell caption="TUI: lif tui with the item tree and the detail pane"><TerminalWindow title="lif tui" html={media.tui.html} cols={media.tui.cols} /></MediaCell>
+  <MediaCell caption="Web UI: the board in lif-serve"><WebShot title="lif-serve" alt="The Lif board in a browser with the columns Todo, In Progress and Completed. Each card shows title, ID, type, tags and priority." light="/media/web-board-light.webp" dark="/media/web-board-dark.webp" /></MediaCell>
+  <MediaCell caption="An item file in a plain text editor"><TerminalWindow title="app-0aqa--password-reset.md" html={media.editor.html} cols={media.editor.cols} /></MediaCell>
+</div>
+
+
+The same item through two paths. `lif show` in the terminal:
+
+```text
+$ lif show ft-957g
+---
+# ft-957g
+title: Send reset mail
+status: todo
+type: task
+priority: normal
+tags:
+    - backend
+created_at: 2026-10-14T19:17:18Z
+updated_at: 2026-10-14T19:17:18Z
+parent: ft-igeu
+---
+```
+
+The file in your editor holds the same front matter. If you change `status: todo` to `in-progress` there, the CLI, the TUI and the Web UI show the new status on the next load. The Web UI updates by itself through the file watcher.
+
+In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../reference/tui/views/) and [Editing items](../../reference/tui/editing-items/).
+
+<WhyItMatters>
+**Nobody has to switch tools.** A person edits in an editor while an agent uses the CLI, and both change the same files.
+</WhyItMatters>
+
+## What you get
+
+<KeyValueList>
+  <KeyValueItem term="CLI">`lif`. Scriptable, and the path agents use. <Badge text="main program" variant="note" /></KeyValueItem>
+  <KeyValueItem term="TUI">`lif tui`. A companion to the CLI: browse and edit without leaving the terminal.</KeyValueItem>
+  <KeyValueItem term="Web UI">Embedded in the separate program `lif-serve`. It watches the store directory and pushes changes to subscribers. <Badge text="separate program" variant="caution" /></KeyValueItem>
+  <KeyValueItem term="Your editor">Open the Markdown files in any Markdown-capable editor. The format is front matter plus body.</KeyValueItem>
+</KeyValueList>
+
+- **No lock-in.** The same information is reachable through different tools.
+- **Same rules everywhere.** CLI commands, GraphQL mutations, the TUI and the Web UI go through the same item logic. They enforce the same configured rules: the rank rule for parents and valid values for type, status and priority.
+
+<details>
+<summary>Details: consistency, concurrency, store lookup</summary>
+
+- All paths use the same store. Lif finds it by a fixed precedence: `--lif-path`, configuration, `LIF_PATH`, current directory. See [`lif path`](../../reference/commands/lif-path/).
+- The server has more capabilities (worktrees, agent sessions, terminal). They exist only in `lif-serve`.
+- Direct editing is unrestricted. Lif loads the change without checking it. It watches files only to reload. Run `lif check` afterwards. See [Flexible planning](../project-planning/#limits) for what it covers.
+- For concurrent changes, `--if-match` and GraphQL `ifMatch` protect with an ETag. The configuration `require_if_match` makes it mandatory. The check does not protect two simultaneous processes [9r10]. Without `--if-match` there is no protection, and Lif does not report an overwritten state.
+
+</details>
+
+## Editors such as Obsidian
+
+- Any Markdown-capable editor can open item files.
+- Obsidian is an experiment. It lives in the blog: [Obsidian experiment](../../blog/obsidian-experiment/).
+- Bases compatibility is not proven. Obsidian does not appear in the Lif code, docs or README.
+- The first front matter line is a YAML comment `# <id>`. The store lives in a dot directory (`.lif/`). Check how your editor treats both before you rely on it.
+
+## Limits
+
+- Run `lif check` after manual edits. Lif does not check them while you edit.
+- Start `lif-serve` for the Web UI. `lif serve` in the main program is a hidden stub.
+- Do not expose the `lif-serve` port. It has no authentication or TLS and exposes a terminal [8h4v].
+- Pass `--if-match` for concurrent writers, and run writers one at a time [9r10].
+- Set `lif.anchor: repo-root` if Git worktrees should share one store. Without it, each worktree uses its own.
+- Expect fixed value lists and a fixed theme in the TUI: it ignores `display.theme` [179g].
+
+See [Known limitations](../../known-limitations/) for [9r10], [8h4v] and [179g].
+
+## Reference
+
+- TUI: [Start and repositories](../../reference/tui/start-and-repositories/), [Views](../../reference/tui/views/), [Editing items](../../reference/tui/editing-items/).
+- [Web server](../../reference/web-server/): `lif-serve`, port, CORS.
+- [`lif check`](../../reference/commands/lif-check/): scope of checks.
+- [`lif path`](../../reference/commands/lif-path/) and [Configuration](../../reference/configuration/): store resolution, `require_if_match`.

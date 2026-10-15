@@ -3,7 +3,7 @@ import { docsLoader } from '@astrojs/starlight/loaders';
 import { docsSchema } from '@astrojs/starlight/schema';
 import { z } from 'astro/zod';
 
-// src/content/docs is a symlink to ../wiki/pages. Starlight derives sidebar
+// src/content/docs is a symlink to ../wiki. Starlight derives sidebar
 // paths from src/content/docs, so a custom glob base outside it breaks autogenerate.
 export const collections = {
 	docs: defineCollection({

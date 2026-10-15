@@ -3,8 +3,8 @@ package commands
 import (
 	"sort"
 
+	"github.com/rierek/lif/pkg/item"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/pkg/item"
 )
 
 // completionDirective is the ShellCompDirective every ValidArgsFunction in

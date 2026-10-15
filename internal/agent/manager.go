@@ -49,17 +49,17 @@ const (
 // Manager manages agent sessions — one per worktree (keyed by itemID).
 // It holds sessions in memory and provides pub/sub for session updates.
 type Manager struct {
-	mu                    sync.RWMutex
-	sessions              map[string]*Session
-	processes             map[string]*runningProcess
-	store                 *store // JSONL persistence (nil if no itemsDir)
-	contextProvider       ContextProvider
-	systemPromptProvider  SystemPromptProvider
-	onFirstUserMessage    OnFirstUserMessageFunc
-	onTurnComplete        OnTurnCompleteFunc
-	quickReplyContext     QuickReplyContextFunc
-	defaultMode   DefaultMode
-	defaultEffort EffortLevel
+	mu                   sync.RWMutex
+	sessions             map[string]*Session
+	processes            map[string]*runningProcess
+	store                *store // JSONL persistence (nil if no itemsDir)
+	contextProvider      ContextProvider
+	systemPromptProvider SystemPromptProvider
+	onFirstUserMessage   OnFirstUserMessageFunc
+	onTurnComplete       OnTurnCompleteFunc
+	quickReplyContext    QuickReplyContextFunc
+	defaultMode          DefaultMode
+	defaultEffort        EffortLevel
 
 	subMu       sync.Mutex
 	subscribers map[string][]chan struct{}
@@ -78,11 +78,11 @@ func NewManager(itemsDir string, contextProvider ContextProvider, defaultMode ..
 		mode = defaultMode[0]
 	}
 	m := &Manager{
-		sessions:              make(map[string]*Session),
-		processes:             make(map[string]*runningProcess),
-		subscribers:           make(map[string][]chan struct{}),
-		contextProvider:       contextProvider,
-		defaultMode: mode,
+		sessions:        make(map[string]*Session),
+		processes:       make(map[string]*runningProcess),
+		subscribers:     make(map[string][]chan struct{}),
+		contextProvider: contextProvider,
+		defaultMode:     mode,
 	}
 
 	if itemsDir != "" {

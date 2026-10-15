@@ -1,4 +1,4 @@
-# Builds the docs site (site/, content in wiki/pages) and publishes it to GitHub Pages.
+# Builds the docs site (site/, content in wiki) and publishes it to GitHub Pages.
 name: docs
 
 on:
@@ -30,7 +30,7 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
       - name: Generate command reference
-        run: go run ./cmd/lif-docgen wiki/pages/reference/commands
+        run: go run ./cmd/lif-docgen wiki/reference/commands
       - name: Build site
         run: cd site && npm ci && npm run build
       - uses: actions/upload-pages-artifact@v3

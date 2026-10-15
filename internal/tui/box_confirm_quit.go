@@ -14,7 +14,7 @@ package tui
 import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // requestQuit opens the quit-confirm instead of quitting immediately.

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
 )
 
 var (

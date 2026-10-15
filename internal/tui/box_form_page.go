@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // Page-indicator glyphs: hell (current page) vs. dunkel (the rest). Filled/

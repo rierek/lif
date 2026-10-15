@@ -196,8 +196,8 @@ func TestContainsBlockedWord(t *testing.T) {
 		{"ab3d", false},
 		{"z7x2", false},
 		{"safe", false},
-		{"naz1", true},  // contains "naz" substring
-		{"sass", true},  // contains "ass"
+		{"naz1", true}, // contains "naz" substring
+		{"sass", true}, // contains "ass"
 	}
 
 	for _, tt := range tests {

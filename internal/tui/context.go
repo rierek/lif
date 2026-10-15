@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // beanContext renders b as Markdown for the clipboard: a header (ID/Title/

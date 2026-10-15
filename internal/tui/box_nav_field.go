@@ -27,7 +27,7 @@ package tui
 import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // boxFormFieldNext/boxFormFieldPrev are the Detail REGION's own tab/shift+tab

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // depthFixture builds a roadmap that exercises every branch the pruner has

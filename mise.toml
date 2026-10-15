@@ -67,11 +67,11 @@ if [ -n "$TREE_ROOT" ]; then
   fi
 fi
 LDFLAGS="\
-  -X github.com/xRiErOS/lif/internal/version.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev) \
-  -X github.com/xRiErOS/lif/internal/version.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
-  -X github.com/xRiErOS/lif/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-  -X github.com/xRiErOS/lif/internal/version.Tree=$TREE_ROOT \
-  -X github.com/xRiErOS/lif/internal/version.TreeKind=$TREE_KIND"
+  -X github.com/rierek/lif/internal/version.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev) \
+  -X github.com/rierek/lif/internal/version.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+  -X github.com/rierek/lif/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -X github.com/rierek/lif/internal/version.Tree=$TREE_ROOT \
+  -X github.com/rierek/lif/internal/version.TreeKind=$TREE_KIND"
 go build -ldflags "$LDFLAGS" -o lif ./cmd/lif
 go build -ldflags "$LDFLAGS" -o lif-serve ./cmd/lif-serve
 """

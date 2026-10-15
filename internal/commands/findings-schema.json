@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/xRiErOS/lif/schemas/findings-artifact.schema.json",
+  "$id": "https://github.com/rierek/lif/schemas/findings-artifact.schema.json",
   "title": "Findings artifact",
   "description": "The artifact a finished review writes: one JSON object holding an array of finding records. `lif promote` (WP2) validates every selected record against this document before writing anything; `skill:review-spec` / `specs-reviewer` (WP3) write records that conform to it.",
   "type": "object",

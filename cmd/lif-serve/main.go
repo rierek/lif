@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/xRiErOS/lif/internal/commands"
+	"github.com/rierek/lif/internal/commands"
 )
 
 func main() {

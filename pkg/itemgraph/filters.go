@@ -1,9 +1,9 @@
 package itemgraph
 
 import (
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 // ApplyFilter applies BeanFilter to a slice of items and returns filtered results.

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/pkg/itemcore"
 )
 
 // R-23: the operator has to see the attachment move before consenting. The

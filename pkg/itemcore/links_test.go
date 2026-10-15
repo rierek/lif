@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 func TestFindIncomingLinks(t *testing.T) {
@@ -16,18 +16,18 @@ func TestFindIncomingLinks(t *testing.T) {
 	// A -> C (parent)
 	// D -> B (blocks)
 	itemA := &item.Item{
-		ID:     "aaa1",
-		Title:  "Bean A",
-		Status: "todo",
+		ID:       "aaa1",
+		Title:    "Bean A",
+		Status:   "todo",
 		Blocking: []string{"bbb2"},
-		Parent: "ccc3",
+		Parent:   "ccc3",
 	}
 	itemB := &item.Item{ID: "bbb2", Title: "Bean B", Status: "todo"}
 	itemC := &item.Item{ID: "ccc3", Title: "Bean C", Status: "todo"}
 	itemD := &item.Item{
-		ID:     "ddd4",
-		Title:  "Bean D",
-		Status: "todo",
+		ID:       "ddd4",
+		Title:    "Bean D",
+		Status:   "todo",
 		Blocking: []string{"bbb2"},
 	}
 
@@ -86,15 +86,15 @@ func TestDetectCycle(t *testing.T) {
 
 	// Create a chain: A blocks B, B blocks C
 	itemA := &item.Item{
-		ID:     "aaa1",
-		Title:  "Bean A",
-		Status: "todo",
+		ID:       "aaa1",
+		Title:    "Bean A",
+		Status:   "todo",
 		Blocking: []string{"bbb2"},
 	}
 	itemB := &item.Item{
-		ID:     "bbb2",
-		Title:  "Bean B",
-		Status: "todo",
+		ID:       "bbb2",
+		Title:    "Bean B",
+		Status:   "todo",
 		Blocking: []string{"ccc3"},
 	}
 	itemC := &item.Item{
@@ -175,16 +175,16 @@ func TestCheckAllLinks(t *testing.T) {
 	// - Self-reference in blocks
 	// - Cycle (A -> B -> A via blocks)
 	itemA := &item.Item{
-		ID:     "aaa1",
-		Title:  "Bean A",
-		Status: "todo",
+		ID:       "aaa1",
+		Title:    "Bean A",
+		Status:   "todo",
 		Blocking: []string{"bbb2", "aaa1"}, // aaa1 is self-reference
-		Parent: "nonexistent",
+		Parent:   "nonexistent",
 	}
 	itemB := &item.Item{
-		ID:     "bbb2",
-		Title:  "Bean B",
-		Status: "todo",
+		ID:       "bbb2",
+		Title:    "Bean B",
+		Status:   "todo",
 		Blocking: []string{"aaa1"}, // creates cycle
 	}
 
@@ -253,9 +253,9 @@ func TestCheckAllLinksClean(t *testing.T) {
 
 	// Create clean items with no issues
 	itemA := &item.Item{
-		ID:     "aaa1",
-		Title:  "Bean A",
-		Status: "todo",
+		ID:       "aaa1",
+		Title:    "Bean A",
+		Status:   "todo",
 		Blocking: []string{"bbb2"},
 	}
 	itemB := &item.Item{
@@ -283,16 +283,16 @@ func TestRemoveLinksTo(t *testing.T) {
 
 	// Create items where multiple items link to one target
 	itemA := &item.Item{
-		ID:     "aaa1",
-		Title:  "Bean A",
-		Status: "todo",
+		ID:       "aaa1",
+		Title:    "Bean A",
+		Status:   "todo",
 		Blocking: []string{"target"},
-		Parent: "target",
+		Parent:   "target",
 	}
 	itemB := &item.Item{
-		ID:     "bbb2",
-		Title:  "Bean B",
-		Status: "todo",
+		ID:       "bbb2",
+		Title:    "Bean B",
+		Status:   "todo",
 		Blocking: []string{"target"},
 	}
 	target := &item.Item{
@@ -334,11 +334,11 @@ func TestFixBrokenLinks(t *testing.T) {
 
 	// Create item with broken link and self-reference
 	itemA := &item.Item{
-		ID:     "aaa1",
-		Title:  "Bean A",
-		Status: "todo",
+		ID:       "aaa1",
+		Title:    "Bean A",
+		Status:   "todo",
 		Blocking: []string{"bbb2", "aaa1"}, // bbb2 is valid, aaa1 is self-reference
-		Parent: "nonexistent",             // broken
+		Parent:   "nonexistent",            // broken
 	}
 	itemB := &item.Item{
 		ID:     "bbb2",

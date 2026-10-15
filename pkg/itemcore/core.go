@@ -961,8 +961,9 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 
 // itemLockTimeout bounds the wait of an --if-match update for another process
 // that holds the item's file lock. A holder keeps it for one read and one
-// write of a small file, so the bound only matters for a stuck process.
-const itemLockTimeout = 10 * time.Second
+// write of a small file, so the bound only matters for a stuck process. It is
+// a variable so that a test can shorten it.
+var itemLockTimeout = 10 * time.Second
 
 // Update modifies an existing item.
 // If ifMatch is provided, validates the current version's etag matches before updating.

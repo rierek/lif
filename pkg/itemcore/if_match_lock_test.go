@@ -3,6 +3,7 @@ package itemcore
 import (
 	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -249,5 +250,82 @@ func TestETagMismatchErrorNamesTheCurrentETagWhenThereIsOne(t *testing.T) {
 	got := (&ETagMismatchError{Provided: "aaaa", Current: "bbbb"}).Error()
 	if want := "etag mismatch: provided aaaa, current is bbbb"; got != want {
 		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}
+
+// beans-9r10 (review N6): a holder that never lets go ends the wait with an
+// error that says why, not with a conflict: the etag was never compared. The
+// file stays as it was.
+func TestUpdateIfMatchGivesUpOnAHolderThatNeverReleases(t *testing.T) {
+	core, path, etag := lockedItem(t)
+	b, err := core.Get("lock-aaa1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.Priority = "high"
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := filelock.Acquire(path, time.Second)
+	if err != nil {
+		t.Fatalf("Acquire() error = %v", err)
+	}
+	defer held.Release()
+	shortenItemLockTimeout(t, 50*time.Millisecond)
+
+	err = core.Update(b, &etag)
+
+	if !errors.Is(err, filelock.ErrTimeout) {
+		t.Fatalf("Update() error = %v, want it to wrap filelock.ErrTimeout", err)
+	}
+	var mismatch *ETagMismatchError
+	if errors.As(err, &mismatch) {
+		t.Errorf("Update() reported a conflict, but the etag was never compared: %v", err)
+	}
+	if want := "item lock-aaa1 is locked by another process"; !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %q, want it to contain %q", err, want)
+	}
+	if after, _ := os.ReadFile(path); !bytes.Equal(after, before) {
+		t.Errorf("the item file changed although the update gave up:\n%s", after)
+	}
+}
+
+// shortenItemLockTimeout makes the update give up after d instead of 10 s.
+func shortenItemLockTimeout(t *testing.T, d time.Duration) {
+	t.Helper()
+	old := itemLockTimeout
+	itemLockTimeout = d
+	t.Cleanup(func() { itemLockTimeout = old })
+}
+
+// Any other reason the lock cannot be taken is reported as it is, with the
+// item, and is no conflict either. A file that cannot be opened for writing is
+// one: the write would fail on it anyway, so the update stops before it.
+func TestUpdateIfMatchReportsAFileItCannotLock(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("a read-only file is opened for writing here")
+	}
+	core, path, etag := lockedItem(t)
+	b, err := core.Get("lock-aaa1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.Priority = "high"
+	if err := os.Chmod(path, 0o444); err != nil {
+		t.Fatal(err)
+	}
+
+	err = core.Update(b, &etag)
+
+	if !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("Update() error = %v, want it to wrap fs.ErrPermission", err)
+	}
+	var mismatch *ETagMismatchError
+	if errors.As(err, &mismatch) {
+		t.Errorf("Update() reported a conflict for a file it could not open: %v", err)
+	}
+	if want := "locking item lock-aaa1"; !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %q, want it to contain %q", err, want)
 	}
 }

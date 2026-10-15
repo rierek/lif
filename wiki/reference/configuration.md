@@ -85,6 +85,8 @@ server:
 | `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`) |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 
+`lif.default_priority` and `lif.default_tags` are read only by the guided `lif create -i` form, which pre-fills them. Plain `lif create`, the GraphQL `createItem` mutation and the TUI create form ignore them. `lif check` fails if `default_priority` names an unknown priority (built-in or configured), or if a `default_tags` entry is empty or not a valid tag. An empty list behaves like an unset key.
+
 `lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/).
 
 New worktrees get the branch `lif/<id>`. Worktrees on legacy `beans/` branches are still listed and used.
@@ -145,7 +147,7 @@ would create cycle: [...]
 
 | Verified | Not verified |
 |---|---|
-| Configuration: default type, colors, theme, effort, prefix consistency | Duplicate IDs |
+| Configuration: default type, default priority and tags, colors, theme, effort, prefix consistency | Duplicate IDs |
 | Type of every item against the type table | File name and ID that do not match |
 | Status and priority values, tag format | Front matter syntax beyond loading |
 | Parent of the wrong type rank: `✗ item <id> (epic) cannot sit under parent <id> (task): parent must rank higher` | |

@@ -59,7 +59,7 @@ Screenshot follows.
 ## Search and filters
 
 - `/` starts the search in tree, flat and backlog. Each keystroke can trigger a search.
-- Text of three or more bytes goes to `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`, [xa2j]). Shorter text matches as a substring of title or ID. An ID substring always matches.
+- Text of three or more bytes goes to `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`). Shorter text matches as a substring of title or ID. An ID substring always matches.
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, for example `lif list: exit status 1: Error: querying items: syntax error`. Incomplete queries such as `title:` flash this while you type.
 - `f` opens the facet menu with the categories Status, Type, Priority, Tags, Archive. `space` or `x` toggles a value, `X` clears all. Facets combine with AND across categories and OR within one.

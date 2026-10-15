@@ -51,15 +51,17 @@ var listCmd = &cobra.Command{
 	Long: `Lists all items in the .lif directory (or in the legacy .beans directory of a project that still uses it).
 
 Search Syntax (--search/-S):
-  The search flag supports Bleve query string syntax:
+  The search flag supports Bleve query string syntax. There are no AND/OR/NOT
+  keywords and no parentheses; use +term and -term:
 
   login          Exact term match
   login~         Fuzzy match (1 edit distance, finds "loggin", "logins")
   login~2        Fuzzy match (2 edit distance)
   log*           Wildcard prefix match
   "user login"   Exact phrase match
-  user AND login Both terms required
-  user OR login  Either term matches
+  user login     Either term matches (a list of terms is an OR)
+  +user +login   Both terms required
+  login -user    "login" without "user"
   slug:auth      Search only in slug field
   title:login    Search only in title field
   body:auth      Search only in body field`,

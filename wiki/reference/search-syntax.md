@@ -6,7 +6,7 @@ description: "Query syntax for lif list --search and the GraphQL search filter."
 Full-text search runs through `lif list --search <query>` (short form `-S`) and through the GraphQL filter `ItemFilter.search`. Both use the same code and the same query syntax: the [Bleve](https://blevesearch.com/) *query string* syntax. Measured on Lif 0.14, 2026-10-14.
 
 :::caution[AND, OR and NOT do not work]
-The words `AND`, `OR` and `NOT`, parentheses, `&&`, `||` and `!` are **not** operators, although the help text of `lif list` and the GraphQL schema description show `user AND login`. Every list of terms is an OR. Use `+term` (required) and `-term` (excluded) instead. Tracked as [xa2j] on the [Known limitations](../../known-limitations/) page.
+The words `AND`, `OR` and `NOT`, parentheses, `&&`, `||` and `!` are **not** operators. Every list of terms is an OR. Use `+term` (required) and `-term` (excluded) instead.
 :::
 
 ## Where search applies
@@ -118,7 +118,7 @@ lif graphql --json -v '{"s":"login"}' 'query($s:String){ items(filter:{search:$s
 
 ## Limits
 
-- No AND, OR, NOT, no grouping: [xa2j].
+- No AND, OR, NOT, no grouping. Use `+term` and `-term`.
 - Boost `term^2` is accepted but changes only the score. The result order is the default sort order of `lif list` (status, manual order, priority, type, title), not the relevance order.
 - Ranges (`title:>5`) never match; no numeric or date field is indexed.
 - At most 1000 hits are returned. The cap applies before the other filters, so a filter can miss items beyond the first 1000 hits.

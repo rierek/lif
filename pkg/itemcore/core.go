@@ -346,14 +346,9 @@ func (c *Core) loadFromDisk() error {
 
 	// Resync the search index if it was active: diff against the freshly
 	// reloaded items instead of closing and rebuilding from scratch, so a
-	// reload only reindexes what actually changed (AC-02). A cached
-	// shared, read-only handle is upgraded to writable first (beans-4t2m):
-	// Sync itself would otherwise hang forever on one (see
-	// search.OpenRead's doc comment).
+	// reload only reindexes what actually changed (AC-02).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index before resync: %v", err)
-		} else if err := c.searchIndex.Sync(c.allItemsLocked()); err != nil {
+		if err := c.searchIndex.Sync(c.allItemsLocked()); err != nil {
 			c.logWarn("failed to resync search index after reload: %v", err)
 		}
 	}
@@ -429,162 +424,33 @@ func (c *Core) allItemsLocked() []*item.Item {
 	return allItems
 }
 
-// ensureSearchIndexLocked initializes the search index if not already
-// created, or upgrades an already-cached shared, read-only handle to a
-// writable one when write is true. Must be called with lock held or from a
-// method that holds the lock. It prefers a persisted, cross-process index
-// at c.indexDir() (AC-01, AC-04); on any error resolving that location,
-// opening it, or acquiring its lock, it falls back to a private in-memory
-// index rather than fail (AC-05, AC-07).
-//
-// write distinguishes the caller's intent (beans-dfdw, beans-4t2m): false
-// opens the persisted index in shared mode on first use (search.OpenRead),
-// letting concurrent readers each get the warm on-disk index instead of
-// degrading (AC-03); true opens it exclusively on first use (search.Open,
-// beans-6y60 AC-07), and upgrades an already-cached shared handle in place
-// (see upgradeSearchIndexLocked) rather than ever writing to it directly.
-//
-// A shared-mode index is never Sync'd here unconditionally: Sync on a
-// Bleve index opened read-only hangs forever rather than erroring, because
-// its background persister never starts (see search.OpenRead's doc
-// comment), and a just-opened persisted index is already populated, so
-// there is normally nothing to sync anyway. Instead this function asks the
-// freshly opened shared index itself whether the current in-memory items
-// have moved on since its etags were last saved (search.Index.NeedsSync);
-// only then does it upgrade to a writable handle and sync that. An
-// in-memory fallback (from either open mode) is always writable, so it is
-// still synced unconditionally, exactly as before beans-4t2m.
-//
-// Search, the read-only production caller, now safely passes false:
-// c.searchIndex is cached for the rest of this Core's lifetime and later
-// reused by Create/Update/Delete and the file watcher for real writes, but
-// every one of those write paths calls ensureWritableSearchIndexLocked
-// first, which routes back through upgradeSearchIndexLocked whenever the
-// cached handle is still read-only. The cache can therefore start life as
-// a shared handle and only pay the exclusive-reopen cost on the first
-// actual write, instead of every Core paying it up front regardless of
-// whether it ever writes.
-func (c *Core) ensureSearchIndexLocked(write bool) error {
+// ensureSearchIndexLocked lazily creates the private in-memory search index
+// and fills it from the in-memory items. Must be called with lock held. The
+// index lives for the lifetime of this Core; nothing is persisted, so each
+// process indexes the store once, on its first search.
+func (c *Core) ensureSearchIndexLocked() error {
 	if c.searchIndex != nil {
-		if write && c.searchIndex.ReadOnly() {
-			return c.upgradeSearchIndexLocked()
-		}
 		return nil
 	}
-
-	openPersisted := search.OpenRead
-	if write {
-		openPersisted = search.Open
+	idx, err := search.NewIndex()
+	if err != nil {
+		return fmt.Errorf("initializing search index: %w", err)
 	}
-
-	var idx *search.Index
-	if dir, err := c.indexDir(); err != nil {
-		c.logWarn("resolving persisted search index location: %v", err)
-	} else if pidx, err := openPersisted(dir); err != nil {
-		c.logWarn("opening persisted search index: %v", err)
-	} else {
-		idx = pidx
-		c.maintainIndexDir(dir)
-	}
-
-	if idx == nil {
-		memIdx, err := search.NewIndex()
-		if err != nil {
-			return fmt.Errorf("initializing search index: %w", err)
-		}
-		idx = memIdx
-	}
-
-	c.searchIndex = idx
-
-	if idx.ReadOnly() {
-		if idx.NeedsSync(c.allItemsLocked()) {
-			return c.upgradeSearchIndexLocked()
-		}
-		return nil
-	}
-
 	if err := idx.Sync(c.allItemsLocked()); err != nil {
 		idx.Close()
-		c.searchIndex = nil
 		return fmt.Errorf("populating search index: %w", err)
 	}
-
-	return nil
-}
-
-// ensureWritableSearchIndexLocked upgrades c.searchIndex in place when it
-// is currently a shared, read-only handle (search.Index.ReadOnly), so a
-// caller about to write to it -- IndexItem, DeleteItem, or Sync -- never
-// touches a read-only-opened Bleve index, which hangs on its first write
-// (see search.OpenRead's doc comment) rather than erroring. Every write
-// path (Create, Update, Delete, the file watcher's incremental
-// maintenance, and loadFromDisk's resync) calls this before touching
-// c.searchIndex, so a future write path can't forget the upgrade by
-// construction. A nil index (never lazily initialized -- a write never
-// forces that) is left nil: there is nothing to upgrade.
-//
-// Must be called with c.mu already held; it never itself locks or unlocks.
-func (c *Core) ensureWritableSearchIndexLocked() error {
-	if c.searchIndex == nil || !c.searchIndex.ReadOnly() {
-		return nil
-	}
-	return c.upgradeSearchIndexLocked()
-}
-
-// upgradeSearchIndexLocked closes the current shared, read-only
-// c.searchIndex -- releasing the shared lock -- and reopens the same
-// directory exclusively via search.Open, syncs it to the current
-// in-memory items, and caches the result back onto c.searchIndex. The
-// shared lock MUST be released before the exclusive open is attempted, or
-// this process would be contending against its own lock rather than
-// another process's (see search.Open's doc comment); Close does exactly
-// that. If the exclusive open degrades to an in-memory index because
-// another process holds the lock, that is the existing, accepted AC-07
-// behaviour: this function syncs the fallback and carries on rather than
-// erroring.
-//
-// Must be called with c.mu already held; it never itself locks or unlocks.
-func (c *Core) upgradeSearchIndexLocked() error {
-	dir, err := c.indexDir()
-	if err != nil {
-		return fmt.Errorf("resolving persisted search index location for upgrade: %w", err)
-	}
-
-	if closeErr := c.searchIndex.Close(); closeErr != nil {
-		c.logWarn("closing shared search index before upgrade: %v", closeErr)
-	}
-
-	idx, err := search.Open(dir)
-	if err != nil {
-		c.searchIndex = nil
-		return fmt.Errorf("reopening search index for write: %w", err)
-	}
-	c.maintainIndexDir(dir)
 	c.searchIndex = idx
-
-	if err := idx.Sync(c.allItemsLocked()); err != nil {
-		idx.Close()
-		c.searchIndex = nil
-		return fmt.Errorf("syncing upgraded search index: %w", err)
-	}
-
 	return nil
 }
 
 // Search performs full-text search and returns matching items. The search
-// index is lazily initialized on first use, in shared read-only mode
-// (write=false): that is finally safe (beans-4t2m), because every later
-// write to this same cached c.searchIndex -- Create, Update, Delete, the
-// file watcher, and loadFromDisk's resync -- upgrades it to a writable
-// handle itself through ensureWritableSearchIndexLocked before ever
-// calling IndexItem/DeleteItem/Sync on it, instead of Search having to
-// pre-emptively open exclusively just in case this Core is later asked to
-// write.
+// index is created lazily on first use; Create, Update, Delete, the file
+// watcher and loadFromDisk keep it current afterwards.
 func (c *Core) Search(query string) ([]*item.Item, error) {
 	// Ensure index is initialized (needs write lock for lazy init)
 	c.mu.Lock()
-	if err := c.ensureSearchIndexLocked(false); err != nil {
+	if err := c.ensureSearchIndexLocked(); err != nil {
 		c.mu.Unlock()
 		return nil, err
 	}
@@ -945,13 +811,8 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	c.setItemLocked(b.ID, b.Clone())
 
 	// Update search index if active (best-effort, don't fail create).
-	// ensureWritableSearchIndexLocked upgrades a cached shared, read-only
-	// handle before this ever calls IndexItem, which would otherwise hang
-	// forever on one (beans-4t2m).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index for item %s: %v", b.ID, err)
-		} else if err := c.searchIndex.IndexItem(b); err != nil {
+		if err := c.searchIndex.IndexItem(b); err != nil {
 			c.logWarn("failed to index item %s: %v", b.ID, err)
 		}
 	}
@@ -1122,13 +983,8 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	c.setItemLocked(b.ID, b.Clone())
 
 	// Update search index if active (best-effort, don't fail update).
-	// ensureWritableSearchIndexLocked upgrades a cached shared, read-only
-	// handle before this ever calls IndexItem, which would otherwise hang
-	// forever on one (beans-4t2m).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index for item %s: %v", b.ID, err)
-		} else if err := c.searchIndex.IndexItem(b); err != nil {
+		if err := c.searchIndex.IndexItem(b); err != nil {
 			c.logWarn("failed to update item %s in search index: %v", b.ID, err)
 		}
 	}
@@ -1237,13 +1093,8 @@ func (c *Core) Delete(id string) error {
 	delete(c.mainPaths, targetID)
 
 	// Update search index if active (best-effort, don't fail delete).
-	// ensureWritableSearchIndexLocked upgrades a cached shared, read-only
-	// handle before this ever calls DeleteItem, which would otherwise hang
-	// forever on one (beans-4t2m).
 	if c.searchIndex != nil {
-		if err := c.ensureWritableSearchIndexLocked(); err != nil {
-			c.logWarn("failed to upgrade search index for item %s: %v", targetID, err)
-		} else if err := c.searchIndex.DeleteItem(targetID); err != nil {
+		if err := c.searchIndex.DeleteItem(targetID); err != nil {
 			c.logWarn("failed to remove item %s from search index: %v", targetID, err)
 		}
 	}

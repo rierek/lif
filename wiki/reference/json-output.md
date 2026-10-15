@@ -3,11 +3,27 @@ title: "JSON output"
 description: "Machine-readable output of lif commands: payloads, errors and exit codes."
 ---
 
-**State of this page:** shapes measured on 2026-10-14 against Lif 0.14 (development build `135e76e`).
+## JSON schemas
 
-:::caution[No stable interface promised]
-The JSON shapes can change with any release, and this page can be out of date. The repository publishes no schema files for the `--json` output (only an internal findings schema exists). No stable interface is promised until schema files exist; tracked as [z9e6]. If you need certainty, run the command against your own version.
-:::
+The repository publishes a JSON Schema (draft 2020-12) for the `--json` output of each command family in [`schemas/`](https://github.com/rierek/lif/tree/main/schemas). The files are generated from the Go types the commands encode (`just schemas`), and a test fails when a committed file no longer matches the code. A change to an output shape therefore always appears as a change of a schema file.
+
+| File | Output of |
+|---|---|
+| `item.schema.json` | One item: `show`, `create`, `update`, `tag`, `start`, `complete`, `scrap`, `order`, `delete` and `promote` with one ID, `next` with a ready item. |
+| `items.schema.json` | An array of items: `list`, and the verbs above with several IDs. `list` prints `null` when nothing matches. |
+| `response.schema.json` | The envelope: every error, a plain success with a message (`archive`, `next` without a ready item, `init`), and a partly failed batch. |
+| `check.schema.json` | `lif check --json`. |
+| `graph.schema.json` | `lif graph --format json`. |
+| `milestones.schema.json` | `lif milestones --json`. |
+| `progress.schema.json` | `lif progress --json`. |
+| `roadmap.schema.json` | `lif roadmap --json`. |
+| `rename.schema.json` | An applied `lif rename --json`. |
+| `rename-plan.schema.json` | `lif rename --dry-run --json`. Its keys are capitalised (`Mode`, `Changes`). |
+| `version.schema.json` | `lif version --json`. |
+
+Not covered: `lif graphql` (the shape follows your query) and the findings artifact of `lif promote`, which has its own internal schema.
+
+The schemas allow properties they do not list, so a reader must ignore unknown fields. A required array or object can be `null`, because Go prints an empty list as `null` in some commands.
 
 ## Using `--json`
 
@@ -45,7 +61,7 @@ A new item, `lif create "Write notes" -t task --parent <epic> -p high --tag docs
 }
 ```
 
-- `lif list --json` and `lif show --json` use the same object; `list` returns an array. `show --json` returns the body with a leading newline, `create --json` does not [0g6b]. `priority` is `normal` when the file has none.
+- `lif list --json` and `lif show --json` use the same object; `list` returns an array. The `body` is the same text in every command, without a leading newline. `priority` is `normal` when the file has none.
 - `etag` is the value for `--if-match`. `blocking` and `blocked_by` appear when set.
 - `lif list --json` has no `body`; add `--full`.
 
@@ -92,12 +108,12 @@ With `--json` an error is one JSON object on stdout and the exit code is 1:
 | `NOT_FOUND` | Item ID unknown. |
 | `NO_LIF_DIR` | No store found (not `NO_BEANS_DIR`). |
 | `INVALID_STATUS` | Status not in the configured table. |
-| `VALIDATION_ERROR` | Invalid input: unknown blocker, invalid `--format` or `--depth`, bad filter. |
-| `FILE_ERROR` | Writing or reading the file failed, also a refused parent [ju1q] (`failed to create item: epic items can only have milestone as parent, not task`). |
+| `VALIDATION_ERROR` | The request is refused: invalid input, unknown blocker or parent, a parent the type hierarchy forbids (`failed to create item: epic items can only have milestone as parent, not task`), a dependency cycle, invalid `--format` or `--depth`, bad filter. |
+| `FILE_ERROR` | Writing or reading the file failed. |
 | `CONFLICT` | ETag mismatch (`--if-match`). |
 | `POLICY_VIOLATION` | A required field of `require_fields_on` is missing. See [Configuration](../configuration/#status-dependent-required-fields). |
 
-The mapping above is from the code of the commands, not every code was triggered in this measurement. Observed: `NOT_FOUND`, `NO_LIF_DIR`, `VALIDATION_ERROR` (`blocker item not found: zzzz`, `invalid status: bogus (must be in-progress, todo, draft, completed, scrapped)`), `FILE_ERROR`.
+Each code is set by the command that fails. `VALIDATION_ERROR` examples: `blocker item not found: zzzz`, `invalid status: bogus (must be in-progress, todo, draft, completed, scrapped)`.
 
 `lif graphql` and `lif list --search` do not use this envelope. A failing GraphQL call prints `Error: graphql: <message>` on stderr, a failing search `Error: querying items: <message>`. Both exit with 1.
 
@@ -174,7 +190,7 @@ See [GraphQL](../graphql/).
 
 ## `lif promote` findings
 
-`lif promote <artifact> <finding-id>...` checks the chosen finding records against an embedded findings schema and creates one item per record, with a fixed mapping from finding code to item type. The items get the configured default status, and `--parent <id>` puts them under that item. If a chosen record, a field or the parent is invalid, the command writes nothing; if a write still fails, the error lists the items already written. Findings already promoted are skipped. The schema is internal and not published ([z9e6]); the artifact format is on the [`lif promote`](../commands/lif-promote/) page.
+`lif promote <artifact> <finding-id>...` checks the chosen finding records against an embedded findings schema and creates one item per record, with a fixed mapping from finding code to item type. The items get the configured default status, and `--parent <id>` puts them under that item. If a chosen record, a field or the parent is invalid, the command writes nothing; if a write still fails, the error lists the items already written. Findings already promoted are skipped. The findings schema is internal and not part of `schemas/`; the artifact format is on the [`lif promote`](../commands/lif-promote/) page.
 
 ## Recipe: open item IDs
 

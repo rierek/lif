@@ -159,6 +159,10 @@ release-clean:
 docs-gen:
     go run ./cmd/lif-docgen wiki/reference/commands
 
+# Regenerate the JSON Schema files for --json output from the Go types
+schemas:
+    go run ./cmd/lif-schemagen schemas
+
 # Build the public docs site into site/dist
 docs-build: docs-gen
     cd site && npm ci && npm run build

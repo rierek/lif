@@ -76,6 +76,25 @@ func (e *PolicyViolationError) Error() string {
 		e.Status, strings.Join(e.Missing, ", "), e.ItemID)
 }
 
+// ValidationError is returned when the request itself is refused: an invalid
+// field, an unknown link target, a parent the type hierarchy forbids, or a
+// link that would close a cycle. It is distinct from a failure of the store
+// (file, lock, index), so callers map the two to different error codes
+// without matching message text.
+type ValidationError struct {
+	Err error
+}
+
+func (e *ValidationError) Error() string { return e.Err.Error() }
+
+func (e *ValidationError) Unwrap() error { return e.Err }
+
+// Invalid returns a ValidationError with the given message. A %w verb in
+// format keeps its operand in the error chain.
+func Invalid(format string, args ...any) error {
+	return &ValidationError{Err: fmt.Errorf(format, args...)}
+}
+
 // Core provides thread-safe in-memory storage for items with filesystem persistence.
 type Core struct {
 	root   string         // absolute path to .beans directory

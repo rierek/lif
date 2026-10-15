@@ -202,7 +202,7 @@ func writeCreateDraft(cmd *cobra.Command, d createDraft) (*item.Item, error) {
 	resolver := &itemgraph.CoreResolver{Core: core}
 	b, err := resolver.CreateItem(context.Background(), input, itemcore.WithExtraOps(setMap, nil))
 	if err != nil {
-		return nil, cmdError(createJSON, output.ErrFileError, "failed to create item: %v", err)
+		return nil, cmdError(createJSON, mutationErrorCode(err), "failed to create item: %v", err)
 	}
 
 	// An explicit order and --unset aren't part of the generated

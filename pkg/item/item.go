@@ -144,6 +144,8 @@ type Item struct {
 	Path string `yaml:"-" json:"path"`
 
 	// Front matter fields
+
+	// Title is the human-readable title.
 	Title     string     `yaml:"title" json:"title"`
 	Status    string     `yaml:"status" json:"status"`
 	Type      string     `yaml:"type,omitempty" json:"type,omitempty"`
@@ -330,8 +332,15 @@ func Parse(r io.Reader) (*Item, error) {
 		extra[key] = normalized
 	}
 
-	// Trim trailing newline from body (POSIX files end with newline, but it's not part of content)
+	// The trailing newline of a POSIX file and the blank separator line after
+	// the front matter are not content. Without the strip, a parsed body would
+	// differ from the body of an item just created in memory.
 	bodyStr := strings.TrimSuffix(string(body), "\n")
+	if rest, ok := strings.CutPrefix(bodyStr, "\r\n"); ok {
+		bodyStr = rest
+	} else {
+		bodyStr = strings.TrimPrefix(bodyStr, "\n")
+	}
 
 	return &Item{
 		Title:       fm.Title,
@@ -452,10 +461,10 @@ func (b *Item) Render() ([]byte, error) {
 	buf.Write(fmBytes)
 	buf.WriteString("---\n")
 	if b.Body != "" {
-		// Only add newline separator if body doesn't already start with one
-		if !strings.HasPrefix(b.Body, "\n") {
-			buf.WriteString("\n")
-		}
+		// The blank line after the front matter is a separator, not content;
+		// Parse strips exactly one, so a body that starts with a blank line
+		// still needs its own separator to survive the round trip.
+		buf.WriteString("\n")
 		buf.WriteString(b.Body)
 		// Ensure trailing newline if body doesn't end with one
 		if !strings.HasSuffix(b.Body, "\n") {

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Item": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID is the unique NanoID identifier (from filename)."
+        },
+        "slug": {
+          "type": "string",
+          "description": "Slug is the optional human-readable part of the filename."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path is the relative path from .beans/ root (e.g., \"epic-auth/abc123-login.md\")."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title is the human-readable title."
+        },
+        "status": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "order": {
+          "type": "string",
+          "description": "Order is a fractional index string for manual sorting."
+        },
+        "body": {
+          "type": "string",
+          "description": "Body is the markdown content after the front matter."
+        },
+        "parent": {
+          "type": "string",
+          "description": "Parent is the optional parent item ID (milestone, epic, or feature)."
+        },
+        "blocking": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Blocking is a list of item IDs that this item is blocking."
+        },
+        "blocked_by": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "BlockedBy is a list of item IDs that are blocking this item."
+        },
+        "extra": {
+          "type": "object",
+          "description": "Extra holds front matter keys not covered by any typed field above."
+        },
+        "etag": {
+          "type": "string",
+          "description": "Hash of the item file; the value --if-match expects."
+        }
+      },
+      "type": "object",
+      "required": [
+        "id",
+        "path",
+        "title",
+        "status",
+        "etag"
+      ],
+      "title": "Item",
+      "description": "An item as printed by show, create, update, list and the other item verbs."
+    }
+  },
+  "anyOf": [
+    {
+      "items": {
+        "$ref": "#/$defs/Item"
+      },
+      "type": "array"
+    },
+    {
+      "type": "null"
+    }
+  ]
+}

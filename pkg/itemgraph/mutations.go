@@ -60,7 +60,7 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 			var ok bool
 			normalizedBlocking[i], ok = r.Core.NormalizeID(id)
 			if !ok {
-				return nil, fmt.Errorf("target item not found: %s", id)
+				return nil, itemcore.Invalid("target item not found: %s", id)
 			}
 		}
 		b.Blocking = normalizedBlocking
@@ -74,7 +74,7 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 			var ok bool
 			normalizedBlockedBy[i], ok = r.Core.NormalizeID(id)
 			if !ok {
-				return nil, fmt.Errorf("blocker item not found: %s", id)
+				return nil, itemcore.Invalid("blocker item not found: %s", id)
 			}
 		}
 		// Check for cycles with blocking relationships
@@ -82,7 +82,7 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 		for _, blockerID := range normalizedBlockedBy {
 			for _, blockingID := range b.Blocking {
 				if blockerID == blockingID {
-					return nil, fmt.Errorf("would create cycle: new item both blocks and is blocked by %s", blockerID)
+					return nil, itemcore.Invalid("would create cycle: new item both blocks and is blocked by %s", blockerID)
 				}
 			}
 		}
@@ -138,12 +138,12 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 
 	// Validate body and bodyMod are mutually exclusive
 	if input.Body != nil && input.BodyMod != nil {
-		return nil, fmt.Errorf("cannot specify both body and bodyMod")
+		return nil, itemcore.Invalid("cannot specify both body and bodyMod")
 	}
 
 	// Validate tags and addTags/removeTags are mutually exclusive
 	if input.Tags != nil && (input.AddTags != nil || input.RemoveTags != nil) {
-		return nil, fmt.Errorf("cannot specify both tags and addTags/removeTags")
+		return nil, itemcore.Invalid("cannot specify both tags and addTags/removeTags")
 	}
 
 	// Update fields if provided
@@ -177,7 +177,7 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 			for i, replaceOp := range input.BodyMod.Replace {
 				newBody, err := item.ReplaceOnce(workingBody, replaceOp.Old, replaceOp.New)
 				if err != nil {
-					return nil, fmt.Errorf("replacement %d failed: %w", i, err)
+					return nil, itemcore.Invalid("replacement %d failed: %w", i, err)
 				}
 				workingBody = newBody
 			}
@@ -356,12 +356,12 @@ func (r *CoreResolver) AddBlocking(ctx context.Context, id string, targetID stri
 	normalizedTargetID, ok := r.Core.NormalizeID(targetID)
 
 	if normalizedTargetID == b.ID {
-		return nil, fmt.Errorf("item cannot block itself")
+		return nil, itemcore.Invalid("item cannot block itself")
 	}
 
 	// Check target exists
 	if !ok {
-		return nil, fmt.Errorf("target item not found: %s", targetID)
+		return nil, itemcore.Invalid("target item not found: %s", targetID)
 	}
 
 	// Check for cycles
@@ -402,12 +402,12 @@ func (r *CoreResolver) AddBlockedBy(ctx context.Context, id string, targetID str
 	normalizedTargetID, ok := r.Core.NormalizeID(targetID)
 
 	if normalizedTargetID == b.ID {
-		return nil, fmt.Errorf("item cannot be blocked by itself")
+		return nil, itemcore.Invalid("item cannot be blocked by itself")
 	}
 
 	// Check target exists
 	if !ok {
-		return nil, fmt.Errorf("blocker item not found: %s", targetID)
+		return nil, itemcore.Invalid("blocker item not found: %s", targetID)
 	}
 
 	// Check for cycles

@@ -514,12 +514,10 @@ func TestUpdateWholeSendsOnlyChangedFields(t *testing.T) {
 			t.Fatalf("List() after UpdateWhole error = %v", err)
 		}
 		updated := findBean(t, after, "tt-task")
-		// The CLI's own JSON "body" field always carries a leading "\n"
-		// (the blank line between the frontmatter's closing "---" and the
-		// body text on disk) -- verified against every OTHER body-bearing
-		// fixture in this package (e.g. testrepo_test.go's own bodies).
-		if updated.Body != "\n"+body {
-			t.Fatalf("Body = %q, want %q", updated.Body, "\n"+body)
+		// The CLI's JSON "body" field carries the body text exactly: the
+		// blank line after the front matter is a separator, not content.
+		if updated.Body != body {
+			t.Fatalf("Body = %q, want %q", updated.Body, body)
 		}
 	})
 

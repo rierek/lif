@@ -110,11 +110,9 @@ Run `lif check` after every automated change.
 
 ## Limits
 
-- Run the command against your own version before you parse `--json`. There are no JSON schema files, and the shapes can change with any release [z9e6].
+- Parse `--json` against the [JSON schema files](../../reference/json-output/#json-schemas). `lif graphql` and the findings artifact of `lif promote` have none.
 - Use the Web server for subscriptions and for the agent, terminal and worktree parts of the schema. They fail in the CLI with messages such as "agent manager not available", and subscriptions run only over the WebSocket of `lif-serve`.
 - Run `lif check` after files you write directly. They bypass the write rules.
-
-See [Known limitations](../../known-limitations/) for [z9e6].
 
 ## Reference
 

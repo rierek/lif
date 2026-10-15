@@ -56,8 +56,12 @@ exist.`,
 			return cmdError(renameJSON, "VALIDATION_ERROR", "%v", err)
 		}
 
-		if err := renderRenamePlan(cmd, plan, renameJSON); err != nil {
-			return err
+		// With --json an applied rename prints only its result; the plan is
+		// the document of --dry-run.
+		if renameDryRun || !renameJSON {
+			if err := renderRenamePlan(cmd, plan, renameJSON); err != nil {
+				return err
+			}
 		}
 
 		// A dry run reports every refusal next to the plan; the exit code
@@ -84,15 +88,25 @@ exist.`,
 		}
 
 		if renameJSON {
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{
-				"success": true,
-				"mode":    plan.Mode,
-				"changed": len(plan.Changes),
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(renameResult{
+				Success: true,
+				Mode:    plan.Mode,
+				Changed: len(plan.Changes),
 			})
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Renamed %d item(s).\n", len(plan.Changes))
 		return nil
 	},
+}
+
+// renameResult is the --json shape of an applied rename.
+type renameResult struct {
+	// Success is always true: a failed rename prints the error envelope instead.
+	Success bool `json:"success"`
+	// Mode is "slug", "id" or "prefix".
+	Mode string `json:"mode"`
+	// Changed is the number of items the rename rewrote.
+	Changed int `json:"changed"`
 }
 
 // RegisterRenameCmd registers the rename command.

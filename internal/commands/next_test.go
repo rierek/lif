@@ -250,6 +250,46 @@ func mkReadyItem(t *testing.T, id, title, itemType, priority string, tags []stri
 	return b
 }
 
+// TestNextSkipsContainerItems is a regression test for beans-g5dn: the ready
+// list is leaf work. A milestone, epic and feature that outrank the task by
+// priority must not be handed back, and a type filter that names a container
+// type finds nothing ready.
+func TestNextSkipsContainerItems(t *testing.T) {
+	setupNextTest(t)
+	resetNextFlags(t)
+
+	milestone := mkReadyItem(t, "beans-gm01", "Release", "milestone", "critical", nil, "")
+	epic := mkReadyItem(t, "beans-ge01", "Area", "epic", "critical", nil, milestone.ID)
+	feature := mkReadyItem(t, "beans-gf01", "Capability", "feature", "critical", nil, epic.ID)
+	task := mkReadyItem(t, "beans-gt01", "Do the work", "task", "low", nil, feature.ID)
+
+	out := string(captureNextStdout(t, func() {
+		if err := nextCmd.RunE(nextCmd, nil); err != nil {
+			t.Fatalf("nextCmd.RunE() error = %v", err)
+		}
+	}))
+	// The shown item opens with its "# <id>" line; a mere ID match would also
+	// hit the task's own "parent: <id>" line.
+	if !strings.Contains(out, "\n# "+task.ID+"\n") {
+		t.Errorf("output does not show the task %q, output = %q", task.ID, out)
+	}
+	for _, container := range []*item.Item{milestone, epic, feature} {
+		if strings.Contains(out, "\n# "+container.ID+"\n") {
+			t.Errorf("output shows the %s %q, output = %q", container.Type, container.ID, out)
+		}
+	}
+
+	nextType = []string{"epic"}
+	out = string(captureNextStdout(t, func() {
+		if err := nextCmd.RunE(nextCmd, nil); err != nil {
+			t.Fatalf("nextCmd.RunE() error = %v", err)
+		}
+	}))
+	if !strings.Contains(out, "No ready items found matching --type epic.") {
+		t.Errorf("--type epic should find nothing ready, output = %q", out)
+	}
+}
+
 // TestNextFiltersByType verifies that --type narrows the candidate set the
 // ready filter is applied to, rather than being ignored.
 func TestNextFiltersByType(t *testing.T) {

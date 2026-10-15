@@ -10,9 +10,10 @@ import (
 
 // TestContainerTypeNamesMatchesTypesAtRank pins beans-v2ox's shared
 // container-rank helper against cfg.TypesAtRank itself, for every
-// configured rank up to config.MaxContainerRank: containerTypeNames is the
-// one place that loops 1..MaxContainerRank, and pick.go's roadmapScopeTypes
-// plus roadmap.go's validateRoadmapRootType both route through it now.
+// configured rank up to config.MaxContainerRank: ContainerTypeNames is the
+// one place that loops 1..MaxContainerRank, and pick.go's roadmapScopeTypes,
+// roadmap.go's validateRoadmapRootType and the ready filter all route
+// through it.
 func TestContainerTypeNamesMatchesTypesAtRank(t *testing.T) {
 	oldCfg := cfg
 	defer func() { cfg = oldCfg }()
@@ -23,9 +24,9 @@ func TestContainerTypeNamesMatchesTypesAtRank(t *testing.T) {
 		want = append(want, cfg.TypesAtRank(rank)...)
 	}
 
-	got := containerTypeNames()
+	got := cfg.ContainerTypeNames()
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("containerTypeNames() = %v, want %v (cfg.TypesAtRank(1..MaxContainerRank))", got, want)
+		t.Errorf("ContainerTypeNames() = %v, want %v (cfg.TypesAtRank(1..MaxContainerRank))", got, want)
 	}
 	if len(got) == 0 {
 		t.Fatal("expected at least one container-rank type from the default config")

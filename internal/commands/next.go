@@ -26,6 +26,8 @@ var nextCmd = &cobra.Command{
 	Short: "Show the highest-priority ready item",
 	Long: `Finds the highest-priority item available to start (not blocked, not in-progress/completed/scrapped/draft) and displays it.
 
+Only leaf work counts as ready: container types (milestone, epic and feature by default; every type on rank 1 to 3 in a custom configuration) are never returned.
+
 The --type, --tag, --parent and --sort flags mean the same as in ` + "`lif list`" + `, so a narrowed
 query can be moved between the two commands unchanged.`,
 	Args: cobra.NoArgs,

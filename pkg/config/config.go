@@ -1549,6 +1549,18 @@ func (c *Config) TypesAtRank(rank int) []string {
 	return names
 }
 
+// ContainerTypeNames returns the names of every type on a container rank (1
+// through MaxContainerRank), in rank order and, within a rank, in the order of
+// the merged list. It is the one loop over the container ranks: the roadmap
+// commands and the ready filter all read it (beans-v2ox, beans-g5dn).
+func (c *Config) ContainerTypeNames() []string {
+	var names []string
+	for rank := 1; rank <= MaxContainerRank; rank++ {
+		names = append(names, c.TypesAtRank(rank)...)
+	}
+	return names
+}
+
 // TypeNames returns the names of the merged type list (see TypeList).
 func (c *Config) TypeNames() []string {
 	list := c.TypeList()

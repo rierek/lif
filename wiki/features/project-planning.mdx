@@ -90,7 +90,7 @@ If a value is missing, `lif create` and `lif update` fail with a policy violatio
 
 - Write through Lif if you want the rank rule. It applies to the CLI, GraphQL, the TUI and the Web UI, not to manual edits of the file.
 - Run `lif check` after manual edits. It verifies rank of parent and child, status values, priority values and tags (since 0.14). It also reports unknown types, broken links, self-references, cycles, missing required fields and orphaned attachment directories. It does not report duplicate IDs, a file name that differs from the ID, a `blocking`/`blocked_by` mismatch or mixed-field cycles.
-- Filter with `-t task,bug` when you want leaf work. `lif next` does not exclude containers, and the hint on type `epic` ("do not work on directly") is not enforced [g5dn].
+- `lif next` and `lif list --ready` return leaf work only: an item of a container type (rank 1 to 3) is never ready, so the hint on type `epic` ("do not work on directly") holds for the ready list. Lif does not stop you from starting or completing a container by hand.
 - Use the CLI for custom status, types and priorities. The TUI offers only the built-in lists [179g]. See [Known limitations](../../known-limitations/).
 
 ## Reference

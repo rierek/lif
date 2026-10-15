@@ -33,7 +33,7 @@ Each entry has one line of definition and the page with the details.
 
 - **container, leaf:** a container is an item on rank 1 to 3, a leaf is on rank 4 (built-in scale). Custom types can have other ranks. [Configuration](../configuration/#types-ranks-and-hierarchy-rules).
 - **order:** the manual order key (`order` in the front matter, a base62 fractional index) that places an item among its siblings. Set it with `lif order`. [Concepts](../../overview/concepts/), [Item file format](../item-file-format/#front-matter-fields).
-- **ready:** not blocked (directly or through an ancestor), status not `in-progress`, `draft` or an archive status, and no ancestor `completed` or `scrapped`. [Dependencies](../../features/dependencies/), [`lif next`](../commands/lif-next/).
+- **ready:** a leaf (not a container type) that is not blocked (directly or through an ancestor), whose status is not `in-progress`, `draft` or an archive status, and that has no ancestor `completed` or `scrapped`. [Dependencies](../../features/dependencies/), [`lif next`](../commands/lif-next/).
 - **blocked, explicit and implicit:** explicit means the item has active blockers itself. Implicit means an ancestor has active blockers. Active means the blocker's status is not `completed` or `scrapped`. [Dependencies](../../features/dependencies/).
 - **roadmap:** a tree of milestones, epics and their children. Types with `roadmap: false` do not appear. [`lif roadmap`](../commands/lif-roadmap/), [Configuration](../configuration/#presets).
 

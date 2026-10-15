@@ -553,19 +553,6 @@ func isRank(b *item.Item, rank int) bool {
 	return cfg.RankOf(b.Type) == rank
 }
 
-// containerTypeNames returns the names of every type occupying a
-// container rank (1 through config.MaxContainerRank), in TypesAtRank's
-// per-rank order. isContainerRank and pick.go's roadmapScopeTypes both
-// route through this one loop instead of each looping 1..MaxContainerRank
-// on its own (beans-v2ox).
-func containerTypeNames() []string {
-	var names []string
-	for rank := 1; rank <= config.MaxContainerRank; rank++ {
-		names = append(names, cfg.TypesAtRank(rank)...)
-	}
-	return names
-}
-
 // isContainerRank reports whether an item sits on a container rank. Leaves
 // (rank config.LeafRank) are rendered inside a container, never as one.
 func isContainerRank(b *item.Item) bool {
@@ -678,7 +665,7 @@ func validateRoadmapRootType(b *item.Item) error {
 	if isContainerRank(b) {
 		return nil
 	}
-	containers := containerTypeNames()
+	containers := cfg.ContainerTypeNames()
 	if len(containers) == 0 {
 		return fmt.Errorf("this project defines no container types (ranks 1-3), so %s (%s) cannot be a roadmap root",
 			b.Type, b.ID)

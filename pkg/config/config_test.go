@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -2661,6 +2662,26 @@ func TestTypesAtRankReturnsListOrder(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("TypesAtRank(2)[%d] = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+// A container type is one on rank 1 through MaxContainerRank, whatever its
+// name: a configured type joins the list by its rank, and a type on rank 0 or
+// beyond the container ranks stays out.
+func TestContainerTypeNamesFollowsTheRanks(t *testing.T) {
+	if got, want := (&Config{}).ContainerTypeNames(), []string{"milestone", "epic", "feature"}; !slices.Equal(got, want) {
+		t.Errorf("ContainerTypeNames() on the built-in types = %v, want %v", got, want)
+	}
+
+	two, zero, five := 2, 0, 5
+	c := &Config{Types: []TypeOverride{
+		{Name: "package", Rank: &two},
+		{Name: "root", Rank: &zero},
+		{Name: "subtask", Rank: &five},
+		{Name: "chore"},
+	}}
+	if got, want := c.ContainerTypeNames(), []string{"milestone", "epic", "package", "feature"}; !slices.Equal(got, want) {
+		t.Errorf("ContainerTypeNames() with custom ranks = %v, want %v", got, want)
 	}
 }
 

@@ -13,7 +13,7 @@ All commands support `--json` for machine-readable output. Use this flag to pars
 ## Recipes
 
 - **Starting work**: Check if there is already an item for it (`lif list -S "<keywords>"`). If not, create one with `lif create "Title" -t <type> -d "Description..." -s todo`. Then mark it in-progress and show it with `lif start <id> [id...]` — one item is shown in full, several give one line each.
-- **Finding work**: `lif next` shows the single highest-priority item that is ready to start (not blocked, excludes in-progress/completed/scrapped/draft). Narrow it the same way you would narrow `list`: `lif next --type bug`, `lif next --tag cli`, `lif next --parent <id>`, and re-order it with `--sort <field>` plus `--desc`. `lif list --ready` (or `lif list --json --ready`) lists all such items instead of just one. `lif show --json <id> [id...]` shows full details for specific items (supports multiple IDs).
+- **Finding work**: `lif next` shows the single highest-priority item that is ready to start (leaf work that is not blocked; excludes in-progress/completed/scrapped/draft items and container types). Narrow it the same way you would narrow `list`: `lif next --type bug`, `lif next --tag cli`, `lif next --parent <id>`, and re-order it with `--sort <field>` plus `--desc`. `lif list --ready` (or `lif list --json --ready`) lists all such items instead of just one. `lif show --json <id> [id...]` shows full details for specific items (supports multiple IDs).
 - **Handling blocked work**: `lif list --is-blocked` (or `lif list --json --is-blocked`) lists items that are currently blocked (directly, or via a blocked ancestor).
 - **Completing work**: ONLY once an item has no unchecked todo items left, run `lif complete <id> [id...] --summary "what was done"` — this sets status to completed and appends a `## Summary of Changes` section to the item body.{{if .CompletionCommitGated}} This project requires a commit reference to complete an item: pass `--commit <ref>` in the same call (see "Required Fields on Status Transitions" below).{{end}}
 - **Scrapping work**: `lif scrap <id> [id...] --reason "why"` — this sets status to scrapped and appends a `## Reason for Scrapping` section to the item body. `--reason` is required.
@@ -29,7 +29,7 @@ All commands support `--json` for machine-readable output. Use this flag to pars
 ```bash
 # List items
 lif list --json                      # All items
-lif list --json --ready              # Items ready to start (not blocked, excludes in-progress/completed/scrapped/draft)
+lif list --json --ready              # Leaf items ready to start (not blocked, excludes in-progress/completed/scrapped/draft and container types)
 lif list --json -t bug -s todo       # Filter by type and status
 lif list --json -S "authentication"  # Full-text search
 lif list --help                      # Full options
@@ -90,6 +90,7 @@ Use `lif <command> --help` for full options. Use `--json` for machine-readable o
 - **Blocked-by**: Use `--blocked-by <id>` when THIS item is blocked by another (this item can't proceed until the other is done). **Prefer this when creating dependent work.**
 - **Implicit blocking**: An item is also considered blocked if any of its ancestors (via parent chain) are blocked. Commands like `list --ready` and `next` respect this automatically.
 - **Implicit status**: If a parent/ancestor has a terminal status (scrapped or completed), children inherit that status implicitly. `list --ready`/`next` exclude these items.
+- **Ready is leaf work**: `list --ready` and `next` never return an item of a container type (rank 1 to 3 in the list above), even when nothing blocks it.
 
 ## Item Types
 

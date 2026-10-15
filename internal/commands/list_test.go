@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -416,7 +417,7 @@ func TestListCmdReadyEndToEnd(t *testing.T) {
 		}
 	}
 
-	// --ready alone: excludes blocked and completed, keeps both types.
+	// --ready alone: excludes blocked, completed and container items.
 	out := captureListStdout(t, func() {
 		if err := listCmd.RunE(listCmd, nil); err != nil {
 			t.Fatalf("listCmd.RunE() error = %v", err)
@@ -430,8 +431,11 @@ func TestListCmdReadyEndToEnd(t *testing.T) {
 	for _, b := range got {
 		gotIDs[b.ID] = true
 	}
-	if !gotIDs[readyTask.ID] || !gotIDs[readyEpic.ID] {
-		t.Errorf("expected both ready beans in result, got IDs = %v", gotIDs)
+	if !gotIDs[readyTask.ID] {
+		t.Errorf("expected the ready task in result, got IDs = %v", gotIDs)
+	}
+	if gotIDs[readyEpic.ID] {
+		t.Errorf("expected the epic, a container, excluded, got IDs = %v", gotIDs)
 	}
 	if gotIDs[blockedTask.ID] || gotIDs[completedTask.ID] {
 		t.Errorf("expected blocked/completed beans excluded, got IDs = %v", gotIDs)
@@ -477,6 +481,29 @@ func TestApplyReadyFilterExcludesCustomArchiveStatus(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("ExcludeStatus = %v, want it to contain custom archive status %q", filter.ExcludeStatus, "po-review")
+	}
+}
+
+// TestApplyReadyFilterExcludesContainerTypes is a regression test for
+// beans-g5dn: ready work is leaf work, so every type on a container rank
+// (1 through config.MaxContainerRank) must be excluded. The names come from
+// the configuration, so a project-defined container type is excluded too and
+// a project-defined leaf type is not.
+func TestApplyReadyFilterExcludesContainerTypes(t *testing.T) {
+	two := 2
+	testCfg := &config.Config{
+		Types: []config.TypeOverride{
+			{Name: "package", Rank: &two},
+			{Name: "story"},
+		},
+	}
+
+	filter := &model.ItemFilter{ExcludeType: []string{"wontfix"}}
+	applyReadyFilter(filter, testCfg)
+
+	want := []string{"wontfix", "milestone", "epic", "package", "feature"}
+	if !slices.Equal(filter.ExcludeType, want) {
+		t.Errorf("ExcludeType = %v, want %v (the caller's entry kept, then the container types)", filter.ExcludeType, want)
 	}
 }
 

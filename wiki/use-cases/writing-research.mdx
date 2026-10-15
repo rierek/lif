@@ -45,12 +45,12 @@ types:
 
 ```sh
 lif create "Methods" -t chapter
-lif create "Sampling" -t section --parent <chapter-id> --tag methods
-lif create "Ethics approval letter" -t source --parent <chapter-id>
+lif create "Sampling" -t section --parent <chapter-id>
+lif create "Ethics approval letter" -t source --parent <chapter-id> --tag methods
 lif update <sampling-id> --blocked-by <letter-id>
 ```
 
-Place the blocker outside the item it blocks. Lif treats a blocked parent as blocking its children, so a blocker below it never frees it. `lif check` does not warn about this ([o8bs]).
+Place the blocker outside the item it blocks, and not above it either. A blocked parent blocks its children, and a child counts as done once its parent is done, so a blocker inside or above the blocked item can never be released. `lif update` refuses such a link and names the items; `lif check` reports it when a manual edit made it.
 
 ## Follow progress
 
@@ -67,7 +67,7 @@ Place the blocker outside the item it blocks. Lif treats a blocked parent as blo
 <span style="color:var(--ctp-green)">━━━━━━━━</span><span style="color:var(--ctp-surface2)">░░░░░░░░░░░░</span> 40% complete`} />
 </div>
 
-`lif next --tag methods` names the next piece of work. `lif order <id> --after <id>` sets the order of sections. Put working notes in the item body.
+`lif next --tag methods` names the next piece of work tagged `methods`, here the ethics approval letter. Only leaf items can be ready (`source` and `question`, rank 4), so tag those: a chapter or a section never comes back, and "Sampling" waits for the letter anyway. `lif order <id> --after <id>` sets the order of sections. Put working notes in the item body.
 
 ## What you get
 

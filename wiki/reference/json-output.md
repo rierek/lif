@@ -125,7 +125,7 @@ The mapping above is from the code of the commands, not every code was triggered
 |---|---|
 | `success` | `true` exactly when there are no findings; with `--strict` policy warnings count. |
 | `config_errors` | List of configuration problems, `null` when empty. |
-| `item_issues` | `broken_links`, `self_links`, `cycles` (`link_type`, `path`). Formerly `bean_issues`. |
+| `item_issues` | `broken_links`, `self_links`, `cycles` (`link_type`: `blocking`, `parent` or `blocking+parent`; `path`). Formerly `bean_issues`. |
 | `fixed` | Count of repaired links (`--fix`); absent at 0. |
 | `policy_warnings`, `attachment_orphans`, `legacy_names` | Only when present. |
 

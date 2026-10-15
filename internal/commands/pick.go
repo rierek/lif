@@ -263,13 +263,13 @@ func parseScopeTypes(scope string) (map[string]bool, error) {
 // roadmapScopeTypes returns the item types occupying the container ranks
 // that roadmap.go's own validateRoadmapRootType/isContainerRank already
 // define as the roadmap command's root-type constraint. It reads
-// roadmap.go's containerTypeNames -- the single, shared loop over
-// config.MaxContainerRank that isContainerRank and validateRoadmapRootType
-// also route through (beans-v2ox) -- rather than defining a type table, or
-// a second 1..MaxContainerRank loop, of its own (AC4).
+// config.Config.ContainerTypeNames -- the single, shared loop over
+// config.MaxContainerRank that isContainerRank, validateRoadmapRootType and
+// the ready filter also route through (beans-v2ox) -- rather than defining a
+// type table, or a second 1..MaxContainerRank loop, of its own (AC4).
 func roadmapScopeTypes() map[string]bool {
 	types := make(map[string]bool)
-	for _, name := range containerTypeNames() {
+	for _, name := range cfg.ContainerTypeNames() {
 		types[name] = true
 	}
 	return types

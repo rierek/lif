@@ -39,6 +39,17 @@ func (r *CoreResolver) validateETag(b *item.Item, ifMatch *string) error {
 	return nil
 }
 
+// cycleError words the refusal of a link that would close cycle. what names
+// the refused change and ends in "would create cycle". A cycle over blocking
+// and parent links carries a note, because its path shows no cycle to a reader
+// who does not know how the hierarchy takes part.
+func cycleError(what string, cycle *itemcore.Cycle) error {
+	if note := cycle.Note(); note != "" {
+		return fmt.Errorf("%s: %v (%s)", what, cycle.Path, note)
+	}
+	return fmt.Errorf("%s: %v", what, cycle.Path)
+}
+
 // ValidateAndSetParent validates and sets the parent relationship.
 func (r *CoreResolver) ValidateAndSetParent(b *item.Item, parentID string) error {
 	if parentID == "" {
@@ -55,8 +66,8 @@ func (r *CoreResolver) ValidateAndSetParent(b *item.Item, parentID string) error
 	}
 
 	// Check for cycles
-	if cycle := r.Core.DetectCycle(b.ID, "parent", normalizedParent); cycle != nil {
-		return fmt.Errorf("setting parent would create cycle: %v", cycle)
+	if cycle := r.Core.DetectCycle(b, "parent", normalizedParent); cycle != nil {
+		return cycleError("setting parent would create cycle", cycle)
 	}
 
 	b.Parent = normalizedParent
@@ -96,12 +107,9 @@ func (r *CoreResolver) ValidateAndAddBlocking(b *item.Item, targetIDs []string) 
 			return fmt.Errorf("blocking target item not found: %s", targetID)
 		}
 
-		// Check for cycles in both directions
-		if cycle := r.Core.DetectCycle(b.ID, "blocking", normalizedTargetID); cycle != nil {
-			return fmt.Errorf("adding blocking relationship would create cycle: %v", cycle)
-		}
-		if cycle := r.Core.DetectCycle(normalizedTargetID, "blocked_by", b.ID); cycle != nil {
-			return fmt.Errorf("adding blocking relationship would create cycle: %v", cycle)
+		// Check for cycles
+		if cycle := r.Core.DetectCycle(b, "blocking", normalizedTargetID); cycle != nil {
+			return cycleError("adding blocking relationship would create cycle", cycle)
 		}
 
 		b.AddBlocking(normalizedTargetID)
@@ -133,12 +141,9 @@ func (r *CoreResolver) ValidateAndAddBlockedBy(b *item.Item, targetIDs []string)
 			return fmt.Errorf("blocker item not found: %s", targetID)
 		}
 
-		// Check for cycles in both directions
-		if cycle := r.Core.DetectCycle(normalizedTargetID, "blocking", b.ID); cycle != nil {
-			return fmt.Errorf("adding blocked-by relationship would create cycle: %v", cycle)
-		}
-		if cycle := r.Core.DetectCycle(b.ID, "blocked_by", normalizedTargetID); cycle != nil {
-			return fmt.Errorf("adding blocked-by relationship would create cycle: %v", cycle)
+		// Check for cycles
+		if cycle := r.Core.DetectCycle(b, "blocked_by", normalizedTargetID); cycle != nil {
+			return cycleError("adding blocked-by relationship would create cycle", cycle)
 		}
 
 		b.AddBlockedBy(normalizedTargetID)

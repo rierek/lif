@@ -76,6 +76,8 @@ Main fields of `Item`:
 
 Set fields combine with AND; values inside one list are OR. The nested `children`, `blocking` and `blockedBy` fields ignore `search`.
 
+GraphQL has no `ready` argument. `lif next` and `lif list --ready` build "ready" from these fields: `isBlocked: false`, `excludeImplicitTerminal: true`, `excludeStatus` with `in-progress`, `draft` and every archive status, and `excludeType` with every container type (rank 1 to 3). A client that wants the same list sets the same fields.
+
 ## Mutations
 
 - `createItem(input: CreateItemInput!)`: `title`, `type`, `status`, `priority`, `tags`, `body`, `parent`, `blocking`, `blockedBy`, `prefix`.

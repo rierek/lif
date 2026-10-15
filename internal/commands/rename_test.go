@@ -226,3 +226,64 @@ func TestRenameTextsNameItems(t *testing.T) {
 		}
 	})
 }
+
+// beans-gbl5: a prefix dry run reports the plan and every refusal.
+func TestBuildRenamePlan_prefixDryRunListsAllRefusals(t *testing.T) {
+	item := func(id string) string { return "---\n# " + id + "\ntitle: T\nstatus: todo\ntype: task\n---\n" }
+	c := renameTestCore(t, "tp-", map[string]string{
+		"tp-aaaa--a.md": item("tp-aaaa"),
+		"tp-dddd--d.md": item("tp-dddd"),
+		"zz-bbbb--b.md": item("zz-bbbb"),
+		"op-dddd--d.md": item("op-dddd"),
+	})
+
+	plan, err := buildRenamePlan(c, nil, renameFlags{prefix: "op-", prefixSet: true, dryRun: true})
+	if err != nil {
+		t.Fatalf("dry run must return the plan, got error %v", err)
+	}
+	if len(plan.Refusals) != 3 {
+		t.Fatalf("refusals = %q, want 3 (two foreign prefixes, one collision)", plan.Refusals)
+	}
+	if len(plan.Changes) != 1 || plan.Changes[0].NewID != "op-aaaa" {
+		t.Errorf("changes = %+v, want only tp-aaaa -> op-aaaa", plan.Changes)
+	}
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	if err := renderRenamePlan(cmd, plan, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"tp-aaaa -> op-aaaa", "refusals (3):", `"zz-bbbb"`, `"op-dddd" already exists`} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
+	}
+
+	// The real run keeps failing at once and never applies a refused plan.
+	if _, err := buildRenamePlan(c, nil, renameFlags{prefix: "op-", prefixSet: true}); err == nil {
+		t.Error("real rename must still fail on a refusal")
+	}
+	if err := c.ApplyRename(plan); err == nil {
+		t.Error("ApplyRename must reject a plan that carries refusals")
+	}
+}
+
+// beans-gbl5: through the real command, a refused dry run prints the plan and
+// the refusal and exits non-zero.
+func TestRenamePrefixDryRunExitsNonZeroWithRefusals(t *testing.T) {
+	store := filepath.Join(t.TempDir(), ".lif")
+	item := func(id string) string { return "---\n# " + id + "\ntitle: T\nstatus: todo\ntype: task\n---\n" }
+	writeFixtureFile(t, filepath.Join(store, "aaaa--a.md"), item("aaaa"))
+	writeFixtureFile(t, filepath.Join(store, "op-aaaa--b.md"), item("op-aaaa"))
+
+	stdout, _, err := runRootIn(t, t.TempDir(), "--lif-path", store, "rename", "--prefix", "op-", "--dry-run")
+	if err == nil {
+		t.Fatalf("want non-zero exit, got none; stdout:\n%s", stdout)
+	}
+	for _, want := range []string{"mode: prefix", "refusals (1):", `"op-aaaa" already exists`} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("stdout lacks %q:\n%s", want, stdout)
+		}
+	}
+}

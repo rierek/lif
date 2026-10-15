@@ -1,6 +1,7 @@
 package itemcore
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -39,6 +40,9 @@ type RenamePlan struct {
 	AttachmentMoves []AttachmentMove
 	NewPrefix       string
 	ConfigWrite     bool
+	// Refusals lists every reason the plan cannot be applied. A plan with
+	// refusals is a dry-run report only; today only a prefix rebrand fills it.
+	Refusals []string
 }
 
 // repoRoot returns the directory containing the .beans dir (used for the
@@ -88,6 +92,9 @@ func (c *Core) PlanRenameSlug(id string, newSlug *string, reslug bool) (*RenameP
 
 // ApplyRename executes a previously computed RenamePlan.
 func (c *Core) ApplyRename(plan *RenamePlan) error {
+	if len(plan.Refusals) > 0 {
+		return fmt.Errorf("plan is refused: %s", plan.Refusals[0])
+	}
 	switch plan.Mode {
 	case "slug":
 		return c.applyRenameSlug(plan)
@@ -344,26 +351,40 @@ func (c *Core) checkServerNotRunning() error {
 	return nil
 }
 
-// PlanRebrand computes a dry-run plan that maps every item's ID from the
-// project's current prefix (c.config.Items.Prefix) to newPrefix, preserving
-// each ID's suffix (item.RebrandID). Mode is "prefix", NewPrefix and
-// ConfigWrite are set so ApplyRename also persists the new prefix to
-// .beans.yml after the cascade swap.
+// PlanRebrand computes a plan that maps every item's ID from the project's
+// current prefix (c.config.Items.Prefix) to newPrefix, preserving each ID's
+// suffix (item.RebrandID). Mode is "prefix", NewPrefix and ConfigWrite are
+// set so ApplyRename also persists the new prefix to .beans.yml after the
+// cascade swap.
 //
-// B04 guard: refuses outright (no partial plan) if any item ID does not
-// start with the current prefix — RebrandID would otherwise double-prefix
-// it (newPrefix + the untouched full old ID), corrupting that ID.
-//
-// D05 guards (checkServerNotRunning, checkNoActiveWorktrees) run first,
-// fail-fast, before any lock is taken or staging happens — a prefix rebrand
-// is refused outright while a lif server is running or active worktrees
-// exist, since either could produce a divergent/half-migrated state.
+// It refuses outright (nil plan, error naming the first refusal) when
+// PlanRebrandWithRefusals reports any refusal.
 func (c *Core) PlanRebrand(newPrefix string) (*RenamePlan, error) {
+	plan := c.PlanRebrandWithRefusals(newPrefix)
+	if len(plan.Refusals) > 0 {
+		return nil, errors.New(plan.Refusals[0])
+	}
+	return plan, nil
+}
+
+// PlanRebrandWithRefusals is PlanRebrand for a dry run: it never stops at a
+// refusal. The returned plan always carries every refusal in Refusals, and
+// every change that is not itself refused in Changes.
+//
+// B04 guard: an item ID that does not start with the current prefix is
+// refused — RebrandID would otherwise double-prefix it (newPrefix + the
+// untouched full old ID), corrupting that ID.
+//
+// D05 guards (checkServerNotRunning, checkNoActiveWorktrees): a prefix
+// rebrand is refused while a lif server is running or active worktrees
+// exist, since either could produce a divergent/half-migrated state.
+func (c *Core) PlanRebrandWithRefusals(newPrefix string) *RenamePlan {
+	plan := &RenamePlan{Mode: "prefix", RefUpdates: map[string]int{}, NewPrefix: newPrefix, ConfigWrite: true}
 	if err := c.checkServerNotRunning(); err != nil {
-		return nil, err
+		plan.Refusals = append(plan.Refusals, err.Error())
 	}
 	if err := c.checkNoActiveWorktrees(); err != nil {
-		return nil, err
+		plan.Refusals = append(plan.Refusals, err.Error())
 	}
 
 	c.mu.RLock()
@@ -374,36 +395,46 @@ func (c *Core) PlanRebrand(newPrefix string) (*RenamePlan, error) {
 		oldPrefix = c.config.Items.Prefix
 	}
 	if newPrefix == oldPrefix {
-		return nil, fmt.Errorf("new prefix equals current prefix %q", oldPrefix)
+		plan.Refusals = append(plan.Refusals, fmt.Sprintf("new prefix equals current prefix %q", oldPrefix))
+		return plan
 	}
+
+	ids := make([]string, 0, len(c.items))
+	for id := range c.items {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids) // a stable order for the refusal list
 
 	idMap := map[string]string{}
 	renamed := map[string]*item.Item{}
-	for id, b := range c.items {
+	for _, id := range ids {
 		if oldPrefix != "" && !strings.HasPrefix(id, oldPrefix) {
-			return nil, fmt.Errorf("item %q does not start with the current prefix %q; refusing rebrand to avoid ID corruption", id, oldPrefix)
+			plan.Refusals = append(plan.Refusals, fmt.Sprintf("item %q does not start with the current prefix %q; refusing rebrand to avoid ID corruption", id, oldPrefix))
+			continue
 		}
 		nid := item.RebrandID(id, oldPrefix, newPrefix)
 		if nid == id {
 			continue
 		}
 		if _, clash := c.items[nid]; clash {
-			return nil, fmt.Errorf("rebrand collision: %q already exists", nid)
+			plan.Refusals = append(plan.Refusals, fmt.Sprintf("rebrand collision: %q already exists", nid))
+			continue
 		}
 		idMap[id] = nid
-		renamed[id] = b
+		renamed[id] = c.items[id]
 	}
 	if len(idMap) == 0 {
-		return nil, fmt.Errorf("no items matched prefix %q", oldPrefix)
+		if len(plan.Refusals) == 0 {
+			plan.Refusals = append(plan.Refusals, fmt.Sprintf("no items matched prefix %q", oldPrefix))
+		}
+		return plan
 	}
 
-	plan, err := c.planCascade("prefix", idMap, renamed)
-	if err != nil {
-		return nil, err
-	}
-	plan.NewPrefix = newPrefix
-	plan.ConfigWrite = true
-	return plan, nil
+	cascade, _ := c.planCascade("prefix", idMap, renamed) // never fails
+	cascade.Refusals = plan.Refusals
+	cascade.NewPrefix = newPrefix
+	cascade.ConfigWrite = true
+	return cascade
 }
 
 // applyRenameCascade is the shared apply path for Mode "id" and "prefix": it

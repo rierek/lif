@@ -78,10 +78,8 @@ To switch between projects in the terminal UI, see [TUI: start and repositories]
 ## Limits
 
 - `lif init` stops with an error when a config file already exists in the directory, so a second run cannot overwrite it. `lif init --force` replaces the config with the default config; items and an existing store `.gitignore` stay.
-- `lif rename --dry-run` stops at the same refusals as a real rename [gbl5]. Stop `lif-serve` and remove extra worktrees before you try a prefix change.
+- A prefix change is refused while `lif-serve` runs or extra worktrees exist. `lif rename --prefix <new> --dry-run` prints the plan and then lists every refusal, and exits with a non-zero code if there is any. Stop `lif-serve` and remove extra worktrees before the real run.
 - Which types and statuses apply when several projects with different configs share one store is not documented. Use one config for all projects that share a store.
-
-See [Known limitations](../../known-limitations/) for [gbl5].
 
 ## Reference
 

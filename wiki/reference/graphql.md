@@ -29,7 +29,7 @@ lif graphql -v '{"id":"abc"}' 'query($id: ID!) { item(id: $id) { title } }'
 lif graphql --schema
 ```
 
-Over HTTP the server has **no authentication** ([8h4v]); read the warning on [Web server](../web-server/) first.
+Over HTTP a server on loopback, the default, has no authentication; a server beyond loopback asks every client for an access token ([8h4v]). Read [Web server](../web-server/) first. The example below works against a loopback server; beyond loopback add `-H 'Authorization: Bearer <token>'`.
 
 ```sh
 curl -s -X POST http://localhost:8080/api/graphql \
@@ -157,7 +157,7 @@ Error: graphql: invalid title: must not be empty
 Error: graphql: task items can only have milestone, epic, or feature as parent, not task
 ```
 
-- A WebSocket from a disallowed origin gets 403 `origin not allowed` ([Web server](../web-server/#network-and-cors)).
+- A request that changes state from a disallowed origin, a WebSocket upgrade included, gets 403 `origin "…" is not allowed`. On loopback a request with a disallowed `Host` gets 403 `host "…" is not allowed` ([Web server](../web-server/#network-and-cors)).
 
 ## Known gaps
 

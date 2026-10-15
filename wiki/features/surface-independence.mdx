@@ -85,7 +85,7 @@ In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../refer
 
 - Run `lif check` after manual edits. Lif does not check them while you edit.
 - Start `lif-serve` for the Web UI. `lif serve` in the main program is a hidden stub.
-- Do not expose the `lif-serve` port. It has no authentication or TLS and exposes a terminal [8h4v].
+- Keep `lif-serve` on its default address `127.0.0.1`. It has no TLS and, on loopback, no authentication; `--host` opens it to the network behind an access token [8h4v].
 - Pass `--if-match` for concurrent writers. A writer without it is not protected.
 - Set `lif.anchor: repo-root` if Git worktrees should share one store. Without it, each worktree uses its own.
 - Expect fixed value lists and a fixed theme in the TUI: it ignores `display.theme` [179g].

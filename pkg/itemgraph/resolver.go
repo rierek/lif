@@ -45,9 +45,9 @@ func (r *CoreResolver) validateETag(b *item.Item, ifMatch *string) error {
 // who does not know how the hierarchy takes part.
 func cycleError(what string, cycle *itemcore.Cycle) error {
 	if note := cycle.Note(); note != "" {
-		return fmt.Errorf("%s: %v (%s)", what, cycle.Path, note)
+		return itemcore.Invalid("%s: %v (%s)", what, cycle.Path, note)
 	}
-	return fmt.Errorf("%s: %v", what, cycle.Path)
+	return itemcore.Invalid("%s: %v", what, cycle.Path)
 }
 
 // ValidateAndSetParent validates and sets the parent relationship.
@@ -86,7 +86,7 @@ func (r *CoreResolver) ValidateTypeChange(b *item.Item) error {
 		if link.LinkType != "parent" || itemcore.IsValidParentRank(r.Core.Config(), child.Type, b.Type) {
 			continue
 		}
-		return fmt.Errorf("%s: %s items cannot be a child of %s items (child %s)", b.ID, child.Type, b.Type, child.ID)
+		return itemcore.Invalid("%s: %s items cannot be a child of %s items (child %s)", b.ID, child.Type, b.Type, child.ID)
 	}
 	return nil
 }
@@ -99,12 +99,12 @@ func (r *CoreResolver) ValidateAndAddBlocking(b *item.Item, targetIDs []string) 
 
 		// Validate: cannot block itself
 		if normalizedTargetID == b.ID {
-			return fmt.Errorf("item cannot block itself")
+			return itemcore.Invalid("item cannot block itself")
 		}
 
 		// Validate: target must exist
 		if !ok {
-			return fmt.Errorf("blocking target item not found: %s", targetID)
+			return itemcore.Invalid("blocking target item not found: %s", targetID)
 		}
 
 		// Check for cycles
@@ -133,12 +133,12 @@ func (r *CoreResolver) ValidateAndAddBlockedBy(b *item.Item, targetIDs []string)
 
 		// Validate: cannot be blocked by itself
 		if normalizedTargetID == b.ID {
-			return fmt.Errorf("item cannot be blocked by itself")
+			return itemcore.Invalid("item cannot be blocked by itself")
 		}
 
 		// Validate: blocker must exist
 		if !ok {
-			return fmt.Errorf("blocker item not found: %s", targetID)
+			return itemcore.Invalid("blocker item not found: %s", targetID)
 		}
 
 		// Check for cycles

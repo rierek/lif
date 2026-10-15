@@ -1,13 +1,13 @@
 package itemgraph
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
@@ -31,7 +31,7 @@ var prefixPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*-
 // ValidatePrefix checks a caller-supplied item ID prefix.
 func ValidatePrefix(prefix string) error {
 	if !prefixPattern.MatchString(prefix) {
-		return fmt.Errorf("invalid prefix %q: must start with a letter and contain only letters, digits and single hyphens", prefix)
+		return itemcore.Invalid("invalid prefix %q: must start with a letter and contain only letters, digits and single hyphens", prefix)
 	}
 	return nil
 }
@@ -39,10 +39,10 @@ func ValidatePrefix(prefix string) error {
 // ValidateTitle checks that a title is present and within the length limit.
 func ValidateTitle(title string) error {
 	if strings.TrimSpace(title) == "" {
-		return fmt.Errorf("invalid title: must not be empty")
+		return itemcore.Invalid("invalid title: must not be empty")
 	}
 	if n := utf8.RuneCountInString(title); n > MaxTitleLength {
-		return fmt.Errorf("invalid title: %d characters exceeds the limit of %d", n, MaxTitleLength)
+		return itemcore.Invalid("invalid title: %d characters exceeds the limit of %d", n, MaxTitleLength)
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func ValidateTitle(title string) error {
 // ValidateBody checks that a body is within the size limit.
 func ValidateBody(body string) error {
 	if len(body) > MaxBodyBytes {
-		return fmt.Errorf("invalid body: %d bytes exceeds the limit of %d", len(body), MaxBodyBytes)
+		return itemcore.Invalid("invalid body: %d bytes exceeds the limit of %d", len(body), MaxBodyBytes)
 	}
 	return nil
 }
@@ -59,7 +59,7 @@ func ValidateBody(body string) error {
 func ValidateTags(tags []string) error {
 	for _, tag := range tags {
 		if err := item.ValidateTag(item.NormalizeTag(tag)); err != nil {
-			return err
+			return &itemcore.ValidationError{Err: err}
 		}
 	}
 	return nil
@@ -126,13 +126,13 @@ func (r *CoreResolver) validationConfig() *config.Config {
 func (r *CoreResolver) validateEnums(status, typeName, priority *string) error {
 	cfg := r.validationConfig()
 	if status != nil && *status != "" && !cfg.IsValidStatus(*status) {
-		return fmt.Errorf("invalid status %q: must be one of %s", *status, cfg.StatusNames())
+		return itemcore.Invalid("invalid status %q: must be one of %s", *status, cfg.StatusNames())
 	}
 	if typeName != nil && *typeName != "" && !cfg.IsValidType(*typeName) {
-		return fmt.Errorf("invalid type %q: must be one of %s", *typeName, cfg.TypeNames())
+		return itemcore.Invalid("invalid type %q: must be one of %s", *typeName, cfg.TypeNames())
 	}
 	if priority != nil && *priority != "" && !cfg.IsValidPriority(*priority) {
-		return fmt.Errorf("invalid priority %q: must be one of %s", *priority, cfg.PriorityNames())
+		return itemcore.Invalid("invalid priority %q: must be one of %s", *priority, cfg.PriorityNames())
 	}
 	return nil
 }

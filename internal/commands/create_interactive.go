@@ -202,7 +202,7 @@ func writeCreateDraft(cmd *cobra.Command, d createDraft) (*item.Item, error) {
 	resolver := &itemgraph.CoreResolver{Core: core}
 	b, err := resolver.CreateItem(context.Background(), input, itemcore.WithExtraOps(setMap, nil))
 	if err != nil {
-		return nil, cmdError(createJSON, output.ErrFileError, "failed to create item: %v", err)
+		return nil, cmdError(createJSON, createErrorCode(err), "failed to create item: %v", err)
 	}
 
 	// An explicit order and --unset aren't part of the generated
@@ -229,6 +229,20 @@ func writeCreateDraft(cmd *cobra.Command, d createDraft) (*item.Item, error) {
 		}
 	}
 	return b, nil
+}
+
+// createErrorCode maps a CreateItem failure to its output error code: a
+// refused request is a validation failure, a conflict or policy refusal keeps
+// its own code (same mapping as update), anything else is a store failure.
+func createErrorCode(err error) string {
+	if code := mutationErrorCode(err); code != output.ErrValidation {
+		return code
+	}
+	var invalid *itemcore.ValidationError
+	if errors.As(err, &invalid) {
+		return output.ErrValidation
+	}
+	return output.ErrFileError
 }
 
 // printCreated prints the result: the item JSON or the plain Created line.

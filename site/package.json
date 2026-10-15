@@ -13,9 +13,9 @@
     "@astrojs/starlight": "^0.42.6",
     "@catppuccin/starlight": "^2.1.0",
     "@lucide/astro": "^1.56.0",
-    "astro": "7.2.10",
+    "astro": "7.3.8",
     "astro-mermaid": "^2.1.0",
-    "mermaid": "^11.17.2",
+    "mermaid": "^12.1.0",
     "sharp": "^0.35.3"
   }
 }

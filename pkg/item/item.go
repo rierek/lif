@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -233,24 +234,53 @@ func ReservedKeyFlag(key string) (flag string, known bool) {
 
 // normalizeYAMLValue converts the map[interface{}]interface{} produced by the
 // yaml.v2 decoder (used internally by the frontmatter library) into
-// map[string]any, recursively, so Extra stays JSON-marshalable.
-func normalizeYAMLValue(v any) any {
+// map[string]any, recursively, so Extra stays JSON-marshalable. It refuses
+// NaN and infinite numbers, the one kind of value a decoder accepts and JSON
+// cannot carry; path (meta.ratio, scores[1]) names the key in the error.
+// It works in place: the decoder output is owned by the caller.
+func normalizeYAMLValue(path string, v any) (any, error) {
 	switch typed := v.(type) {
 	case map[interface{}]interface{}:
-		result := make(map[string]any, len(typed))
+		m := make(map[string]any, len(typed))
 		for k, val := range typed {
-			result[fmt.Sprintf("%v", k)] = normalizeYAMLValue(val)
+			m[fmt.Sprintf("%v", k)] = val
 		}
-		return result
+		return normalizeMap(path, m)
+	case map[string]interface{}: // TOML and JSON front matter decode to this
+		return normalizeMap(path, typed)
+	case []map[string]interface{}: // a TOML array of tables
+		for i, m := range typed {
+			if _, err := normalizeMap(fmt.Sprintf("%s[%d]", path, i), m); err != nil {
+				return nil, err
+			}
+		}
+		return typed, nil
 	case []interface{}:
-		result := make([]interface{}, len(typed))
 		for i, val := range typed {
-			result[i] = normalizeYAMLValue(val)
+			n, err := normalizeYAMLValue(fmt.Sprintf("%s[%d]", path, i), val)
+			if err != nil {
+				return nil, err
+			}
+			typed[i] = n
 		}
-		return result
-	default:
-		return v
+		return typed, nil
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return nil, fmt.Errorf("key %q holds %v: only finite numbers are supported, quote the value to keep it as text", path, typed)
+		}
 	}
+	return v, nil
+}
+
+func normalizeMap(path string, m map[string]any) (any, error) {
+	for k, val := range m {
+		n, err := normalizeYAMLValue(path+"."+k, val)
+		if err != nil {
+			return nil, err
+		}
+		m[k] = n
+	}
+	return m, nil
 }
 
 // utf8BOM is the byte order mark some editors put in front of the first line
@@ -286,7 +316,11 @@ func Parse(r io.Reader) (*Item, error) {
 		if extra == nil {
 			extra = make(map[string]any, len(raw))
 		}
-		extra[key] = normalizeYAMLValue(value)
+		normalized, err := normalizeYAMLValue(key, value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing front matter: %w", err)
+		}
+		extra[key] = normalized
 	}
 
 	// Trim trailing newline from body (POSIX files end with newline, but it's not part of content)

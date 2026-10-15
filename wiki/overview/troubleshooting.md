@@ -61,7 +61,7 @@ Symptom: any command exits with `loading config: <path>: unknown lif.anchor "…
 
 Config errors are caught eagerly at load, before any command runs: an unrecognized `lif.anchor` value, an empty field name or reserved schema field (`title`, `status`, `type`, …) inside `lif.require_fields_on`, or an unknown status name there all abort with a message naming the exact key and the config file's path. Diagnose by opening the named file at the reported path; the error text names the offending key directly, so no separate lookup is needed.
 
-An item file's YAML front matter is validated the same way: one malformed `.md` file (e.g. an unquoted colon inside a title) aborts loading for every command, not just the one touching that item, with the file's path in the error. Diagnose by opening the exact path named after `loading`; fix the YAML by hand (quote the offending value) and rerun the command — there is no `--fix` for a parse error, since the file cannot be safely interpreted until it parses.
+An item file's YAML front matter is validated the same way: one malformed `.md` file (e.g. an unquoted colon inside a title) aborts loading for every command, not just the one touching that item, with the file's path in the error. A number JSON cannot carry (`.nan`, `.inf`) in an extra key is refused too, with the error `key "<key>" holds NaN: only finite numbers are supported, quote the value to keep it as text`. Diagnose by opening the exact path named after `loading`; fix the YAML by hand (quote the offending value) and rerun the command — there is no `--fix` for a parse error, since the file cannot be safely interpreted until it parses.
 
 ## Server binding or startup failures
 

@@ -2,6 +2,7 @@ package item
 
 import (
 	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -39,5 +40,62 @@ func TestParseStripsUTF8BOM(t *testing.T) {
 	}
 	if n := strings.Count(string(out), "---\n"); n != 2 {
 		t.Errorf("Render() wrote %d front matter delimiters, want 2 (one block):\n%s", n, out)
+	}
+}
+
+// beans-1wnd: a front matter number JSON cannot carry (.nan, .inf) used to
+// load fine and then break every JSON output of the item; the GraphQL extra
+// field even panicked. Parse refuses it at the door and names the key, so the
+// loader's file path plus the key say exactly what to fix.
+func TestParseRejectsNumbersJSONCannotCarry(t *testing.T) {
+	tests := []struct {
+		name  string
+		front string
+		key   string
+	}{
+		{"not a number", "ratio: .nan", "ratio"},
+		{"positive infinity", "ratio: .inf", "ratio"},
+		{"negative infinity", "ratio: -.inf", "ratio"},
+		{"inside a map", "meta:\n  ratio: .NaN", "meta.ratio"},
+		{"inside a list", "scores:\n  - 1\n  - .inf", "scores[1]"},
+		{"inside a list of maps", "rows:\n  - a: 1\n  - a: .nan", "rows[1].a"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(strings.NewReader("---\ntitle: T\nstatus: todo\n" + tc.front + "\n---\n"))
+			if err == nil {
+				t.Fatal("Parse() error = nil, want an error that names the key")
+			}
+			if want := `key "` + tc.key + `"`; !strings.Contains(err.Error(), want) {
+				t.Errorf("Parse() error = %q, want it to contain %s", err, want)
+			}
+		})
+	}
+}
+
+// The same value in TOML front matter, which the front matter reader also
+// accepts, takes the same road.
+func TestParseRejectsNumbersJSONCannotCarryInTOML(t *testing.T) {
+	for name, input := range map[string]string{
+		"top level":  "+++\ntitle = \"T\"\nratio = nan\n+++\n",
+		"in a table": "+++\ntitle = \"T\"\n\n[meta]\nratio = inf\n+++\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Parse(strings.NewReader(input)); err == nil || !strings.Contains(err.Error(), "ratio") {
+				t.Errorf("Parse() error = %v, want an error that names ratio", err)
+			}
+		})
+	}
+}
+
+// Finite numbers and text that only looks like the refused values stay valid.
+func TestParseKeepsFiniteNumbersAndQuotedText(t *testing.T) {
+	b, err := Parse(strings.NewReader("---\ntitle: T\nstatus: todo\nratio: 1.5\nzero: 0\nquoted: \".nan\"\nword: nan\n---\n"))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	want := map[string]any{"ratio": 1.5, "zero": 0, "quoted": ".nan", "word": "nan"}
+	if !reflect.DeepEqual(b.Extra, want) {
+		t.Errorf("Extra = %#v, want %#v", b.Extra, want)
 	}
 }

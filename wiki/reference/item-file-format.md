@@ -63,6 +63,8 @@ Every other front matter key is kept and written alphabetically after the fields
 
 `summary:` is an ordinary extra key with no special handling. `lif list --where key=value` filters on it; repeat the flag for AND. Extra keys are not searchable ([Search syntax](../search-syntax/)). `require_fields_on` and `commit_field` use extra keys: [Configuration](../configuration/#status-dependent-required-fields).
 
+An extra key must not hold `.nan`, `.inf` or `-.inf`, alone or inside a list or map: JSON cannot carry them. Loading stops with `loading <path>: parsing front matter: key "<key>" holds NaN: ...`. Quote the value (`".nan"`) to keep it as text.
+
 ## Body
 
 - The body is the Markdown after the front matter. A trailing line break is not part of it. At most 1 MiB on write.

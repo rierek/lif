@@ -9,6 +9,7 @@ import (
 	"github.com/rierek/lif/internal/gitutil"
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/internal/version"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/spf13/cobra"
@@ -30,6 +31,8 @@ func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "lif",
 		Short: "A file-based issue tracker for AI-first workflows",
+		// `lif --version` prints exactly what `lif version` prints (beans-3slb).
+		Version: version.String(),
 		// Reporting a failure is done once, in reportExecutionError. Cobra
 		// otherwise prints the error itself and follows it with the whole
 		// usage block — measured at 33 lines behind a one-line failure, and
@@ -80,6 +83,14 @@ a full view of your project.`,
 			root, res, err := resolveStorePath(effectiveStorePath, cfg)
 			if err != nil {
 				var missing *missingStoreError
+				// Completion runs in any directory: without a store it offers
+				// the candidates that need none (beans-mgx8). An explicit
+				// --lif-path that does not resolve still fails, so completion
+				// never silently answers for another store.
+				if errors.As(err, &missing) && cmd.Name() == cobra.ShellCompRequestCmd && effectiveStorePath == "" {
+					core = nil
+					return nil
+				}
 				if f := cmd.Flags().Lookup("json"); f != nil && f.Value.String() == "true" && errors.As(err, &missing) {
 					return output.ErrorFrom(output.ErrNoLifDir, err)
 				}
@@ -96,6 +107,7 @@ a full view of your project.`,
 		},
 	}
 
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 	rootCmd.PersistentFlags().StringVar(&storePath, storePathFlag, "", "Path to data directory (overrides config and LIF_PATH env var; a legacy BEANS_PATH is read when LIF_PATH is unset)")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Path to config file (default: searches upward for .lif.yml; a legacy .beans.yml is read when no .lif.yml exists)")
 

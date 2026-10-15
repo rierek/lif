@@ -22,12 +22,9 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [ju1q] | A create refused for its parent returns `FILE_ERROR` instead of `VALIDATION_ERROR` | You cannot tell a validation refusal from an I/O failure by code. | Match the message text. | Open |
 | [hh0o] | TUI lobby footer shows `i/k`, but those keys edit the filter | Misleading key hint. | Use the arrow keys. | Open |
 | [nhcz] | `lif promote` review artifact format is undocumented | You cannot write an artifact without reading the source. | Read `internal/commands/findings-schema.json` in the repository. | Open |
-| [mgx8] | `create`/`update` help lists built-in names; completion and help fail outside a project | Help shows built-in type names even with custom types. `lif completion`, `lif help <cmd>` and `lif __complete` fail outside an initialised project. | Run them inside a project. | Open |
-| [3slb] | `lif --version` is rejected | `lif --version` prints `Error: unknown flag: --version`. | Run `lif version`. | Open |
 | [tgph] | `lif promote` creates the item without a parent | A promoted bug sits outside the release subtree and its progress number. | `lif update <id> --parent <feature-id>`. | Open |
 | [t5k2] | Persisted search index path is built but never filled | No effect for users: every call indexes in memory. | None needed. | Open |
 | [29wh] | Wiki and README statements disagree with the code | Some older statements (cycle entry fields, `display.theme`, `default_status` check, i386 platforms, `go install` binaries) are wrong. | Trust this site and a run of your binary. | Open |
-| [gbl5] | `lif rename --dry-run` hits the same refusals as a real rename | The dry run stops at the first refusal instead of listing the full plan. | Fix the refusal and run again. | Open |
 
 ## Fixed
 
@@ -46,3 +43,6 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [1y6w] | `lif init` silently overwrote an existing config | Fixed in 0.15: `lif init` stops with an error and exit code 1 when `.lif.yml` or `.beans.yml` exists in the directory, and keeps an existing store `.gitignore`; `lif init --force` replaces the config with the default config. | n/a | Fixed in 0.15 |
 | [9r10] | The `--if-match` flag did not protect two simultaneous processes | Fixed in 0.15: an update with `--if-match` locks the item file from the etag check to the write, so of two simultaneous processes with the same etag exactly one writes and the other gets `etag mismatch`, also when the winner changes the title and so renames the file; a write without `--if-match`, `lif rename` and `lif archive` take no lock, and on a file system without working file locks (some NFS or FUSE mounts) an update with `--if-match` fails with a locking error instead of running unprotected. | n/a | Fixed in 0.15 |
 | [9a66] | `lif-serve` startup log prints `localhost` but binds all interfaces | Fixed in 0.15: the startup log names the address the listener really got and whether the terminal is enabled, and the default address is `127.0.0.1`. | n/a | Fixed in 0.15 |
+| [mgx8] | `create`/`update` help listed built-in names; completion and help failed outside a project | Fixed in 0.15: `lif completion`, `lif help <cmd>`, `lif <cmd> --help` and `lif __complete` run in any directory, and `create` and `update` help list the status, type and priority names of the project config, or the built-in names outside a project. | n/a | Fixed in 0.15 |
+| [3slb] | `lif --version` was rejected | Fixed in 0.15: `lif --version` prints the same text as `lif version`. | n/a | Fixed in 0.15 |
+| [gbl5] | `lif rename --dry-run` hit the same refusals as a real rename | Fixed in 0.15: `lif rename --prefix <new> --dry-run` prints the plan and then lists every refusal, and exits with a non-zero code if there is any; a real rename still stops at the first refusal. | n/a | Fixed in 0.15 |

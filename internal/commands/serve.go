@@ -120,6 +120,9 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 	if err != nil {
 		return err
 	}
+	// A loopback listener also answers under its own address (::1, 127.0.0.2),
+	// which the default list does not name.
+	origins = access.withOwnAddress(origins)
 
 	// Start file watcher for subscriptions
 	if err := core.StartWatching(); err != nil {
@@ -137,7 +140,7 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 	router := gin.New()
 
 	// Add middleware
-	router.Use(gin.Logger())
+	router.Use(accessLog(gin.DefaultWriter))
 	router.Use(gin.Recovery())
 
 	// Access guards come first: a refused request takes no WebSocket slot and
@@ -444,7 +447,8 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 	serverErr := make(chan error, 1)
 
 	// The listener is already open: print what it exposes, then serve on it.
-	for _, line := range access.startupLines(origins) {
+	interfaceAddrs, _ := net.InterfaceAddrs() // none: a listener on all interfaces is shown as localhost
+	for _, line := range access.startupLines(origins, interfaceAddrs) {
 		fmt.Println(line)
 	}
 	go func() {
@@ -497,7 +501,7 @@ func newWorktreeManager(c *config.Config, storeRoot, worktreeRoot string) *workt
 func RegisterServeCmd(root *cobra.Command) {
 	serveCmd.Flags().StringVar(&serveHost, "host", "127.0.0.1", "Address to listen on; any address but a loopback one makes the server reachable from the network and requires the access token")
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", config.DefaultServerPort, "Port to listen on")
-	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", cors.DefaultOrigins, "Origins and hosts of web pages that may use the server (CORS, WebSocket, requests that change state); replaces the default list, * allows every origin")
+	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", cors.DefaultOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
 	serveCmd.Flags().BoolVar(&allowRemoteTerminal, "allow-remote-terminal", false, "Serve the terminal even when the server listens beyond loopback")
 	root.AddCommand(serveCmd)
 }

@@ -384,7 +384,9 @@ type ServerConfig struct {
 	Port int `yaml:"port,omitempty"`
 	// CORSOrigins is the list of allowed origins for CORS and WebSocket.
 	// Supports exact origins and port wildcards (e.g. "http://localhost:*").
-	// Use "*" to allow all origins (not recommended for production).
+	// Use "*" to send the CORS header for every origin so any page can read
+	// the answers; it allows nothing else: changes and the terminal need a
+	// listed origin, and the host check stays on.
 	// Default: ["http://localhost:*", "http://127.0.0.1:*"]
 	CORSOrigins []string `yaml:"cors_origins,omitempty"`
 }

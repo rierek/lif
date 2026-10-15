@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"slices"
@@ -56,6 +57,22 @@ func (a serveAccess) terminalEnabled() bool {
 	return a.loopback || a.allowRemoteTerminal
 }
 
+// withOwnAddress adds the address a loopback listener is bound to to the
+// origin list. ::1 and 127.0.0.2 are loopback addresses too, but the default
+// list names only localhost and 127.0.0.1: without this the URL the server
+// prints for them would be refused by the host check. The list passed in is
+// not modified.
+func (a serveAccess) withOwnAddress(origins []string) []string {
+	if !a.loopback {
+		return origins
+	}
+	own := "http://" + net.JoinHostPort(a.addr.IP.String(), "*")
+	if slices.Contains(origins, own) {
+		return origins
+	}
+	return append(slices.Clone(origins), own)
+}
+
 // middleware returns the guards that run in front of every route. A refused
 // request reaches no handler and takes no WebSocket slot.
 func (a serveAccess) middleware(checker *cors.Checker) []gin.HandlerFunc {
@@ -75,17 +92,19 @@ func (a serveAccess) middleware(checker *cors.Checker) []gin.HandlerFunc {
 //
 // A request that can change state (any method but GET, HEAD and OPTIONS, and
 // every WebSocket upgrade, since GraphQL mutations travel over those too) is
-// refused when its Origin header is outside the list. Browsers send Origin on
-// all of them. Requests without Origin, such as curl and scripts, pass here;
-// on the network the token is what stops them.
+// refused when its Origin header is neither in the list nor the server's own
+// origin (see cors.Checker.CheckOriginFunc). Browsers send Origin on all of
+// them. Requests without Origin, such as curl and scripts, pass here; on the
+// network the token is what stops them.
 func originGuard(checker *cors.Checker, checkHost bool) gin.HandlerFunc {
+	originAllowed := checker.CheckOriginFunc()
 	return func(c *gin.Context) {
 		r := c.Request
 		if checkHost && !checker.IsHostAllowed(r.Host) {
 			deny(c, http.StatusForbidden, fmt.Sprintf("lif-serve: host %q is not allowed (see --cors-origin)", r.Host))
 			return
 		}
-		if origin := r.Header.Get("Origin"); origin != "" && changesState(r) && !checker.IsAllowed(origin) {
+		if origin := r.Header.Get("Origin"); origin != "" && changesState(r) && !originAllowed(r) {
 			deny(c, http.StatusForbidden, fmt.Sprintf("lif-serve: origin %q is not allowed (see --cors-origin)", origin))
 			return
 		}
@@ -148,6 +167,12 @@ func deny(c *gin.Context, status int, message string) {
 	c.Abort()
 }
 
+// accessLog is gin's request logger without the query string. The access
+// token travels in ?token=, and a log is no place for it.
+func accessLog(out io.Writer) gin.HandlerFunc {
+	return gin.LoggerWithConfig(gin.LoggerConfig{Output: out, SkipQueryString: true})
+}
+
 // registerTerminalDisabled answers /api/terminal with the reason. Left
 // unregistered, the route would fall through to the single-page app.
 func registerTerminalDisabled(router *gin.Engine) {
@@ -156,16 +181,36 @@ func registerTerminalDisabled(router *gin.Engine) {
 	})
 }
 
+// networkHost is the host under which a person on the network opens the
+// server: the address of the listener, or for a listener on all interfaces the
+// first LAN address of this machine, or localhost on a machine without one.
+func (a serveAccess) networkHost(interfaceAddrs []net.Addr) string {
+	if !a.addr.IP.IsUnspecified() {
+		return a.addr.IP.String()
+	}
+	if ip := firstGlobalUnicastIPv4(interfaceAddrs); ip != "" {
+		return ip
+	}
+	return "localhost"
+}
+
+// firstGlobalUnicastIPv4 returns the first IPv4 address among addrs that is
+// not loopback, link-local or unspecified. A private LAN address counts.
+func firstGlobalUnicastIPv4(addrs []net.Addr) string {
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok && n.IP.To4() != nil && n.IP.IsGlobalUnicast() {
+			return n.IP.String()
+		}
+	}
+	return ""
+}
+
 // startupLines are the lines the server prints before it starts serving.
 // They name the address the server really listens on and what that exposes.
-func (a serveAccess) startupLines(origins []string) []string {
+// interfaceAddrs are the addresses of this machine (net.InterfaceAddrs): a
+// listener on all interfaces is shown under the first LAN address among them.
+func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) []string {
 	port := strconv.Itoa(a.addr.Port)
-	// A client on this machine reaches a listener on all interfaces as localhost.
-	localHost := a.addr.IP.String()
-	if a.addr.IP.IsUnspecified() {
-		localHost = "localhost"
-	}
-	serverURL := "http://" + net.JoinHostPort(localHost, port) + "/"
 
 	var lines []string
 	add := func(format string, args ...any) {
@@ -180,20 +225,22 @@ func (a serveAccess) startupLines(origins []string) []string {
 	default:
 		add("Listening on %s (non-loopback address: reachable from the network)", a.addr)
 	}
-	if !a.loopback {
-		peer := a.addr.IP.String() // how a client on the network names this server
-		if a.addr.IP.IsUnspecified() {
-			peer = "<address of this machine>"
-		}
+	if a.loopback {
+		serverURL := "http://" + net.JoinHostPort(a.addr.IP.String(), port)
+		add("Starting server at %s/", serverURL)
+		add("GraphQL Playground: %s/playground", serverURL)
+	} else {
+		// Every request needs the token, so the first address a person opens
+		// carries it. Without it the server answers 401.
+		serverURL := "http://" + net.JoinHostPort(a.networkHost(interfaceAddrs), port)
 		add("WARNING: anyone who can reach this port and has the access token can read and change items and run agent sessions as the user running lif-serve. There is no TLS, so the token travels in clear text. Prefer the default loopback address with an SSH tunnel or a VPN.")
 		add("Access token: %s", a.token)
-		add("Open the UI as http://%s/?token=%s and allow that address with --cors-origin 'http://%s:*'", net.JoinHostPort(peer, port), a.token, peer)
+		add("Open the UI: %s/?token=%s", serverURL, a.token)
+		add("GraphQL Playground: %s/playground?token=%s", serverURL, a.token)
 	}
-	add("Starting server at %s", serverURL)
-	add("GraphQL Playground: %splayground", serverURL)
 	add("Allowed origins: %s", strings.Join(origins, ", "))
 	if slices.Contains(origins, "*") {
-		add("WARNING: allowed origins include *: every web page can use this server, and the host and origin checks are off.")
+		add("WARNING: allowed origins include *: every web page can read the answers of this server. Only the UI of this server and the other listed origins can change items or use the terminal, a shell as the user running lif-serve.")
 	}
 	switch {
 	case a.loopback:

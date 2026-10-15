@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rierek/lif/internal/filelock"
 	"github.com/rierek/lif/internal/search"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
@@ -41,12 +42,17 @@ var ErrNotFound = errors.New("item not found")
 
 // ETagMismatchError is returned when an ETag validation fails.
 // This allows callers to distinguish concurrency conflicts from other errors.
+// Current is empty when there is no file to take an etag from: another process
+// renamed, replaced or deleted the item file after the caller read it.
 type ETagMismatchError struct {
 	Provided string
 	Current  string
 }
 
 func (e *ETagMismatchError) Error() string {
+	if e.Current == "" {
+		return fmt.Sprintf("etag mismatch: provided %s, but the item file was renamed, replaced or deleted by another process", e.Provided)
+	}
 	return fmt.Sprintf("etag mismatch: provided %s, current is %s", e.Provided, e.Current)
 }
 
@@ -953,8 +959,17 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	return nil
 }
 
+// itemLockTimeout bounds the wait of an --if-match update for another process
+// that holds the item's file lock. A holder keeps it for one read and one
+// write of a small file, so the bound only matters for a stuck process. It is
+// a variable so that a test can shorten it.
+var itemLockTimeout = 10 * time.Second
+
 // Update modifies an existing item.
 // If ifMatch is provided, validates the current version's etag matches before updating.
+// The check and the write run under a lock on the item's file that every lif
+// process respects, so of two simultaneous updates with the same etag only
+// one succeeds. An update without ifMatch has no check and takes no lock.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error {
 	o := defaultUpdateOptions()
@@ -984,6 +999,31 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 		wtPath = c.worktreeLinks[b.ID]
 	}
 
+	// The in-process lock does not stop another lif process from writing
+	// between the etag check and the write below, so an --if-match write to the
+	// main store also holds an exclusive lock on the item file from before the
+	// etag is read until Update returns.
+	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
+	var lock *filelock.Lock
+	if wantsETagFromDisk && o.persist && wtPath == "" && storedItem.Path != "" {
+		var err error
+		lock, err = filelock.Acquire(filepath.Join(c.root, storedItem.Path), itemLockTimeout)
+		switch {
+		case err == nil:
+			defer lock.Release()
+		case os.IsNotExist(err):
+			// The file the etag names is gone: another process renamed it (a
+			// title change does, once the file is written), moved or deleted it
+			// since this one read the store. The etag cannot match, and a write
+			// would put the old file name back next to the new one.
+			return &ETagMismatchError{Provided: *ifMatch}
+		case errors.Is(err, filelock.ErrTimeout):
+			return fmt.Errorf("item %s is locked by another process (waited %s): %w", b.ID, itemLockTimeout, err)
+		default:
+			return fmt.Errorf("locking item %s: %w", b.ID, err)
+		}
+	}
+
 	// The main-store file backs both checks below: the etag If-Match is
 	// validated against, and the previous status the field policy is measured
 	// from. On the common path — a write to main — both want the same bytes, so
@@ -998,10 +1038,22 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	var mainContent []byte
 	var haveMainContent bool
 	readsMainFile := storedItem.Path != "" && !c.dirty[b.ID]
-	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
 	wantsStatusFromDisk := wtPath == "" && len(c.requiredFieldsFor(b.Status)) > 0
 	if readsMainFile && (wantsETagFromDisk || wantsStatusFromDisk) {
-		if content, err := os.ReadFile(filepath.Join(c.root, storedItem.Path)); err == nil {
+		mainPath := filepath.Join(c.root, storedItem.Path)
+		if lock != nil {
+			// Read through the lock: it also says whether the name still
+			// leads to the file it guards. A writer that waited may find that
+			// the one that went first renamed or replaced the file.
+			content, err := lock.ReadFile(mainPath)
+			if os.IsNotExist(err) || errors.Is(err, filelock.ErrReplaced) {
+				return &ETagMismatchError{Provided: *ifMatch}
+			}
+			if err != nil {
+				return fmt.Errorf("reading item %s: %w", b.ID, err)
+			}
+			mainContent, haveMainContent = content, true
+		} else if content, err := os.ReadFile(mainPath); err == nil {
 			mainContent, haveMainContent = content, true
 		}
 	}
@@ -1400,8 +1452,9 @@ func (c *Core) LoadAndUnarchive(id string) (*item.Item, error) {
 	return b.Clone(), nil
 }
 
-// Init creates the .beans directory if it doesn't exist,
-// and writes a .gitignore to exclude generated content.
+// Init creates the items directory if it doesn't exist, and writes a
+// .gitignore to exclude generated content unless the directory has one: an
+// existing .gitignore may hold the user's own rules.
 func (c *Core) Init() error {
 	if err := os.MkdirAll(c.root, 0755); err != nil {
 		return err
@@ -1515,13 +1568,25 @@ func (c *Core) ValidatePrefixConsistency() string {
 	return ""
 }
 
-// writeGitignore creates or overwrites a .gitignore in the items directory
-// to exclude conversation logs from version control.
+// writeGitignore creates a .gitignore in the items directory to exclude
+// conversation logs from version control. A .gitignore that is already there
+// stays as it is: it may hold the user's own rules.
 // Note: worktrees are stored outside the repo (in ~/.lif/worktrees/<project>/,
 // or ~/.beans/worktrees/<project>/ for a project that already has that root).
 func writeGitignore(itemsDir string) error {
 	content := "# Generated by lif init\n.conversations/\n"
-	return os.WriteFile(filepath.Join(itemsDir, ".gitignore"), []byte(content), 0644)
+	f, err := os.OpenFile(filepath.Join(itemsDir, ".gitignore"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if os.IsExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(content)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }
 
 // migrateLegacyDirs renames old-style directories (worktrees/, conversations/)

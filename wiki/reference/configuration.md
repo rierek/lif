@@ -148,8 +148,9 @@ would create cycle: [...]
 | Verified | Not verified |
 |---|---|
 | Configuration: default type, default priority and tags, colors, theme, effort, prefix consistency | Duplicate IDs |
-| Type of every item against the type table | File name and ID that do not match |
-| Status and priority values, tag format | Front matter syntax beyond loading |
+| Type of every item against the type table | Front matter syntax beyond loading |
+| Status and priority values, tag format | |
+| File name against the ID the file records in its `# <id>` line, with the links that dangle (a hand rename, since 0.15) | |
 | Parent of the wrong type rank: `✗ item <id> (epic) cannot sit under parent <id> (task): parent must rank higher` | |
 | Broken links, self-references, cycles in `parent`, `blocking`, `blocked_by` | |
 | Orphaned `attachments/<id>` directories | |

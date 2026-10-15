@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -169,6 +170,13 @@ type Item struct {
 	// Extra holds front matter keys not covered by any typed field above.
 	Extra map[string]any `yaml:"-" json:"extra,omitempty"`
 
+	// RecordedID is the ID the file names itself in the "# <id>" comment on
+	// its first front matter line, or "" when it has none. ID comes from the
+	// file name, so the two differ after a hand rename; lif check reports
+	// that. It follows the bytes that back the item (see SetContentETag) and
+	// is never written or serialized.
+	RecordedID string `yaml:"-" json:"-"`
+
 	// contentETag is the hash of the bytes this item was parsed from, or of
 	// the bytes last written for it. It is the single source of the etag:
 	// see ETag. Unexported so neither YAML nor JSON ever carries it.
@@ -233,32 +241,69 @@ func ReservedKeyFlag(key string) (flag string, known bool) {
 
 // normalizeYAMLValue converts the map[interface{}]interface{} produced by the
 // yaml.v2 decoder (used internally by the frontmatter library) into
-// map[string]any, recursively, so Extra stays JSON-marshalable.
-func normalizeYAMLValue(v any) any {
+// map[string]any, recursively, so Extra stays JSON-marshalable. It refuses
+// NaN and infinite numbers, the one kind of value a decoder accepts and JSON
+// cannot carry; path (meta.ratio, scores[1]) names the key in the error.
+// It works in place: the decoder output is owned by the caller.
+func normalizeYAMLValue(path string, v any) (any, error) {
 	switch typed := v.(type) {
 	case map[interface{}]interface{}:
-		result := make(map[string]any, len(typed))
+		m := make(map[string]any, len(typed))
 		for k, val := range typed {
-			result[fmt.Sprintf("%v", k)] = normalizeYAMLValue(val)
+			m[fmt.Sprintf("%v", k)] = val
 		}
-		return result
+		return normalizeMap(path, m)
+	case map[string]interface{}: // TOML and JSON front matter decode to this
+		return normalizeMap(path, typed)
+	case []map[string]interface{}: // a TOML array of tables
+		for i, m := range typed {
+			if _, err := normalizeMap(fmt.Sprintf("%s[%d]", path, i), m); err != nil {
+				return nil, err
+			}
+		}
+		return typed, nil
 	case []interface{}:
-		result := make([]interface{}, len(typed))
 		for i, val := range typed {
-			result[i] = normalizeYAMLValue(val)
+			n, err := normalizeYAMLValue(fmt.Sprintf("%s[%d]", path, i), val)
+			if err != nil {
+				return nil, err
+			}
+			typed[i] = n
 		}
-		return result
-	default:
-		return v
+		return typed, nil
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return nil, fmt.Errorf("key %q holds %v: only finite numbers are supported, quote the value to keep it as text", path, typed)
+		}
 	}
+	return v, nil
 }
 
-// Parse reads an item from a reader (markdown with YAML front matter).
+func normalizeMap(path string, m map[string]any) (any, error) {
+	for k, val := range m {
+		n, err := normalizeYAMLValue(path+"."+k, val)
+		if err != nil {
+			return nil, err
+		}
+		m[k] = n
+	}
+	return m, nil
+}
+
+// utf8BOM is the byte order mark some editors put in front of the first line
+// of a file. The front matter reader does not know it and would treat the
+// whole file as body.
+var utf8BOM = []byte("\xEF\xBB\xBF")
+
+// Parse reads an item from a reader (markdown with YAML front matter). A
+// leading UTF-8 byte order mark is ignored; the etag still hashes the bytes
+// as they are on disk, because Core.Update hashes the file the same way.
 func Parse(r io.Reader) (*Item, error) {
-	data, err := io.ReadAll(r)
+	onDisk, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("reading item: %w", err)
 	}
+	data := bytes.TrimPrefix(onDisk, utf8BOM)
 
 	var fm frontMatter
 	body, err := frontmatter.Parse(bytes.NewReader(data), &fm)
@@ -278,7 +323,11 @@ func Parse(r io.Reader) (*Item, error) {
 		if extra == nil {
 			extra = make(map[string]any, len(raw))
 		}
-		extra[key] = normalizeYAMLValue(value)
+		normalized, err := normalizeYAMLValue(key, value)
+		if err != nil {
+			return nil, fmt.Errorf("parsing front matter: %w", err)
+		}
+		extra[key] = normalized
 	}
 
 	// Trim trailing newline from body (POSIX files end with newline, but it's not part of content)
@@ -298,8 +347,40 @@ func Parse(r io.Reader) (*Item, error) {
 		Blocking:    fm.Blocking,
 		BlockedBy:   fm.BlockedBy,
 		Extra:       extra,
-		contentETag: ETagOf(data),
+		RecordedID:  recordedID(data),
+		contentETag: ETagOf(onDisk),
 	}, nil
+}
+
+// recordedID returns the ID that the first front matter line of data records
+// as a "# <id>" comment (see Render), or "" when there is none. It finds the
+// opening delimiter the way the front matter reader does, skipping blank
+// lines before it. A comment of several words is a note, not an ID.
+func recordedID(data []byte) string {
+	next := func() (string, bool) {
+		if len(data) == 0 {
+			return "", false
+		}
+		var line []byte
+		line, data, _ = bytes.Cut(data, []byte("\n"))
+		return string(bytes.TrimSpace(line)), true
+	}
+	line, ok := next()
+	for ok && line == "" {
+		line, ok = next()
+	}
+	if !ok || line != "---" {
+		return ""
+	}
+	if line, ok = next(); !ok {
+		return ""
+	}
+	id, found := strings.CutPrefix(line, "#")
+	id = strings.TrimSpace(id)
+	if !found || id == "" || strings.ContainsAny(id, " \t") {
+		return ""
+	}
+	return id
 }
 
 // renderFrontMatter is used for YAML output with yaml.v3 (supports custom marshalers).
@@ -434,10 +515,12 @@ func (b *Item) MarshalJSON() ([]byte, error) {
 }
 
 // SetContentETag records the bytes now backing this item, so that ETag keeps
-// reporting the token the write path validates against. Callers that persist a
-// item MUST call this with the exact bytes they wrote.
+// reporting the token the write path validates against, and RecordedID the ID
+// those bytes record. Callers that persist a item MUST call this with the
+// exact bytes they wrote.
 func (b *Item) SetContentETag(content []byte) {
 	b.contentETag = ETagOf(content)
+	b.RecordedID = recordedID(bytes.TrimPrefix(content, utf8BOM))
 }
 
 // Clone returns an independent copy of the item, safe to hand to a reader

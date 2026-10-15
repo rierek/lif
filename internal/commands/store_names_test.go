@@ -188,7 +188,7 @@ func TestLegacyProject_ReadCommandsAndInitLeaveItemFilesAlone(t *testing.T) {
 		{"check", "--strict"},
 		{"list", "-S", "First"},
 		{"prime"},
-		{"init"},
+		{"init", "--force"},
 	}
 	for _, args := range cases {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -385,7 +385,7 @@ func TestInit_NamesByDirectoryState(t *testing.T) {
 	t.Run("legacy project is re-initialized in place", func(t *testing.T) {
 		dir := legacyProject(t)
 		before := dirNames(t, dir)
-		if _, stderr, err := runInProject(t, dir, "init"); err != nil {
+		if _, stderr, err := runInProject(t, dir, "init", "--force"); err != nil {
 			t.Fatalf("init error = %v\nstderr: %s", err, stderr)
 		}
 		if got := dirNames(t, dir); strings.Join(got, ",") != strings.Join(before, ",") {
@@ -419,7 +419,7 @@ func TestInit_NamesByDirectoryState(t *testing.T) {
 		t.Run("only a legacy config file ("+name+") gets the legacy store", func(t *testing.T) {
 			dir := evalSymlinks(t, t.TempDir())
 			writeFixtureFile(t, filepath.Join(dir, config.LegacyConfigFileName), content)
-			if _, stderr, err := runInProject(t, dir, "init"); err != nil {
+			if _, stderr, err := runInProject(t, dir, "init", "--force"); err != nil {
 				t.Fatalf("init error = %v\nstderr: %s", err, stderr)
 			}
 			if got := strings.Join(dirNames(t, dir), ","); got != config.LegacyDefaultStoreDir+","+config.LegacyConfigFileName {
@@ -438,7 +438,7 @@ func TestInit_NamesByDirectoryState(t *testing.T) {
 	t.Run("only a new config file gets the new store", func(t *testing.T) {
 		dir := evalSymlinks(t, t.TempDir())
 		writeFixtureFile(t, filepath.Join(dir, config.ConfigFileName), "lif:\n    prefix: new-\n")
-		if _, stderr, err := runInProject(t, dir, "init"); err != nil {
+		if _, stderr, err := runInProject(t, dir, "init", "--force"); err != nil {
 			t.Fatalf("init error = %v\nstderr: %s", err, stderr)
 		}
 		if got := strings.Join(dirNames(t, dir), ","); got != config.DefaultStoreDir+","+config.ConfigFileName {

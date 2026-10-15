@@ -581,11 +581,73 @@ func (c *Core) RemoveLinksTo(targetID string) (int, error) {
 	return removed, nil
 }
 
-// FixBrokenLinks removes all broken links (links to non-existent items) and self-references.
-// Returns the number of issues fixed.
+// HandRenamed returns the items whose file name gives another ID than the
+// file records in its "# <id>" line, in the order of items. The usual cause
+// is a file renamed by hand. The first line of a hand-made file can hold a
+// note ("# WIP") instead; only a token that can be an ID counts as a record:
+// it starts with prefix, which Lif writes into every ID it makes, or some
+// item links to it, which shows it was one. Without a prefix every token
+// can be an ID.
+func HandRenamed(items []*item.Item, prefix string) []*item.Item {
+	linked := map[string]bool{}
+	for _, b := range items {
+		linked[b.Parent] = true
+		for _, id := range b.Blocking {
+			linked[id] = true
+		}
+		for _, id := range b.BlockedBy {
+			linked[id] = true
+		}
+	}
+	var out []*item.Item
+	for _, b := range items {
+		if b.RecordedID != "" && b.RecordedID != b.ID && (strings.HasPrefix(b.RecordedID, prefix) || linked[b.RecordedID]) {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// RenamedAwayIDs maps each ID that a hand-renamed file records (see
+// HandRenamed) while no loaded item answers to it, to the path of that file.
+// After a rename by hand the item is there under the ID its new file name
+// gives, and the links that still name the old ID dangle only until the file
+// has its ID back, so a repair of dangling links must leave them alone. When
+// several files record the same ID, the smallest path is named.
+func RenamedAwayIDs(items []*item.Item, prefix string) map[string]string {
+	loaded := make(map[string]bool, len(items))
+	for _, b := range items {
+		loaded[b.ID] = true
+	}
+	away := map[string]string{}
+	for _, b := range HandRenamed(items, prefix) {
+		if loaded[b.RecordedID] {
+			continue
+		}
+		if path, ok := away[b.RecordedID]; !ok || b.Path < path {
+			away[b.RecordedID] = b.Path
+		}
+	}
+	return away
+}
+
+// FixBrokenLinks removes all broken links (links to non-existent items) and
+// self-references. A link to an ID that a file renamed by hand still records
+// is kept (see RenamedAwayIDs). Returns the number of issues fixed.
 func (c *Core) FixBrokenLinks() (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	prefix := ""
+	if c.config != nil {
+		prefix = c.config.Items.Prefix
+	}
+	away := RenamedAwayIDs(c.allItemsLocked(), prefix)
+	dangles := func(id string) bool {
+		_, loaded := c.items[id]
+		_, renamed := away[id]
+		return !loaded && !renamed
+	}
 
 	fixed := 0
 	for _, b := range c.items {
@@ -598,7 +660,7 @@ func (c *Core) FixBrokenLinks() (int, error) {
 				b.Parent = ""
 				changed = true
 				fixed++
-			} else if _, ok := c.items[b.Parent]; !ok {
+			} else if dangles(b.Parent) {
 				b.Parent = ""
 				changed = true
 				fixed++
@@ -614,7 +676,7 @@ func (c *Core) FixBrokenLinks() (int, error) {
 				continue
 			}
 			// Skip broken links (target doesn't exist)
-			if _, ok := c.items[blocked]; !ok {
+			if dangles(blocked) {
 				continue
 			}
 			newBlocking = append(newBlocking, blocked)
@@ -634,7 +696,7 @@ func (c *Core) FixBrokenLinks() (int, error) {
 				continue
 			}
 			// Skip broken links (target doesn't exist)
-			if _, ok := c.items[blocker]; !ok {
+			if dangles(blocker) {
 				continue
 			}
 			newBlockedBy = append(newBlockedBy, blocker)

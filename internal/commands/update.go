@@ -381,7 +381,7 @@ func RegisterUpdateCmd(root *cobra.Command) {
 	updateCmd.Flags().StringArrayVar(&updateRemoveTag, "remove-tag", nil, "Remove tag (can be repeated)")
 	updateCmd.Flags().StringArrayVar(&updateSet, "set", nil, "Set an extra front matter key as key=value (can be repeated)")
 	updateCmd.Flags().StringArrayVar(&updateUnset, "unset", nil, "Remove an extra front matter key (can be repeated)")
-	updateCmd.Flags().StringVar(&updateIfMatch, "if-match", "", "Only update if etag matches (optimistic locking)")
+	updateCmd.Flags().StringVar(&updateIfMatch, "if-match", "", "Only update if etag matches (optimistic locking); the item file is locked from the check to the write, so of two simultaneous updates with the same etag only one succeeds")
 	updateCmd.MarkFlagsMutuallyExclusive("parent", "remove-parent")
 	updateCmd.Flags().BoolVar(&updateJSON, "json", false, "Output as JSON")
 	// body and body-file are mutually exclusive with body modifications

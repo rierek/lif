@@ -37,16 +37,7 @@ func (b *syncBuffer) String() string {
 // GraphQL playground is titled for the product. serve blocks until it is
 // killed, so the test runs the real lif-serve binary as a subprocess.
 func TestServeLogLinesCarryTheLifPrefix(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	serveBin := filepath.Join(t.TempDir(), "lif-serve")
-	build := exec.Command("go", "build", "-o", serveBin, "./cmd/lif-serve")
-	build.Dir = repoRoot
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building lif-serve: %v\n%s", err, out)
-	}
+	serveBin := serveTestBinary(t)
 
 	project := t.TempDir()
 	store := filepath.Join(project, ".lif")
@@ -97,7 +88,7 @@ func TestServeLogLinesCarryTheLifPrefix(t *testing.T) {
 	})
 
 	deadline := time.Now().Add(30 * time.Second)
-	for !strings.Contains(out.String(), "Allowed origins") {
+	for !strings.Contains(out.String(), "[lif] Terminal: ") {
 		if time.Now().After(deadline) {
 			t.Fatalf("serve did not report its startup lines in time:\n%s", out.String())
 		}
@@ -109,9 +100,11 @@ func TestServeLogLinesCarryTheLifPrefix(t *testing.T) {
 		"[lif] worktrees directory: ",
 		"[lif] WARNING: found old worktrees in ",
 		"[lif] detected forge: ",
-		fmt.Sprintf("[lif] Starting server at http://localhost:%d/", port),
-		fmt.Sprintf("[lif] GraphQL Playground: http://localhost:%d/playground", port),
+		fmt.Sprintf("[lif] Listening on 127.0.0.1:%d (loopback only", port),
+		fmt.Sprintf("[lif] Starting server at http://127.0.0.1:%d/", port),
+		fmt.Sprintf("[lif] GraphQL Playground: http://127.0.0.1:%d/playground", port),
 		"[lif] Allowed origins: ",
+		"[lif] Terminal: enabled",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("serve output lacks %q:\n%s", want, got)

@@ -1,7 +1,9 @@
 package cors
 
 import (
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -14,9 +16,12 @@ var DefaultOrigins = []string{
 
 // Checker validates HTTP origins against an allowlist.
 // Patterns support a trailing `:*` wildcard to match any port.
+// The hosts the patterns name also tell which Host headers the server
+// answers to (see IsHostAllowed).
 type Checker struct {
 	allowAll bool
 	patterns []pattern
+	hosts    []string // host names of the patterns, lower case, no port
 }
 
 type pattern struct {
@@ -38,6 +43,9 @@ func NewChecker(origins []string) *Checker {
 			return c
 		}
 		c.patterns = append(c.patterns, parsePattern(o))
+		if h := patternHost(o); h != "" {
+			c.hosts = append(c.hosts, h)
+		}
 	}
 	return c
 }
@@ -50,6 +58,16 @@ func parsePattern(s string) pattern {
 		}
 	}
 	return pattern{exact: s}
+}
+
+// patternHost returns the lower-case host name of an origin pattern, without
+// scheme and port, or "" if the pattern names none.
+func patternHost(s string) string {
+	u, err := url.Parse(strings.TrimSuffix(s, ":*"))
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
 }
 
 // IsAllowed returns true if the given origin is allowed.
@@ -70,6 +88,27 @@ func (c *Checker) IsAllowed(origin string) bool {
 				}
 			}
 		} else if p.exact == origin {
+			return true
+		}
+	}
+	return false
+}
+
+// IsHostAllowed returns true if the Host header of a request names a host of
+// the allowlist, whatever the port. A page that reaches the server under any
+// other name, as in DNS rebinding where an attacker's name resolves to this
+// machine, is not allowed. An absent Host is not allowed.
+func (c *Checker) IsHostAllowed(hostHeader string) bool {
+	if c.allowAll {
+		return true
+	}
+	host, _, err := net.SplitHostPort(hostHeader)
+	if err != nil {
+		host = strings.Trim(hostHeader, "[]") // no port: a bare name or "[::1]"
+	}
+	host = strings.ToLower(host)
+	for _, h := range c.hosts {
+		if h == host {
 			return true
 		}
 	}

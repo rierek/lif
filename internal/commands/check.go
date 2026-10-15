@@ -64,18 +64,16 @@ func itemFieldIssues(allItems []*item.Item) []string {
 }
 
 // itemIDIssues reports every item whose file name gives another ID than the
-// "# <id>" line inside the file records. The usual cause is a file renamed by
-// hand: the file name wins, so the item answers to the new ID and every link
-// to the recorded one no longer resolves. Each issue names the file, both
-// IDs and the items whose links now dangle. A file that records the ID of
-// another loaded item is a copy; its issue lists no dangling links.
-func itemIDIssues(allItems []*item.Item) []string {
-	away := itemcore.RenamedAwayIDs(allItems)
+// "# <id>" line inside the file records (see itemcore.HandRenamed; prefix is
+// the project prefix). The usual cause is a file renamed by hand: the file
+// name wins, so the item answers to the new ID and every link to the
+// recorded one no longer resolves. Each issue names the file, both IDs and
+// the items whose links now dangle. A file that records the ID of another
+// loaded item is a copy; its issue lists no dangling links.
+func itemIDIssues(allItems []*item.Item, prefix string) []string {
+	away := itemcore.RenamedAwayIDs(allItems, prefix)
 	var out []string
-	for _, b := range allItems {
-		if b.RecordedID == "" || b.RecordedID == b.ID {
-			continue
-		}
+	for _, b := range itemcore.HandRenamed(allItems, prefix) {
 		msg := fmt.Sprintf("item %s: file name %s gives ID %s but the file records ID %s (renamed by hand? rename it back; lif rename changes an ID together with its links)",
 			b.ID, filepath.Base(b.Path), b.ID, b.RecordedID)
 		if _, renamed := away[b.RecordedID]; renamed {
@@ -276,7 +274,7 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 		}
 
 		// 2b-4. Check that every file name gives the ID the file records
-		if issues := itemIDIssues(allItems); len(issues) > 0 {
+		if issues := itemIDIssues(allItems, cfg.Items.Prefix); len(issues) > 0 {
 			configErrors = append(configErrors, issues...)
 		} else if !checkJSON {
 			fmt.Printf("  %s File names give the IDs the files record\n", ui.Success.Render("✓"))
@@ -390,7 +388,7 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 
 			// A link to the ID that a renamed file still records is not fixed:
 			// it is kept, shown as kept, and stays a finding.
-			away := itemcore.RenamedAwayIDs(allItems)
+			away := itemcore.RenamedAwayIDs(allItems, cfg.Items.Prefix)
 			kept := []itemcore.BrokenLink{}
 			for _, bl := range linkResult.BrokenLinks {
 				if file, renamed := away[bl.Target]; renamed {

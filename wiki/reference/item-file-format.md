@@ -11,7 +11,7 @@ An item is stored as one Markdown file. **Liff** (plural **Liffs**) is short for
 
 - Layout: `---`, YAML front matter, `---`, Markdown body.
 - A UTF-8 byte order mark (BOM) in front of the first `---` is ignored on read. Lif never writes one.
-- The first front matter line is a YAML comment `# <id>`. Lif writes it when the ID is known. It is a record, not the ID: `lif check` compares it with the ID from the file name.
+- The first front matter line is a YAML comment `# <id>`. Lif writes it when the ID is known. It is a record, not the ID: `lif check` compares it with the ID from the file name. A comment counts as a record only when it is one word that starts with the project prefix or that some item links to; a note such as `# WIP` is ignored.
 - ID and slug are not front matter fields. Lif derives them from the file name. A file renamed by hand therefore changes the ID and breaks every link to the old one.
 
 ## File name and ID

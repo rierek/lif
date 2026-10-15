@@ -151,7 +151,7 @@ func TestItemIDIssuesNamesBothIDsTheFileAndDanglingLinks(t *testing.T) {
 		{ID: "ex-ref2", Path: "ex-ref2--hold.md", RecordedID: "ex-ref2", Blocking: []string{"ex-old1"}},
 	}
 
-	got := itemIDIssues(items)
+	got := itemIDIssues(items, "ex-")
 
 	if len(got) != 1 {
 		t.Fatalf("itemIDIssues() = %q, want exactly one issue, for the renamed file", got)
@@ -172,13 +172,25 @@ func TestItemIDIssuesReportsACopyWithoutDanglingLinks(t *testing.T) {
 		{ID: "ex-ref1", Path: "ex-ref1--ship.md", RecordedID: "ex-ref1", BlockedBy: []string{"ex-ok01"}},
 	}
 
-	got := itemIDIssues(items)
+	got := itemIDIssues(items, "ex-")
 
 	if len(got) != 1 || !strings.Contains(got[0], "ex-copy") || !strings.Contains(got[0], "ex-ok01") {
 		t.Fatalf("itemIDIssues() = %q, want one issue naming ex-copy and ex-ok01", got)
 	}
 	if strings.Contains(got[0], "dangle") {
 		t.Errorf("issue claims dangling links although ex-ok01 exists:\n%s", got[0])
+	}
+}
+
+// beans-533z (review N3): a note on the first front matter line is no record
+// of an ID. `lif check` once failed on `# WIP` as a file renamed by hand.
+func TestCheckIgnoresANoteOnTheFirstFrontMatterLine(t *testing.T) {
+	dir := integrityProject(t, map[string]string{
+		"ex-aaa1--noted.md": integrityItem("WIP", "Noted", ""),
+	})
+
+	if stdout, stderr, exit := runLif(t, dir, "check"); exit != 0 || !strings.Contains(stdout, "All checks passed") {
+		t.Errorf("lif check: exit code = %d, want 0 for a file whose first comment is a note\nstdout: %s\nstderr: %s", exit, stdout, stderr)
 	}
 }
 

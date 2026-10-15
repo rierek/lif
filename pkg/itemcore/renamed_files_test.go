@@ -48,11 +48,38 @@ func TestRenamedAwayIDsNamesTheIDsOfFilesRenamedByHand(t *testing.T) {
 		{ID: "ex-two3", Path: "a/ex-two3--x.md", RecordedID: "ex-gone"},
 	}
 
-	got := RenamedAwayIDs(items)
+	got := RenamedAwayIDs(items, "ex-")
 
 	want := map[string]string{"ex-zyo0": "ex-new1--docs.md", "ex-gone": "a/ex-two3--x.md"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("RenamedAwayIDs() = %v, want %v", got, want)
+	}
+}
+
+// beans-533z (review N3): the first front matter line of a hand-made file can
+// be a note ("# WIP"). Only a token that can be an ID counts as a record: it
+// starts with the project prefix, which Lif writes into every ID it makes, or
+// some item links to it, which proves it was one.
+func TestHandRenamedIgnoresACommentThatIsNoID(t *testing.T) {
+	items := []*item.Item{
+		{ID: "ex-aaa1", Path: "ex-aaa1--a.md", RecordedID: "WIP"},
+		{ID: "ex-bbb2", Path: "ex-bbb2--b.md", RecordedID: "todo"},
+		{ID: "ex-ccc3", Path: "ex-ccc3--c.md", RecordedID: "ex-old3"},
+		{ID: "ex-ddd4", Path: "ex-ddd4--d.md", RecordedID: "legacy4"},
+		{ID: "ex-eee5", Path: "ex-eee5--e.md", RecordedID: "ex-eee5", BlockedBy: []string{"legacy4"}},
+	}
+
+	var got []string
+	for _, b := range HandRenamed(items, "ex-") {
+		got = append(got, b.ID)
+	}
+	if want := []string{"ex-ccc3", "ex-ddd4"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("HandRenamed() = %v, want %v: a note counted as an ID, or an ID with a link or the prefix did not", got, want)
+	}
+
+	// A project without a prefix cannot tell: every token may be an ID.
+	if got := HandRenamed(items[:1], ""); len(got) != 1 {
+		t.Errorf("HandRenamed() without a prefix = %v, want the one item", got)
 	}
 }
 

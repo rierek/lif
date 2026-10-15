@@ -83,8 +83,9 @@ func ParentCandidates(ctx context.Context, resolver *itemgraph.CoreResolver, cfg
 
 // BlockingCandidates returns every item other than itemID, sorted by type
 // order then title (case-insensitive). Like ParentCandidates, it excludes
-// itemID's own descendants: an item may not block or be blocked by an item
-// in its own subtree.
+// itemID's own descendants, and it excludes the items on itemID's parent chain
+// as well: an item may not block or be blocked by an item in its own subtree
+// or above it, because such a link could never be released (beans-o8bs).
 func BlockingCandidates(ctx context.Context, resolver *itemgraph.CoreResolver, cfg *config.Config, itemID string) ([]*item.Item, error) {
 	allItems, err := resolver.Items(ctx, nil)
 	if err != nil {
@@ -92,13 +93,14 @@ func BlockingCandidates(ctx context.Context, resolver *itemgraph.CoreResolver, c
 	}
 
 	descendants := collectDescendants(itemID, allItems)
+	ancestors := collectAncestors(itemID, allItems)
 
 	var eligibleItems []*item.Item
 	for _, b := range allItems {
 		if b.ID == itemID {
 			continue
 		}
-		if descendants[b.ID] {
+		if descendants[b.ID] || ancestors[b.ID] {
 			continue
 		}
 		eligibleItems = append(eligibleItems, b)
@@ -221,4 +223,20 @@ func collectDescendants(itemID string, allItems []*item.Item) map[string]bool {
 	}
 
 	return descendants
+}
+
+// collectAncestors returns a set of the IDs on the parent chain above the
+// given item: its parent, that item's parent, and so on to the root.
+func collectAncestors(itemID string, allItems []*item.Item) map[string]bool {
+	parents := make(map[string]string, len(allItems))
+	for _, b := range allItems {
+		parents[b.ID] = b.Parent
+	}
+
+	ancestors := make(map[string]bool)
+	// A hand-edited parent loop ends the walk at the first item seen twice.
+	for id := parents[itemID]; id != "" && id != itemID && !ancestors[id]; id = parents[id] {
+		ancestors[id] = true
+	}
+	return ancestors
 }

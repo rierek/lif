@@ -109,7 +109,13 @@ func TestParentCandidates_ExcludesDescendants(t *testing.T) {
 	}
 }
 
-func TestBlockingCandidates_ExcludesDescendants(t *testing.T) {
+// TestBlockingCandidates_ExcludesTheSubtreeAndTheParentChain pins what the
+// blocking pickers and the --blocking/--blocked-by completion offer
+// (beans-o8bs): an item can neither block nor wait for an item in its own
+// subtree or on its own parent chain, because lif refuses the link. For
+// beans-f1 that leaves out its descendants beans-t1 and beans-m3 and its
+// ancestors beans-e1 and beans-m1.
+func TestBlockingCandidates_ExcludesTheSubtreeAndTheParentChain(t *testing.T) {
 	resolver, cfg := fixture(t)
 
 	got, err := BlockingCandidates(context.Background(), resolver, cfg, "beans-f1")
@@ -117,15 +123,49 @@ func TestBlockingCandidates_ExcludesDescendants(t *testing.T) {
 		t.Fatalf("BlockingCandidates: %v", err)
 	}
 
-	mustEqual(t, ids(got), []string{"beans-m1", "beans-m2", "beans-e1", "beans-e2", "beans-f2"})
+	mustEqual(t, ids(got), []string{"beans-m2", "beans-e2", "beans-f2"})
+}
 
-	for _, excluded := range []string{"beans-t1", "beans-m3"} {
-		for _, id := range ids(got) {
-			if id == excluded {
-				t.Fatalf("expected %s (descendant of beans-f1) to be excluded from blocking candidates, got %v", excluded, ids(got))
-			}
+// A task three levels down has the whole chain above it excluded, not only
+// its direct parent.
+func TestBlockingCandidates_ExcludesEveryAncestor(t *testing.T) {
+	resolver, cfg := fixture(t)
+
+	got, err := BlockingCandidates(context.Background(), resolver, cfg, "beans-t1")
+	if err != nil {
+		t.Fatalf("BlockingCandidates: %v", err)
+	}
+
+	// beans-f1, beans-e1 and beans-m1 are its ancestors, beans-m3 its child.
+	mustEqual(t, ids(got), []string{"beans-m2", "beans-e2", "beans-f2"})
+}
+
+// A hand-edited parent loop must not hang the ancestor walk.
+func TestBlockingCandidates_SurvivesAParentLoop(t *testing.T) {
+	itemsDir := filepath.Join(t.TempDir(), ".beans")
+	if err := os.MkdirAll(itemsDir, 0755); err != nil {
+		t.Fatalf("creating test .beans dir: %v", err)
+	}
+	cfg := config.Default()
+	core := itemcore.New(itemsDir, cfg)
+	if err := core.Load(); err != nil {
+		t.Fatalf("loading core: %v", err)
+	}
+	for _, b := range []*item.Item{
+		{ID: "loop-a", Slug: "a", Title: "A", Status: "todo", Type: "task", Parent: "loop-b"},
+		{ID: "loop-b", Slug: "b", Title: "B", Status: "todo", Type: "task", Parent: "loop-a"},
+		{ID: "loop-c", Slug: "c", Title: "C", Status: "todo", Type: "task"},
+	} {
+		if err := core.Create(b); err != nil {
+			t.Fatalf("core.Create(%s): %v", b.ID, err)
 		}
 	}
+
+	got, err := BlockingCandidates(context.Background(), &itemgraph.CoreResolver{Core: core}, cfg, "loop-a")
+	if err != nil {
+		t.Fatalf("BlockingCandidates: %v", err)
+	}
+	mustEqual(t, ids(got), []string{"loop-c"})
 }
 
 // TestStatusCandidates_ReflectsConfigOverride builds a *config.Config

@@ -68,7 +68,7 @@ An extra key must not hold `.nan`, `.inf` or `-.inf`, alone or inside a list or 
 ## Body
 
 - The body is the Markdown after the front matter. A trailing line break is not part of it. At most 1 MiB on write.
-- The ETag is a hash of the file bytes. It supports optimistic locking with `--if-match` and GraphQL `ifMatch`. `require_if_match: true` makes it mandatory.
+- The ETag is a hash of the file bytes. It supports optimistic locking with `--if-match` and GraphQL `ifMatch`. `require_if_match: true` makes it mandatory. Since 0.15 the update holds a lock on the item file from the check to the write, so two simultaneous writers with the same ETag cannot both succeed. On a file system without working file locks (some NFS or FUSE mounts) an update with `--if-match` fails with a locking error.
 - `lif complete --summary` appends a section `## Summary of Changes`. `lif scrap --reason` appends `## Reason for Scrapping`.
 
 ## Where files live

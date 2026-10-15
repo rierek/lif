@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rierek/lif/internal/filelock"
 	"github.com/rierek/lif/internal/search"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
@@ -953,8 +954,16 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	return nil
 }
 
+// itemLockTimeout bounds the wait of an --if-match update for another process
+// that holds the item's file lock. A holder keeps it for one read and one
+// write of a small file, so the bound only matters for a stuck process.
+const itemLockTimeout = 10 * time.Second
+
 // Update modifies an existing item.
 // If ifMatch is provided, validates the current version's etag matches before updating.
+// The check and the write run under a lock on the item's file that every lif
+// process respects, so of two simultaneous updates with the same etag only
+// one succeeds. An update without ifMatch has no check and takes no lock.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error {
 	o := defaultUpdateOptions()
@@ -982,6 +991,25 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	wtPath := o.worktreePath
 	if wtPath == "" {
 		wtPath = c.worktreeLinks[b.ID]
+	}
+
+	// The in-process lock does not stop another lif process from writing
+	// between the etag check and the write below, so an --if-match write to the
+	// main store also holds an exclusive lock on the item file from before
+	// the etag is read until Update returns.
+	if ifMatch != nil && *ifMatch != "" && o.persist && wtPath == "" && storedItem.Path != "" {
+		lock, err := filelock.Acquire(filepath.Join(c.root, storedItem.Path), itemLockTimeout)
+		switch {
+		case err == nil:
+			defer lock.Release()
+		case os.IsNotExist(err):
+			// The file is gone: nothing to lock and nothing to read, so the
+			// stored etag decides, as it did before the lock existed.
+		case errors.Is(err, filelock.ErrTimeout):
+			return fmt.Errorf("item %s is locked by another process (waited %s): %w", b.ID, itemLockTimeout, err)
+		default:
+			return fmt.Errorf("locking item %s: %w", b.ID, err)
+		}
 	}
 
 	// The main-store file backs both checks below: the etag If-Match is

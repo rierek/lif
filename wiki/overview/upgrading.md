@@ -19,7 +19,27 @@ Review the [Releases](../../releases/) pages for the version you are upgrading t
 
 ## Upgrade guide: breaking changes
 
-Each entry lists the old form, the new form and the migration step. Work through the groups that apply to your setup; the order does not matter. The owner rename is the latest change; the other groups come from the rename from beans to Lif.
+Each entry lists the old form, the new form and the migration step. Work through the groups that apply to your setup; the order does not matter. The 0.15 changes are the latest; the owner rename comes from 0.14.1; the other groups come from the rename from beans to Lif.
+
+### lif-serve network defaults (0.15)
+
+| Old form | New form | Migration step |
+| --- | --- | --- |
+| `lif-serve` listens on all interfaces | `lif-serve` listens on `127.0.0.1` | For LAN, Docker or VPN access pass `--host <address>`. |
+| no authentication beyond loopback | an access token, new on every start | Open the printed `/?token=<token>` address once in the browser; scripts send `Authorization: Bearer <token>`. |
+| terminal available from the network | terminal off beyond loopback | Pass `--allow-remote-terminal` if you need it; the token is still required. |
+| `--cors-origin '*'` allows every origin to change data | `*` only lets every page read answers | List the origins that may change data in `--cors-origin`. |
+
+### JSON output and CLI behaviour (0.15)
+
+| Old form | New form | Migration step |
+| --- | --- | --- |
+| `lif init` overwrites an existing config | `lif init` stops with an error | Use `lif init --force` to replace the config on purpose. |
+| `show --json` body starts with a newline | no leading newline, as in `create --json` | Remove trimming workarounds. |
+| refused create: `FILE_ERROR` | `VALIDATION_ERROR` | Match on the code, not the message. |
+| I/O failure on update: `VALIDATION_ERROR` | `FILE_ERROR` | Match on the code, not the message. |
+| applied `lif rename --json` prints the plan and the result | prints only the result | Parse stdout as one document; use `--dry-run --json` for the plan. |
+| `lif check --json` cycle `link_type` `blocked_by` | `blocking` (`blocking+parent` for a blocker in its own subtree) | Read both fields as one set of links. |
 
 ### GitHub owner and Go module path (0.14.1)
 

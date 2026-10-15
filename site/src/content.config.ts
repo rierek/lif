@@ -8,6 +8,6 @@ import { z } from 'astro/zod';
 export const collections = {
 	docs: defineCollection({
 		loader: docsLoader(),
-		schema: docsSchema({ extend: z.object({ date: z.coerce.date().optional(), teaser: z.string().optional(), minRead: z.number().optional() }) }),
+		schema: docsSchema({ extend: z.object({ date: z.coerce.date().optional(), teaser: z.string().optional(), minRead: z.number().optional(), tags: z.array(z.string()).optional() }) }),
 	}),
 };

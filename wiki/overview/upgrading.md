@@ -80,7 +80,7 @@ Machine-readable output uses the new vocabulary. A parser that reads an old key 
 | --- | --- | --- | --- |
 | `bean` | `item` | `lif milestones --json` entries; message envelopes of single-item results | Read `item`. |
 | `beans` | `items` | message envelopes of multi-item results, for example a failed batch (`{"success": false, "items": [...], "count": n}`) | Read `items`. |
-| `bean_id` | `item_id` | entries of `broken_links`, `self_links` and `cycles` in `lif check --json` | Read `item_id`. |
+| `bean_id` | `item_id` | entries of `broken_links` and `self_links` in `lif check --json` (`cycles` entries never had it; they carry `link_type` and `path`) | Read `item_id`. |
 | `bean_issues` | `item_issues` | `lif check --json` | Read `item_issues`. |
 | `epics` / `features` arrays inside a milestone or the unscheduled group | one ordered `containers` array whose entries hold an `epic` or a `feature` | `lif roadmap --json` | Iterate `containers` instead of two arrays. |
 

@@ -17,6 +17,7 @@ import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rierek/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
 )
 
@@ -133,7 +134,7 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 func createConfirmLabel(d beanDraft) string {
 	typ := d.typ
 	if typ == "" {
-		typ = "task"
+		typ = data.DefaultType()
 	}
 	return "Item (" + typ + "): " + strings.TrimSpace(d.title)
 }

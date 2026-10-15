@@ -26,7 +26,7 @@ The header reads `> <repo>: <View>`. The focused pane is marked by color only. H
 - Roots are items without a parent. Children follow `parent`. Every level is sorted by status, priority, type, title.
 - Items whose parent does not exist, and members of a cycle, appear under a root named `(orphaned)`, last.
 - The tree pane width is the larger of one third of the screen and `layout.tree_width` (default 36, 24 to 60). At 140 columns it is 46.
-- The TUI uses fixed order lists (status `in-progress`, `todo`, `draft`, `completed`, `scrapped`; type `milestone`, `epic`, `bug`, `feature`, `task`). It does not read custom statuses, types or priorities of `.lif.yml` ([179g]).
+- Sorting and menus use the status, type and priority lists of `.lif.yml` in configured order. Values the config does not name sort last.
 
 Screenshot follows.
 

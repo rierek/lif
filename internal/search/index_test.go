@@ -1,6 +1,8 @@
 package search
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/rierek/lif/pkg/item"
@@ -219,7 +221,7 @@ func TestSearch_BooleanQuery(t *testing.T) {
 		}
 	}
 
-	// Search for "User AND Authentication"
+	// Two plain terms: an OR, so aaa1 (both terms) is among the hits.
 	ids, err := idx.Search("User Authentication", 10)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
@@ -373,5 +375,41 @@ func TestSearch_DefaultLimit(t *testing.T) {
 
 	if len(ids) != 1 {
 		t.Errorf("Search with limit 0 (default) returned %d results, want 1", len(ids))
+	}
+}
+
+// The query string syntax has +term and -term, but no AND/OR/NOT keywords
+// and no grouping (beans-xa2j). Help texts must list only what works here.
+func TestSearch_RequiredAndExcludedTerms(t *testing.T) {
+	idx := setupTestIndex(t)
+	for _, b := range []*item.Item{
+		{ID: "aaa1", Title: "User Authentication"},
+		{ID: "bbb2", Title: "User Registration"},
+		{ID: "ccc3", Title: "Admin Authentication"},
+	} {
+		if err := idx.IndexItem(b); err != nil {
+			t.Fatalf("IndexItem() error = %v", err)
+		}
+	}
+
+	tests := []struct {
+		query string
+		want  []string
+	}{
+		{"+user +authentication", []string{"aaa1"}},
+		{"user -authentication", []string{"bbb2"}},
+		{"user authentication", []string{"aaa1", "bbb2", "ccc3"}},
+		// AND is an ordinary word, not an operator: it adds an OR term.
+		{"user AND authentication", []string{"aaa1", "bbb2", "ccc3"}},
+	}
+	for _, tt := range tests {
+		ids, err := idx.Search(tt.query, 10)
+		if err != nil {
+			t.Fatalf("Search(%q) error = %v", tt.query, err)
+		}
+		sort.Strings(ids)
+		if !reflect.DeepEqual(ids, tt.want) {
+			t.Errorf("Search(%q) = %v, want %v", tt.query, ids, tt.want)
+		}
 	}
 }

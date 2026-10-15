@@ -14,7 +14,6 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | ID | Title | Effect | Workaround | Status |
 |---|---|---|---|---|
 | [8h4v] | `lif-serve` has no authentication or TLS and exposes a terminal | Partly fixed in 0.15: the server listens on `127.0.0.1` only unless you pass `--host`, it refuses web pages whose `Host` is not on the origin list and, for changes, whose `Origin` is neither on the list nor its own, and beyond loopback it asks every client for a generated access token and serves the terminal only with `--allow-remote-terminal`. Still open: there is no TLS, so beyond loopback the token travels in clear text, and on loopback there is no authentication, so every local user of the machine can use the port. | Use the default address and an SSH tunnel or a VPN for remote access. Convention, not enforced by Lif: do not put a reverse proxy without its own authentication in front of it. | Open (partly fixed in 0.15) |
-| [xa2j] | AND, OR, NOT promised in search help and GraphQL schema do not work | `user AND login` is an OR of three terms. Parentheses do not group. | Use `+term` (required) and `-term` (excluded). | Open |
 | [z9e6] | Publish JSON schema files generated from the code | No schema files for `--json`; the shapes can change with any release. | Run the command against your own version. | Open |
 | [179g] | TUI ignores `display.theme`, fixed value lists, quit text says `bt` | Menus and the create form offer only the built-in statuses, types and priorities. The theme is fixed. The quit dialog says `Really quit bt?`. | Set custom values with `lif update` or in the item editor (`e`). | Open |
 | [z69m] | `lif promote` can fail part-way | The empty-status part is fixed in 0.14. A run can still stop part-way and leave a half-promoted set. | Check the result with `lif list` after a failed run. | Open (partly fixed in 0.14) |
@@ -25,7 +24,6 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [mgx8] | `create`/`update` help lists built-in names; completion and help fail outside a project | Help shows built-in type names even with custom types. `lif completion`, `lif help <cmd>` and `lif __complete` fail outside an initialised project. | Run them inside a project. | Open |
 | [3slb] | `lif --version` is rejected | `lif --version` prints `Error: unknown flag: --version`. | Run `lif version`. | Open |
 | [tgph] | `lif promote` creates the item without a parent | A promoted bug sits outside the release subtree and its progress number. | `lif update <id> --parent <feature-id>`. | Open |
-| [t5k2] | Persisted search index path is built but never filled | No effect for users: every call indexes in memory. | None needed. | Open |
 | [29wh] | Wiki and README statements disagree with the code | The `display.theme` statement in the configuration page may still disagree with the TUI. Other statements (cycle entry fields, `default_status` check, i386 platforms, `go install` binaries) were corrected in 0.15. | Trust this site and a run of your binary. | Open |
 | [gbl5] | `lif rename --dry-run` hits the same refusals as a real rename | The dry run stops at the first refusal instead of listing the full plan. | Fix the refusal and run again. | Open |
 
@@ -33,6 +31,8 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 
 | ID | Title | Effect | Workaround | Status |
 |---|---|---|---|---|
+| [xa2j] | AND, OR, NOT promised in search help and GraphQL schema did not work | Fixed in 0.15: help and schema now teach `+term` and `-term`. `AND`, `OR`, `NOT` and parentheses stay unsupported (the engine has no such operators). | n/a | Fixed in 0.15 |
+| [t5k2] | Persisted search index path was built but never filled | Fixed in 0.15: the unused code under `$HOME/.lif/index/` is removed. Every search indexes in memory and writes nothing under `$HOME`. | n/a | Fixed in 0.15 |
 | [0pv6] | GraphQL `createItem` left status empty | Fixed in 0.14: the default status `todo` is applied. | n/a | Fixed in 0.14 |
 | [6y1a] | Type change skipped hierarchy validation | Fixed in 0.14: the hierarchy is validated before the first write. | n/a | Fixed in 0.14 |
 | [9kej] | Help text omitted manual order in the default sort | Fixed in 0.14: help names the manual order. | n/a | Fixed in 0.14 |

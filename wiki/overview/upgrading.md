@@ -119,7 +119,7 @@ Migration step: search your saved queries, scripts and client code for those nam
 
 ### Stale search cache
 
-The search index moved from `~/.beans/index/` to `~/.lif/index/`. Lif builds the new index on demand, so no step is required. The old directory is no longer used and is safe to delete: `rm -rf ~/.beans/index`.
+Lif builds its search index in memory on every search and stores nothing on disk. The old `~/.beans/index/` directory, and a `~/.lif/index/` directory left by an earlier 0.x build, are no longer used and are safe to delete: `rm -rf ~/.beans/index ~/.lif/index`.
 
 ### Claude Code plugin, hooks and command
 

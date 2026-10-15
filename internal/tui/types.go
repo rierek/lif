@@ -9,8 +9,8 @@ package tui
 import (
 	"time"
 
-	"github.com/xRiErOS/lif/internal/tui/config"
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/data"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"

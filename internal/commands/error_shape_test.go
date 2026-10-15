@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/output"
+	"github.com/rierek/lif/internal/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

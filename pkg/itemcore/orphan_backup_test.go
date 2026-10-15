@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // Crash-backup orphan scan (R-11): detection and repair treat `.lif.bak-*`

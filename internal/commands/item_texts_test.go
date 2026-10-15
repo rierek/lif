@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 // AC3: the tag completion describes each tag's usage count in items.

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // Inside a worktree an item store lives in the directory that carries the same

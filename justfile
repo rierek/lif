@@ -6,13 +6,13 @@
 bin_dir := env_var_or_default("LIF_BIN_DIR", "/opt/homebrew/bin")
 
 # Remote to push release tags to. This workspace keeps `origin` on the
-# read-only hmans/beans upstream and `fork` on the writable xRiErOS/lif;
+# read-only hmans/beans upstream and `fork` on the writable rierek/lif;
 # a plain clone of the fork itself has no separate `fork` remote, so this
 # picks `fork` when present and falls back to `origin` otherwise.
 release_remote := env_var_or_default("LIF_RELEASE_REMOTE", `git remote get-url fork >/dev/null 2>&1 && echo fork || echo origin`)
 
 # GitHub repo (owner/name) the release recipes query via `gh -R`.
-release_repo := "xRiErOS/lif"
+release_repo := "rierek/lif"
 
 # Name-Suffix des WIP-Binaries für Testläufe. Bewusst ein eigener Name statt
 # eines zweiten Zielverzeichnisses: in Eriks PATH gewinnt {{bin_dir}}, ein

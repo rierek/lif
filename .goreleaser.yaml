@@ -21,9 +21,9 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/xRiErOS/lif/internal/version.Version={{.Version}}
-      - -X github.com/xRiErOS/lif/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/xRiErOS/lif/internal/version.Date={{.Date}}
+      - -X github.com/rierek/lif/internal/version.Version={{.Version}}
+      - -X github.com/rierek/lif/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/rierek/lif/internal/version.Date={{.Date}}
 
   - id: lif-serve
     main: ./cmd/lif-serve
@@ -36,9 +36,9 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/xRiErOS/lif/internal/version.Version={{.Version}}
-      - -X github.com/xRiErOS/lif/internal/version.Commit={{.ShortCommit}}
-      - -X github.com/xRiErOS/lif/internal/version.Date={{.Date}}
+      - -X github.com/rierek/lif/internal/version.Version={{.Version}}
+      - -X github.com/rierek/lif/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/rierek/lif/internal/version.Date={{.Date}}
 
 archives:
   - formats: [tar.gz]
@@ -62,11 +62,11 @@ homebrew_casks:
       - lif
       - lif-serve
     repository:
-      owner: xRiErOS
+      owner: rierek
       name: homebrew-lif
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    homepage: "https://github.com/xRiErOS/lif"
+    homepage: "https://github.com/rierek/lif"
     description: "Agentic-first issue tracker"
     license: "Apache-2.0"
     hooks:
@@ -104,7 +104,7 @@ changelog:
 
 release:
   github:
-    owner: xRiErOS
+    owner: rierek
     name: lif
   footer: >-
 

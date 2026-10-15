@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // TestArchiveEventCarriesACopy pins the fix for beans-35rr on the Archive

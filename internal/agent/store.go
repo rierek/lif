@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/xRiErOS/lif/pkg/safepath"
+	"github.com/rierek/lif/pkg/safepath"
 )
 
 // maxImageSize is the maximum allowed image size (5 MB, matching Anthropic API limits).

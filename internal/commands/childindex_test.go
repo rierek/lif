@@ -3,7 +3,7 @@ package commands
 import (
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // TestBuildChildrenIndexEmptyTree verifies that an empty input yields an

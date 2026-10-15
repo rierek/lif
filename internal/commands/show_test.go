@@ -12,10 +12,10 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 // setupShowTest installs a throwaway core and the default config into the

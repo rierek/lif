@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 // setupE2ETriageTest installs a throwaway core and default config into the

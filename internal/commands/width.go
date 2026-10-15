@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 const (

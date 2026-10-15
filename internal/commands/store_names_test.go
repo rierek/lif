@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/pkg/config"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/pkg/config"
 )
 
 // Legacy-name resolution at command level (R-05..R-07, R-09, R-12). The names

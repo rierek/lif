@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/item"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/item"
 )
 
 // Relation kinds a graph edge can carry. "parent" points from the parent

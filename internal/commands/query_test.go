@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 func setupQueryTestCore(t *testing.T) (*itemcore.Core, func()) {
@@ -224,10 +224,10 @@ func TestExecuteQueryWithRelationships(t *testing.T) {
 
 	// Create blocker item
 	blocker := &item.Item{
-		ID:     "blocker-1",
-		Slug:   "blocker-bean",
-		Title:  "Blocker Bean",
-		Status: "todo",
+		ID:       "blocker-1",
+		Slug:     "blocker-bean",
+		Title:    "Blocker Bean",
+		Status:   "todo",
 		Blocking: []string{"child-1"},
 	}
 	if err := testCore.Create(blocker); err != nil {

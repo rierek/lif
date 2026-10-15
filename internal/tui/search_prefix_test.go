@@ -9,7 +9,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- parseSearchPrefixes (pure tokenizer) ---

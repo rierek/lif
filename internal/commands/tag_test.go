@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 )
 
 // setupTagTest installs a throwaway core and default config into the package

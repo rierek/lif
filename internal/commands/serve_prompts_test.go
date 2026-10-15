@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/graph"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/graph"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // The web UI hands these two prompts to the agent CLI. Both name the product

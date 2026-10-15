@@ -3,10 +3,10 @@ package commands
 import (
 	"os"
 
+	"github.com/rierek/lif/internal/tui"
+	tuiconfig "github.com/rierek/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/data"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/internal/tui"
-	tuiconfig "github.com/xRiErOS/lif/internal/tui/config"
-	"github.com/xRiErOS/lif/internal/tui/data"
 )
 
 var tuiCmd = &cobra.Command{

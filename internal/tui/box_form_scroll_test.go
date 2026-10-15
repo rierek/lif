@@ -17,7 +17,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // boxFormLongBodyBeans is fixtureBeans() (update_test.go) with tk-1 AND tk-2

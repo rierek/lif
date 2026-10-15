@@ -69,14 +69,14 @@
             ldflags = [
               "-s"
               "-w"
-              "-X github.com/xRiErOS/lif/internal/version.Version=${version}"
-              "-X github.com/xRiErOS/lif/internal/version.Commit=${self.shortRev or "unknown"}"
-              "-X github.com/xRiErOS/lif/internal/version.Date=1970-01-01T00:00:00Z"
+              "-X github.com/rierek/lif/internal/version.Version=${version}"
+              "-X github.com/rierek/lif/internal/version.Commit=${self.shortRev or "unknown"}"
+              "-X github.com/rierek/lif/internal/version.Date=1970-01-01T00:00:00Z"
             ];
 
             meta = {
               description = "Agentic-first issue tracker";
-              homepage = "https://github.com/xRiErOS/lif";
+              homepage = "https://github.com/rierek/lif";
               license = pkgs.lib.licenses.asl20;
               maintainers = [ ];
               mainProgram = "lif";

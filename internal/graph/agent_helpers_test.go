@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/worktree"
-	"github.com/xRiErOS/lif/pkg/forge"
+	"github.com/rierek/lif/internal/worktree"
+	"github.com/rierek/lif/pkg/forge"
 )
 
 func TestPrPrompt_NoPR(t *testing.T) {

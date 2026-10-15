@@ -4,9 +4,9 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
-	"github.com/xRiErOS/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 // ItemIsDirty returns whether an item has unsaved runtime changes.

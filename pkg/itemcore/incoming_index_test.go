@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // incomingFingerprint renders the incoming links of id as a comparable value.

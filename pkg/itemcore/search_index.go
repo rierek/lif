@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // indexMarkerFileName is the sidecar file, next to a persisted index

@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/xRiErOS/lif/internal/ui"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
+	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 // The label column is sized from the label vocabulary below rather than from

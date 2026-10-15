@@ -3,16 +3,16 @@ package graph
 import (
 	"context"
 
-	"github.com/xRiErOS/lif/internal/agent"
-	"github.com/xRiErOS/lif/internal/gitutil"
-	"github.com/xRiErOS/lif/internal/portalloc"
-	"github.com/xRiErOS/lif/internal/terminal"
-	"github.com/xRiErOS/lif/internal/worktree"
-	"github.com/xRiErOS/lif/pkg/forge"
-	"github.com/xRiErOS/lif/pkg/item"
-	"github.com/xRiErOS/lif/pkg/itemcore"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
+	"github.com/rierek/lif/internal/agent"
+	"github.com/rierek/lif/internal/gitutil"
+	"github.com/rierek/lif/internal/portalloc"
+	"github.com/rierek/lif/internal/terminal"
+	"github.com/rierek/lif/internal/worktree"
+	"github.com/rierek/lif/pkg/forge"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 //go:generate go tool gqlgen generate

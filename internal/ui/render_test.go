@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 func TestTaskCarriesNoColour(t *testing.T) {

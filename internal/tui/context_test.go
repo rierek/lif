@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // contextFixtureBeans is a small Epic -> 2 Tasks hierarchy with a resolvable

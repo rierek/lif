@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // initTestRepo creates a temporary git repo with an initial commit,

@@ -11,12 +11,12 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/executor"
+	"github.com/rierek/lif/internal/graph"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/pretty"
 	"github.com/vektah/gqlparser/v2/formatter"
 	"github.com/vektah/gqlparser/v2/gqlerror"
-	"github.com/xRiErOS/lif/internal/graph"
-	"github.com/xRiErOS/lif/pkg/itemgraph"
 )
 
 var (

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/config"
+	"github.com/rierek/lif/pkg/config"
 )
 
 // newTestCoreWithConfig loads a store holding files under cfg.

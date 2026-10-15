@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/search"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/search"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // runWithTimeout is pkg/itemcore's equivalent of internal/search's

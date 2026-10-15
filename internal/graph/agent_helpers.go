@@ -3,9 +3,9 @@ package graph
 import (
 	"fmt"
 
-	"github.com/xRiErOS/lif/internal/agent"
-	"github.com/xRiErOS/lif/pkg/forge"
-	"github.com/xRiErOS/lif/pkg/itemgraph/model"
+	"github.com/rierek/lif/internal/agent"
+	"github.com/rierek/lif/pkg/forge"
+	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
 // agentSessionToModel converts an agent.Session to the GraphQL model type.

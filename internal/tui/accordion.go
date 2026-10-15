@@ -26,7 +26,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // relationField is a navigation target inside a section's field list --

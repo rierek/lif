@@ -19,12 +19,12 @@ resolver:
 
 # Autobind to existing types
 autobind:
-  - github.com/xRiErOS/lif/pkg/item
+  - github.com/rierek/lif/pkg/item
 
 models:
   # Bind schema type Item to the item package's Item type
   Item:
-    model: github.com/xRiErOS/lif/pkg/item.Item
+    model: github.com/rierek/lif/pkg/item.Item
   # Map the custom Map scalar to gqlgen's built-in map type
   Map:
     model: github.com/99designs/gqlgen/graphql.Map

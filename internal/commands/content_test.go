@@ -3,7 +3,7 @@ package commands
 import (
 	"testing"
 
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 func TestApplyTags(t *testing.T) {

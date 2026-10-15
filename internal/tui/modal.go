@@ -17,7 +17,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // rebaseBg re-opens the modal's Base background color after every inner

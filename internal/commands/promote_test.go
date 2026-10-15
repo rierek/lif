@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/spf13/pflag"
-	"github.com/xRiErOS/lif/internal/output"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/itemcore"
 )
 
 // setupPromoteTest installs a throwaway core and default config into the

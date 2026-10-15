@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1227,7 +1227,7 @@ func (c *Config) toYAMLNode() *yaml.Node {
 	topMapping := &yaml.Node{
 		Kind:        yaml.MappingNode,
 		Tag:         "!!map",
-		HeadComment: "Lif configuration\nSee: https://github.com/xRiErOS/lif",
+		HeadComment: "Lif configuration\nSee: https://github.com/rierek/lif",
 	}
 	if len(projectMapping.Content) > 0 {
 		topMapping.Content = append(topMapping.Content, strNode("project"), projectMapping)

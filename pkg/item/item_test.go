@@ -794,8 +794,8 @@ func TestParentAndBlockingRoundtrip(t *testing.T) {
 
 func TestParseWithBlockedBy(t *testing.T) {
 	tests := []struct {
-		name            string
-		input           string
+		name              string
+		input             string
 		expectedBlockedBy []string
 	}{
 		{

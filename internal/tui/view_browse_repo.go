@@ -18,8 +18,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/xRiErOS/lif/internal/tui/data"
-	"github.com/xRiErOS/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/theme"
 )
 
 // treeNode is a single visible (already-flattened) row of the tree. Index-free

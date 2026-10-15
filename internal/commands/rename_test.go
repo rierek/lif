@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/spf13/cobra"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/itemcore"
 )
 
 func renameTestCore(t *testing.T, prefix string, files map[string]string) *itemcore.Core {

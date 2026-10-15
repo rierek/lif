@@ -21,7 +21,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // errMarker is a distinctive, never-otherwise-emitted string used to prove

@@ -8,7 +8,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // Lightweight status for tracking which items have running agents

@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xRiErOS/lif/internal/tui/config"
+	"github.com/rierek/lif/internal/tui/config"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"

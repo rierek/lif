@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 func TestShortBeanID(t *testing.T) {

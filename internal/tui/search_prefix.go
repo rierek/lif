@@ -20,7 +20,7 @@ package tui
 import (
 	"strings"
 
-	"github.com/xRiErOS/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/data"
 )
 
 // searchPrefixKeys maps a search-prefix token's keyword (case-insensitive,

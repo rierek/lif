@@ -218,10 +218,10 @@ func (m *Manager) readOutput(itemID string, stdout io.Reader, workDir string, pr
 	var toolInputBuf strings.Builder
 	var toolMsgIdx int = -1
 	var toolName string
-	var toolInvIdx int = -1 // index into session.ToolInvocations
+	var toolInvIdx int = -1     // index into session.ToolInvocations
 	var pendingToolPersist bool // true when current tool msg hasn't been persisted yet
-	var deferredAskUser bool // true when AskUserQuestion detected, waiting for input to complete
-	var blocked bool         // true after handleBlockingTool — suppresses ensureRunning
+	var deferredAskUser bool    // true when AskUserQuestion detected, waiting for input to complete
+	var blocked bool            // true after handleBlockingTool — suppresses ensureRunning
 
 	// Write tool diff tracking: capture old file content before the write happens.
 	var writeOldContent string
@@ -314,7 +314,9 @@ func (m *Manager) readOutput(itemID string, stdout io.Reader, workDir string, pr
 		if ev.Type == eventUnknown {
 			// Log only the event type, not the full payload (which can be huge)
 			eventType := "?"
-			var peek struct{ Type string `json:"type"` }
+			var peek struct {
+				Type string `json:"type"`
+			}
 			if json.Unmarshal(line, &peek) == nil && peek.Type != "" {
 				eventType = peek.Type
 			}

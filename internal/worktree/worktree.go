@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xRiErOS/lif/internal/gitutil"
-	"github.com/xRiErOS/lif/pkg/config"
-	"github.com/xRiErOS/lif/pkg/item"
+	"github.com/rierek/lif/internal/gitutil"
+	"github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // DefaultFetchTimeout is the default timeout for git fetch operations during

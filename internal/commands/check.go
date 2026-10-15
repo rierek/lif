@@ -158,6 +158,15 @@ func attachmentOrphanIssues(c *itemcore.Core) []string {
 	return issues
 }
 
+// cycleVia names the links a cycle runs over, and adds the note that explains
+// a cycle through the hierarchy (itemcore.Cycle.Note) when it has one.
+func cycleVia(c itemcore.Cycle) string {
+	if note := c.Note(); note != "" {
+		return c.LinkType + ": " + note
+	}
+	return c.LinkType
+}
+
 var checkCmd = &cobra.Command{
 	Use:   "check",
 	Args:  cobra.NoArgs,
@@ -168,7 +177,7 @@ var checkCmd = &cobra.Command{
 - Item fields: unknown status or priority, invalid tags, parent of the wrong type rank
 - Broken links (links to non-existent items)
 - Self-references (items linking to themselves)
-- Circular dependencies (cycles in blocks/parent relationships)
+- Circular dependencies (cycles of blocking links, whichever field stores them, and of parent links; a blocker below or above the item it blocks)
 
 Use --fix to automatically remove broken links and self-references.
 Note: Cycles cannot be auto-fixed and require manual intervention.`,
@@ -350,9 +359,9 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 		if !checkJSON {
 			for _, c := range linkResult.Cycles {
 				if checkFix {
-					fmt.Printf("  %s Cannot auto-fix cycle: %s (via %s)\n", ui.Warning.Render("!"), formatCycle(c.Path), c.LinkType)
+					fmt.Printf("  %s Cannot auto-fix cycle: %s (via %s)\n", ui.Warning.Render("!"), formatCycle(c.Path), cycleVia(c))
 				} else {
-					fmt.Printf("  %s Circular dependency: %s (via %s)\n", ui.Danger.Render("✗"), formatCycle(c.Path), c.LinkType)
+					fmt.Printf("  %s Circular dependency: %s (via %s)\n", ui.Danger.Render("✗"), formatCycle(c.Path), cycleVia(c))
 				}
 			}
 		}

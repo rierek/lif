@@ -145,7 +145,7 @@ Useful options: `--no-links`, `--link-prefix`, `--depth`, `--tags`, `--include-d
 - Test Obsidian Bases yourself before you rely on it. Compatibility is unclear: nothing in the code or the docs says anything about it. See [Surface independence](../surface-independence/#editors-such-as-obsidian).
 - Add the hook yourself. Lif ships none, and CI does not run `lif check` either.
 - Set `lif.anchor: repo-root` if worktrees should share items. Without it, changes come together only through a merge.
-- Run `lif check` after a merge, and read the result with care. A merge can combine edits into a state `lif check` does not catch, for example mixed-field cycles [et2a]. See [Known limitations](../../known-limitations/).
+- Run `lif check` after a merge. A merge can combine edits into a state Lif would have refused on write, for example a dependency cycle; `lif check` reports it. See [Flexible planning](../project-planning/#limits) for what it does not cover.
 - Stop `lif-serve` and remove active worktrees before `lif rename --prefix`. It refuses while they exist.
 
 ## Reference

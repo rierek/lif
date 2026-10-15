@@ -102,6 +102,21 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 		b.ID = id
 	}
 
+	// A new item has no links pointing at it yet, so a cycle can only close
+	// through a link of its own: it blocks X and X leads back to one of its
+	// blockers. Its parent link is not tried on its own: a cycle that runs over
+	// that link alone was already in the store, through the parent.
+	for _, blocked := range b.Blocking {
+		if cycle := r.Core.DetectCycle(b, "blocking", blocked); cycle != nil {
+			return nil, cycleError("would create cycle", cycle)
+		}
+	}
+	for _, blocker := range b.BlockedBy {
+		if cycle := r.Core.DetectCycle(b, "blocked_by", blocker); cycle != nil {
+			return nil, cycleError("would create cycle", cycle)
+		}
+	}
+
 	if err := r.Core.Create(b, opts...); err != nil {
 		return nil, err
 	}
@@ -317,8 +332,8 @@ func (r *CoreResolver) SetParent(ctx context.Context, id string, parentID *strin
 			return nil, err
 		}
 		// Check for cycles
-		if cycle := r.Core.DetectCycle(b.ID, "parent", newParent); cycle != nil {
-			return nil, fmt.Errorf("would create cycle: %v", cycle)
+		if cycle := r.Core.DetectCycle(b, "parent", newParent); cycle != nil {
+			return nil, cycleError("would create cycle", cycle)
 		}
 	}
 
@@ -349,12 +364,9 @@ func (r *CoreResolver) AddBlocking(ctx context.Context, id string, targetID stri
 		return nil, fmt.Errorf("target item not found: %s", targetID)
 	}
 
-	// Check for cycles in both directions
-	if cycle := r.Core.DetectCycle(b.ID, "blocking", normalizedTargetID); cycle != nil {
-		return nil, fmt.Errorf("would create cycle: %v", cycle)
-	}
-	if cycle := r.Core.DetectCycle(normalizedTargetID, "blocked_by", b.ID); cycle != nil {
-		return nil, fmt.Errorf("would create cycle: %v", cycle)
+	// Check for cycles
+	if cycle := r.Core.DetectCycle(b, "blocking", normalizedTargetID); cycle != nil {
+		return nil, cycleError("would create cycle", cycle)
 	}
 
 	b.AddBlocking(normalizedTargetID)
@@ -398,12 +410,9 @@ func (r *CoreResolver) AddBlockedBy(ctx context.Context, id string, targetID str
 		return nil, fmt.Errorf("blocker item not found: %s", targetID)
 	}
 
-	// Check for cycles in both directions
-	if cycle := r.Core.DetectCycle(normalizedTargetID, "blocking", b.ID); cycle != nil {
-		return nil, fmt.Errorf("would create cycle: %v", cycle)
-	}
-	if cycle := r.Core.DetectCycle(b.ID, "blocked_by", normalizedTargetID); cycle != nil {
-		return nil, fmt.Errorf("would create cycle: %v", cycle)
+	// Check for cycles
+	if cycle := r.Core.DetectCycle(b, "blocked_by", normalizedTargetID); cycle != nil {
+		return nil, cycleError("would create cycle", cycle)
 	}
 
 	b.AddBlockedBy(normalizedTargetID)

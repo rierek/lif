@@ -113,6 +113,18 @@ func TestCreateInteractiveMenuTagsRelationsStatus(t *testing.T) {
 	if err := core.Create(&item.Item{ID: "pp-x1", Slug: "x", Title: "X", Type: "task", Status: "todo", Tags: []string{"work"}}); err != nil {
 		t.Fatal(err)
 	}
+	// The picks below make the new item wait for the milestones and block the
+	// third candidate, the epic pp-e2. As a child of pp-m1 it could never get
+	// ready (beans-o8bs), and Create refuses the cycle. Detach it so the picks,
+	// and so the order of the candidates, stay as they are.
+	epic, err := core.Get("pp-e2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	epic.Parent = ""
+	if err := core.Update(epic, nil); err != nil {
+		t.Fatal(err)
+	}
 	def := cfg.GetDefaultStatus()
 	statuses := candidates.StatusCandidates(cfg)
 	want := ""

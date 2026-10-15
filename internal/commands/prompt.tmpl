@@ -91,6 +91,7 @@ Use `lif <command> --help` for full options. Use `--json` for machine-readable o
 - **Implicit blocking**: An item is also considered blocked if any of its ancestors (via parent chain) are blocked. Commands like `list --ready` and `next` respect this automatically.
 - **Implicit status**: If a parent/ancestor has a terminal status (scrapped or completed), children inherit that status implicitly. `list --ready`/`next` exclude these items.
 - **Ready is leaf work**: `list --ready` and `next` never return an item of a container type (rank 1 to 3 in the list above), even when nothing blocks it.
+- **No deadlocks**: `lif create` and `lif update` refuse a link that would close a cycle of blocking links (in any mix of `--blocking` and `--blocked-by`) and a blocker below or above the item it blocks in the parent chain. The error names the items. Put a blocker outside the subtree of the blocked item.
 
 ## Item Types
 

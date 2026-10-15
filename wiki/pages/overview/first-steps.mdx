@@ -78,7 +78,7 @@ All checks passed
 
 - Look at your plan: `lif list`, `lif show <id>`, `lif roadmap` and `lif next` (the highest-priority ready item).
 - Defaults for new items live in the `lif:` section of `.lif.yml`: `default_status` (`todo`), `default_type` (`task`), `prefix` and `id_length` (4). There is no default priority setting. See [Configuration](../../reference/configuration/).
-- Other hierarchies: `lif init --profile <classic|todo|simple|complex>` writes a preset. See [Configuration](../../reference/configuration/) for the definitions.
+- Other hierarchies: `lif init --profile <classic|todo|simple|complex>` writes a preset. See [Configuration](../../reference/configuration/) for the definitions. `--profile` cannot be combined with `--lif-path`: `lif init` fails with `--profile writes a .lif.yml, which --lif-path skips; use one or the other`. Run the profiled `lif init` inside the target folder instead.
 - Work with a coding agent: [Agent onboarding](../agent-onboarding/).
 - [Concepts](../concepts/) explains the model. [Store management](../store-management/) covers several projects and worktrees.
 

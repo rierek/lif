@@ -50,6 +50,22 @@ Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif grap
   <KeyValueItem term="Review findings become items">`lif promote <artifact> <finding-id>...` creates items from the findings of a review artifact. It writes nothing if a chosen finding is malformed and skips findings that were already taken over.</KeyValueItem>
 </KeyValueList>
 
+## Write recipes
+
+```sh
+lif update <id> --body-append "Found the cause."
+lif update <id> --body-replace-old "TODO" --body-replace-new "DONE"   # each flag requires the other
+lif tag <id> [id...] --tag backend --remove-tag draft
+ETAG=$(lif show <id> --etag-only)
+lif update <id> --if-match "$ETAG" --status in-progress              # fails if the item changed
+```
+
+`--tag` and `--remove-tag` merge into the existing tags.
+
+## Errors
+
+Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr.
+
 ## Tips
 
 <Aside type="tip" title="How do I set up agent hooks?">

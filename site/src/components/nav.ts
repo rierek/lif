@@ -15,10 +15,12 @@ export const nav: NavEntry[] = [
 		items: [
 			{ title: 'Lif in brief', description: 'What Lif is and where to go next', href: '/overview/' },
 			{ title: 'Installation', description: 'Install the lif binary', href: '/overview/installation/' },
+			{ title: 'Upgrading', description: 'Breaking changes and how to migrate', href: '/overview/upgrading/' },
 			{ title: 'First steps', description: 'Store, preset and your first items', href: '/overview/first-steps/' },
 			{ title: 'Concepts', description: 'Items, ranks, order and dependencies', href: '/overview/concepts/' },
 			{ title: 'Agent onboarding', description: 'Teach a coding agent to use Lif', href: '/overview/agent-onboarding/' },
 			{ title: 'Store management', description: 'Several projects, worktrees, shared stores', href: '/overview/store-management/' },
+			{ title: 'Troubleshooting', description: 'Symptom-first fixes for common problems', href: '/overview/troubleshooting/' },
 		],
 	},
 	{

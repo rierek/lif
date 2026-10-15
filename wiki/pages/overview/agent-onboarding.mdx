@@ -53,6 +53,16 @@ Sections follow for Recipes, CLI Commands, Relationships, Item Types, Statuses, 
 
 Outside a Lif project, `lif prime` prints nothing and exits with code 0. Run `lif init` first. See [`lif prime`](../../reference/commands/lif-prime/).
 
+## Rules for agents
+
+- Run `lif complete` only when every todo in the body is checked off.
+- `lif delete` is destructive and cascades to references. Do not pass `-f`, or `--json` (which implies `-f`), unless the user wants an unconditional delete.
+- Run `lif archive` only when asked.
+- Prefer `--blocked-by` for new dependent work.
+- Commit item files in the same commit as the code they track.
+- Try writes against a throwaway store: `lif --lif-path /tmp/scratch-lif create ...`.
+- If the config sets `require_fields_on`, a transition without the required fields fails with `POLICY_VIOLATION` and names the missing fields.
+
 ## Hooks keep the agent primed
 
 An agent forgets the guide when its context is compacted. A session hook runs `lif prime` again, so the guide is back. For Claude Code, add this to `.claude/settings.json`. It is the hook configuration in the Lif repository (`extras/claude/plugins/lif-prime/hooks/hooks.json`):
@@ -105,7 +115,7 @@ Statements about Claude Code and OpenCode come from their public documentation a
 ## Limits
 
 - `lif next` and `lif list --ready` also return container items such as epics [g5dn]. Narrow the prompt with `--type task` or `--type bug`, as the prompt above does.
-- The packaged Claude Code plugin `lif-prime` is a work in progress. Use the `.claude/settings.json` snippet above.
+- The packaged Claude Code plugin `lif-prime` (`extras/claude/plugins/lif-prime/`, listed in the `lif` marketplace as `lif-prime@lif`) is a work in progress. Use the `.claude/settings.json` snippet above.
 - `lif check` does not yet find every kind of drift (see the list under Hooks). Keep agents on the CLI for writes.
 
 See [Known limitations](../../known-limitations/) for [g5dn].
@@ -114,5 +124,5 @@ See [Known limitations](../../known-limitations/) for [g5dn].
 
 - Skills and per-agent setup: Lif ships no skill. Write your own if your team needs one, and point it at `lif prime`. See [Automation and agents](../../features/automation/).
 - [`lif prime`](../../reference/commands/lif-prime/), [`lif check`](../../reference/commands/lif-check/), [JSON output](../../reference/json-output/).
-- This documentation as plain text for agents: [`llms.txt`](https://rierek.github.io/lif/llms.txt) (page index) and [`llms-full.txt`](https://xrieros.github.io/lif/llms-full.txt) (all pages).
+- This documentation as plain text for agents: [`llms.txt`](https://rierek.github.io/lif/llms.txt) (page index) and [`llms-full.txt`](https://rierek.github.io/lif/llms-full.txt) (all pages).
 - Next: [Concepts](../concepts/) and [Store management](../store-management/).

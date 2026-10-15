@@ -41,7 +41,7 @@ Startup output:
 [lif] Allowed origins: http://localhost:*, http://127.0.0.1:*
 ```
 
-The text says `localhost`, but the server listens on `:<port>`, all interfaces [9a66]. SIGINT or SIGTERM prints `Shutting down...` and `Server stopped`.
+The text says `localhost`, but the server listens on `:<port>`, all interfaces [9a66]. SIGINT or SIGTERM prints `Shutting down...` and `Server stopped`. Running requests get 5 s to finish. After a hard deadline of 10 s the process exits anyway with `Shutdown deadline exceeded, forcing exit` on stderr.
 
 ## Network and CORS
 
@@ -61,9 +61,9 @@ To open the UI from another machine, add that machine's address as an origin, fo
 | `/playground` | GraphQL Playground. Loads GraphiQL from a CDN, so it needs internet access. |
 | `/api/attachments/:beanId/:filename` | Image attachments of the agent chat. `:beanId` is the item ID. |
 | `/api/terminal` | WebSocket terminal. Starts `$SHELL` (else `/bin/sh`). |
-| everything else | The embedded single-page app (falls back to `index.html`). |
+| everything else | The embedded single-page app. A path that matches no file and has no `.` gets `index.html`. A path with a `.` that matches no file (a missing `.js` or `.css`) gets a plain 404. |
 
-Limits: request body 10 MB, 100 concurrent WebSocket upgrades (then 503), read and write timeout 15 s.
+Limits: request body 10 MB, 100 concurrent WebSocket upgrades (then 503), read and write timeout 15 s, idle timeout 60 s. `/api/graphql` subscriptions and `/api/terminal` share the 100 WebSocket slots.
 
 ## Web UI
 
@@ -73,6 +73,7 @@ The frontend (SvelteKit) is embedded in the binary. No second server is needed.
 - `/planning/board` is the **Board**: three fixed columns Todo, In Progress, Completed. Dragging a card sets `status` and `order`.
 - `/workspace/<id>` is the workspace of a Git worktree: agent chat, changes, terminal. It appears only when `agent.enabled` is true. A **Run** button appears when `worktree.run` is set.
 - The UI has a filter field (substring over title, type, status, ID, tags). It does not use [search syntax](../search-syntax/).
+- The UI keeps layout in `localStorage` under `lif-planning-chat`, `lif-changes-pane`, `lif-filter-text` and `lif-split-<panel>`. The selected item is mirrored as `?item=<id>`, so `http://localhost:8080/?item=<id>` is a deep link.
 - There is no settings page and no theme switch; the colour scheme follows the operating system. `display.theme` is not read by the UI.
 - The status list is hard-coded (`draft`, `todo`, `in-progress`, `completed`, `scrapped`). Custom statuses are not shown on the board; `scrapped` is shown in neither view.
 

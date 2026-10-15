@@ -20,7 +20,7 @@ lif tui [repo-path]
 
 Lif decides in this order:
 
-1. The path argument: `lif tui ~/code/app`.
+1. The path argument: `lif tui ~/code/app`. It opens exactly that repository and never searches upward.
 2. The repository found by searching upward from the current directory. A repository is a directory with `.lif.yml` (or legacy `.beans.yml`).
 3. No repository, and at least two entries in `repos` of the [settings file](../settings-and-themes/): the repository picker (lobby).
 4. Otherwise an error:

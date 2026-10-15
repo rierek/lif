@@ -31,7 +31,7 @@ For details, see [Lif in brief](../overview/) and [Features](../features/).
 
 ## Origin
 
-Lif started as a fork of [`hmans/beans`](https://github.com/hmans/beans), the agentic-first issue tracker by Hendrik Mans. It is now maintained independently at [`xRiErOS/lif`](https://github.com/xRiErOS/lif). It is an actively maintained continuation, not a hostile fork. It exists so that development can continue on its own schedule and roadmap.
+Lif started as a fork of [`hmans/beans`](https://github.com/hmans/beans), the agentic-first issue tracker by Hendrik Mans. It is now maintained independently at [`rierek/lif`](https://github.com/rierek/lif). It is an actively maintained continuation, not a hostile fork. It exists so that development can continue on its own schedule and roadmap.
 
 **What comes from upstream:**
 
@@ -54,7 +54,7 @@ Lif started as a fork of [`hmans/beans`](https://github.com/hmans/beans), the ag
 
 **Names.** The project was first published as beans, like the upstream. The domain object is now an *item*, and the project is called Lif. The type names `milestone`, `epic`, `feature`, `bug` and `task` are unchanged.
 
-**Where to report and whom to cite.** File issues against `xRiErOS/lif`. Cite `hmans/beans` and Hendrik Mans for the original concept.
+**Where to report and whom to cite.** File issues against `rierek/lif`. Cite `hmans/beans` and Hendrik Mans for the original concept.
 
 ## Legacy compatibility
 

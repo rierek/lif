@@ -27,7 +27,7 @@ Where Lif looks for the store directory, highest priority first:
 - A discovered config file, and only a discovered one, demotes `LIF_PATH`. Reason in the code: variables exported with direnv must not redirect unrelated repositories.
 - `LIF_PATH` and legacy `BEANS_PATH` both set is an error. If only the legacy one is set, it is used.
 - A relative `lif.path` is resolved against the config directory. An absolute one is used as is.
-- `lif.anchor: repo-root`: all Git worktrees of a repository share one store. Without `anchor` a worktree uses its own store. Any other value is a config load error.
+- `lif.anchor: repo-root`: all Git worktrees of a repository share one store. Without `anchor` a worktree uses its own store. Any other value is a config load error: `unknown lif.anchor "<value>" (expected "repo-root" or an empty value)`.
 - Missing directory: `no .lif directory found at <path> (run 'lif init' to create one)`. With an explicit path: `store path does not exist or is not a directory: <path>`. `lif path` prints the result.
 
 The task-oriented view, with worktrees, a shared store and the ID prefix, is [Store management](../../overview/store-management/). This section stays the canonical precedence table.
@@ -71,19 +71,21 @@ server:
 | | `require_fields_on` | none |
 | | `commit_field` | `commit` |
 | `worktree` | `base_ref` | `main` |
-| | `path` | `~/.lif/worktrees/<project>/` |
-| | `setup`, `run` | empty |
-| | `integrate` | `local` (or `pr`) |
+| | `path` | `~/.lif/worktrees/<project>/`; a leading `~` is expanded. An existing legacy `~/.beans/worktrees/<project>/` is used instead. |
+| | `setup`, `run` | empty; `setup` is a shell command run in each new worktree (for example `pnpm install`) |
+| | `integrate` | `local` (or `pr`). `local` squash-merges in the local repository and hides the PR buttons; `pr` pushes the branch and opens a PR. |
 | | `fetch_timeout` | 10 seconds; 0 disables the fetch |
 | `agent` | `enabled` | true |
-| | `default_mode` | `act` (or `plan`) |
-| | `default_effort` | empty = no override (`low`, `medium`, `high`, `max`) |
+| | `default_mode` | `act` (or `plan`). `act` runs autonomously, `plan` is read-only. `yolo` is accepted as an alias for `act`; any other value falls back to `act`. |
+| | `default_effort` | empty = the tool's own default (`low`, `medium`, `high`, `max`) |
 | `server` | `port` | 8080 |
 | | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` allows all |
 | `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`) |
-| | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command |
+| | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 
 `lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/).
+
+New worktrees get the branch `lif/<id>`. Worktrees on legacy `beans/` branches are still listed and used.
 
 ## Statuses, types and priorities
 
@@ -91,7 +93,7 @@ server:
 - Entries under `statuses:`, `types:` and `priorities:` override a built-in entry by name or are appended.
 - Fields. `statuses`: `name`, `color`, `archive`, `short`, `description`. `types`: `name`, `color`, `rank`, `emphasis`, `roadmap`, `short`, `description`. `priorities`: `name`, `color`, `symbol`, `description`. Omitting `archive` keeps the default of a built-in entry. `lif archive` moves items with an archive status to `archive/`.
 - `types_exclusive: true`: `types` is the complete table; built-in types are not added. `lif init --profile` sets it.
-- Colors: a Catppuccin color name (`sapphire`, `maroon`, `green`, `teal`) or a hex value (`#ff8800`). `lif check` reports an invalid one: `✗ invalid color 'notacolor' for type 'spike'`.
+- Colors: a Catppuccin tone name or a hex value (`#rgb` or `#rrggbb`, for example `#ff8800`). Tones: `rosewater`, `flamingo`, `pink`, `mauve`, `red`, `maroon`, `peach`, `yellow`, `green`, `teal`, `sky`, `sapphire`, `blue`, `lavender`, `text`, `subtext1`, `subtext0`, `overlay2`, `overlay1`, `overlay0`, `surface2`, `surface1`, `surface0`, `base`. The legacy names `gray`, `grey`, `purple` and `cyan` still work. An empty color is valid. `lif check` reports an invalid one: `✗ invalid color 'notacolor' for type 'spike'`.
 - Blocking logic: "resolved" means `completed` or `scrapped`, fixed. The flag `archive: true` does not count there, so an item in a custom archive status keeps blocking. The ready logic, in contrast, excludes every status with `archive: true`.
 
 ### Recipes
@@ -174,8 +176,9 @@ flowchart TD
 
 ## Status-dependent required fields
 
-- `lif.require_fields_on` maps a status to a list of extra keys. An unknown status, an empty field name or a reserved field name is a config load error.
+- `lif.require_fields_on` maps a status to a list of extra keys. An unknown status, an empty field name or a reserved field name is a config load error. Reserved: `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`.
 - Writing an item into such a status without a non-empty value for every key fails on `create` and `update` with error code `POLICY_VIOLATION`.
+- `lif complete` into such a status fails and names the missing field. Satisfy it in the same call with `--commit <ref>` or `--set key=value`. The check runs before anything is saved.
 - `lif check` reports it as a warning in the section "Policy". With `--strict` the warning counts as a finding (exit code 1).
 - "Missing" means: key absent, null, or only whitespace.
 - `lif.commit_field` (default `commit`) is the extra key that holds a Git SHA. `lif complete --commit <ref>` writes it. `lif check` verifies that the repository knows it (otherwise a warning; without a Git repository the check is skipped).

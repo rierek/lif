@@ -7,7 +7,7 @@ description: "Report bugs and requests, build Lif from source, license and credi
 
 Read [Known limitations](../known-limitations/) first. Your problem may already be listed there, with a workaround.
 
-Report bugs and request features in the issue tracker: <https://github.com/xRiErOS/lif/issues>. Reports about Lif go there, not to `hmans/beans`.
+Report bugs and request features in the issue tracker: <https://github.com/rierek/lif/issues>. Reports about Lif go there, not to `hmans/beans`.
 
 A good report contains:
 
@@ -16,14 +16,14 @@ A good report contains:
 - your Lif version (`lif version`)
 - the smallest store shape that reproduces the problem
 
-Focused pull requests are welcome. A new feature needs a GitHub Discussion first: <https://github.com/xRiErOS/lif/discussions>. Feature pull requests without a Discussion are declined. There is no promise about review or response times.
+Focused pull requests are welcome. A new feature needs a GitHub Discussion first: <https://github.com/rierek/lif/discussions>. Feature pull requests without a Discussion are declined. There is no promise about review or response times.
 
 ## Build from source
 
 You need Git and [mise](https://mise.jdx.dev). `mise` installs the toolchain declared in `mise.toml`: Go, Node.js and pnpm. The Go module requires Go 1.26 (`go.mod`). The docs site builds with `npm ci` and `npm run build`, not with pnpm.
 
 ```sh
-git clone https://github.com/xRiErOS/lif.git
+git clone https://github.com/rierek/lif.git
 cd lif
 mise install
 mise run setup
@@ -42,9 +42,24 @@ Then use `just`:
 | `just docs-build` | Generates the command pages and builds the docs site. |
 | `just docs-dev` | Serves the docs site with live reload. |
 
+### Nix development shell
+
+`nix develop` opens a shell with Go, `gopls`, `gotools`, `go-tools`, Node.js, pnpm 10, `just` and `mise`.
+
+### Maintain the Nix flake
+
+After a release or a dependency change:
+
+1. Set `version` in `flake.nix` to the new release.
+2. If `go.mod` or `go.sum` changed, run `nix build --no-link`. Write the `got:` hash from the failure into `vendorHash`.
+3. If `frontend/pnpm-lock.yaml` changed, run `nix build --no-link .#frontend`. Write the `got:` hash into the `pnpmDeps` hash.
+4. Run `nix flake update` to refresh the nixpkgs pin.
+5. Verify with `nix run . -- version` and `nix flake check`.
+6. Commit `flake.nix` and `flake.lock` together.
+
 ## License
 
-Lif is distributed under the Apache License 2.0. See the [`LICENSE`](https://github.com/xRiErOS/lif/blob/main/LICENSE) file in the repository.
+Lif is distributed under the Apache License 2.0. See the [`LICENSE`](https://github.com/rierek/lif/blob/main/LICENSE) file in the repository.
 
 ## Credit
 

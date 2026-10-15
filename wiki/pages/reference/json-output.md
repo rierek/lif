@@ -16,9 +16,9 @@ Commands with `--json`: `archive`, `check`, `complete`, `create`, `delete`, `gra
 Commands without it: `graph` (uses `--format json`), `path`, `pick`, `prime`, `tui`.
 
 - With `--json` the human-readable lines are omitted.
-- `lif delete --json` implies `--force`: there is no confirmation prompt.
+- `lif delete --json` implies `--force`: there is no confirmation prompt, and references to the deleted item in other items' front matter are dropped without a warning.
 - `lif graphql --json` turns off colors. Output is indented with two spaces.
-- `lif list --json` includes the body only with `--full`.
+- `lif list --json` includes the body only with `--full`. It prints `null`, not `[]`, when a filter matches nothing.
 
 ## Success payloads
 
@@ -70,6 +70,10 @@ A plain success with a message, for example `lif next --json` when nothing is re
 ```
 
 With a filter the message is `no ready items found matching <flags>`. If an item is ready, the output equals `lif show --json`.
+
+`lif archive --json` returns the same envelope: `{"success": true, "message": "Archived N item(s) to .lif/archive/"}`, or the message `No items to archive` when nothing qualifies.
+
+`update`, `tag` and `start` with `--json` return the item itself, not an envelope: one object for one ID, an array for several IDs. All changes of one `update` call land in one write under one etag.
 
 ## Error payload and codes
 

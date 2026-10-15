@@ -42,7 +42,7 @@ Screenshot follows.
 
 ## Detail view
 
-`tab` from the tree focuses the detail pane. In the default box form the boxes are, from top: `Title · <id>`, `Status (s)`, `Type (o)`, `Priority (u)`, `Parent (a)`, `Tags (t)`, `Body (e)`, `Relations (r)`, `History`. The letter is the key that edits the box.
+`tab` from the tree focuses the detail pane. The box form is the default. `LIF_TUI_BOXFORM=0`, `false`, `no` or `off` switches to the classic layout. In the box form the boxes are, from top: `Title · <id>`, `Status (s)`, `Type (o)`, `Priority (u)`, `Parent (a)`, `Tags (t)`, `Body (e)`, `Relations (r)`, `History`. The letter is the key that edits the box.
 
 - While the detail pane has focus, `tab` and `shift+tab` step through the boxes. `esc` returns to the tree. `↑`/`↓` scroll.
 - `enter` on a box opens its menu, picker or the editor.

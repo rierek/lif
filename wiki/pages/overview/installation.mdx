@@ -12,19 +12,19 @@ import { Aside } from '@astrojs/starlight/components';
 macOS, with Homebrew:
 
 ```sh
-brew install xRiErOS/lif/lif
+brew install rierek/lif/lif
 ```
 
 Linux or macOS, with the install script:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rierek/lif/main/install.sh | sh
 ```
 
 Linux or macOS, with Nix:
 
 ```sh
-nix profile install github:xRiErOS/lif
+nix profile install github:rierek/lif
 ```
 
 Check that it works:
@@ -59,10 +59,10 @@ Open the method that fits you.
 <summary data-label="Homebrew">Homebrew (macOS)</summary>
 
 ```sh
-brew install xRiErOS/lif/lif
+brew install rierek/lif/lif
 ```
 
-Installs `lif` and `lif-serve` as a cask from the tap `xRiErOS/homebrew-lif`. On macOS it removes the quarantine attribute from both binaries.
+Installs `lif` and `lif-serve` as a cask from the tap `rierek/homebrew-lif`. On macOS it removes the quarantine attribute from both binaries.
 
 </details>
 
@@ -70,12 +70,12 @@ Installs `lif` and `lif-serve` as a cask from the tap `xRiErOS/homebrew-lif`. On
 <summary data-label="Script">Install script (Linux, macOS)</summary>
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/xRiErOS/lif/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rierek/lif/main/install.sh | sh
 ```
 
 Use it when you want no package manager. It installs both binaries, downloads the release archive and verifies it against `checksums.txt` when `sha256sum` or `shasum` exists. It only warns, and still installs, if `checksums.txt` cannot be downloaded or neither tool exists. It runs `lif version` at the end.
 
-Variables: `LIF_VERSION` (default: latest release), `LIF_BIN_DIR` (default: `$HOME/.local/bin`), `LIF_REPO` (default: `xRiErOS/lif`). The script prints a note when `LIF_BIN_DIR` is not on `PATH`.
+Variables: `LIF_VERSION` (default: latest release), `LIF_BIN_DIR` (default: `$HOME/.local/bin`), `LIF_REPO` (default: `rierek/lif`). The script prints a note when `LIF_BIN_DIR` is not on `PATH`.
 
 </details>
 
@@ -83,10 +83,12 @@ Variables: `LIF_VERSION` (default: latest release), `LIF_BIN_DIR` (default: `$HO
 <summary data-label="Nix">Nix (Linux, macOS)</summary>
 
 ```sh
-nix profile install github:xRiErOS/lif
+nix profile install github:rierek/lif
 ```
 
-`nix run github:xRiErOS/lif -- version` tries Lif without installing it. Installs both binaries, and `lif-serve` from this channel serves the web UI.
+`nix run github:rierek/lif -- version` tries Lif without installing it. Installs both binaries, and `lif-serve` from this channel serves the web UI.
+
+`nix run github:rierek/lif#lif-serve` starts the web UI without installing it. `nix shell github:rierek/lif` opens a shell with both binaries on `PATH`.
 
 </details>
 
@@ -101,10 +103,12 @@ Download `lif_<Os>_<arch>.tar.gz` (`.zip` on Windows) from the Releases page. Ar
 <summary data-label="Go">go install (CLI only)</summary>
 
 ```sh
-go install github.com/xRiErOS/lif/cmd/lif@latest
+go install github.com/rierek/lif/cmd/lif@latest
 ```
 
 Installs `lif` only. A `lif-serve` built this way embeds no web assets and returns 404 for the browser UI. Use Homebrew, the script, Nix or an archive for a working `lif-serve`.
+
+`lif version` after `go install` shows the release tag as the version. Commit and build date show `unknown`.
 
 </details>
 
@@ -112,13 +116,15 @@ Installs `lif` only. A `lif-serve` built this way embeds no web assets and retur
 <summary data-label="Source">Build from source (unreleased builds)</summary>
 
 ```sh
-git clone https://github.com/xRiErOS/lif.git
+git clone https://github.com/rierek/lif.git
 mise install
 mise run setup
 mise run build
 ```
 
 Then install the binaries from the repository root, for example `install -m 755 lif lif-serve "$HOME/.local/bin/"`.
+
+A plain `go build ./cmd/lif` compiles, but the binary is unstamped and embeds no frontend. `mise run build` builds the Svelte frontend first, then writes the stamped `lif` and `lif-serve` to the repository root.
 
 </details>
 

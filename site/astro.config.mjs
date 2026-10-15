@@ -44,7 +44,7 @@ export default defineConfig({
 			routeMiddleware: './src/routeData.ts',
 			// custom.css defines the --ctp-* tones for these two flavours (captured lif output); change both together.
 			plugins: [catppuccin({ dark: { flavor: 'mocha', accent: 'teal' }, light: { flavor: 'latte', accent: 'teal' } })],
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/xRiErOS/lif' }],
+			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/rierek/lif' }],
 			// Each top-level group is a chapter. Header chapters: Overview, Features, Use Cases, Reference, Resources
 			// (= Blog, Releases, Contribute, About); see src/components/nav.ts. D57: Blog is its own sidebar chapter;
 			// Releases, Contribute and About form the sidebar chapter "Resources".
@@ -54,10 +54,12 @@ export default defineConfig({
 					items: [
 						'overview',
 						'overview/installation',
+						'overview/upgrading',
 						'overview/first-steps',
 						'overview/concepts',
 						'overview/agent-onboarding',
 						'overview/store-management',
+						'overview/troubleshooting',
 					],
 				},
 				{

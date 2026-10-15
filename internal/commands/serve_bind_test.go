@@ -1,0 +1,475 @@
+package commands
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	coderws "github.com/coder/websocket"
+)
+
+var (
+	serveBinaryOnce sync.Once
+	serveBinaryPath string
+	serveBinaryErr  error
+)
+
+// serveTestBinary builds cmd/lif-serve once per test run, next to the lif
+// binary of TestMain, which removes the directory at the end.
+func serveTestBinary(t *testing.T) string {
+	t.Helper()
+	serveBinaryOnce.Do(func() {
+		repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+		if err != nil {
+			serveBinaryErr = err
+			return
+		}
+		serveBinaryPath = filepath.Join(filepath.Dir(completionTestBinary), "lif-serve")
+		build := exec.Command("go", "build", "-o", serveBinaryPath, "./cmd/lif-serve")
+		build.Dir = repoRoot
+		if out, err := build.CombinedOutput(); err != nil {
+			serveBinaryErr = fmt.Errorf("building lif-serve: %v\n%s", err, out)
+		}
+	})
+	if serveBinaryErr != nil {
+		t.Fatal(serveBinaryErr)
+	}
+	return serveBinaryPath
+}
+
+// serveProcess is a running lif-serve binary and what it printed at startup.
+type serveProcess struct {
+	out   *syncBuffer // everything the process printed so far
+	log   string      // the startup lines
+	port  int         // from the "Listening on" line: the port the listener really got
+	host  string      // host:port under which this machine reaches the server
+	token string      // from the "Access token" line; empty when the server prints none
+}
+
+var (
+	listeningLine = regexp.MustCompile(`\[lif\] Listening on (\S+) `)
+	tokenLine     = regexp.MustCompile(`\[lif\] Access token: (\S+)`)
+)
+
+// startServeProcess runs the real lif-serve binary on an ephemeral port in a
+// throwaway project and returns once it has printed its last startup line.
+func startServeProcess(t *testing.T, args ...string) *serveProcess {
+	t.Helper()
+	bin := serveTestBinary(t)
+
+	project := t.TempDir()
+	store := filepath.Join(project, ".lif")
+	if err := os.MkdirAll(store, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", project, "init", "-q").CombinedOutput(); err != nil {
+		t.Skipf("git init: %v\n%s", err, out)
+	}
+
+	var out syncBuffer
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, append([]string{"--lif-path", store, "--port", "0"}, args...)...)
+	cmd.Dir = project
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	cmd.Stdout, cmd.Stderr = pw, pw
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pw.Close()
+	go func() { _, _ = io.Copy(&out, pr) }()
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+
+	deadline := time.Now().Add(30 * time.Second)
+	for !strings.Contains(out.String(), "[lif] Terminal: ") {
+		if time.Now().After(deadline) {
+			t.Fatalf("lif-serve did not print its startup lines in time:\n%s", out.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	p := &serveProcess{out: &out, log: out.String()}
+	m := listeningLine.FindStringSubmatch(p.log)
+	if m == nil {
+		t.Fatalf("no \"Listening on\" line in the startup log:\n%s", p.log)
+	}
+	host, portText, err := net.SplitHostPort(m[1])
+	if err != nil {
+		t.Fatalf("listening address %q: %v", m[1], err)
+	}
+	if p.port, err = strconv.Atoi(portText); err != nil || p.port == 0 {
+		t.Fatalf("listening address %q has no real port", m[1])
+	}
+	// A listener on all interfaces answers on the loopback address too.
+	if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
+		host = "127.0.0.1"
+	}
+	p.host = net.JoinHostPort(host, portText)
+	if m := tokenLine.FindStringSubmatch(p.log); m != nil {
+		p.token = m[1]
+	}
+	return p
+}
+
+// waitForLog waits until the process has printed text and returns everything
+// it printed so far.
+func (p *serveProcess) waitForLog(t *testing.T, text string) string {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for !strings.Contains(p.out.String(), text) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the process never printed %q:\n%s", text, p.out.String())
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	return p.out.String()
+}
+
+// url is the address of a path on this machine, where the server answers: a
+// loopback listener under its own address, a listener on all interfaces under
+// 127.0.0.1.
+func (p *serveProcess) url(path string) string {
+	return "http://" + p.host + path
+}
+
+// do sends one request without following redirects. A non-empty token goes in
+// the Authorization header; an empty origin sends no Origin.
+func (p *serveProcess) do(t *testing.T, method, path, token, origin, body string) (int, string, http.Header) {
+	t.Helper()
+	req, err := http.NewRequest(method, p.url(path), strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return send(t, req)
+}
+
+// doAs sends a GET whose Host header names host, as a browser does that
+// reaches the server under that name.
+func (p *serveProcess) doAs(t *testing.T, host, path string) (int, string, http.Header) {
+	t.Helper()
+	req, err := http.NewRequest("GET", p.url(path), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = host
+	return send(t, req)
+}
+
+func send(t *testing.T, req *http.Request) (int, string, http.Header) {
+	t.Helper()
+	client := &http.Client{
+		Timeout:       10 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", req.Method, req.URL, err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(data), resp.Header
+}
+
+// dialWS opens a WebSocket on the server with the given Origin (none when
+// empty) and, when not empty, the token.
+func (p *serveProcess) dialWS(t *testing.T, path, origin, token string, subprotocols ...string) (*coderws.Conn, *http.Response, error) {
+	t.Helper()
+	header := http.Header{}
+	if origin != "" {
+		header.Set("Origin", origin)
+	}
+	if token != "" {
+		header.Set("Authorization", "Bearer "+token)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return coderws.Dial(ctx, "ws://"+p.host+path, &coderws.DialOptions{HTTPHeader: header, Subprotocols: subprotocols})
+}
+
+// The serve flags the safe default rests on.
+func TestServeFlagsDefaultToLoopbackWithoutRemoteTerminal(t *testing.T) {
+	root := NewRootCmd()
+	if serveCmd.Flags().Lookup("port") == nil {
+		RegisterServeCmd(root)
+	} else {
+		root.AddCommand(serveCmd)
+	}
+	for flag, want := range map[string]string{"host": "127.0.0.1", "allow-remote-terminal": "false"} {
+		f := serveCmd.Flags().Lookup(flag)
+		if f == nil {
+			t.Fatalf("lif-serve has no --%s flag", flag)
+		}
+		if f.DefValue != want {
+			t.Errorf("--%s defaults to %q, want %q", flag, f.DefValue, want)
+		}
+	}
+}
+
+// With no flags the server listens on the loopback address, as its log says,
+// and nothing else of this machine reaches it. The check dials every other
+// address of the machine: a listener on all interfaces would answer.
+func TestServeListensOnLoopbackByDefault(t *testing.T) {
+	p := startServeProcess(t)
+
+	if want := fmt.Sprintf("[lif] Listening on 127.0.0.1:%d (loopback only", p.port); !strings.Contains(p.log, want) {
+		t.Errorf("startup log lacks %q:\n%s", want, p.log)
+	}
+	if p.token != "" {
+		t.Errorf("a loopback server printed an access token:\n%s", p.log)
+	}
+	if want := "[lif] Terminal: enabled"; !strings.Contains(p.log, want) {
+		t.Errorf("startup log lacks %q:\n%s", want, p.log)
+	}
+
+	if status, _, _ := p.do(t, "GET", "/playground", "", "", ""); status != 200 {
+		t.Errorf("GET /playground over loopback: status %d, want 200", status)
+	}
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	probed := 0
+	for _, a := range addrs {
+		ipnet, ok := a.(*net.IPNet)
+		if !ok || !ipnet.IP.IsGlobalUnicast() || ipnet.IP.IsLoopback() {
+			continue
+		}
+		probed++
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(ipnet.IP.String(), strconv.Itoa(p.port)), 2*time.Second)
+		if err == nil {
+			conn.Close()
+			t.Errorf("the server on its default address answers on %s", ipnet.IP)
+		}
+	}
+	if probed == 0 {
+		t.Log("no non-loopback address on this machine: only the log line was checked")
+	}
+}
+
+// ::1 and 127.0.0.2 are loopback addresses too: the server keeps the safe
+// defaults there and serves the URL it prints, to its own page.
+func TestServeOnOtherLoopbackAddresses(t *testing.T) {
+	for _, ip := range []string{"::1", "127.0.0.2"} {
+		t.Run(ip, func(t *testing.T) {
+			ln, err := net.Listen("tcp", net.JoinHostPort(ip, "0"))
+			if err != nil {
+				t.Skipf("this machine cannot listen on %s: %v", ip, err)
+			}
+			ln.Close()
+
+			p := startServeProcess(t, "--host", ip)
+			own := net.JoinHostPort(ip, strconv.Itoa(p.port))
+			for _, want := range []string{
+				"[lif] Listening on " + own + " (loopback only",
+				"[lif] Starting server at http://" + own + "/",
+				"[lif] Terminal: enabled",
+			} {
+				if !strings.Contains(p.log, want) {
+					t.Errorf("startup log lacks %q:\n%s", want, p.log)
+				}
+			}
+			if p.token != "" {
+				t.Errorf("a loopback server printed an access token:\n%s", p.log)
+			}
+
+			if status, body, _ := p.do(t, "GET", "/playground", "", "", ""); status != 200 {
+				t.Errorf("GET http://%s/playground: status %d (%.100s), want 200", own, status, body)
+			}
+			query := `{"query":"mutation { __typename }"}`
+			if status, body, _ := p.do(t, "POST", "/api/graphql", "", "http://"+own, query); status != 200 {
+				t.Errorf("mutation from the page at %s: status %d (%.100s), want 200", own, status, body)
+			}
+			conn, resp, err := p.dialWS(t, "/api/terminal", "http://"+own, "")
+			if err != nil {
+				t.Fatalf("terminal upgrade from the UI at %s: %v (response %v)", own, err, resp)
+			}
+			conn.CloseNow()
+
+			if status, _, _ := p.do(t, "POST", "/api/graphql", "", "http://evil.example", query); status != 403 {
+				t.Errorf("mutation from a page of another site: status %d, want 403", status)
+			}
+		})
+	}
+}
+
+// An address beyond loopback is an explicit decision. The server then
+// demands the token from every client and has no terminal: not the WebSocket
+// and not the GraphQL operations that write to a shell.
+func TestServeOnTheNetworkNeedsTheTokenAndHasNoTerminal(t *testing.T) {
+	p := startServeProcess(t, "--host", "0.0.0.0")
+
+	// A wildcard listener reports itself as 0.0.0.0 or, dual-stack, as [::].
+	if !regexp.MustCompile(fmt.Sprintf(`\[lif\] Listening on (0\.0\.0\.0|\[::\]):%d \(ALL network interfaces`, p.port)).MatchString(p.log) {
+		t.Errorf("startup log lacks the wildcard \"Listening on\" line for port %d:\n%s", p.port, p.log)
+	}
+	for _, want := range []string{
+		"[lif] WARNING:",
+		"[lif] Terminal: disabled",
+		"--allow-remote-terminal",
+	} {
+		if !strings.Contains(p.log, want) {
+			t.Errorf("startup log lacks %q:\n%s", want, p.log)
+		}
+	}
+	if len(p.token) < 32 {
+		t.Fatalf("no usable access token in the startup log:\n%s", p.log)
+	}
+	// The printed address opens the UI as it is: it names a real host and the
+	// token. The address the server answers 401 under is not printed.
+	open := regexp.MustCompile(`\[lif\] Open the UI: http://([^/\s]+):(\d+)/\?token=(\S+)`).FindStringSubmatch(p.log)
+	if open == nil || open[2] != strconv.Itoa(p.port) || open[3] != p.token || strings.ContainsAny(open[1], "<>") {
+		t.Errorf("startup log has no usable \"Open the UI\" line:\n%s", p.log)
+	}
+	if strings.Contains(p.log, "Starting server at") {
+		t.Errorf("startup log prints an address that answers 401 without the token:\n%s", p.log)
+	}
+
+	if status, _, _ := p.do(t, "GET", "/playground", "", "", ""); status != 401 {
+		t.Errorf("GET /playground without token: status %d, want 401", status)
+	}
+	if status, _, _ := p.do(t, "GET", "/playground", "wrong-token", "", ""); status != 401 {
+		t.Errorf("GET /playground with a wrong token: status %d, want 401", status)
+	}
+	if status, body, _ := p.do(t, "GET", "/playground", p.token, "", ""); status != 200 || !strings.Contains(body, "<title>Lif GraphQL</title>") {
+		t.Errorf("GET /playground with the token: status %d, body %.200q", status, body)
+	}
+
+	status, _, header := p.do(t, "GET", "/playground?token="+p.token, "", "", "")
+	if status != http.StatusSeeOther || !strings.Contains(header.Get("Set-Cookie"), fmt.Sprintf("lif_token_%d=", p.port)) {
+		t.Errorf("the printed address: status %d, Set-Cookie %q; want a 303 that sets the cookie", status, header.Get("Set-Cookie"))
+	}
+
+	status, body, _ := p.do(t, "GET", "/api/terminal", p.token, "http://localhost:5173", "")
+	if status != http.StatusForbidden || !strings.Contains(body, "terminal is disabled") {
+		t.Errorf("GET /api/terminal: status %d, body %q; want a 403 that says the terminal is disabled", status, body)
+	}
+
+	query := `{"query":"mutation { writeTerminalInput(sessionId: \"__central__\", data: \"echo x\\n\") }"}`
+	if status, body, _ := p.do(t, "POST", "/api/graphql", "", "", query); status != 401 {
+		t.Errorf("GraphQL mutation without token: status %d (%s), want 401", status, body)
+	}
+	if _, body, _ := p.do(t, "POST", "/api/graphql", p.token, "", query); !strings.Contains(body, "terminal support not available") {
+		t.Errorf("writeTerminalInput with the terminal disabled: %s, want the error \"terminal support not available\"", body)
+	}
+
+	// The UI the server serves is of its own origin: its WebSocket needs no
+	// entry in the origin list. A page of another site gets none.
+	conn, resp, err := p.dialWS(t, "/api/graphql", "http://"+p.host, p.token, "graphql-transport-ws")
+	if err != nil {
+		t.Fatalf("GraphQL WebSocket from the UI served at %s: %v (response %v)", p.host, err, resp)
+	}
+	conn.CloseNow()
+	if conn, _, err := p.dialWS(t, "/api/graphql", "http://evil.example", p.token, "graphql-transport-ws"); err == nil {
+		conn.CloseNow()
+		t.Error("GraphQL WebSocket from a page of another site was accepted")
+	}
+
+	// The access log carries no token: it travels in ?token=. A request for a
+	// marker path makes sure the lines of the requests above are in the log.
+	p.do(t, "GET", "/log-marker", p.token, "", "")
+	live := p.waitForLog(t, `"/log-marker"`)
+	if !strings.Contains(live, `"/playground"`) {
+		t.Errorf("the access log has no line for /playground:\n%s", live)
+	}
+	for _, line := range strings.Split(live, "\n") {
+		if strings.HasPrefix(line, "[GIN]") && strings.Contains(line, p.token) {
+			t.Errorf("an access log line carries the token: %s", line)
+		}
+	}
+}
+
+// --allow-remote-terminal turns the terminal on for a listener on the network.
+// It does not lift the token.
+func TestServeRemoteTerminalOptIn(t *testing.T) {
+	p := startServeProcess(t, "--host", "0.0.0.0", "--allow-remote-terminal")
+
+	for _, want := range []string{"[lif] Terminal: enabled (--allow-remote-terminal)", "[lif] WARNING:"} {
+		if !strings.Contains(p.log, want) {
+			t.Errorf("startup log lacks %q:\n%s", want, p.log)
+		}
+	}
+	if len(p.token) < 32 {
+		t.Fatalf("no usable access token in the startup log:\n%s", p.log)
+	}
+
+	conn, resp, err := p.dialWS(t, "/api/terminal", "http://localhost:5173", "")
+	if err == nil {
+		conn.CloseNow()
+		t.Fatal("the terminal upgrade was accepted without the token")
+	}
+	if resp == nil || resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("terminal upgrade without token: %v, want 401", resp)
+	}
+
+	// The UI the server serves, and the dev server of the UI, get the shell.
+	for _, origin := range []string{"http://localhost:5173", "http://" + p.host} {
+		conn, resp, err = p.dialWS(t, "/api/terminal", origin, p.token)
+		if err != nil {
+			t.Fatalf("terminal upgrade with the token from %s: %v (response %v)", origin, err, resp)
+		}
+		conn.CloseNow()
+	}
+}
+
+// --cors-origin '*' hands out the CORS header to every page and nothing else:
+// no page of another site gets the terminal or a change through it, and the
+// host check stays on. The log says so, and names the shell.
+func TestServeWildcardOriginAllowsNoShell(t *testing.T) {
+	p := startServeProcess(t, "--cors-origin", "*")
+
+	for _, want := range []string{"[lif] WARNING: allowed origins include *", "shell", "[lif] Terminal: enabled"} {
+		if !strings.Contains(p.log, want) {
+			t.Errorf("startup log lacks %q:\n%s", want, p.log)
+		}
+	}
+
+	status, _, header := p.do(t, "GET", "/playground", "", "http://evil.example", "")
+	if status != 200 || header.Get("Access-Control-Allow-Origin") != "*" {
+		t.Errorf("a read from another site: status %d, Access-Control-Allow-Origin %q; want 200 and *", status, header.Get("Access-Control-Allow-Origin"))
+	}
+
+	if conn, resp, err := p.dialWS(t, "/api/terminal", "http://evil.example", ""); err == nil {
+		conn.CloseNow()
+		t.Error("the terminal upgrade from another site was accepted under *")
+	} else if resp == nil || resp.StatusCode != http.StatusForbidden {
+		t.Errorf("terminal upgrade from another site: %v, want 403", resp)
+	}
+
+	query := `{"query":"mutation { writeTerminalInput(sessionId: \"__central__\", data: \"echo x\\n\") }"}`
+	if status, body, _ := p.do(t, "POST", "/api/graphql", "", "http://evil.example", query); status != 403 {
+		t.Errorf("a mutation from another site under *: status %d (%.100s), want 403", status, body)
+	}
+
+	if status, _, _ := p.doAs(t, fmt.Sprintf("evil.example:%d", p.port), "/playground"); status != 403 {
+		t.Errorf("a request under a rebound host name under *: status %d, want 403", status)
+	}
+	if status, _, _ := p.doAs(t, fmt.Sprintf("localhost:%d", p.port), "/playground"); status != 200 {
+		t.Errorf("a request under localhost under *: status %d, want 200", status)
+	}
+}

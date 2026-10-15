@@ -65,11 +65,15 @@ An item file's YAML front matter is validated the same way: one malformed `.md` 
 
 ## Server binding or startup failures
 
-Symptom: `lif-serve serve` (or `lif-serve serve --port <n>`) exits with `server error: listen tcp :<port>: bind: address already in use`, or a browser request to the UI fails with a CORS error in its console.
+Symptom: `lif-serve serve` (or `lif-serve serve --port <n>`) exits with `server error: listen tcp 127.0.0.1:<port>: bind: address already in use`, a browser request to the UI fails with a CORS error in its console, a request gets 403 `host "…" is not allowed` or `origin "…" is not allowed`, or another machine cannot reach the server.
 
 Diagnose a port conflict with `lsof -i :<port>` (the default port is 8080, from `server.port` in `.lif.yml` or the `--port`/`-p` flag) to see what already holds it. Fix by picking a free port explicitly: `lif-serve serve --port 8081`, or by stopping the process holding the current one.
 
-A CORS rejection shows up only in the browser (a blocked-by-CORS error in devtools), not in the server's own log, because the check happens per request against the allowed-origins list. Diagnose by checking the origin the server actually allows: `lif-serve serve` prints `[lif] Allowed origins: …` on startup, which defaults to `http://localhost:*` and `http://127.0.0.1:*` (from `server.cors_origins` in `.lif.yml`, or the `--cors-origin` flag, repeatable). Fix by adding the origin you are calling from: `lif-serve serve --cors-origin http://localhost:5173`, or by setting `server.cors_origins` in `.lif.yml` for a persistent list.
+A CORS rejection shows up only in the browser (a blocked-by-CORS error in devtools), not in the server's own log, because the check happens per request against the allowed-origins list. Diagnose by checking the origin the server actually allows: `lif-serve serve` prints `[lif] Allowed origins: …` on startup, which defaults to `http://localhost:*` and `http://127.0.0.1:*` (from `server.cors_origins` in `.lif.yml`, or the `--cors-origin` flag, repeatable). Fix by naming the origin you are calling from. A given list replaces the default, so repeat the defaults you still need: `lif-serve serve --cors-origin 'http://localhost:*,http://192.168.1.50:*'`, or set `server.cors_origins` in `.lif.yml` for a persistent list.
+
+A 403 with `host "…" is not allowed` or `origin "…" is not allowed` comes from the server's own host and origin check, and the 403 is in its request log. The usual cause is a `--cors-origin` list that replaced the default and no longer names `localhost` while the page was opened as `http://localhost:8080`, or a page of another origin, such as a dev server of the UI. The page that `lif-serve` itself serves needs no entry, under any address. Name any other page with `--cors-origin 'http://<host>:<port>'`, and add `http://localhost:*` when you still open the UI as `localhost`. A server beyond loopback also answers 401 `access token required` until the browser has opened the address with `?token=<token>` that the startup log prints.
+
+Since 0.15 `lif-serve` listens on `127.0.0.1` only: other machines, and a Docker port mapping to a container, cannot reach it. Check the first startup line, `[lif] Listening on …`. Pass `--host 0.0.0.0` only after you read [Web server](../../reference/web-server/).
 
 ## Profile choice at init
 

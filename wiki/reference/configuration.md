@@ -81,13 +81,13 @@ server:
 | | `default_mode` | `act` (or `plan`). `act` runs autonomously, `plan` is read-only. `yolo` is accepted as an alias for `act`; any other value falls back to `act`. |
 | | `default_effort` | empty = the tool's own default (`low`, `medium`, `high`, `max`) |
 | `server` | `port` | 8080 |
-| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` allows all |
+| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` adds the CORS header for every origin and allows nothing else (pages can read, not change) |
 | `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`) |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 
 `lif.default_priority` and `lif.default_tags` are read only by the guided `lif create -i` form, which pre-fills them. Plain `lif create`, the GraphQL `createItem` mutation and the TUI create form ignore them. `lif check` fails if `default_priority` names an unknown priority (built-in or configured), or if a `default_tags` entry is empty or not a valid tag. An empty list behaves like an unset key.
 
-`lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/).
+`lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/). The bind address and the remote terminal have no key on purpose: they are the flags `--host` and `--allow-remote-terminal`.
 
 New worktrees get the branch `lif/<id>`. Worktrees on legacy `beans/` branches are still listed and used.
 

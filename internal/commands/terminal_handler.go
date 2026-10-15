@@ -187,9 +187,15 @@ func resolveTerminalWorkDir(sessionID string, wtMgr *worktree.Manager, projectRo
 }
 
 // RegisterTerminalRoute adds the /api/terminal WebSocket endpoint to the Gin router.
+// The upgrade needs an Origin header that checkOrigin accepts. Only the web UI
+// uses this endpoint and a browser always sends Origin on a WebSocket upgrade,
+// so a client without one is a script and gets no shell. This is a filter for
+// web pages, not a boundary: a script can send any Origin (see serveAccess).
 func RegisterTerminalRoute(router *gin.Engine, termMgr *terminal.Manager, wtMgr *worktree.Manager, checkOrigin func(r *http.Request) bool, projectRoot string) {
 	upgrader := websocket.Upgrader{
-		CheckOrigin: checkOrigin,
+		CheckOrigin: func(r *http.Request) bool {
+			return r.Header.Get("Origin") != "" && checkOrigin(r)
+		},
 	}
 
 	router.GET("/api/terminal", func(c *gin.Context) {

@@ -74,15 +74,25 @@ exist.`,
 		}
 
 		if renameJSON {
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{
-				"success": true,
-				"mode":    plan.Mode,
-				"changed": len(plan.Changes),
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(renameResult{
+				Success: true,
+				Mode:    plan.Mode,
+				Changed: len(plan.Changes),
 			})
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Renamed %d item(s).\n", len(plan.Changes))
 		return nil
 	},
+}
+
+// renameResult is the --json shape of an applied rename.
+type renameResult struct {
+	// Success is always true: a failed rename prints the error envelope instead.
+	Success bool `json:"success"`
+	// Mode is "slug", "id" or "prefix".
+	Mode string `json:"mode"`
+	// Changed is the number of items the rename rewrote.
+	Changed int `json:"changed"`
 }
 
 // RegisterRenameCmd registers the rename command.

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/RenamePlan",
+  "$defs": {
+    "AttachmentMove": {
+      "properties": {
+        "OldPath": {
+          "type": "string"
+        },
+        "NewPath": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "OldPath",
+        "NewPath"
+      ],
+      "description": "AttachmentMove is a directory move under AttachmentsDir that an ID-changing rename entails."
+    },
+    "RenameChange": {
+      "properties": {
+        "OldID": {
+          "type": "string"
+        },
+        "NewID": {
+          "type": "string"
+        },
+        "OldPath": {
+          "type": "string"
+        },
+        "NewPath": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "OldID",
+        "NewID",
+        "OldPath",
+        "NewPath"
+      ],
+      "description": "RenameChange describes a single item's rename (own file move and/or ID change)."
+    },
+    "RenamePlan": {
+      "properties": {
+        "Mode": {
+          "type": "string"
+        },
+        "Changes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RenameChange"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "RefUpdates": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "itemID -\u003e number of ref fields rewritten"
+        },
+        "AttachmentMoves": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/AttachmentMove"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "NewPrefix": {
+          "type": "string"
+        },
+        "ConfigWrite": {
+          "type": "boolean"
+        }
+      },
+      "type": "object",
+      "required": [
+        "Mode",
+        "Changes",
+        "RefUpdates",
+        "AttachmentMoves",
+        "NewPrefix",
+        "ConfigWrite"
+      ],
+      "description": "RenamePlan is the dry-run result of a rename computation."
+    }
+  }
+}

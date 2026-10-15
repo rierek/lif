@@ -144,6 +144,8 @@ type Item struct {
 	Path string `yaml:"-" json:"path"`
 
 	// Front matter fields
+
+	// Title is the human-readable title.
 	Title     string     `yaml:"title" json:"title"`
 	Status    string     `yaml:"status" json:"status"`
 	Type      string     `yaml:"type,omitempty" json:"type,omitempty"`

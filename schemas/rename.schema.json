@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/renameResult",
+  "$defs": {
+    "renameResult": {
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "changed": {
+          "type": "integer"
+        }
+      },
+      "type": "object",
+      "required": [
+        "success",
+        "mode",
+        "changed"
+      ]
+    }
+  }
+}

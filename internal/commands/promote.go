@@ -126,19 +126,19 @@ still fails, the error names the items already written.`,
 		}
 
 		// Preflight: prepare and validate every candidate before the first
-		// write, so a bad record, parent or field leaves the store untouched
-		// (beans-z69m).
+		// write, so a bad record, parent, field or required-fields policy
+		// leaves the store untouched (beans-z69m). Skipped lines are held back
+		// so a failed preflight prints none.
 		type candidate struct {
 			findingID string
 			input     model.CreateItemInput
 			setMap    map[string]any
 		}
 		var queue []candidate
+		var skipped []string
 		for _, rec := range records {
 			if alreadyPromoted(artifactPath, rec.ID) {
-				if !promoteJSON {
-					fmt.Printf("skipped %s: already promoted from %s\n", rec.ID, artifactPath)
-				}
+				skipped = append(skipped, fmt.Sprintf("skipped %s: already promoted from %s", rec.ID, artifactPath))
 				continue
 			}
 			input, setMap, err := preparePromotedItem(artifactPath, parentID, rec)
@@ -151,7 +151,17 @@ still fails, the error names the items already written.`,
 			if err := core.ValidateParent(&item.Item{Type: *input.Type}, parentID); err != nil {
 				return cmdError(promoteJSON, output.ErrValidation, "record %s: %s", rec.ID, err)
 			}
+			// require_fields_on for the status the item is created in: the
+			// front matter promote sets must satisfy it, or the write refuses.
+			if err := preflightStatusPolicy([]*item.Item{{ID: rec.ID}}, *input.Status, setMap); err != nil {
+				return cmdError(promoteJSON, mutationErrorCode(err), "record %s: %s", rec.ID, err)
+			}
 			queue = append(queue, candidate{rec.ID, input, setMap})
+		}
+		if !promoteJSON {
+			for _, line := range skipped {
+				fmt.Println(line)
+			}
 		}
 
 		done := make([]*item.Item, 0, len(queue))
@@ -342,11 +352,15 @@ func preparePromotedItem(artifactPath, parentID string, rec findingRecord) (mode
 	}
 
 	body := renderPromotedBody(rec, artifactPath)
+	// The default status is passed explicitly, as `lif create` does, so
+	// ValidateCreateInput checks it against the status table.
+	status := cfg.GetDefaultStatus()
 	input := model.CreateItemInput{
-		Title: rec.Title,
-		Type:  &itemType,
-		Tags:  tags,
-		Body:  &body,
+		Title:  rec.Title,
+		Type:   &itemType,
+		Status: &status,
+		Tags:   tags,
+		Body:   &body,
 	}
 	if parentID != "" {
 		input.Parent = &parentID

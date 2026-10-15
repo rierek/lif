@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -359,6 +360,7 @@ func TestPromoteUnmappedCodeWritesNothing(t *testing.T) {
 func TestPromoteAppliesDefaultStatus(t *testing.T) {
 	setupPromoteTest(t)
 	resetPromoteFlags(t)
+	cfg.Items.DefaultStatus = "in-progress"
 	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
 
 	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err != nil {
@@ -368,8 +370,74 @@ func TestPromoteAppliesDefaultStatus(t *testing.T) {
 	if len(all) != 1 {
 		t.Fatalf("items = %d, want 1", len(all))
 	}
-	if want := cfg.GetDefaultStatus(); want == "" || all[0].Status != want {
-		t.Errorf("status = %q, want configured default %q", all[0].Status, want)
+	if all[0].Status != "in-progress" {
+		t.Errorf("status = %q, want configured default %q", all[0].Status, "in-progress")
+	}
+}
+
+// An invalid configured default status is refused like `lif create` refuses
+// it, before anything is written.
+func TestPromoteInvalidDefaultStatusWritesNothing(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	cfg.Items.DefaultStatus = "no-such-status"
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err == nil {
+		t.Fatal("expected an error for an invalid default status, got nil")
+	}
+	if got := countItems(t); got != 0 {
+		t.Fatalf("items created = %d, want 0", got)
+	}
+}
+
+// A require_fields_on rule for the default status that the promoted front
+// matter cannot satisfy is caught in the preflight, so the first record is
+// not written either.
+func TestPromoteRequiredFieldsPolicyWritesNothing(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	cfg.Items.RequireFieldsOn = map[string][]string{"todo": {"estimate"}}
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`,`+validImprovementRecord+`]}`)
+
+	err := promoteCmd.RunE(promoteCmd, []string{path, "B01", "I02"})
+	if err == nil {
+		t.Fatal("expected a policy refusal, got nil")
+	}
+	if got := countItems(t); got != 0 {
+		t.Fatalf("items created = %d, want 0", got)
+	}
+	if !contains(err.Error(), "estimate") {
+		t.Errorf("error %q does not name the missing field", err.Error())
+	}
+}
+
+// A required field that promote itself sets (finding) satisfies the rule.
+func TestPromoteRequiredFieldsPolicySatisfiedByPromotedFields(t *testing.T) {
+	setupPromoteTest(t)
+	resetPromoteFlags(t)
+	cfg.Items.RequireFieldsOn = map[string][]string{"todo": {"finding"}}
+	path := writeArtifact(t, `{"findings":[`+validBugRecord+`]}`)
+
+	if err := promoteCmd.RunE(promoteCmd, []string{path, "B01"}); err != nil {
+		t.Fatalf("promoteCmd.RunE() error = %v", err)
+	}
+	if got := countItems(t); got != 1 {
+		t.Fatalf("items created = %d, want 1", got)
+	}
+}
+
+// A failure after the preflight names the items already written. No
+// deterministic way to fail the second write of a real call exists (IDs are
+// random, the preflight rules out every field error), so this checks the
+// report promote hands the writer.
+func TestPromotePartialWriteReportNamesWrittenItems(t *testing.T) {
+	written := []*item.Item{{ID: "beans-aaaa"}, {ID: "beans-bbbb"}}
+	err := emitBatchFailure(false, written, fmt.Errorf("failed to create item for B03: disk full"))
+	for _, want := range []string{"failed to create item for B03", "already written: beans-aaaa, beans-bbbb"} {
+		if !contains(err.Error(), want) {
+			t.Errorf("error %q lacks %q", err.Error(), want)
+		}
 	}
 }
 

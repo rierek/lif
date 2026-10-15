@@ -156,3 +156,25 @@ func TestIndentedExampleCommentsAreFencedNotHeadings(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestSupplementIsInsertedBeforeSeeAlso(t *testing.T) {
+	out := t.TempDir()
+	dir := filepath.Join(out, supplementDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "lif_list.md"), []byte("### Extra\n\nhand-written\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generate(fixture(), out); err != nil {
+		t.Fatal(err)
+	}
+	got := read(t, filepath.Join(out, "lif-list.md"))
+	extra, see := strings.Index(got, "### Extra"), strings.Index(got, "### SEE ALSO")
+	if extra < 0 || see < 0 || extra > see {
+		t.Errorf("supplement not before SEE ALSO:\n%s", got)
+	}
+	if strings.Contains(read(t, filepath.Join(out, "lif-show.md")), "hand-written") {
+		t.Error("supplement leaked into another page")
+	}
+}

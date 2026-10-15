@@ -34,7 +34,12 @@ var createCmd = &cobra.Command{
 	Args:    cobra.ArbitraryArgs,
 	Aliases: []string{"c", "new"},
 	Short:   "Create a new item",
-	Long:    `Creates a new item (issue) with a generated ID and optional title.`,
+	Long: `Creates a new item (issue) with a generated ID and optional title.
+
+With -i/--interactive a guided form asks for title, type, priority and parent
+on the terminal, then offers an action menu (body, tags, blocking links,
+status, create next). Flags and the lif.default_* settings pre-fill the form.
+Without a terminal on stdin the command fails at once and never waits.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Validate inputs
 		if createStatus != "" && !cfg.IsValidStatus(createStatus) {

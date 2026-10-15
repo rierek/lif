@@ -189,11 +189,9 @@ func newPickerFilter() pickerFilter {
 	return pickerFilter{input: ti, facetStatus: statusOpen}
 }
 
-// statusOpen is the Status chip's default value: todo, in-progress and draft.
+// statusOpen is the Status chip's default value: every status that is not an archive status.
 // Cycle ^n past it to reach single statuses, then "(any)".
 const statusOpen = "open"
-
-func isOpenStatus(s string) bool { return s == "todo" || s == "in-progress" || s == "draft" }
 
 func statusFacetOptions() []string { return append([]string{statusOpen}, data.StatusValues()...) }
 
@@ -209,7 +207,7 @@ func (f pickerFilter) matchesBean(b *data.Bean) bool {
 		return false
 	}
 	if f.facetStatus == statusOpen {
-		if !isOpenStatus(b.Status) {
+		if !data.IsOpenStatus(b.Status) {
 			return false
 		}
 	} else if f.facetStatus != "" && b.Status != f.facetStatus {

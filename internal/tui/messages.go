@@ -190,12 +190,6 @@ type repoMetricsMsg struct {
 	err         error
 }
 
-// openBeanStatuses are the statuses repoMetricsCmd counts as "offen" --
-// mirrors the bean's own acceptance-checklist wording verbatim ("beans list
-// --json -s todo -s in-progress -s draft"): every status EXCEPT
-// completed/scrapped.
-var openBeanStatuses = map[string]bool{"todo": true, "in-progress": true, "draft": true}
-
 // repoMetricsCmd loads ONE repo's full bean list and reduces it to an
 // open/total count, tagged as repoMetricsMsg -- design note (bean bt-zhwl,
 // "Kosten/Latenz-Abwägung"): this is genuinely a full `beans list --json
@@ -212,8 +206,9 @@ func repoMetricsCmd(repo string, storePath string) tea.Cmd {
 			return repoMetricsMsg{repo: repo, err: err}
 		}
 		open := 0
+		isOpen := data.OpenStatusFunc(repo)
 		for _, b := range beans {
-			if openBeanStatuses[b.Status] {
+			if isOpen(b.Status) {
 				open++
 			}
 		}

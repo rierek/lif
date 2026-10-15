@@ -3,6 +3,9 @@ package data
 import (
 	"sort"
 	"strings"
+	"sync/atomic"
+
+	"github.com/rierek/lif/pkg/config"
 )
 
 // Index is an in-memory snapshot over a set of beans, built once per
@@ -114,35 +117,114 @@ func (idx *Index) WithTag(tag string) []*Bean {
 	return tagged
 }
 
-// Sort orders mirror beans 0.4.2's config defaults (implementation-plan.md
-// »E1 Task 3«). Values not listed here sort last within their tier.
-//
-// Scope cut: these are hardcoded beans-0.4.2 defaults only. This does not
-// read custom status/priority/type names from .beans.yml, and upstream's
-// manual fractional-order tier is deliberately not implemented here (out of
-// scope per plan Task 3).
-//
-// statusValues/typeValues/priorityValues are the canonical, ORDERED enum
-// single source (design decision b, E3 Task 1, bean bt-dlgk): beans 0.4.2's
-// fixed enums in tier order. The rank maps below are DERIVED from these
-// slices (position == rank), not maintained as a second, independently
-// hand-authored order -- box_filter_facets.go's buildFilterItems and E3's
-// combined value menu (box_menu_value.go) both consume the exported
-// accessors (StatusValues/TypeValues/PriorityValues) instead of
-// re-hardcoding the values a second time.
-var (
-	statusValues   = []string{"in-progress", "todo", "draft", "completed", "scrapped"}
-	typeValues     = []string{"milestone", "epic", "bug", "feature", "task"}
-	priorityValues = []string{"critical", "high", "normal", "low", "deferred"}
+// enums is the ORDERED status/type/priority single source: the project's
+// configured lists (SetConfig), or the built-in lif defaults before any
+// config is applied. The rank maps are DERIVED from the slices (position ==
+// rank), not maintained as a second, independently authored order.
+// box_filter_facets.go's buildFilterItems and the combined value menu
+// (box_menu_value.go) consume the exported accessors (StatusValues/
+// TypeValues/PriorityValues) instead of hard-coding values.
+type enums struct {
+	cfg                                 *config.Config
+	statuses, types, priorities         []string
+	statusOrder, typeOrder, priorityOrd map[string]int
+}
 
-	statusOrder   = rankMap(statusValues)
-	typeOrder     = rankMap(typeValues)
-	priorityOrder = rankMap(priorityValues)
+func newEnums(cfg *config.Config, statuses, types, priorities []string) *enums {
+	return &enums{cfg, statuses, types, priorities, rankMap(statuses), rankMap(types), rankMap(priorities)}
+}
+
+// cur is swapped atomically: SetConfig runs on the UI goroutine, sorting may
+// run on command goroutines.
+var cur atomic.Pointer[enums]
+
+var (
+	builtinStatuses   = []string{"in-progress", "todo", "draft", "completed", "scrapped"}
+	builtinTypes      = []string{"milestone", "epic", "bug", "feature", "task"}
+	builtinPriorities = []string{"critical", "high", "normal", "low", "deferred"}
 )
 
+func init() { cur.Store(newEnums(nil, builtinStatuses, builtinTypes, builtinPriorities)) }
+
+// SetConfig makes the project's configured status, type and priority lists
+// (and type ranks) the single source for menus, forms, sorting and parent
+// candidates. nil restores the built-in defaults.
+func SetConfig(cfg *config.Config) {
+	if cfg == nil {
+		cur.Store(newEnums(nil, builtinStatuses, builtinTypes, builtinPriorities))
+		return
+	}
+	cur.Store(newEnums(cfg, cfg.StatusNames(), cfg.TypeNames(), cfg.PriorityNames()))
+}
+
+// ConfiguredColors returns the colour specs (tone name or hex) the project
+// config sets explicitly, keyed by status/type/priority name: an entry counts
+// when its colour differs from the built-in one. Nothing is returned for a
+// repo without a config.
+func ConfiguredColors() (status, typ, priority map[string]string) {
+	cfg := cur.Load().cfg
+	if cfg == nil {
+		return nil, nil, nil
+	}
+	status, typ, priority = map[string]string{}, map[string]string{}, map[string]string{}
+	builtin := map[string]string{}
+	set := func(dst map[string]string, name, color string) {
+		if color != "" && color != builtin[name] {
+			dst[name] = color
+		}
+	}
+	for _, v := range config.DefaultStatuses {
+		builtin[v.Name] = v.Color
+	}
+	for _, v := range cfg.StatusList() {
+		set(status, v.Name, v.Color)
+	}
+	clear(builtin)
+	for _, v := range config.DefaultTypes {
+		builtin[v.Name] = v.Color
+	}
+	for _, v := range cfg.TypeList() {
+		set(typ, v.Name, v.Color)
+	}
+	clear(builtin)
+	for _, v := range config.DefaultPriorities {
+		builtin[v.Name] = v.Color
+	}
+	for _, v := range cfg.PriorityList() {
+		set(priority, v.Name, v.Color)
+	}
+	return
+}
+
+// IsOpenStatus reports whether s counts as "open": every status that is not an
+// archive status of the project config (completed and scrapped by default).
+func IsOpenStatus(s string) bool { return !cur.Load().cfg.IsArchiveStatus(s) }
+
+// DefaultStatus, DefaultType and DefaultPriority return the value the create
+// form preselects: the project's configured default, else lif's usual
+// default (todo, task, normal), else the first entry of the list.
+func DefaultStatus() string {
+	return pick(cur.Load().statuses, cur.Load().cfg.GetDefaultStatus(), "todo")
+}
+func DefaultType() string { return pick(cur.Load().types, cur.Load().cfg.GetDefaultType(), "task") }
+func DefaultPriority() string {
+	return pick(cur.Load().priorities, cur.Load().cfg.GetDefaultPriority(), "normal")
+}
+
+// pick returns the first of want, fallback that is in list, else list[0].
+func pick(list []string, want, fallback string) string {
+	for _, v := range []string{want, fallback} {
+		for _, l := range list {
+			if v != "" && l == v {
+				return v
+			}
+		}
+	}
+	return list[0]
+}
+
 // rankMap builds a value->position lookup from an ordered slice (position ==
-// rank) -- the single place statusOrder/typeOrder/priorityOrder derive their
-// ranking from their respective ordered slice above.
+// rank).
 func rankMap(vals []string) map[string]int {
 	m := make(map[string]int, len(vals))
 	for i, v := range vals {
@@ -151,19 +233,18 @@ func rankMap(vals []string) map[string]int {
 	return m
 }
 
-// StatusValues returns the canonical beans status enum in tier order. A
-// defensive copy -- callers must not be able to mutate the package-level
-// slice (and thus every future caller's view of it) through the returned
+// StatusValues returns the status enum in tier order. A defensive copy --
+// callers must not be able to mutate the shared slice through the returned
 // value.
-func StatusValues() []string { return append([]string(nil), statusValues...) }
+func StatusValues() []string { return append([]string(nil), cur.Load().statuses...) }
 
-// TypeValues returns the canonical beans type enum in tier order (defensive
-// copy, see StatusValues).
-func TypeValues() []string { return append([]string(nil), typeValues...) }
+// TypeValues returns the type enum in tier order (defensive copy, see
+// StatusValues).
+func TypeValues() []string { return append([]string(nil), cur.Load().types...) }
 
-// PriorityValues returns the canonical beans priority enum in tier order
-// (defensive copy, see StatusValues).
-func PriorityValues() []string { return append([]string(nil), priorityValues...) }
+// PriorityValues returns the priority enum in tier order (defensive copy,
+// see StatusValues).
+func PriorityValues() []string { return append([]string(nil), cur.Load().priorities...) }
 
 // sortBeans sorts in place by Status -> Priority -> Type -> Title
 // (case-insensitive), matching beans upstream ordering. This is the single
@@ -175,10 +256,11 @@ func PriorityValues() []string { return append([]string(nil), priorityValues...)
 // Upstream beans sorts with a non-stable sort -- this is not guaranteed to
 // produce byte-for-byte parity with upstream ordering on ties.
 func sortBeans(beans []*Bean) {
+	e := cur.Load()
 	sort.SliceStable(beans, func(i, j int) bool {
 		a, b := beans[i], beans[j]
 
-		if ra, rb := rank(statusOrder, a.Status), rank(statusOrder, b.Status); ra != rb {
+		if ra, rb := rank(e.statusOrder, a.Status), rank(e.statusOrder, b.Status); ra != rb {
 			return ra < rb
 		}
 
@@ -189,11 +271,11 @@ func sortBeans(beans []*Bean) {
 		if pb == "" {
 			pb = "normal"
 		}
-		if ra, rb := rank(priorityOrder, pa), rank(priorityOrder, pb); ra != rb {
+		if ra, rb := rank(e.priorityOrd, pa), rank(e.priorityOrd, pb); ra != rb {
 			return ra < rb
 		}
 
-		if ra, rb := rank(typeOrder, a.Type), rank(typeOrder, b.Type); ra != rb {
+		if ra, rb := rank(e.typeOrder, a.Type), rank(e.typeOrder, b.Type); ra != rb {
 			return ra < rb
 		}
 
@@ -221,7 +303,7 @@ func SortBeans(beans []*Bean) { sortBeans(beans) }
 // StatusRank exposes the status tier position (see statusOrder) for callers
 // that need to compare two beans' status without a full SortBeans call
 // (e.g. the Backlog sort-toggle, E2 Task 5).
-func StatusRank(status string) int { return rank(statusOrder, status) }
+func StatusRank(status string) int { return rank(cur.Load().statusOrder, status) }
 
 // PriorityRank exposes the priority tier position, empty treated as "normal"
 // (mirrors sortBeans' own empty-priority handling).
@@ -229,5 +311,5 @@ func PriorityRank(priority string) int {
 	if priority == "" {
 		priority = "normal"
 	}
-	return rank(priorityOrder, priority)
+	return rank(cur.Load().priorityOrd, priority)
 }

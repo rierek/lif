@@ -39,18 +39,21 @@ func typeGlyph(t string) string {
 // TypeIcon liefert das gefärbte Text-Icon eines beans-Typs (Fallback: Text-Farbe +
 // fallbackGlyph für unbekannte Typen).
 func TypeIcon(t string) string {
-	col, ok := typeColor[t]
-	if !ok {
-		col = Text
-	}
-	return lipgloss.NewStyle().Foreground(col).Render(typeGlyph(t))
+	return lipgloss.NewStyle().Foreground(typeColorOf(t)).Render(typeGlyph(t))
 }
 
 // TypeStyle färbt einen Typ-Text (Fallback: Text-Farbe für unbekannte Typen).
 func TypeStyle(t string) lipgloss.Style {
-	col, ok := typeColor[t]
-	if !ok {
-		col = Text
+	return lipgloss.NewStyle().Foreground(typeColorOf(t))
+}
+
+// typeColorOf: configured colour, else the built-in one, else Text.
+func typeColorOf(t string) lipgloss.Color {
+	if col, ok := configured.typ[t]; ok {
+		return col
 	}
-	return lipgloss.NewStyle().Foreground(col)
+	if col, ok := typeColor[t]; ok {
+		return col
+	}
+	return Text
 }

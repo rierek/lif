@@ -127,6 +127,18 @@ func SetAccent(hex string) {
 	Header = lipgloss.NewStyle().Bold(true).Foreground(c)
 }
 
+// configured holds the colours the active project's config sets explicitly
+// (status/type/priority `color:`), keyed by value name. They win over the
+// built-in palette below; SetConfiguredColors replaces them wholesale, so a
+// repo switch never leaks the previous repo's colours.
+var configured struct{ status, typ, priority map[string]lipgloss.Color }
+
+// SetConfiguredColors installs the active project's explicit colours (nil maps
+// clear them).
+func SetConfiguredColors(status, typ, priority map[string]lipgloss.Color) {
+	configured.status, configured.typ, configured.priority = status, typ, priority
+}
+
 // --- beans-Status: draft/todo/in-progress/completed/scrapped (Port-Adaptation 2) ---
 
 var statusColor = map[string]lipgloss.Color{
@@ -148,6 +160,9 @@ var statusColor = map[string]lipgloss.Color{
 // Type-Fallback (icons.go TypeIcon/TypeStyle) bleibt bewusst bei Text: kein
 // realer Typ (Blue/Mauve/Sky/Red) nutzt Text, dort besteht keine Kollision.
 func StatusColor(status string) lipgloss.Color {
+	if col, ok := configured.status[status]; ok {
+		return col
+	}
 	if col, ok := statusColor[status]; ok {
 		return col
 	}
@@ -216,6 +231,9 @@ func fallbackGlyph() string {
 // (Text). PF-6 (design-spec.md §15, 2026-07-15) verschob high Rot→Gelb und
 // low/deferred Grün/Hint→Subtext gegenüber der vorherigen Tabelle.
 func priorityColor(p string) lipgloss.Color {
+	if col, ok := configured.priority[p]; ok {
+		return col
+	}
 	switch p {
 	case "critical":
 		return Red

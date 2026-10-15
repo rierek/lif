@@ -21,7 +21,7 @@ func TestParseStripsUTF8BOM(t *testing.T) {
 	if b.Title != "Written in Notepad" || b.Status != "todo" {
 		t.Errorf("Parse() title = %q, status = %q; want the values of the front matter behind the BOM", b.Title, b.Status)
 	}
-	if b.Body != "\nBody text." {
+	if b.Body != "Body text." {
 		t.Errorf("Parse() body = %q, want the text after the front matter only", b.Body)
 	}
 

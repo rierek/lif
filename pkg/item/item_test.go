@@ -28,7 +28,7 @@ status: todo
 This is the body.`,
 			expectedTitle:  "Test Bean",
 			expectedStatus: "todo",
-			expectedBody:   "\nThis is the body.",
+			expectedBody:   "This is the body.",
 		},
 		{
 			name: "with timestamps",
@@ -42,7 +42,7 @@ updated_at: 2024-01-16T14:45:00Z
 Body content here.`,
 			expectedTitle:  "With Times",
 			expectedStatus: "in-progress",
-			expectedBody:   "\nBody content here.",
+			expectedBody:   "Body content here.",
 		},
 		{
 			name: "empty body",
@@ -69,7 +69,7 @@ status: todo
 Paragraph text.`,
 			expectedTitle:  "Multi Line",
 			expectedStatus: "todo",
-			expectedBody:   "\n# Header\n\n- Item 1\n- Item 2\n\nParagraph text.",
+			expectedBody:   "# Header\n\n- Item 1\n- Item 2\n\nParagraph text.",
 		},
 		{
 			name:           "plain text without frontmatter",
@@ -407,6 +407,14 @@ func TestParseRenderRoundtrip(t *testing.T) {
 			},
 		},
 		{
+			name: "body starting with a blank line",
+			item: &Item{
+				Title:  "Blank First",
+				Status: "todo",
+				Body:   "\nafter a blank line",
+			},
+		},
+		{
 			name: "with timestamps",
 			item: &Item{
 				Title:     "Timestamped Bean",
@@ -452,13 +460,10 @@ func TestParseRenderRoundtrip(t *testing.T) {
 				t.Errorf("Type roundtrip: got %q, want %q", parsed.Type, tt.item.Type)
 			}
 
-			// Body comparison (parse adds newline prefix for non-empty body)
-			wantBody := tt.item.Body
-			if wantBody != "" {
-				wantBody = "\n" + wantBody
-			}
-			if parsed.Body != wantBody {
-				t.Errorf("Body roundtrip: got %q, want %q", parsed.Body, wantBody)
+			// The body survives the round trip unchanged: the separator line
+			// after the front matter is not part of it.
+			if parsed.Body != tt.item.Body {
+				t.Errorf("Body roundtrip: got %q, want %q", parsed.Body, tt.item.Body)
 			}
 
 			// Timestamp comparison

@@ -163,7 +163,7 @@ func TestSupplementIsInsertedBeforeSeeAlso(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "lif_list.md"), []byte("### Extra\n\nhand-written\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "_lif_list.md"), []byte("### Extra\n\nhand-written\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := generate(fixture(), out); err != nil {

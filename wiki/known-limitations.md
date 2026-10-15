@@ -26,7 +26,7 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [3slb] | `lif --version` is rejected | `lif --version` prints `Error: unknown flag: --version`. | Run `lif version`. | Open |
 | [tgph] | `lif promote` creates the item without a parent | A promoted bug sits outside the release subtree and its progress number. | `lif update <id> --parent <feature-id>`. | Open |
 | [t5k2] | Persisted search index path is built but never filled | No effect for users: every call indexes in memory. | None needed. | Open |
-| [29wh] | Wiki and README statements disagree with the code | Some older statements (cycle entry fields, `display.theme`, `default_status` check, i386 platforms, `go install` binaries) are wrong. | Trust this site and a run of your binary. | Open |
+| [29wh] | Wiki and README statements disagree with the code | The `display.theme` statement in the configuration page may still disagree with the TUI. Other statements (cycle entry fields, `default_status` check, i386 platforms, `go install` binaries) were corrected in 0.15. | Trust this site and a run of your binary. | Open |
 | [gbl5] | `lif rename --dry-run` hits the same refusals as a real rename | The dry run stops at the first refusal instead of listing the full plan. | Fix the refusal and run again. | Open |
 
 ## Fixed

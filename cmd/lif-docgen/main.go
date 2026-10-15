@@ -19,8 +19,8 @@ import (
 const treeFile = "_command-tree.md"
 
 // supplementDir is the directory below the output dir with optional hand-written supplements (D24). The
-// underscore keeps Starlight from treating the files as pages. A supplement named after a command page
-// (lif_create.md for `lif create`) is inserted before that command's "SEE ALSO" section.
+// underscore in the directory and in every file name keeps Starlight (whose page glob tests only the file name) from treating the files as pages. A supplement named after a command page
+// (_lif_create.md for `lif create`) is inserted before that command's "SEE ALSO" section.
 const supplementDir = "_supplements"
 
 func main() {
@@ -49,7 +49,7 @@ func documented(c *cobra.Command) bool {
 
 // supplement returns the hand-written supplement of c, or "" when there is none.
 func supplement(out string, c *cobra.Command) (string, error) {
-	b, err := os.ReadFile(filepath.Join(out, supplementDir, strings.ReplaceAll(c.CommandPath(), " ", "_")+".md"))
+	b, err := os.ReadFile(filepath.Join(out, supplementDir, "_"+strings.ReplaceAll(c.CommandPath(), " ", "_")+".md"))
 	if os.IsNotExist(err) {
 		return "", nil
 	}

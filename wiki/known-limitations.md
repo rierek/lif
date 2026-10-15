@@ -17,14 +17,11 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | [xa2j] | AND, OR, NOT promised in search help and GraphQL schema do not work | `user AND login` is an OR of three terms. Parentheses do not group. | Use `+term` (required) and `-term` (excluded). | Open |
 | [z9e6] | Publish JSON schema files generated from the code | No schema files for `--json`; the shapes can change with any release. | Run the command against your own version. | Open |
 | [179g] | TUI ignores `display.theme`, fixed value lists, quit text says `bt` | Menus and the create form offer only the built-in statuses, types and priorities. The theme is fixed. The quit dialog says `Really quit bt?`. | Set custom values with `lif update` or in the item editor (`e`). | Open |
-| [z69m] | `lif promote` can fail part-way | The empty-status part is fixed in 0.14. A run can still stop part-way and leave a half-promoted set. | Check the result with `lif list` after a failed run. | Open (partly fixed in 0.14) |
 | [0g6b] | `show --json` returns the body with a leading newline, `create --json` does not | Body comparisons differ between commands. | Trim the body. | Open |
 | [ju1q] | A create refused for its parent returns `FILE_ERROR` instead of `VALIDATION_ERROR` | You cannot tell a validation refusal from an I/O failure by code. | Match the message text. | Open |
 | [hh0o] | TUI lobby footer shows `i/k`, but those keys edit the filter | Misleading key hint. | Use the arrow keys. | Open |
-| [nhcz] | `lif promote` review artifact format is undocumented | You cannot write an artifact without reading the source. | Read `internal/commands/findings-schema.json` in the repository. | Open |
 | [mgx8] | `create`/`update` help lists built-in names; completion and help fail outside a project | Help shows built-in type names even with custom types. `lif completion`, `lif help <cmd>` and `lif __complete` fail outside an initialised project. | Run them inside a project. | Open |
 | [3slb] | `lif --version` is rejected | `lif --version` prints `Error: unknown flag: --version`. | Run `lif version`. | Open |
-| [tgph] | `lif promote` creates the item without a parent | A promoted bug sits outside the release subtree and its progress number. | `lif update <id> --parent <feature-id>`. | Open |
 | [t5k2] | Persisted search index path is built but never filled | No effect for users: every call indexes in memory. | None needed. | Open |
 | [29wh] | Wiki and README statements disagree with the code | Some older statements (cycle entry fields, `display.theme`, `default_status` check, i386 platforms, `go install` binaries) are wrong. | Trust this site and a run of your binary. | Open |
 | [gbl5] | `lif rename --dry-run` hits the same refusals as a real rename | The dry run stops at the first refusal instead of listing the full plan. | Fix the refusal and run again. | Open |
@@ -34,6 +31,9 @@ Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as conv
 | ID | Title | Effect | Workaround | Status |
 |---|---|---|---|---|
 | [0pv6] | GraphQL `createItem` left status empty | Fixed in 0.14: the default status `todo` is applied. | n/a | Fixed in 0.14 |
+| [z69m] | `lif promote` wrote an empty status and could fail part-way | Fixed in 0.15: promoted items get the configured default status, and `lif promote` checks every selected record (code mapping, create-time field rules, parent) before the first write, so an invalid candidate writes nothing. If a write still fails, the error names the items already written. | n/a | Fixed in 0.15 |
+| [tgph] | `lif promote` created the item without a parent | Fixed in 0.15: `lif promote --parent <id>` creates every promoted item under that item, so it counts in the release progress. Without `--parent` an item still has no parent. | n/a | Fixed in 0.15 |
+| [nhcz] | `lif promote` review artifact format was undocumented | Fixed in 0.15: the `lif promote` command page describes the artifact, the finding record fields per code and how a record becomes an item. | n/a | Fixed in 0.15 |
 | [6y1a] | Type change skipped hierarchy validation | Fixed in 0.14: the hierarchy is validated before the first write. | n/a | Fixed in 0.14 |
 | [9kej] | Help text omitted manual order in the default sort | Fixed in 0.14: help names the manual order. | n/a | Fixed in 0.14 |
 | [g5dn] | `lif next` and `lif list --ready` returned container items | Fixed in 0.15: both leave out every container type (rank 1 to 3), so the ready list is leaf work only. | n/a | Fixed in 0.15 |

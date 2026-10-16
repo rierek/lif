@@ -111,7 +111,7 @@ With `--json` an error is one JSON object on stdout and the exit code is 1:
 | `VALIDATION_ERROR` | The request is refused: invalid input, unknown blocker or parent, a parent the type hierarchy forbids (`failed to create item: epic items can only have milestone as parent, not task`), a dependency cycle, invalid `--format` or `--depth`, bad filter. |
 | `FILE_ERROR` | Writing or reading the file failed. |
 | `CONFLICT` | ETag mismatch (`--if-match`). |
-| `POLICY_VIOLATION` | A required field of `require_fields_on` is missing. See [Configuration](../configuration/#status-dependent-required-fields). |
+| `POLICY_VIOLATION` | A required field of `require_fields_on` is missing (see [Configuration](../configuration/#status-dependent-required-fields)), or a gate refused the change (see [Hooks](../configuration/#hooks)). |
 
 Each code is set by the command that fails. `VALIDATION_ERROR` examples: `blocker item not found: zzzz`, `invalid status: bogus (must be in-progress, todo, draft, completed, scrapped)`.
 

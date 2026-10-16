@@ -100,9 +100,106 @@ lif run wt start lif-ab12 milestone/0.16   # runs: just -g wt start lif-ab12 mil
 
 Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run and sets the exit code of `lif run`. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
 
+## Hooks
+
+A hook runs a task by itself when an item is created or one of its fields changes: `status`, `type`, `parent`, `tags` or any extra front matter key of your workflow. Tasks are the *what*, hooks are the *when*. Nobody has to remember the step, neither a person nor an agent. A hook reacts after the change is written. A gate checks before the write and can refuse the change.
+
+Project hooks run only after you have read them and run `lif hooks allow`. `lif hooks` lists every hook and gate and says whether the project hooks run.
+
+### Open and close a container worktree
+
+Two hooks do what a `just` recipe did by hand. `todo -> in-progress` opens the worktree of the item, and `-> completed` closes it:
+
+```yaml
+tasks:
+  wt-open:
+    desc: Create the container worktree for an item
+    args: [id, line]
+    steps:
+      - |
+        [ -n "$line" ] || { echo "item $id has no 'line' field" >&2; exit 1; }
+        common="$(git rev-parse --path-format=absolute --git-common-dir)"
+        [ -d "$(dirname "$common")/../worktrees/$id" ] && exit 0
+        just -g wt start "$id" "$line"
+  wt-close:
+    desc: Remove the container worktree after acceptance
+    args: [id]
+    steps:
+      - |
+        common="$(git rev-parse --path-format=absolute --git-common-dir)"
+        [ -d "$(dirname "$common")/../worktrees/$id" ] || exit 0
+        just -g wt finish "$id"
+hooks:
+  open-worktree:
+    event: [created, updated]
+    changed: [status]
+    to: [in-progress]
+    type: [feature, task, bug]
+    run: wt-open
+    args: [id, line]
+  close-worktree:
+    event: [updated]
+    changed: [status]
+    to: [completed]
+    run: wt-close
+    args: [id]
+```
+
+- **Safe to fire twice.** Each task checks its own precondition and exits 0 when there is nothing to do: `wt-open` does nothing when the worktree exists, `wt-close` does nothing when it does not.
+- **Two path rules.** `git rev-parse --git-common-dir` gives the same hull from the main checkout and from every container worktree, so the task does not depend on where Lif runs. The integration line comes from the item field `line`, because the current branch of a container worktree is the container branch, not the line. Set it with `lif update lif-ab12 --set line=milestone/0.16`. `line` is an extra key: Lif passes it as the argument `line` without any declaration.
+- **Complete from the integration checkout.** `just -g wt finish` refuses to remove the worktree that it runs in. If you complete an item from inside `worktrees/<id>/`, `wt-close` fails with a warning. The item is still completed.
+
+### Gates
+
+A gate has `stage: before`. It runs before the write, and a non-zero exit refuses the change: nothing is written. This gate refuses `completed` until the item is listed in the file that its field `target_entry` names:
+
+```yaml
+tasks:
+  check-target-entry:
+    args: [id, target_entry]
+    steps:
+      - |
+        [ -n "$target_entry" ] || { echo "field target_entry is empty" >&2; exit 1; }
+        grep -qF -- "$id" "$target_entry" || { echo "$id not found in $target_entry" >&2; exit 1; }
+hooks:
+  require-target-entry:
+    stage: before
+    event: [updated]
+    changed: [status]
+    to: [completed]
+    run: check-target-entry
+    args: [id, target_entry]
+    message: "Entry missing in the target file. Add it, then complete the item."
+```
+
+```sh
+lif complete lif-ab12 --set target_entry=docs/RELEASE.md
+```
+
+If `docs/RELEASE.md` does not list `lif-ab12`, the command exits with code 1, writes nothing and prints the fixed `message` first and the output of the task below it:
+
+```text
+Error: hook "require-target-entry" blocked the change of lif-ab12: Entry missing in the target file. Add it, then complete the item.
+lif-ab12 not found in docs/RELEASE.md
+```
+
+With `--json`, the same text is the `error` and the `code` is `POLICY_VIOLATION`.
+
+- A gate fails closed. A gate that cannot run, for example an unknown task, blocks the change with `could not run: <error>`.
+- A gate in a project config that is not allowed does not run. Lif warns and counts the gates: `hooks in <path> are not allowed (1 gates not enforced)`.
+- `LIF_NO_HOOKS` with any non-empty value skips after hooks and gates. It is a deliberate bypass, and every process that a hook starts inherits it. An agent must fix what the gate reports and must not set it.
+
+### Limits
+
+- A hook sees only changes that go through Lif. Delete, `lif check --fix`, `lif rename`, `lif order`, hand edits of item files and git merges fire nothing.
+- A task that wants to write an item can run `"$LIF" update ...`: such a call fires no hooks, so hooks do not chain.
+- The CLI can show a stale item after a hook wrote it. Read it again with `lif show --json`.
+
+See [Hooks](../../reference/configuration/#hooks) in the configuration reference for every key, the item fields, the trust rules and all limits.
+
 ## Errors
 
-Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is the exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)` and exits with the exit code of the failing step.
+Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is the exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)` and exits with the exit code of the failing step. A change that a gate blocks prints no usage line either: see [Gates](#gates).
 
 ## Tips
 

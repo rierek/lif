@@ -80,7 +80,7 @@
       parent: parentId || null
     };
 
-    let saved: Item | null = null;
+    let saved: Item | null;
     if (isEdit && item) {
       const input: UpdateItemInput = fields;
       const result = await client.mutation(UpdateItemDocument, { id: item.id, input }).toPromise();

@@ -49,7 +49,7 @@ The [Glossary](glossary/) gives short definitions and, for each term, the page w
 
 - **Item IDs:** the full ID or the short ID without the configured prefix, for example `ix1n` for `f014j-ix1n`.
 - **`--json`:** many commands have this flag; see [JSON output](json-output/). `lif graph` uses `--format json`.
-- **Exit codes:** 0 on success, 1 on error. `lif check` returns 1 on at least one finding. There is no exit code 2.
+- **Exit codes:** 0 on success, 1 on error. `lif check` returns 1 on at least one finding. There is no exit code 2, except from `lif run`, which returns the exit code of the failing step.
 - **Global flags:** `--config` and `--lif-path`. See the [Command overview](commands/) and [Store resolution](configuration/#store-resolution).
 - **Formatting:** commands and field names are set in code formatting and stay English.
 

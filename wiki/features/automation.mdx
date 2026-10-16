@@ -102,7 +102,7 @@ Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment
 
 ## Errors
 
-Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr.
+Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is the exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)` and exits with the exit code of the failing step.
 
 ## Tips
 
@@ -143,7 +143,7 @@ Run `lif check` after every automated change.
 - With a server, `lif-serve` offers `/api/graphql` and a playground at `/playground`.
 - `lif promote` takes a review artifact that follows the findings schema. It validates every selected record and the `--parent` item first, writes nothing if one fails, and then creates one item per record with the configured default status. The command page describes the artifact format. See [`lif promote`](../../reference/commands/lif-promote/).
 - GraphQL `createItem` without `status` sets the configured default status (0.14).
-- `lif check` returns 1 on at least one problem. Normal errors do not use exit code 2.
+- `lif check` returns 1 on at least one problem. Normal errors do not use exit code 2, except `lif run`, which returns the exit code of the failing step.
 - On a GraphQL error the CLI prints `Error:` and a message. It returns no partial data.
 
 ## Limits

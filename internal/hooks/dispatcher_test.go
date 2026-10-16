@@ -178,6 +178,21 @@ func TestGateRunsOnlyGatesAndFireOnlyAfterHooks(t *testing.T) {
 	}
 }
 
+// TestFireSkipsAChangeThatDoesNotMatch: Fire runs an after hook only for a
+// change that matches it.
+func TestFireSkipsAChangeThatDoesNotMatch(t *testing.T) {
+	p := newProj(t, tasksOf(task("t", `touch "$LIF_ROOT/ran"`))+
+		hooksOf(hook("h", "event: [updated]", "to: [completed]", "run: t")))
+	p.allow()
+
+	if p.d.Fire(toProgress()) || p.exists("ran") {
+		t.Errorf("a hook for completed ran for a change to in-progress (marker %v)", p.exists("ran"))
+	}
+	if !p.d.Fire(upd(it("todo"), it("completed"), "status")) || !p.exists("ran") {
+		t.Error("control: the hook did not run for a change to completed")
+	}
+}
+
 // TestFireCreatedHasAnEmptyBeforeState: a created item has no Prev; the task
 // sees empty before values.
 func TestFireCreatedHasAnEmptyBeforeState(t *testing.T) {

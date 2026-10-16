@@ -56,6 +56,7 @@ func TestM06_TypeMismatchIsNoMatch(t *testing.T) {
 func TestM07_TagsMatchWhenTheItemCarriesOneOfThem(t *testing.T) {
 	h := config.Hook{Event: []string{"updated"}, Tags: []string{"x", "y"}}
 	wantMatch(t, h, upd(it("todo"), it("todo", "y", "z"), "tags"), true)
+	wantMatch(t, h, upd(it("todo"), it("todo", "z"), "tags"), false) // control: none of x, y
 }
 
 func TestM08_TagsAddedNeedsATagThatWasNotThereBefore(t *testing.T) {

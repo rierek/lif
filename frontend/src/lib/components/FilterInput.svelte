@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import { ui } from '#lib/uiState.svelte.js';
 
   let inputEl = $state<HTMLInputElement | null>(null);

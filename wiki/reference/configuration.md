@@ -84,12 +84,42 @@ server:
 | | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` adds the CORS header for every origin and allows nothing else (pages can read, not change) |
 | `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`). Colors the CLI output only: the TUI uses a fixed dark palette and the web UI follows the operating system. |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
+| `tasks` | `<name>` | none; see [Tasks](#tasks) |
 
 `lif.default_priority` and `lif.default_tags` are read only by the guided `lif create -i` form, which pre-fills them. Plain `lif create`, the GraphQL `createItem` mutation and the TUI create form ignore them. `lif check` fails if `default_priority` names an unknown priority (built-in or configured), or if a `default_tags` entry is empty or not a valid tag. An empty list behaves like an unset key.
 
 `lif check` does not validate `lif.default_status`: it prints "Default status exists" without a real test, because the status table is built in. `lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/). The bind address and the remote terminal have no key on purpose: they are the flags `--host` and `--allow-remote-terminal`.
 
 New worktrees get the branch `lif/<id>`. Worktrees on legacy `beans/` branches are still listed and used.
+
+## Tasks
+
+`lif run` runs named shell tasks. Define them under `tasks:` in `.lif.yml` or in the global file `~/.lif/tasks.yml`:
+
+```yaml
+tasks:
+    po-accept:
+        desc: Accept an item as PO
+        args: [id]
+        deps: [test]
+        steps:
+            - '"$LIF" update "$id" --tag accepted'
+```
+
+- Schema. A task is a mapping with the keys `desc` (text that `lif run` lists), `args` (required positional arguments), `deps` (tasks that run first) and `steps` (a list of shell scripts). Any other key is an error. A multi-line step is one script.
+- Validation. A task name uses lowercase letters, digits, `-` and `_`, and starts with a letter or digit. `steps` needs at least one entry, and no step is empty. An argument name uses lowercase letters, digits and `_`, and does not start with a digit. An argument name appears once per task. A dependency name is not empty.
+- Global file. `~/.lif/tasks.yml` may contain only the key `tasks:`. Any other top-level key is an error. A missing file means no global tasks. The global file is a standard that all your projects share.
+- Override. A project task replaces a global task of the same name as a whole. `lif run -g <task>` runs the global one instead. `lif run` lists both files; a project task that hides a global one shows `[project, overrides global]`.
+- Dependencies. `deps` resolve against both files, so a global task can depend on a project task. A dependency runs once, even when several tasks name it. A dependency takes no arguments: a dependency with `args` is an error. A dependency cycle is an error.
+- Execution. Each step runs with `sh -c` in the project root: the directory of `.lif.yml`, or the current directory when there is none. This needs a POSIX `sh`.
+- Environment. Every step gets `LIF` (path of the lif binary), `LIF_ROOT` (the directory the steps run in), `LIF_TASK` (name of the running task; a dependency has its own name) and `LIF_TASK_ORIGIN` (`project` or `global`). Each declared argument is also a shell variable, and all arguments are `$1`, `$2`, ... of every step. Everything after the task name goes to the task unparsed.
+- Quoting. Quote arguments in the step: `"$id"`. Arguments are shell variables, not text that Lif substitutes into the script.
+- Calling tasks. A global task that calls another global task uses `"$LIF" run -g <task>`. Without `-g`, a project task of the same name wins. `lif run` runs project tasks without a trust check: a `.lif.yml` that you did not write can run commands on your machine.
+- Exit code. A failing step stops the run. Lif prints `Error: task "<name>": step <n> of <total> failed (exit code <c>)` and exits with the exit code of that step.
+- `lif rename` keeps the `tasks:` block.
+- An invalid task makes every lif command in that project fail with the config error, not only `lif run`.
+
+See [Automation](../../features/automation/#tasks) for examples.
 
 ## Statuses, types and priorities
 

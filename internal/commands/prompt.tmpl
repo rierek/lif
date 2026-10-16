@@ -21,6 +21,7 @@ All commands support `--json` for machine-readable output. Use this flag to pars
 - **Checking progress**: `lif progress` shows counts by status plus a percent-complete figure across the whole workspace; `lif progress <id>` scopes it to one item's descendants (e.g. a milestone or epic); the root item itself is not counted.
 - **Listing milestones**: `lif milestones` lists all milestone items with their descendant completion counts (e.g. `3/10 completed`); completed/scrapped milestones are hidden by default, use `--all` to include them.
 - **While working**: keep the item's todo items current (check off what has been done, as it happens; `- [ ]` → `- [x]`). Offer to create follow-up items for any non-urgent work that was deferred.
+- **Project tasks**: `lif run` lists the tasks this project and the user define; `lif run <task> [args...]` runs one. Prefer a defined task over retyping its steps.
 - **When committing**: include both code changes AND item file(s) (new and modified!) in the commit, including after marking an item as completed or scrapped.
 </EXTREMELY_IMPORTANT>
 

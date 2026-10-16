@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { pointerClick } from '$lib/actions/pointerClick';
+  import { pointerClick } from '#lib/actions/pointerClick.js';
   interface Props {
     title: string;
     message: string;

@@ -1,6 +1,6 @@
 import { goto } from '$app/navigation';
-import type { Item } from '$lib/items.svelte';
-import { itemsStore } from '$lib/items.svelte';
+import type { Item } from '#lib/items.svelte.js';
+import { itemsStore } from '#lib/items.svelte.js';
 
 class UIState {
   // Active view: 'planning' or an itemId for workspace view (derived from URL)

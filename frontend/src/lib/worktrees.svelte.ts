@@ -1,6 +1,6 @@
 import { pipe, subscribe } from 'wonka';
 import { client } from './graphqlClient';
-import { generateWorkspaceName } from '$lib/nameGenerator';
+import { generateWorkspaceName } from '#lib/nameGenerator.js';
 import {
   WorktreesChangedDocument,
   CreateWorktreeDocument,

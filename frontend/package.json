@@ -68,5 +68,9 @@
     "shiki": "^3.23.0",
     "unique-names-generator": "^4.7.1",
     "wonka": "^6.3.6"
+  },
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
   }
 }

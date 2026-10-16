@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { diffSelectionStore } from '$lib/diffSelection.svelte';
+  import { diffSelectionStore } from '#lib/diffSelection.svelte.js';
 
   const selected = $derived(diffSelectionStore.selected);
   const loading = $derived(diffSelectionStore.diffLoading);

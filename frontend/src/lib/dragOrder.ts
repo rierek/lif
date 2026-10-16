@@ -5,10 +5,10 @@
  * to compute fractional-index order keys when items are reordered via drag.
  */
 
-import type { Item } from '$lib/items.svelte';
-import { itemsStore } from '$lib/items.svelte';
-import { orderBetween } from '$lib/fractional';
-import { client } from '$lib/graphqlClient';
+import type { Item } from '#lib/items.svelte.js';
+import { itemsStore } from '#lib/items.svelte.js';
+import { orderBetween } from '#lib/fractional.js';
+import { client } from '#lib/graphqlClient.js';
 import { UpdateItemOrderDocument } from './graphql/generated';
 
 /**

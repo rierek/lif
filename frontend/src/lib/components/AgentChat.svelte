@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { AgentChatStore } from '$lib/agentChat.svelte';
-  import { pickThinkingPhrase } from '$lib/thinkingPhrases';
+  import { AgentChatStore } from '#lib/agentChat.svelte.js';
+  import { pickThinkingPhrase } from '#lib/thinkingPhrases.js';
   import { onDestroy } from 'svelte';
   import AgentMessages from './AgentMessages.svelte';
   import PendingInteraction from './PendingInteraction.svelte';

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { changesStore, type FileChange } from '$lib/changes.svelte';
-  import { client } from '$lib/graphqlClient';
-  import { configStore } from '$lib/config.svelte';
-  import { diffSelectionStore } from '$lib/diffSelection.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import { MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
-  import { SendAgentMessageDocument, DiscardFileChangeDocument } from '$lib/graphql/generated';
+  import { changesStore, type FileChange } from '#lib/changes.svelte.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { diffSelectionStore } from '#lib/diffSelection.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { MAIN_WORKSPACE_ID } from '#lib/worktrees.svelte.js';
+  import { SendAgentMessageDocument, DiscardFileChangeDocument } from '#lib/graphql/generated.js';
 
   import ConfirmModal from './ConfirmModal.svelte';
 

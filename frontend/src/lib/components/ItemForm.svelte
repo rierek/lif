@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { client } from '$lib/graphqlClient';
-  import { CreateItemDocument, UpdateItemDocument, type CreateItemInput, type UpdateItemInput } from '$lib/graphql/generated';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { CreateItemDocument, UpdateItemDocument, type CreateItemInput, type UpdateItemInput } from '#lib/graphql/generated.js';
 
   interface Props {
     item?: Item | null;

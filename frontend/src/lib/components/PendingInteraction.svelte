@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { PendingInteraction, AskUserQuestionData, AskUserOption } from '$lib/agentChat.svelte';
-  import { renderMarkdown } from '$lib/markdown';
+  import type { PendingInteraction, AskUserQuestionData, AskUserOption } from '#lib/agentChat.svelte.js';
+  import { renderMarkdown } from '#lib/markdown.js';
 
   interface Props {
     interaction: PendingInteraction;

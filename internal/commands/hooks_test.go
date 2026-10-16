@@ -259,6 +259,48 @@ hooks:
 	}
 }
 
+// A relative --lif-path or --config leaves the store root relative; the
+// task still gets an absolute LIF_ITEM_PATH that exists, whatever the
+// working directory of the task is.
+func TestHookItemPathIsAbsoluteWithRelativeStore(t *testing.T) {
+	for _, flags := range [][]string{
+		{"--lif-path", "../" + config.DefaultStoreDir},
+		{"--config", "../" + config.ConfigFileName},
+	} {
+		t.Run(flags[0], func(t *testing.T) {
+			hookEnv(t)
+			dir := hookProject(t, `tasks:
+  where:
+    steps: ['printf %s "$LIF_ITEM_PATH" > "$LIF_ROOT/seen"']
+hooks:
+  h:
+    event: [updated]
+    to: [in-progress]
+    run: where
+`)
+			todoItems(t, dir, "ex-aaaa")
+			allowHooks(t, dir)
+			sub := filepath.Join(dir, "sub")
+			if err := os.MkdirAll(sub, 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			args := append([]string{"update", "ex-aaaa", "-s", "in-progress"}, flags...)
+			if _, _, err := runInProject(t, sub, args...); err != nil {
+				t.Fatal(err)
+			}
+
+			seen := logLines(t, dir, "seen")
+			if len(seen) != 1 || !filepath.IsAbs(seen[0]) {
+				t.Fatalf("LIF_ITEM_PATH = %q, want one absolute path", seen)
+			}
+			if _, err := os.Stat(seen[0]); err != nil {
+				t.Errorf("LIF_ITEM_PATH does not exist: %v", err)
+			}
+		})
+	}
+}
+
 func TestA09_AHookThatWritesALaterTargetMakesThatTargetConflict(t *testing.T) {
 	hookEnv(t)
 	dir := hookProject(t, `tasks:

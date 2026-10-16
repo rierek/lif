@@ -37,11 +37,15 @@ type Dispatcher struct {
 }
 
 // New returns a Dispatcher for cfg. storeRoot is the directory that
-// Item.Path is relative to. Warnings and the output of after hooks go to
-// warn.
+// Item.Path is relative to; New makes it absolute, because a relative
+// --lif-path stays relative and LIF_ITEM_PATH must be absolute. Warnings and
+// the output of after hooks go to warn.
 func New(cfg *config.Config, storeRoot string, warn io.Writer) *Dispatcher {
 	if warn == nil {
 		warn = io.Discard
+	}
+	if abs, err := filepath.Abs(storeRoot); err == nil {
+		storeRoot = abs
 	}
 	return &Dispatcher{cfg: cfg, storeRoot: storeRoot, warn: warn}
 }

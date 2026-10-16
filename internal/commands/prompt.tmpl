@@ -22,6 +22,7 @@ All commands support `--json` for machine-readable output. Use this flag to pars
 - **Listing milestones**: `lif milestones` lists all milestone items with their descendant completion counts (e.g. `3/10 completed`); completed/scrapped milestones are hidden by default, use `--all` to include them.
 - **While working**: keep the item's todo items current (check off what has been done, as it happens; `- [ ]` → `- [x]`). Offer to create follow-up items for any non-urgent work that was deferred.
 - **Project tasks**: `lif run` lists the tasks this project and the user define; `lif run <task> [args...]` runs one. Prefer a defined task over retyping its steps.
+- **Hooks**: this project may run tasks automatically when an item is created or changes, and gates may refuse a change (see `lif hooks`). Do not repeat a hook's work by hand. A `warning: hook …` line means a hook failed; report it. A `hook "…" blocked the change` error states what is missing; fix that instead of retrying or setting LIF_NO_HOOKS. Never run `lif hooks allow`; it is the user's decision.
 - **When committing**: include both code changes AND item file(s) (new and modified!) in the commit, including after marking an item as completed or scrapped.
 </EXTREMELY_IMPORTANT>
 

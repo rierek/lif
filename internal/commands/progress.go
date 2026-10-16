@@ -13,7 +13,6 @@ import (
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +43,7 @@ With an ID argument (for example a milestone or epic), the counts cover that ite
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		allItems, err := resolver.Items(ctx, nil)
 		if err != nil {

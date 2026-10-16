@@ -16,7 +16,6 @@ import (
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/roadmap"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -119,7 +118,7 @@ argument the root is that item, so --depth 1 lists its direct children.
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Query all items via GraphQL resolver
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 		allItems, err := resolver.Items(context.Background(), nil)
 		if err != nil {
 			return cmdError(roadmapJSON, output.ErrValidation, "querying items: %v", err)

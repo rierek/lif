@@ -12,7 +12,6 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/executor"
 	"github.com/rierek/lif/internal/graph"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/pretty"
 	"github.com/vektah/gqlparser/v2/formatter"
@@ -139,7 +138,7 @@ func readFromStdin() (string, error) {
 // On error, it returns an error so the CLI can handle it appropriately.
 func executeQuery(query string, variables map[string]any, operationName string) ([]byte, error) {
 	es := graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{CoreResolver: &itemgraph.CoreResolver{Core: core}},
+		Resolvers: &graph.Resolver{CoreResolver: newResolver()},
 	})
 
 	exec := executor.New(es)
@@ -192,7 +191,7 @@ func printSchema() error {
 // This is exported so it can be used by other commands like prompt.
 func GetGraphQLSchema() string {
 	es := graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{CoreResolver: &itemgraph.CoreResolver{Core: core}},
+		Resolvers: &graph.Resolver{CoreResolver: newResolver()},
 	})
 
 	var buf bytes.Buffer

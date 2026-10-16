@@ -17,7 +17,6 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/pkg/candidates"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 // errPickAborted is returned whenever nothing was selected -- the user
@@ -430,7 +429,7 @@ func partialLineCandidates(cmd *cobra.Command, line string, cursor int) ([]*item
 		if err != nil {
 			return nil, err
 		}
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 		return candidates.ParentCandidates(context.Background(), resolver, cfg, itemIDs, itemTypes)
 	}
 

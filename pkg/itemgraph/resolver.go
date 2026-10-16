@@ -2,6 +2,7 @@ package itemgraph
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
@@ -15,17 +16,29 @@ import (
 // embeds CoreResolver and adds UI-specific operations on top.
 type CoreResolver struct {
 	Core *itemcore.Core
+	// BeforeMutation runs the gates; nil: none. ran is true when a gate task started:
+	// that task may have written the item. A non-nil error aborts the write unchanged.
+	BeforeMutation func(Mutation) (ran bool, err error)
+	// AfterMutation runs the after hooks; nil: none. ran is true when a hook task started.
+	AfterMutation func(Mutation) (ran bool)
+	hooksRan      atomic.Bool // set when a hook task ran through this resolver
+}
+
+// requireETag returns ETagRequiredError when require_if_match is enabled and
+// no etag was provided.
+func (r *CoreResolver) requireETag(ifMatch *string) error {
+	cfg := r.Core.Config()
+	if cfg != nil && cfg.Items.RequireIfMatch && (ifMatch == nil || *ifMatch == "") {
+		return &itemcore.ETagRequiredError{}
+	}
+	return nil
 }
 
 // validateETag checks if the provided ifMatch etag matches the item's current etag.
 // Returns an error if validation fails or if require_if_match is enabled and no etag provided.
 func (r *CoreResolver) validateETag(b *item.Item, ifMatch *string) error {
-	cfg := r.Core.Config()
-	requireIfMatch := cfg != nil && cfg.Items.RequireIfMatch
-
-	// If require_if_match is enabled and no etag provided, reject
-	if requireIfMatch && (ifMatch == nil || *ifMatch == "") {
-		return &itemcore.ETagRequiredError{}
+	if err := r.requireETag(ifMatch); err != nil {
+		return err
 	}
 
 	// If ifMatch provided, validate it

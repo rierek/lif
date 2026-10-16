@@ -7,7 +7,6 @@ import (
 
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +32,7 @@ query can be moved between the two commands unchanged.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		// Same flag names and semantics as list, so that narrowing a query
 		// does not require translating it between the two commands.

@@ -1,6 +1,7 @@
 package gitutil
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -161,5 +162,56 @@ func TestMainWorktreeRoot_NotGitRepo(t *testing.T) {
 	}
 	if root != "" {
 		t.Errorf("expected empty root, got %q", root)
+	}
+}
+
+func TestToplevel_RepoRootAndSubdirectory(t *testing.T) {
+	repoDir := initTestRepo(t)
+	subDir := filepath.Join(repoDir, "a", "b")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.EvalSymlinks(repoDir)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+
+	for _, dir := range []string{repoDir, subDir} {
+		top, ok := Toplevel(dir)
+		if !ok {
+			t.Fatalf("Toplevel(%q): ok = false, want true", dir)
+		}
+		if got, _ := filepath.EvalSymlinks(top); got != want {
+			t.Errorf("Toplevel(%q) = %q, want %q", dir, got, want)
+		}
+	}
+}
+
+func TestToplevel_SecondaryWorktreeIsItsOwnRoot(t *testing.T) {
+	repoDir := initTestRepo(t)
+	wtPath := filepath.Join(t.TempDir(), "secondary")
+	cmd := exec.Command("git", "worktree", "add", wtPath, "-b", "test-branch")
+	cmd.Dir = repoDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add failed: %s: %v", out, err)
+	}
+	want, err := filepath.EvalSymlinks(wtPath)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+
+	top, ok := Toplevel(wtPath)
+	if !ok {
+		t.Fatal("Toplevel: ok = false, want true")
+	}
+	if got, _ := filepath.EvalSymlinks(top); got != want {
+		t.Errorf("Toplevel = %q, want the worktree %q", got, want)
+	}
+}
+
+func TestToplevel_NotGitRepo(t *testing.T) {
+	top, ok := Toplevel(t.TempDir())
+	if ok || top != "" {
+		t.Errorf("Toplevel = %q, %v; want \"\", false", top, ok)
 	}
 }

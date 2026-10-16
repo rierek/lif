@@ -105,7 +105,7 @@ func splitTags(s string) []string {
 // runCreateRelationStep edits one relation list over the candidates a new
 // item may relate to.
 func runCreateRelationStep(ids *[]string, title string, in createInput, out io.Writer) error {
-	resolver := &itemgraph.CoreResolver{Core: core}
+	resolver := newResolver()
 	cands, err := candidates.BlockingCandidates(context.Background(), resolver, cfg, "")
 	if err != nil {
 		return err

@@ -92,14 +92,14 @@ func validateTasks(tasks map[string]Task) error {
 	return nil
 }
 
-// tasksValueNode returns the value node of the top-level key "tasks", or nil.
-func tasksValueNode(doc *yaml.Node) *yaml.Node {
+// topValueNode returns the value node of the top-level key, or nil.
+func topValueNode(doc *yaml.Node, key string) *yaml.Node {
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 || doc.Content[0].Kind != yaml.MappingNode {
 		return nil
 	}
 	top := doc.Content[0]
 	for i := 0; i+1 < len(top.Content); i += 2 {
-		if top.Content[i].Value == "tasks" {
+		if top.Content[i].Value == key {
 			return top.Content[i+1]
 		}
 	}
@@ -115,43 +115,49 @@ func GlobalTasksPath() (string, error) {
 	return filepath.Join(home, HomeDir, GlobalTasksFileName), nil
 }
 
-// LoadGlobalTasks reads the tasks: map of the global task file. No HOME or no
-// file means no global tasks.
-func LoadGlobalTasks() (map[string]Task, error) {
+// Global is the content of the global file ~/.lif/tasks.yml.
+type Global struct {
+	Tasks map[string]Task `yaml:"tasks"`
+	Hooks map[string]Hook `yaml:"hooks"`
+}
+
+// LoadGlobal reads the global file. No HOME or no file means the zero Global.
+func LoadGlobal() (Global, error) {
 	path, err := GlobalTasksPath()
 	if err != nil {
-		return nil, nil
+		return Global{}, nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return Global{}, nil
 		}
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return Global{}, fmt.Errorf("%s: %w", path, err)
 	}
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return Global{}, fmt.Errorf("%s: %w", path, err)
 	}
 	if doc.Kind == 0 {
-		return nil, nil
+		return Global{}, nil
 	}
 	if doc.Content[0].Kind == yaml.MappingNode {
 		top := doc.Content[0]
 		for i := 0; i+1 < len(top.Content); i += 2 {
-			if key := top.Content[i].Value; key != "tasks" {
-				return nil, fmt.Errorf("%s: unknown top-level key %q (only \"tasks\" is read)", path, key)
+			if key := top.Content[i].Value; key != "tasks" && key != "hooks" {
+				return Global{}, fmt.Errorf("%s: unknown top-level key %q (known: tasks, hooks)", path, key)
 			}
 		}
 	}
-	var file struct {
-		Tasks map[string]Task `yaml:"tasks"`
+	var g Global
+	if err := doc.Decode(&g); err != nil {
+		return Global{}, fmt.Errorf("%s: %w", path, err)
 	}
-	if err := doc.Decode(&file); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	if err := validateTasks(g.Tasks); err != nil {
+		return Global{}, fmt.Errorf("%s: %w", path, err)
 	}
-	if err := validateTasks(file.Tasks); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	if err := validateHooks(g.Hooks, nil); err != nil {
+		return Global{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return file.Tasks, nil
+	return g, nil
 }

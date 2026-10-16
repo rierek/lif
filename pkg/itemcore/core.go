@@ -576,6 +576,7 @@ type updateOptions struct {
 	worktreePath string // if set, write to this worktree's store dir instead of main
 	extraSet     map[string]any
 	extraUnset   []string
+	expectedETag string // if set and Update gets no ifMatch, compared like one; never satisfies require_if_match
 }
 
 func defaultUpdateOptions() updateOptions {
@@ -606,6 +607,16 @@ func WithExtraOps(set map[string]any, unset []string) UpdateOption {
 	return func(o *updateOptions) {
 		o.extraSet = set
 		o.extraUnset = unset
+	}
+}
+
+// WithExpectedETag makes Update compare the etag of the item file like an
+// If-Match, for a caller that holds no If-Match of its own: the resolver adds
+// it after a hook ran, which may have written the item. Unlike an If-Match it
+// never satisfies require_if_match, and an explicit If-Match wins over it.
+func WithExpectedETag(etag string) UpdateOption {
+	return func(o *updateOptions) {
+		o.expectedETag = etag
 	}
 }
 
@@ -720,6 +731,20 @@ func applyExtraOptions(b *item.Item, set map[string]any, unset []string) {
 	for _, k := range unset {
 		delete(b.Extra, k)
 	}
+}
+
+// PreviewExtras returns a clone of b with the extra ops of opts applied: the
+// state Update would write for the same opts. Update applies the ops only
+// inside the write, so a caller that must see the extra fields before it
+// writes, a gate, previews them here. b itself stays untouched.
+func PreviewExtras(b *item.Item, opts ...UpdateOption) *item.Item {
+	o := defaultUpdateOptions()
+	for _, opt := range opts {
+		opt(&o)
+	}
+	next := b.Clone()
+	applyExtraOptions(next, o.extraSet, o.extraUnset)
+	return next
 }
 
 // MissingRequiredFields returns the subset of fields that b.Extra does not
@@ -849,7 +874,8 @@ var itemLockTimeout = 10 * time.Second
 // If ifMatch is provided, validates the current version's etag matches before updating.
 // The check and the write run under a lock on the item's file that every lif
 // process respects, so of two simultaneous updates with the same etag only
-// one succeeds. An update without ifMatch has no check and takes no lock.
+// one succeeds. An update without ifMatch and without WithExpectedETag has no
+// check and takes no lock; WithExpectedETag checks and locks like ifMatch.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error {
 	o := defaultUpdateOptions()
@@ -871,6 +897,12 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 
 	if requireIfMatch && (ifMatch == nil || *ifMatch == "") {
 		return &ETagRequiredError{}
+	}
+
+	// An expected etag stands in for a missing If-Match. It comes after the
+	// test above on purpose: it never satisfies require_if_match.
+	if (ifMatch == nil || *ifMatch == "") && o.expectedETag != "" {
+		ifMatch = &o.expectedETag
 	}
 
 	// Auto-route to linked worktree if no explicit path given

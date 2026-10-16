@@ -34,6 +34,8 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// The data layer runs this lif: a developer's global hooks must not fire in tests.
+	os.Setenv("LIF_NO_HOOKS", "1")
 
 	// os.Exit skips defers, so remove the build dir explicitly.
 	code := m.Run()

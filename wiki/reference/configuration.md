@@ -85,6 +85,7 @@ server:
 | `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`). Colors the CLI output only: the TUI uses a fixed dark palette and the web UI follows the operating system. |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 | `tasks` | `<name>` | none; see [Tasks](#tasks) |
+| `hooks` | `<name>` | none; see [Hooks](#hooks) |
 
 `lif.default_priority` and `lif.default_tags` are read only by the guided `lif create -i` form, which pre-fills them. Plain `lif create`, the GraphQL `createItem` mutation and the TUI create form ignore them. `lif check` fails if `default_priority` names an unknown priority (built-in or configured), or if a `default_tags` entry is empty or not a valid tag. An empty list behaves like an unset key.
 
@@ -108,7 +109,7 @@ tasks:
 
 - Schema. A task is a mapping with the keys `desc` (text that `lif run` lists), `args` (required positional arguments), `deps` (tasks that run first) and `steps` (a list of shell scripts). Any other key is an error. A multi-line step is one script.
 - Validation. A task name uses lowercase letters, digits, `-` and `_`, and starts with a letter or digit. `steps` needs at least one entry, and no step is empty. An argument name uses lowercase letters, digits and `_`, and does not start with a digit. An argument name appears once per task. A dependency name is not empty.
-- Global file. `~/.lif/tasks.yml` may contain only the key `tasks:`. Any other top-level key is an error. A missing file means no global tasks. The global file is a standard that all your projects share.
+- Global file. `~/.lif/tasks.yml` may contain only the keys `tasks:` and `hooks:`. Any other top-level key is an error. A missing file means no global tasks. The global file is a standard that all your projects share.
 - Override. A project task replaces a global task of the same name as a whole. `lif run -g <task>` runs the global one instead. `lif run` lists both files; a project task that hides a global one shows `[project, overrides global]`.
 - Dependencies. `deps` resolve against both files, so a global task can depend on a project task. A dependency runs once, even when several tasks name it. A dependency takes no arguments: a dependency with `args` is an error. A dependency cycle is an error.
 - Execution. Each step runs with `sh -c` in the project root: the directory of `.lif.yml`, or the current directory when there is none. This needs a POSIX `sh`.
@@ -120,6 +121,134 @@ tasks:
 - An invalid task makes every lif command in that project fail with the config error, not only `lif run`.
 
 See [Automation](../../features/automation/#tasks) for examples.
+
+## Hooks
+
+A hook runs a [task](#tasks) by itself when an item is created or when one of its fields changes. Tasks are the *what*, hooks are the *when*: a hook adds no commands of its own, so `lif run` and a hook run the same steps the same way. A gate is a hook that runs before the write and can refuse it. `lif hooks` lists every hook and gate, and whether the project hooks run.
+
+Define hooks under `hooks:` in `.lif.yml` or in the global file `~/.lif/tasks.yml`. The name follows the rule of task names. This hook opens a worktree when an item enters `in-progress`, whether it is created that way or changed later:
+
+```yaml
+tasks:
+  wt-open:
+    args: [id]
+    steps: ['just -g wt start "$id" milestone/0.16']
+hooks:
+  open-worktree:
+    event: [created, updated]
+    changed: [status]
+    to: [in-progress]
+    type: [feature, task, bug]
+    run: wt-open
+    args: [id]
+```
+
+### Field reference
+
+This table lists every key of a hook. It is a reference, not a template: some keys exclude each other, and a config that sets all of them is invalid.
+
+| Key | Required | Meaning |
+|---|---|---|
+| `event` | yes | `created` and/or `updated`. The key is `event`, not `on`: a YAML 1.1 tool reads an unquoted `on` as `true`. |
+| `run` | yes | Name of the task to run. It is resolved when the hook fires, so a typo shows in `lif hooks`, not at load time. |
+| `stage` | no | `after` (default) or `before`. `before` makes the hook a gate. Only valid with `event: [updated]`: a new item has no ID before its write. |
+| `changed` | no | At least one of these fields changed. Change filter. |
+| `tags_added` | no | At least one of these tags was added. Change filter. |
+| `tags_removed` | no | At least one of these tags was removed. Change filter. |
+| `from` | no | Status before the change. State filter. Only valid with `event: [updated]`. |
+| `to` | no | Status after the change. State filter. |
+| `type` | no | Type after the change. State filter. |
+| `tags` | no | The item carries at least one of these tags after the change. State filter. |
+| `args` | no | Item fields that are passed to the task as arguments, in this order. |
+| `message` | no | Fixed text that a blocked change shows. Only valid with `stage: before`. |
+
+Any other key is an error. In a project config, `from`, `to` and `type` must name known statuses and types. The global file skips that check, because statuses and types differ per project. Tags must be valid tags.
+
+### What matches
+
+- All conditions that a hook sets must hold (AND). The values of one list are alternatives (OR). An OR across different conditions needs two hooks.
+- There is no expression language. A condition that needs more than one item, a file or a comparison of values belongs into the task. The script checks and exits 0 when there is nothing to do (after hook) or when the change is fine (gate).
+- **Events.** `created` fires once after `lif create`, `lif promote` or the GraphQL mutation `createItem`. `updated` fires after every other change that goes through the write path of the commands and of GraphQL, and only when at least one watched field really changes.
+- **Watched fields** are `status`, `type`, `parent`, `tags` and every extra front matter key whose name matches `^[A-Za-z0-9_-]+$`. Lif does not need to know the extra keys in advance. Other extra keys, for example one with a space in its name, are not watched: they are not in `changed`, `args` or the environment. Tags compare as a set, so a reorder is no change. Extra values compare deeply; an added or removed key is a change. A change of title, body, priority, order or blocking links fires nothing.
+- **Change filters and state filters.** `changed`, `tags_added` and `tags_removed` filter *what changed*. `from`, `to`, `type` and `tags` filter the *state* before or after the change. A status transition therefore needs `changed: [status]`. A hook with `event: [updated]` and only `to: [completed]` also fires when a completed item later gets a new tag.
+- **The before state of `created`.** It is an empty item: `changed` lists every watched field that has a value, all `prev_*` fields are empty, and every tag counts as added. So `event: [created, updated]` with `changed: [status]` and `to: [in-progress]` covers both ways into a status.
+
+### Item fields and environment
+
+`args` names the item fields that the task gets as its arguments. The built-in fields are `id`, `title`, `status`, `type`, `parent`, `tags`, `prev_status`, `prev_type`, `prev_parent`, `prev_tags` and `changed`. Every watched extra key `<key>` also gives `<key>` and `prev_<key>`. A built-in name wins over an extra key of the same name.
+
+- Format. `tags`, `prev_tags` and `changed` are space-separated; a tag cannot contain a space. An extra value is a string as it is, a number or bool as `fmt.Sprint` prints it, a list of scalars space-separated, anything else as JSON. A missing value is the empty string.
+- An extra key with an empty YAML value (`target_entry:`) reaches the task as the text `null`, not as an empty string. A test `[ -n "$target_entry" ]` is then true. A key that is missing gives the empty string.
+- Environment. On top of the variables of a task (`LIF`, `LIF_ROOT`, `LIF_TASK`, `LIF_TASK_ORIGIN`) the task gets `LIF_NO_HOOKS=1`, `LIF_HOOK` (name), `LIF_STAGE` (`after` or `before`), `LIF_EVENT`, `LIF_CHANGED`, `LIF_ITEM_ID`, `LIF_ITEM_PATH`, `LIF_STATUS`, `LIF_TYPE`, `LIF_PARENT`, `LIF_TAGS` and the `LIF_PREV_STATUS`, `LIF_PREV_TYPE`, `LIF_PREV_PARENT`, `LIF_PREV_TAGS` counterparts. Every watched extra key gives `LIF_FIELD_<NAME>` and `LIF_PREV_FIELD_<NAME>`. `<NAME>` is the key in upper case with every character outside `A-Z` and `0-9` replaced by `_`. When two keys give the same name, the first key in sorted order wins and Lif prints a warning for the other.
+
+### Stages and gates
+
+- **After hook** (`stage: after`, the default). It runs after the change is written and cannot veto it.
+- **Gate** (`stage: before`). It runs before the write. A non-zero exit blocks the change and nothing is written.
+
+`message:` is fixed text from the YAML file. Lif inserts nothing into it. The dynamic part comes from the output of the gate task (stdout and stderr), which Lif prints below the message. Without `message:`, only the task output follows the first line. A blocked change of an item command such as `lif complete` looks like this, with exit code 1 and no usage line:
+
+```text
+Error: hook "require-target-entry" blocked the change of lif-ab12: Entry missing in the target file.
+lif-ab12 not found in docs/RELEASE.md
+```
+
+With `--json` the error is on stdout, with the code `POLICY_VIOLATION`:
+
+```json
+{
+  "success": false,
+  "error": "hook \"require-target-entry\" blocked the change of lif-ab12: Entry missing in the target file.\nlif-ab12 not found in docs/RELEASE.md",
+  "code": "POLICY_VIOLATION"
+}
+```
+
+- **Gates fail closed.** A gate that cannot run (unknown task, missing argument, killed by a signal, no `lif` binary) blocks the change with `could not run: <error>`. A global file or trust file that cannot be read blocks every change of a watched field with `hooks could not be loaded: <error> (fix it or set LIF_NO_HOOKS=1)`. A missing file is no error. A typo must not switch a policy off silently.
+- **Batches.** With several targets (`lif update`, `start`, `complete`, `scrap`, `tag`), the first blocked target stops the run. Targets before it stay written, and the error ends with `(already written: <ids>)`; under `--json` the written items come with the error. The text error keeps its type: it is still the gate error, with exit code 1.
+- **Relation to `require_fields_on`.** [`require_fields_on`](#status-dependent-required-fields) checks that a field has a value. A gate checks anything that a script can check: a file, another item, a value against a list.
+
+### Running hooks
+
+- **Synchronous.** The command waits for its hooks, in `lif-serve` too: the HTTP write timeout is off for `/api/graphql` (see [Web server](../web-server/)). Hook tasks run one at a time in `lif-serve`.
+- **A failing after hook** prints `warning: hook "<name>" (task "<task>"): <error>` on stderr. The change stays and the command still exits 0, so a caller does not repeat a write that succeeded. The next hook runs.
+- **Output.** The output and the warnings of a hook go to stderr of the process that runs it: the terminal, or the log of `lif-serve`. The TUI drops the stderr of a successful action; a gate block still reaches it, because the TUI reads the JSON envelope (`POLICY_VIOLATION`).
+- **No chaining.** A `lif` command inside a hook or gate task fires no hooks and no gates: the task gets `LIF_NO_HOOKS=1`.
+- **Global hooks run only global tasks.** A global task that calls another global task uses `"$LIF" run -g <task>`: without `-g` a project task of the same name wins, and `lif run` does not check trust. In `lif-serve`, `$LIF` is the `lif` next to `lif-serve`, else the one on `PATH`.
+- **Reload.** `lif-serve` reads `.lif.yml` at start: restart it after you edit hooks or tasks. It reads the global file and the trust file on every mutation.
+- **A stale item after a hook.** When an after hook ran, the item that the CLI prints and its ETag can be stale: the CLI keeps items in memory and watches no files. A following `--if-match` gets `CONFLICT`. Read the item again with `lif show --json`. A later target of the same batch that the hook wrote fails with `CONFLICT` and is not overwritten. `lif-serve` has one resolver for all requests, and the effect lasts for its whole life: once a hook has run, every later write without `If-Match` expects the ETag that it read, and fails with `CONFLICT` when the item changed in between, instead of the last write winning. Restart `lif-serve` to reset it.
+- **`lif create --order`.** It writes the item twice. With a `created` hook that writes its own item, the second write can end in `CONFLICT`. The item and the hook effects exist then: do not retry.
+- **`lif rename`** keeps the `hooks:` block.
+
+### Paths that fire nothing
+
+These paths change a watched field and fire no hook and no gate:
+
+- `lif delete` (it clears `parent` of the children)
+- `lif check --fix`
+- `lif rename` (it rewrites `parent`)
+- `lif order` (`order` is not a watched field)
+- `saveItem` and `saveDirtyItems` of `lif-serve` (they persist worktree overlays into the main store)
+- hand edits of item files and git merges
+
+Hooks and gates are therefore not a security boundary. They guard the normal write path.
+
+### `LIF_NO_HOOKS`
+
+`LIF_NO_HOOKS` with any non-empty value, also `0`, skips after hooks and gates. A skipped matching gate prints `warning: gate "<name>" skipped (LIF_NO_HOOKS is set)`. It is a deliberate bypass.
+
+Every process that a hook starts inherits it. An agent session, `lif-serve` or an editor that a hook starts therefore skips all gates for its whole life.
+
+### Trust
+
+A project config can come from a repository that you cloned, so project hooks and gates run only after `lif hooks allow`. Global hooks always run.
+
+- `lif hooks allow` records the fingerprint of the hooks and tasks of this `.lif.yml`. `lif hooks deny` takes the record back. Run `lif hooks allow` yourself after you have read the file: it is your decision, not one for a script or an agent.
+- **Not allowed.** Lif prints `warning: hooks in <path> are not allowed (<n> gates not enforced); run 'lif hooks allow' to enable them` once per process. The count names the gates, because a gate that is off is a policy that is off. A project that is not allowed never hides a global hook. A project hook replaces a global hook of the same name only when project hooks are allowed.
+- **One allow covers all worktrees** of the repository. The key is the path of `.lif.yml` in the main checkout, with symlinks of its directory resolved. The fingerprint must still match in the worktree that you work in.
+- **The fingerprint** covers `hooks` and `tasks` as parsed, so comments and formatting do not change it. It does not cover the scripts that task steps call. Any edit of a task, also one that no hook uses, takes the allow back.
+- **Limits.** If `.lif.yml` itself is a symlink, the key is the path of the link, not of its target. The trust file `~/.lif/allowed-hooks.yml` has no lock. Two `lif hooks allow` or `deny` that run at the same moment can undo each other; the window is a few milliseconds.
+
+See [Automation](../../features/automation/#hooks) for the worktree example and a gate.
 
 ## Statuses, types and priorities
 

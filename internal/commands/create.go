@@ -8,7 +8,6 @@ import (
 	"github.com/rierek/lif/pkg/candidates"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -158,7 +157,7 @@ func createParentFlagCompletion(cmd *cobra.Command, args []string, toComplete st
 	if itemType == "" {
 		itemType = cfg.GetDefaultType()
 	}
-	resolver := &itemgraph.CoreResolver{Core: core}
+	resolver := newResolver()
 	eligible, err := candidates.ParentCandidates(context.Background(), resolver, cfg, nil, []string{itemType})
 	if err != nil {
 		return nil, completionDirective

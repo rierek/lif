@@ -28,7 +28,7 @@ item file being placed, never the neighbours around it.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		if !orderFirst && !orderLast && orderAfter == "" && orderBefore == "" {
 			return cmdError(orderJSON, output.ErrValidation,

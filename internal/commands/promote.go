@@ -10,7 +10,6 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/spf13/cobra"
@@ -113,7 +112,7 @@ still fails, the error names the items already written.`,
 			records[i] = rec
 		}
 
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 		ctx := context.Background()
 
 		parentID := ""

@@ -95,7 +95,7 @@ What may use the server depends on the address it listens on.
 | `/api/terminal` | WebSocket terminal. Starts `$SHELL` (else `/bin/sh`). Needs an `Origin` header. Off when the server listens beyond loopback, unless `--allow-remote-terminal` is given. |
 | everything else | The embedded single-page app. A path that matches no file and has no `.` gets `index.html`. A path with a `.` that matches no file (a missing `.js` or `.css`) gets a plain 404. |
 
-Limits: request body 10 MB, 100 concurrent WebSocket upgrades (then 503), read and write timeout 15 s, idle timeout 60 s. `/api/graphql` subscriptions and `/api/terminal` share the 100 WebSocket slots.
+Limits: request body 10 MB, 100 concurrent WebSocket upgrades (then 503), read and write timeout 15 s, idle timeout 60 s. `/api/graphql` has no write timeout: hooks and gates run synchronously inside a mutation, and an after hook can take longer than 15 s. `/api/graphql` subscriptions and `/api/terminal` share the 100 WebSocket slots.
 
 ## Web UI
 

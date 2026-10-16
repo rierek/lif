@@ -35,6 +35,16 @@ func MainWorktreeRoot(dir string) (string, bool) {
 	return filepath.Dir(commonDir), true
 }
 
+// Toplevel returns the root directory of the git checkout that contains dir.
+// Returns ("", false) if dir is not inside a checkout or git is unavailable.
+func Toplevel(dir string) (string, bool) {
+	top, err := gitRevParse(dir, "--show-toplevel")
+	if err != nil || top == "" {
+		return "", false
+	}
+	return top, true
+}
+
 // resolveGitPath makes a git path absolute. If the path is already absolute,
 // it's cleaned and returned as-is. Otherwise it's joined with the base dir.
 func resolveGitPath(base, p string) string {

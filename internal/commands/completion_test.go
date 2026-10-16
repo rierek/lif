@@ -61,6 +61,10 @@ func TestMain(m *testing.M) {
 	}
 
 	tasks.LifPath = completionTestBinary
+	// A developer's real ~/.lif/tasks.yml may define hooks. They must not
+	// fire during go test, neither in-process nor in a lif binary that a test
+	// runs. Hook tests switch hooks on again with hookEnv.
+	os.Setenv("LIF_NO_HOOKS", "1")
 
 	// os.Exit below never runs deferred calls, so the build dir is
 	// removed explicitly on every path out of this function instead of

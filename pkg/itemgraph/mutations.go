@@ -121,6 +121,8 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 		return nil, err
 	}
 
+	r.after(Mutation{Event: "created", Item: b.Clone(), Changed: ChangedFields(nil, b)})
+
 	return b, nil
 }
 
@@ -130,6 +132,7 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 	if err != nil {
 		return nil, err
 	}
+	prev := b.Clone()
 	oldType := b.Type
 
 	if err := r.validateUpdateInput(input); err != nil {
@@ -270,27 +273,47 @@ func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.Up
 		r.RemoveBlockedByRelationships(b, input.RemoveBlockedBy)
 	}
 
+	// All input is applied and nothing is written yet: the gate point.
+	opts, err = r.beforeUpdate(prev, b, input.IfMatch, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	// ETag validation now happens inside Update() under write lock.
 	// If the item is linked to a worktree, Core auto-routes the write there.
 	if err := r.Core.Update(b, input.IfMatch, opts...); err != nil {
 		return nil, err
 	}
 
+	var renameErr error
 	if reslug {
-		// Content is written under the old name first; the rename then moves
-		// that one file, so exactly one file with new content remains.
-		plan, err := r.Core.PlanRenameSlug(b.ID, nil, true)
-		if err != nil {
-			return nil, err
-		}
-		if err := r.Core.ApplyRename(plan); err != nil {
-			return nil, err
-		}
-		b.Path = plan.Changes[0].NewPath
-		_, b.Slug = item.ParseFilename(filepath.Base(b.Path))
+		renameErr = r.renameToTitleSlug(b)
+	}
+	// The write is on disk even when the rename failed: the after hooks fire
+	// exactly once either way, and the rename error is returned after them.
+	r.afterUpdate(prev, b)
+	if renameErr != nil {
+		return nil, renameErr
 	}
 
 	return b, nil
+}
+
+// renameToTitleSlug moves the file of b, which Core.Update has written under
+// its old name, to the slug of its new title, and sets b.Path and b.Slug.
+func (r *CoreResolver) renameToTitleSlug(b *item.Item) error {
+	// Content is written under the old name first; the rename then moves
+	// that one file, so exactly one file with new content remains.
+	plan, err := r.Core.PlanRenameSlug(b.ID, nil, true)
+	if err != nil {
+		return err
+	}
+	if err := r.Core.ApplyRename(plan); err != nil {
+		return err
+	}
+	b.Path = plan.Changes[0].NewPath
+	_, b.Slug = item.ParseFilename(filepath.Base(b.Path))
+	return nil
 }
 
 // DeleteItem removes an item and its incoming links.
@@ -319,6 +342,7 @@ func (r *CoreResolver) SetParent(ctx context.Context, id string, parentID *strin
 	if err != nil {
 		return nil, err
 	}
+	prev := b.Clone()
 
 	newParent := ""
 	if parentID != nil {
@@ -338,10 +362,15 @@ func (r *CoreResolver) SetParent(ctx context.Context, id string, parentID *strin
 	}
 
 	b.Parent = newParent
-	// ETag validation now happens inside Update() under write lock
-	if err := r.Core.Update(b, ifMatch); err != nil {
+	opts, err := r.beforeUpdate(prev, b, ifMatch, nil)
+	if err != nil {
 		return nil, err
 	}
+	// ETag validation now happens inside Update() under write lock
+	if err := r.Core.Update(b, ifMatch, opts...); err != nil {
+		return nil, err
+	}
+	r.afterUpdate(prev, b)
 	return b, nil
 }
 

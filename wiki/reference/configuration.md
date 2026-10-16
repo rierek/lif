@@ -109,7 +109,7 @@ tasks:
 
 - Schema. A task is a mapping with the keys `desc` (text that `lif run` lists), `args` (required positional arguments), `deps` (tasks that run first) and `steps` (a list of shell scripts). Any other key is an error. A multi-line step is one script.
 - Validation. A task name uses lowercase letters, digits, `-` and `_`, and starts with a letter or digit. `steps` needs at least one entry, and no step is empty. An argument name uses lowercase letters, digits and `_`, and does not start with a digit. An argument name appears once per task. A dependency name is not empty.
-- Global file. `~/.lif/tasks.yml` may contain only the key `tasks:`. Any other top-level key is an error. A missing file means no global tasks. The global file is a standard that all your projects share.
+- Global file. `~/.lif/tasks.yml` may contain only the keys `tasks:` and `hooks:`. Any other top-level key is an error. A missing file means no global tasks. The global file is a standard that all your projects share.
 - Override. A project task replaces a global task of the same name as a whole. `lif run -g <task>` runs the global one instead. `lif run` lists both files; a project task that hides a global one shows `[project, overrides global]`.
 - Dependencies. `deps` resolve against both files, so a global task can depend on a project task. A dependency runs once, even when several tasks name it. A dependency takes no arguments: a dependency with `args` is an error. A dependency cycle is an error.
 - Execution. Each step runs with `sh -c` in the project root: the directory of `.lif.yml`, or the current directory when there is none. This needs a POSIX `sh`.

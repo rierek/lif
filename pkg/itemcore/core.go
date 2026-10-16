@@ -874,7 +874,8 @@ var itemLockTimeout = 10 * time.Second
 // If ifMatch is provided, validates the current version's etag matches before updating.
 // The check and the write run under a lock on the item's file that every lif
 // process respects, so of two simultaneous updates with the same etag only
-// one succeeds. An update without ifMatch has no check and takes no lock.
+// one succeeds. An update without ifMatch and without WithExpectedETag has no
+// check and takes no lock; WithExpectedETag checks and locks like ifMatch.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error {
 	o := defaultUpdateOptions()

@@ -108,11 +108,11 @@ func loadTaskSet() (tasks.Set, error) {
 	if root, err = filepath.Abs(root); err != nil {
 		return tasks.Set{}, err
 	}
-	global, err := config.LoadGlobalTasks()
+	global, err := config.LoadGlobal()
 	if err != nil {
 		return tasks.Set{}, err
 	}
-	return tasks.Set{Root: root, Project: c.Tasks, Global: global}, nil
+	return tasks.Set{Root: root, Project: c.Tasks, Global: global.Tasks}, nil
 }
 
 // taskNames returns the sorted task names that a listing shows: project and

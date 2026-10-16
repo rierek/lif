@@ -179,34 +179,26 @@ func TestTK13_ProjectErrorStartsWithPath(t *testing.T) {
 
 func TestTK14_NoGlobalFile(t *testing.T) {
 	tkSetHome(t, "")
-	got, err := LoadGlobalTasks()
-	if err != nil || len(got) != 0 {
-		t.Errorf("no file: LoadGlobalTasks() = %v, %v, want none, nil", got, err)
+	got, err := LoadGlobal()
+	if err != nil || len(got.Tasks) != 0 || len(got.Hooks) != 0 {
+		t.Errorf("no file: LoadGlobal() = %v, %v, want none, nil", got, err)
 	}
 
 	t.Setenv("HOME", "")
-	got, err = LoadGlobalTasks()
-	if err != nil || len(got) != 0 {
-		t.Errorf("HOME unset: LoadGlobalTasks() = %v, %v, want none, nil", got, err)
+	got, err = LoadGlobal()
+	if err != nil || len(got.Tasks) != 0 || len(got.Hooks) != 0 {
+		t.Errorf("HOME unset: LoadGlobal() = %v, %v, want none, nil", got, err)
 	}
 }
 
 func TestTK15_GlobalTaskLoads(t *testing.T) {
 	tkSetHome(t, "tasks:\n    g:\n        steps: [\"true\"]\n")
-	got, err := LoadGlobalTasks()
+	got, err := LoadGlobal()
 	if err != nil {
-		t.Fatalf("LoadGlobalTasks() error = %v", err)
+		t.Fatalf("LoadGlobal() error = %v", err)
 	}
-	if len(got) != 1 || !reflect.DeepEqual(got["g"].Steps, []string{"true"}) {
-		t.Errorf("LoadGlobalTasks() = %+v, want one task g", got)
-	}
-}
-
-func TestTK16_GlobalUnknownTopLevelKey(t *testing.T) {
-	tkSetHome(t, "hooks: {}\n")
-	_, err := LoadGlobalTasks()
-	if err == nil || !strings.Contains(err.Error(), `unknown top-level key "hooks"`) {
-		t.Errorf("LoadGlobalTasks() error = %v, want unknown top-level key \"hooks\"", err)
+	if len(got.Tasks) != 1 || !reflect.DeepEqual(got.Tasks["g"].Steps, []string{"true"}) {
+		t.Errorf("LoadGlobal() = %+v, want one task g", got)
 	}
 }
 
@@ -223,9 +215,9 @@ func TestTK17_GlobalErrorStartsWithPath(t *testing.T) {
 		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		_, err := LoadGlobalTasks()
+		_, err := LoadGlobal()
 		if err == nil || !strings.HasPrefix(err.Error(), path) {
-			t.Errorf("LoadGlobalTasks() error = %v, want it to start with %q", err, path)
+			t.Errorf("LoadGlobal() error = %v, want it to start with %q", err, path)
 		}
 	}
 }

@@ -426,6 +426,13 @@ type Config struct {
 	// would delete every task.
 	tasksNode *yaml.Node `yaml:"-"`
 
+	// Hooks run tasks when an item is created or a watched field changes.
+	Hooks map[string]Hook `yaml:"hooks,omitempty"`
+
+	// hooksNode is the raw value node of the top-level hooks key, kept for
+	// Save like tasksNode.
+	hooksNode *yaml.Node `yaml:"-"`
+
 	// TypesExclusive switches the merge in TypeList() off: when true, Types is
 	// the complete type table on its own, not an override list layered onto
 	// DefaultTypes. lif init --profile sets this so a profile gives a
@@ -718,7 +725,8 @@ func Load(configPath string) (*Config, error) {
 			return nil, err
 		}
 		cfg.sectionKey = key
-		cfg.tasksNode = tasksValueNode(&doc)
+		cfg.tasksNode = topValueNode(&doc, "tasks")
+		cfg.hooksNode = topValueNode(&doc, "hooks")
 		if section != nil {
 			if err := section.Decode(&cfg.Items); err != nil {
 				return nil, err
@@ -778,6 +786,10 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	if err := validateTasks(cfg.Tasks); err != nil {
+		return nil, fmt.Errorf("%s: %w", configPath, err)
+	}
+
+	if err := validateHooks(cfg.Hooks, &cfg); err != nil {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
 
@@ -1318,6 +1330,12 @@ func (c *Config) toYAMLNode() *yaml.Node {
 		key := strNode("tasks")
 		key.HeadComment = "Tasks run with lif run <name>"
 		topMapping.Content = append(topMapping.Content, key, c.tasksNode)
+	}
+
+	if c.hooksNode != nil {
+		key := strNode("hooks")
+		key.HeadComment = "Hooks run tasks on item events; enable with lif hooks allow"
+		topMapping.Content = append(topMapping.Content, key, c.hooksNode)
 	}
 
 	// Wrap in a document node

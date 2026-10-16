@@ -1,6 +1,6 @@
 import { Marked, type MarkedExtension } from 'marked';
 import DOMPurify from 'dompurify';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { createHighlighterCore, type HighlighterCore } from 'shiki/core';
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
 import githubDark from 'shiki/themes/github-dark.mjs';

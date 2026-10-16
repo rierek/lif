@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { itemLinks } from '$lib/actions/itemLinks';
-  import { renderMarkdown } from '$lib/markdown';
+  import { itemLinks } from '#lib/actions/itemLinks.js';
+  import { renderMarkdown } from '#lib/markdown.js';
 
   interface Props {
     content: string;

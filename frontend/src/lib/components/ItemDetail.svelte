@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import { worktreeStore } from '$lib/worktrees.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import { statusColors, typeColors, priorityColors } from '$lib/styles';
-  import { client } from '$lib/graphqlClient';
-  import { SendAgentMessageDocument, UpdateItemStatusDocument, ArchiveItemDocument } from '$lib/graphql/generated';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { worktreeStore } from '#lib/worktrees.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { statusColors, typeColors, priorityColors } from '#lib/styles.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { SendAgentMessageDocument, UpdateItemStatusDocument, ArchiveItemDocument } from '#lib/graphql/generated.js';
   import ItemCard from './ItemCard.svelte';
   import RenderedMarkdown from './RenderedMarkdown.svelte';
 

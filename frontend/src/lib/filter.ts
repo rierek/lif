@@ -1,4 +1,4 @@
-import type { Item } from '$lib/items.svelte';
+import type { Item } from '#lib/items.svelte.js';
 
 /**
  * Returns true if the item matches the filter text.

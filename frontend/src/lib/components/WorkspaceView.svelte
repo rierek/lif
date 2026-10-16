@@ -1,18 +1,18 @@
 <script lang="ts">
-  import { AgentChatStore } from '$lib/agentChat.svelte';
+  import { AgentChatStore } from '#lib/agentChat.svelte.js';
   import {
     StartRunDocument,
     StopRunDocument,
     IsRunningDocument,
     OpenInEditorDocument
-  } from '$lib/graphql/generated';
-  import { changesStore } from '$lib/changes.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import { client } from '$lib/graphqlClient';
-  import { ui } from '$lib/uiState.svelte';
-  import { worktreeStore, MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
+  } from '#lib/graphql/generated.js';
+  import { changesStore } from '#lib/changes.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { worktreeStore, MAIN_WORKSPACE_ID } from '#lib/worktrees.svelte.js';
   import { onDestroy } from 'svelte';
-  import { diffSelectionStore } from '$lib/diffSelection.svelte';
+  import { diffSelectionStore } from '#lib/diffSelection.svelte.js';
   import SplitPane from './SplitPane.svelte';
   import AgentChat from './AgentChat.svelte';
   import ItemPane from './ItemPane.svelte';

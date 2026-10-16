@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { worktreeStore } from '$lib/worktrees.svelte';
-  import { agentStatusesStore } from '$lib/agentStatuses.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import { statusColors, typeColors, typeBorders, priorityIndicators } from '$lib/styles';
-  import { client } from '$lib/graphqlClient';
-  import { ArchiveItemDocument } from '$lib/graphql/generated';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { worktreeStore } from '#lib/worktrees.svelte.js';
+  import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { statusColors, typeColors, typeBorders, priorityIndicators } from '#lib/styles.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { ArchiveItemDocument } from '#lib/graphql/generated.js';
 
   interface Props {
     item: Item;

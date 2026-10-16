@@ -1,13 +1,13 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore, sortItems } from '$lib/items.svelte';
-  import { applyDrop } from '$lib/dragOrder';
-  import { matchesFilter } from '$lib/filter';
-  import { client } from '$lib/graphqlClient';
-  import { ui } from '$lib/uiState.svelte';
-  import { typeBorders } from '$lib/styles';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore, sortItems } from '#lib/items.svelte.js';
+  import { applyDrop } from '#lib/dragOrder.js';
+  import { matchesFilter } from '#lib/filter.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { typeBorders } from '#lib/styles.js';
   import { fade } from 'svelte/transition';
-  import { ArchiveItemDocument } from '$lib/graphql/generated';
+  import { ArchiveItemDocument } from '#lib/graphql/generated.js';
   import ItemCard from './ItemCard.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
 

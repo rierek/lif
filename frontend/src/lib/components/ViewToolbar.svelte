@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { changesStore } from '$lib/changes.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import { configStore } from '$lib/config.svelte';
+  import { changesStore } from '#lib/changes.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
 
   const hasChanges = $derived(changesStore.allChanges.length > 0);
 

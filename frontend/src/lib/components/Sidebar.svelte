@@ -2,15 +2,15 @@
   import { fade } from 'svelte/transition';
   import { onDestroy } from 'svelte';
   import { pipe, subscribe as wonkaSubscribe } from 'wonka';
-  import { worktreeStore, MAIN_WORKSPACE_ID, type WorktreeStatus } from '$lib/worktrees.svelte';
-  import { WorkspaceStatusesDocument } from '$lib/graphql/generated';
-  import { itemsStore, type Item } from '$lib/items.svelte';
-  import { agentStatusesStore } from '$lib/agentStatuses.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import { client } from '$lib/graphqlClient';
-  import { ui } from '$lib/uiState.svelte';
-  import { typeBorders } from '$lib/styles';
-  import { decryptText } from '$lib/actions/decryptText';
+  import { worktreeStore, MAIN_WORKSPACE_ID, type WorktreeStatus } from '#lib/worktrees.svelte.js';
+  import { WorkspaceStatusesDocument } from '#lib/graphql/generated.js';
+  import { itemsStore, type Item } from '#lib/items.svelte.js';
+  import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { typeBorders } from '#lib/styles.js';
+  import { decryptText } from '#lib/actions/decryptText.js';
   import ConfirmModal from './ConfirmModal.svelte';
 
   interface PullRequestInfo {

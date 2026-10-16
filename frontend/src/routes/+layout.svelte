@@ -1,17 +1,17 @@
 <script lang="ts">
   import './layout.css';
-  import favicon from '$lib/assets/favicon.svg';
-  import { preloadHighlighter } from '$lib/markdown';
+  import favicon from '#lib/assets/favicon.svg';
+  import { preloadHighlighter } from '#lib/markdown.js';
   import { page } from '$app/state';
   import { onMount, onDestroy } from 'svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { worktreeStore, MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
-  import { agentStatusesStore } from '$lib/agentStatuses.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import ItemForm from '$lib/components/ItemForm.svelte';
-  import Sidebar from '$lib/components/Sidebar.svelte';
-  import SplitPane from '$lib/components/SplitPane.svelte';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { worktreeStore, MAIN_WORKSPACE_ID } from '#lib/worktrees.svelte.js';
+  import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import ItemForm from '#lib/components/ItemForm.svelte';
+  import Sidebar from '#lib/components/Sidebar.svelte';
+  import SplitPane from '#lib/components/SplitPane.svelte';
 
   preloadHighlighter();
 

@@ -1,4 +1,4 @@
-import { client } from '$lib/graphqlClient';
+import { client } from '#lib/graphqlClient.js';
 import {
   AgentActionsDocument,
   ExecuteAgentActionDocument,

@@ -13,6 +13,9 @@ updates:
     groups:
       frontend: {patterns: ["*"], update-types: [minor, patch]}
       frontend-major: {patterns: ["*"], update-types: [major]}
+    ignore:
+      # SvelteKit 3.1, svelte-check 4.7 and typescript-eslint 8.71 do not support TS 7 yet (beans-vi9d)
+      - {dependency-name: typescript, versions: [">=7"]}
   - package-ecosystem: npm
     directory: /site
     target-branch: chore/dependabot

@@ -1,6 +1,6 @@
 import type { Action } from 'svelte/action';
-import { itemsStore } from '$lib/items.svelte';
-import { ui } from '$lib/uiState.svelte';
+import { itemsStore } from '#lib/items.svelte.js';
+import { ui } from '#lib/uiState.svelte.js';
 
 /**
  * Svelte action that turns item references inside rendered content into in-app

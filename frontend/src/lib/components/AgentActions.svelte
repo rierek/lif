@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
-  import { AgentActionsStore } from '$lib/agentActions.svelte';
+  import { AgentActionsStore } from '#lib/agentActions.svelte.js';
 
   interface Props {
     itemId: string;

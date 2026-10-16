@@ -42,8 +42,8 @@ importers:
         specifier: ^3.4.17
         version: 3.4.17
       marked:
-        specifier: ^17.0.6
-        version: 17.0.6
+        specifier: ^18.1.1
+        version: 18.1.1
       shiki:
         specifier: ^3.23.0
         version: 3.23.0
@@ -2393,8 +2393,8 @@ packages:
     resolution: {integrity: sha512-8y/eV9QQZCiyn1SprXSrCmqJN0yNRATe+PO8ztwqrvrbdRLA3eYJF0yaR0YayLWkMbsQSKWS9N2gPcGEc4UsZg==}
     engines: {node: '>=0.10.0'}
 
-  marked@17.0.6:
-    resolution: {integrity: sha512-gB0gkNafnonOw0obSTEGZTT86IuhILt2Wfx0mWH/1Au83kybTayroZ/V6nS25mN7u8ASy+5fMhgB3XPNrOZdmA==}
+  marked@18.1.1:
+    resolution: {integrity: sha512-zEGgrtUG8crk+TrMacJSVABU4DYDDkS8uqgU3ohrn/2fW9C2AEfUrO3m6IhpIpQpl7YcVpiXXC9cSMWDANT3dg==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -5517,7 +5517,7 @@ snapshots:
 
   map-cache@0.2.2: {}
 
-  marked@17.0.6: {}
+  marked@18.1.1: {}
 
   mdast-util-to-hast@13.2.1:
     dependencies:

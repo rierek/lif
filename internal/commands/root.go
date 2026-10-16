@@ -8,6 +8,7 @@ import (
 
 	"github.com/rierek/lif/internal/gitutil"
 	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/tasks"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/internal/version"
 	"github.com/rierek/lif/pkg/config"
@@ -332,8 +333,24 @@ func reportExecutionError(cmd *cobra.Command, err error) {
 	if output.Emitted(err) || output.IsSilent(err) {
 		return
 	}
+	var se *tasks.StepError
+	if errors.As(err, &se) {
+		// A failed task step is not a usage error: no pointer to the manual.
+		cmd.PrintErrln(cmd.ErrPrefix(), err.Error())
+		return
+	}
 	cmd.PrintErrln(cmd.ErrPrefix(), err.Error())
 	cmd.PrintErrf("Run '%v --help' for usage.\n", cmd.CommandPath())
+}
+
+// exitCode is the process exit code for err: the failing step's own code for
+// a task step, 1 for everything else.
+func exitCode(err error) int {
+	var se *tasks.StepError
+	if errors.As(err, &se) && se.Code > 0 {
+		return se.Code
+	}
+	return 1
 }
 
 // Execute runs the given root command and exits on error.
@@ -341,6 +358,6 @@ func Execute(rootCmd *cobra.Command) {
 	cmd, err := rootCmd.ExecuteC()
 	if err != nil {
 		reportExecutionError(cmd, err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }

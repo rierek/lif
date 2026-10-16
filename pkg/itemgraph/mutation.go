@@ -34,6 +34,8 @@ func ChangedFields(prev, next *item.Item) []string {
 	return append(changed, changedExtras(prev.Extra, next.Extra)...)
 }
 
+// builtinDiffers reports whether the built-in watched field differs between
+// prev and next. Every field of config.HookBuiltinWatched needs a case here.
 func builtinDiffers(field string, prev, next *item.Item) bool {
 	switch field {
 	case "status":

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/internal/tasks"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
@@ -58,6 +59,8 @@ func TestMain(m *testing.M) {
 		os.RemoveAll(binDir)
 		os.Exit(1)
 	}
+
+	tasks.LifPath = completionTestBinary
 
 	// os.Exit below never runs deferred calls, so the build dir is
 	// removed explicitly on every path out of this function instead of

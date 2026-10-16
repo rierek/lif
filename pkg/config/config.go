@@ -418,6 +418,14 @@ type Config struct {
 	Types      []TypeOverride     `yaml:"types,omitempty"`
 	Priorities []PriorityOverride `yaml:"priorities,omitempty"`
 
+	// Tasks are the named shell tasks that lif run executes.
+	Tasks map[string]Task `yaml:"tasks,omitempty"`
+
+	// tasksNode is the raw value node of the top-level tasks key. Saving it
+	// back keeps task order and comments; without it a Save (lif rename)
+	// would delete every task.
+	tasksNode *yaml.Node `yaml:"-"`
+
 	// TypesExclusive switches the merge in TypeList() off: when true, Types is
 	// the complete type table on its own, not an override list layered onto
 	// DefaultTypes. lif init --profile sets this so a profile gives a
@@ -703,13 +711,14 @@ func Load(configPath string) (*Config, error) {
 	var cfg Config
 	if doc.Kind != 0 {
 		if err := doc.Decode(&cfg); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", configPath, err)
 		}
 		section, key, err := itemsSection(&doc, configPath)
 		if err != nil {
 			return nil, err
 		}
 		cfg.sectionKey = key
+		cfg.tasksNode = tasksValueNode(&doc)
 		if section != nil {
 			if err := section.Decode(&cfg.Items); err != nil {
 				return nil, err
@@ -765,6 +774,10 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	if err := cfg.validateRequireFieldsOn(); err != nil {
+		return nil, fmt.Errorf("%s: %w", configPath, err)
+	}
+
+	if err := validateTasks(cfg.Tasks); err != nil {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
 
@@ -1299,6 +1312,12 @@ func (c *Config) toYAMLNode() *yaml.Node {
 		key := strNode("priorities")
 		key.HeadComment = "Priority overrides, merged entry by entry with the built-in defaults"
 		topMapping.Content = append(topMapping.Content, key, prioritiesSeq)
+	}
+
+	if c.tasksNode != nil {
+		key := strNode("tasks")
+		key.HeadComment = "Tasks run with lif run <name>"
+		topMapping.Content = append(topMapping.Content, key, c.tasksNode)
 	}
 
 	// Wrap in a document node

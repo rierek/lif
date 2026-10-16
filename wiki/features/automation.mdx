@@ -44,7 +44,7 @@ Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif grap
 ## What you get
 
 <KeyValueList>
-  <KeyValueItem term="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error.</KeyValueItem>
+  <KeyValueItem term="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error; `lif run` returns the exit code of the failing step.</KeyValueItem>
   <KeyValueItem term="GraphQL without a server">`lif graphql '<query>'` (alias `lif query`) also reads stdin. A mutation through the CLI works the same way, for example `createItem` with `title` and `type`.</KeyValueItem>
   <KeyValueItem term="Agents that learn Lif from Lif">`lif prime` prints a prompt that teaches a coding agent how to use Lif, and it runs without a loaded store. Agents learn from `lif prime` and `--help`, not from prior knowledge.</KeyValueItem>
   <KeyValueItem term="Review findings become items">`lif promote <artifact> <finding-id>...` creates items from the findings of a review artifact. It writes nothing if a chosen finding is malformed and skips findings that were already taken over.</KeyValueItem>
@@ -62,9 +62,47 @@ lif update <id> --if-match "$ETAG" --status in-progress              # fails if 
 
 `--tag` and `--remove-tag` merge into the existing tags.
 
+## Tasks
+
+A task is a named list of shell steps. `lif run` lists the tasks, and `lif run <task> [args...]` runs one. A person and an agent run the same steps the same way.
+
+A project task in `.lif.yml`. `args: [id]` makes `$id` a required argument:
+
+```yaml
+tasks:
+  po-accept:
+    desc: Accept an item as PO and commit the item file
+    args: [id]
+    steps:
+      - |
+        "$LIF" update "$id" --tag accepted --body-append "## PO acceptance $(date +%F)"
+        file="$("$LIF" path)/$("$LIF" show "$id" --json | jq -r .path)"
+        git add -- "$file"
+        git commit -m "chore($id): PO acceptance" -- "$file"
+```
+
+```sh
+lif run po-accept lif-ab12
+```
+
+A global task in `~/.lif/tasks.yml`, available in every project. The step passes all arguments on with `"$@"`:
+
+```yaml
+tasks:
+  wt:
+    desc: Work with worktrees
+    steps: ['just -g wt "$@"']
+```
+
+```sh
+lif run wt start lif-ab12 milestone/0.16   # runs: just -g wt start lif-ab12 milestone/0.16
+```
+
+Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run and sets the exit code of `lif run`. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
+
 ## Errors
 
-Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr.
+Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is the exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)` and exits with the exit code of the failing step.
 
 ## Tips
 
@@ -105,7 +143,7 @@ Run `lif check` after every automated change.
 - With a server, `lif-serve` offers `/api/graphql` and a playground at `/playground`.
 - `lif promote` takes a review artifact that follows the findings schema. It validates every selected record and the `--parent` item first, writes nothing if one fails, and then creates one item per record with the configured default status. The command page describes the artifact format. See [`lif promote`](../../reference/commands/lif-promote/).
 - GraphQL `createItem` without `status` sets the configured default status (0.14).
-- `lif check` returns 1 on at least one problem. Normal errors do not use exit code 2.
+- `lif check` returns 1 on at least one problem. Normal errors do not use exit code 2, except `lif run`, which returns the exit code of the failing step.
 - On a GraphQL error the CLI prints `Error:` and a message. It returns no partial data.
 
 ## Limits

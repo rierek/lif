@@ -95,6 +95,11 @@ test-e2e ARGS='':
 test-race ARGS='./...':
     go test -race -count=1 {{ARGS}}
 
+# Lint the Go code: go vet plus a gofmt check (lists unformatted files)
+lint:
+    go vet ./...
+    test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
 # Prove lif-pick-widget's zsh contract against a stubbed lif (beans-fcj0)
 test-zsh:
     bash scripts/test-zsh-widget.sh

@@ -186,7 +186,7 @@ Any other key is an error. In a project config, `from`, `to` and `type` must nam
 - **After hook** (`stage: after`, the default). It runs after the change is written and cannot veto it.
 - **Gate** (`stage: before`). It runs before the write. A non-zero exit blocks the change and nothing is written.
 
-`message:` is fixed text from the YAML file. Lif inserts nothing into it. The dynamic part comes from the output of the gate task (stdout and stderr), which Lif prints below the message. Without `message:`, only the task output follows the first line. A blocked change looks like this, with exit code 1 and no usage line:
+`message:` is fixed text from the YAML file. Lif inserts nothing into it. The dynamic part comes from the output of the gate task (stdout and stderr), which Lif prints below the message. Without `message:`, only the task output follows the first line. A blocked change of an item command such as `lif complete` looks like this, with exit code 1 and no usage line:
 
 ```text
 Error: hook "require-target-entry" blocked the change of lif-ab12: Entry missing in the target file.

@@ -11,7 +11,8 @@ updates:
     target-branch: chore/dependabot
     schedule: {interval: weekly}
     groups:
-      frontend: {patterns: ["*"]}
+      frontend: {patterns: ["*"], update-types: [minor, patch]}
+      frontend-major: {patterns: ["*"], update-types: [major]}
   - package-ecosystem: npm
     directory: /site
     target-branch: chore/dependabot

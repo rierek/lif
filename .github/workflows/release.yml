@@ -15,8 +15,13 @@ jobs:
       contents: read
     uses: ./.github/workflows/test.yml
 
+  nix:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/nix.yml
+
   goreleaser:
-    needs: test
+    needs: [test, nix]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

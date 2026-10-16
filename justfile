@@ -108,10 +108,19 @@ release-snapshot: release-check
     mise run build:embed
     mise exec goreleaser@latest -- goreleaser release --snapshot --clean --skip=publish
 
+# Recompute flake.nix dependency hashes (local nix or Docker), optionally set its version
+nix-hashes VERSION='':
+    bash scripts/nix-hashes.sh {{VERSION}}
+
 # Cut+push a release tag (patch|minor|major) via svu, then watch Actions
 release LEVEL='patch': test release-snapshot
     #!/usr/bin/env bash
     set -euo pipefail
+    NEXT=$(mise exec -- svu {{LEVEL}})
+    if ! grep -q "version = \"${NEXT#v}\";" flake.nix; then
+        echo "flake.nix version is not ${NEXT#v}; run: just nix-hashes ${NEXT#v}" >&2
+        exit 1
+    fi
     if [ -n "$(git status --porcelain)" ]; then
         echo "working tree not clean, aborting" >&2
         exit 1

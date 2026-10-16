@@ -46,22 +46,26 @@ func TestNoHooksIgnoresABrokenGlobalFile(t *testing.T) {
 // and G19: any non-empty value, also 0, bypasses the gates; only a gate that
 // matches the change is named.
 func TestNoHooksSkipsGatesAndNamesTheMatchingOnes(t *testing.T) {
-	p := newProj(t, tasksOf(task("block", `touch "$LIF_ROOT/marker"`+"\nexit 1"))+
-		hooksOf(
-			hook("g", "stage: before", "event: [updated]", "run: block"),
-			hook("n", "stage: before", "event: [updated]", "to: [completed]", "run: block")))
-	p.allow()
-	t.Setenv("LIF_NO_HOOKS", "0")
+	for _, value := range []string{"1", "0"} {
+		t.Run("LIF_NO_HOOKS="+value, func(t *testing.T) {
+			p := newProj(t, tasksOf(task("block", `touch "$LIF_ROOT/marker"`+"\nexit 1"))+
+				hooksOf(
+					hook("g", "stage: before", "event: [updated]", "run: block"),
+					hook("n", "stage: before", "event: [updated]", "to: [completed]", "run: block")))
+			p.allow()
+			t.Setenv("LIF_NO_HOOKS", value)
 
-	ran, err := p.d.Gate(toProgress())
-	if ran || err != nil {
-		t.Errorf("Gate = %v, %v; want false, nil", ran, err)
-	}
-	if p.exists("marker") {
-		t.Error("a gate ran although LIF_NO_HOOKS is set")
-	}
-	if got, want := p.warn.String(), `warning: gate "g" skipped (LIF_NO_HOOKS is set)`+"\n"; got != want {
-		t.Errorf("warn = %q, want %q", got, want)
+			ran, err := p.d.Gate(toProgress())
+			if ran || err != nil {
+				t.Errorf("Gate = %v, %v; want false, nil", ran, err)
+			}
+			if p.exists("marker") {
+				t.Error("a gate ran although LIF_NO_HOOKS is set")
+			}
+			if got, want := p.warn.String(), `warning: gate "g" skipped (LIF_NO_HOOKS is set)`+"\n"; got != want {
+				t.Errorf("warn = %q, want %q", got, want)
+			}
+		})
 	}
 }
 

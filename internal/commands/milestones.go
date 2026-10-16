@@ -9,7 +9,6 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 )
 
@@ -84,7 +83,7 @@ var milestonesCmd = &cobra.Command{
 				"unknown --view %q: expected table or tree", milestonesView)
 		}
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		allItems, err := resolver.Items(ctx, nil)
 		if err != nil {

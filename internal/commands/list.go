@@ -9,7 +9,6 @@ import (
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/spf13/cobra"
 )
@@ -144,7 +143,7 @@ Search Syntax (--search/-S):
 		}
 
 		// Execute query via core resolver
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 		items, err := resolver.Items(context.Background(), filter)
 		if err != nil {
 			return fmt.Errorf("querying items: %w", err)

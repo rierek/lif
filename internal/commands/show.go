@@ -70,7 +70,7 @@ filter that leaves nothing to show is an error.`,
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		// Collect all items
 		var items []*item.Item

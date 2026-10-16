@@ -7,7 +7,6 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +32,7 @@ the first item is written, so an unknown ID leaves the whole batch alone.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		// Validate reason is not empty
 		if scrapReason == "" {

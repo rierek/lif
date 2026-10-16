@@ -83,19 +83,24 @@ A failing step stops the run. lif then exits with the exit code of that step.`,
 	},
 }
 
+// loadProjectConfig reads the project config for a command that skips the
+// store bootstrap: the file of --config, else the one found from the working
+// directory.
+func loadProjectConfig() (*config.Config, error) {
+	if configPath != "" {
+		return config.Load(configPath)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	return config.LoadFromDirectory(wd)
+}
+
 // loadTaskSet loads project and global tasks. run skips the store bootstrap,
 // so it reads the config itself.
 func loadTaskSet() (tasks.Set, error) {
-	var c *config.Config
-	var err error
-	if configPath != "" {
-		c, err = config.Load(configPath)
-	} else {
-		var wd string
-		if wd, err = os.Getwd(); err == nil {
-			c, err = config.LoadFromDirectory(wd)
-		}
-	}
+	c, err := loadProjectConfig()
 	if err != nil {
 		return tasks.Set{}, err
 	}

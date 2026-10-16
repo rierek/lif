@@ -7,18 +7,32 @@ import (
 	"path/filepath"
 
 	"github.com/rierek/lif/internal/gitutil"
+	"github.com/rierek/lif/internal/hooks"
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/tasks"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/internal/version"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 var core *itemcore.Core
 var cfg *config.Config
+
+// hookDispatch runs the hooks and gates of the project. The store bootstrap
+// sets it; a nil dispatcher does nothing (its Gate and Fire are nil-safe).
+var hookDispatch *hooks.Dispatcher
+
+// newResolver returns the resolver that every command uses, so that every
+// write path fires the hooks and runs the gates. Its hook functions are method
+// values of hookDispatch: they exist even when hookDispatch is nil, so only
+// the ran result of a call tells whether a hook ran, never the field being set.
+func newResolver() *itemgraph.CoreResolver {
+	return &itemgraph.CoreResolver{Core: core, BeforeMutation: hookDispatch.Gate, AfterMutation: hookDispatch.Fire}
+}
 
 // storePathFlag is the persistent root flag that names the store directory.
 const storePathFlag = "lif-path"
@@ -103,6 +117,10 @@ a full view of your project.`,
 			if err := core.Load(); err != nil {
 				return fmt.Errorf("loading items: %w", err)
 			}
+
+			// The warnings and the output of after hooks go to this
+			// command's stderr, so --json keeps stdout a single document.
+			hookDispatch = hooks.New(cfg, core.Root(), cmd.ErrOrStderr())
 
 			return nil
 		},
@@ -334,8 +352,10 @@ func reportExecutionError(cmd *cobra.Command, err error) {
 		return
 	}
 	var se *tasks.StepError
-	if errors.As(err, &se) {
-		// A failed task step is not a usage error: no pointer to the manual.
+	var blocked *hooks.BlockedError
+	if errors.As(err, &se) || errors.As(err, &blocked) {
+		// A failed task step or a gate that blocked the change is not a
+		// usage error: no pointer to the manual.
 		cmd.PrintErrln(cmd.ErrPrefix(), err.Error())
 		return
 	}
@@ -344,7 +364,9 @@ func reportExecutionError(cmd *cobra.Command, err error) {
 }
 
 // exitCode is the process exit code for err: the failing step's own code for
-// a task step, 1 for everything else.
+// a task step, 1 for everything else. A gate that blocked a change is 1 too:
+// hooks.BlockedError has no Unwrap, so the step code of the gate's task does
+// not reach this function.
 func exitCode(err error) int {
 	var se *tasks.StepError
 	if errors.As(err, &se) && se.Code > 0 {

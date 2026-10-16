@@ -23,8 +23,9 @@ import (
 )
 
 // DefaultFetchTimeout is the default timeout for git fetch operations during
-// worktree creation. Set below the HTTP server's WriteTimeout (15s) to prevent
-// the HTTP connection from dying before the fetch completes.
+// worktree creation. It keeps a fetch from hanging the request that started
+// it. It no longer guards the HTTP connection: the GraphQL endpoint is exempt
+// from the server's 15s write timeout (exemptWriteTimeout in internal/commands).
 const DefaultFetchTimeout = 10 * time.Second
 
 // SetupStatus represents the state of a worktree's post-creation setup.

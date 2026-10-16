@@ -32,7 +32,6 @@ import (
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/forge"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 var (
@@ -382,7 +381,7 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 	// Create GraphQL server with explicit transports
 	es := graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
-			CoreResolver: &itemgraph.CoreResolver{Core: core},
+			CoreResolver: newResolver(),
 			WorktreeMgr:  wtManager,
 			AgentMgr:     agentMgr,
 			TerminalMgr:  termMgr,
@@ -402,8 +401,11 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 	gqlHandler.AddTransport(transport.GET{})
 	gqlHandler.AddTransport(transport.POST{})
 
-	// GraphQL API endpoint (handle all methods for WebSocket upgrade)
-	router.Any("/api/graphql", gin.WrapH(gqlHandler))
+	// GraphQL API endpoint (handle all methods for WebSocket upgrade). Every
+	// mutation of the web UI is a POST here, and it runs the hooks and gates
+	// inside the request: without the exemption the write timeout cuts a
+	// response for a write that is already committed.
+	router.Any("/api/graphql", exemptWriteTimeout(), gin.WrapH(gqlHandler))
 
 	// GraphQL Playground
 	router.GET("/playground", gin.WrapH(playground.Handler("Lif GraphQL", "/api/graphql")))

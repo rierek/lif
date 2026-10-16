@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -258,5 +259,39 @@ func TestNewHTTPServerCarriesTheDefaultLimits(t *testing.T) {
 	}
 	if srv.ReadTimeout == 0 || srv.WriteTimeout == 0 || srv.IdleTimeout == 0 {
 		t.Fatalf("timeouts lost: %v", []time.Duration{srv.ReadTimeout, srv.WriteTimeout, srv.IdleTimeout})
+	}
+}
+
+func TestW11_ExemptWriteTimeoutLetsASlowHandlerAnswer(t *testing.T) {
+	slow := func(c *gin.Context) {
+		time.Sleep(600 * time.Millisecond)
+		c.String(http.StatusOK, "ok")
+	}
+	router := gin.New()
+	router.GET("/exempt", exemptWriteTimeout(), slow)
+	router.GET("/plain", slow)
+	srv := httptest.NewUnstartedServer(router)
+	srv.Config.WriteTimeout = 200 * time.Millisecond
+	srv.Start()
+	defer srv.Close()
+	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+
+	resp, err := client.Get(srv.URL + "/exempt")
+	if err != nil {
+		t.Fatalf("/exempt: %v, want an answer", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if string(body) != "ok" {
+		t.Errorf("/exempt answered %q, want ok", body)
+	}
+
+	resp, err = client.Get(srv.URL + "/plain")
+	if err == nil {
+		resp.Body.Close()
+		t.Fatal("/plain answered although the write deadline passed while the handler slept")
+	}
+	if !errors.Is(err, io.EOF) && !errors.Is(err, syscall.ECONNRESET) {
+		t.Errorf("/plain failed with %v, want a closed connection", err)
 	}
 }

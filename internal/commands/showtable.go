@@ -10,7 +10,6 @@ import (
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 )
 
 // The label column is sized from the label vocabulary below rather than from
@@ -416,7 +415,7 @@ func vocabularyWidth(names []string) int {
 // information the reader still needs -- an empty cell or an error would be
 // worse than the id.
 func describeRelated(id string, cfg *config.Config) (string, string) {
-	resolver := &itemgraph.CoreResolver{Core: core}
+	resolver := newResolver()
 	related, err := resolver.Item(context.Background(), id)
 	if err != nil || related == nil {
 		// Nothing to describe: the id becomes the value itself rather

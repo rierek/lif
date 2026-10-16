@@ -88,6 +88,8 @@ func RegisterCoreCommands(root *cobra.Command) {
 	RegisterDeleteCmd(root)
 	RegisterGraphCmd(root)
 	RegisterGraphqlCmd(root)
+	RegisterHooksCmd(root)
+	markBootstrapSkipTree(hooksCmd)
 	RegisterInitCmd(root)
 	markPlumbing(initCmd)
 	markBootstrapSkip(initCmd)

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { ui } from '#lib/uiState.svelte.js';
+  import { wsUrl } from '#lib/paths.js';
   import { theme } from '#lib/theme.svelte.js';
   import { Terminal } from '@xterm/xterm';
   import { FitAddon } from '@xterm/addon-fit';
@@ -58,8 +59,7 @@
   });
 
   function connect(term: Terminal) {
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${proto}//${window.location.host}/api/terminal`);
+    const socket = new WebSocket(wsUrl('/api/terminal'));
     socket.binaryType = 'arraybuffer';
     ws = socket;
 

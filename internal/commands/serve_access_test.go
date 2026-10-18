@@ -693,8 +693,10 @@ func TestNetworkListenerRequiresTheToken(t *testing.T) {
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("status %d, want 303", rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/page?item=abc" {
-			t.Errorf("Location %q, want /page?item=abc", loc)
+		// Relative: behind a proxy that stripped a prefix, "./page" is still the
+		// same address without the token.
+		if loc := rec.Header().Get("Location"); loc != "./page?item=abc" {
+			t.Errorf("Location %q, want ./page?item=abc", loc)
 		}
 		cookies := rec.Result().Cookies()
 		if len(cookies) != 1 {
@@ -711,9 +713,28 @@ func TestNetworkListenerRequiresTheToken(t *testing.T) {
 
 	t.Run("the redirect stays on this site", func(t *testing.T) {
 		rec := get("//evil.example/page?token="+access.token, nil)
-		loc := rec.Header().Get("Location")
-		if rec.Code != http.StatusSeeOther || strings.HasPrefix(loc, "//") {
-			t.Errorf("status %d, Location %q: want a 303 to a path on this server", rec.Code, loc)
+		if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != "./page" {
+			t.Errorf("status %d, Location %q: want a 303 to ./page", rec.Code, loc)
+		}
+	})
+
+	// The target is "./" and the last segment of the path, whatever depth a
+	// proxy that stripped a prefix has put the server at.
+	t.Run("the redirect is relative", func(t *testing.T) {
+		for _, tt := range []struct{ path, query, want string }{
+			{"/", "", "./"},
+			{"/page", "", "./page"},
+			{"/workspace/abc", "", "./abc"},
+			{"/workspace/abc/", "", "./"},
+			{"/a%2Fb", "", "./a%2Fb"},
+			{"/javascript:alert(1)", "", "./javascript:alert(1)"},
+			{"/page", "z=1&", "./page?z=1"},
+		} {
+			target := tt.path + "?" + tt.query + "token=" + access.token
+			rec := get(target, nil)
+			if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != tt.want {
+				t.Errorf("GET %s: status %d, Location %q; want a 303 to %q", tt.path+"?"+tt.query+"token=…", rec.Code, loc, tt.want)
+			}
 		}
 	})
 

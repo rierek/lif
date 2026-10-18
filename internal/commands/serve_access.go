@@ -359,9 +359,11 @@ func changesState(r *http.Request) bool {
 // "Authorization: Bearer <token>" (scripts), or in a cookie. The browser gets
 // the cookie by opening the address printed at startup once, which ends in
 // ?token=<token>; the guard then redirects to the same address without the
-// token. The cookie name carries the port, because cookies do not separate
-// servers on one host. The cookie is Secure when the token travels encrypted
-// (see serveAccess.secure).
+// token, by a relative Location: a proxy in front of the server may have
+// stripped a prefix this server does not know, and "./" leads back to the
+// same place under any prefix. The cookie name carries the port, because
+// cookies do not separate servers on one host. The cookie is Secure when the
+// token travels encrypted (see serveAccess.secure).
 func tokenGuard(token string, port int, secure bool) gin.HandlerFunc {
 	cookieName := "lif_token_" + strconv.Itoa(port)
 	valid := func(got string) bool {
@@ -384,12 +386,17 @@ func tokenGuard(token string, port int, secure bool) gin.HandlerFunc {
 				return
 			}
 			q.Del("token")
-			target := "/" + strings.TrimLeft(r.URL.EscapedPath(), "/") // never "//host": that would leave this site
+			// Only the last segment of the path stays, behind "./": the target
+			// can neither name another host ("//host") nor read as a scheme.
+			path := r.URL.EscapedPath()
+			target := "./" + path[strings.LastIndex(path, "/")+1:]
 			if len(q) > 0 {
 				target += "?" + q.Encode()
 			}
-			c.Redirect(http.StatusSeeOther, target)
-			c.Abort()
+			// Not c.Redirect: http.Redirect turns a relative target absolute,
+			// against the path as this server sees it, without the prefix.
+			c.Header("Location", target)
+			c.AbortWithStatus(http.StatusSeeOther)
 			return
 		}
 		c.Header("WWW-Authenticate", "Bearer")

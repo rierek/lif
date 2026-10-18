@@ -117,6 +117,7 @@ tasks:
 - Quoting. Quote arguments in the step: `"$id"`. Arguments are shell variables, not text that Lif substitutes into the script.
 - Calling tasks. A global task that calls another global task uses `"$LIF" run -g <task>`. Without `-g`, a project task of the same name wins. `lif run` runs project tasks without a trust check: a `.lif.yml` that you did not write can run commands on your machine.
 - Exit code. A failing step stops the run. Lif prints `Error: task "<name>": step <n> of <total> failed (exit code <c>)` and exits with the exit code of that step.
+- Signals. While a step runs, SIGINT, SIGTERM and SIGHUP go to the step instead of ending `lif`. `lif` waits for the step, so a `trap` in the step can clean up, and returns the step's exit code. When stdin is not a terminal, the step runs in its own process group and the signal goes to the whole group: no child is orphaned. With a terminal on stdin, the step stays in the foreground group: the terminal sends Ctrl-C to it directly, and `lif` forwards only SIGTERM and SIGHUP to the step itself, not to its children. A step killed by a signal without a `trap` has no exit code: the error shows the signal.
 - `lif rename` keeps the `tasks:` block.
 - An invalid task makes every lif command in that project fail with the config error, not only `lif run`.
 
@@ -161,6 +162,7 @@ This table lists every key of a hook. It is a reference, not a template: some ke
 | `tags` | no | The item carries at least one of these tags after the change. State filter. |
 | `args` | no | Item fields that are passed to the task as arguments, in this order. |
 | `message` | no | Fixed text that a blocked change shows. Only valid with `stage: before`. |
+| `timeout` | no | Seconds that the task may run. Default 60; `0` means no limit. See [Running hooks](#running-hooks). |
 
 Any other key is an error. In a project config, `from`, `to` and `type` must name known statuses and types. The global file skips that check, because statuses and types differ per project. Tags must be valid tags.
 
@@ -209,10 +211,13 @@ With `--json` the error is on stdout, with the code `POLICY_VIOLATION`:
 
 ### Running hooks
 
-- **Synchronous.** The command waits for its hooks, in `lif-serve` too: the HTTP write timeout is off for `/api/graphql` (see [Web server](../web-server/)). Hook tasks run one at a time in `lif-serve`.
+- **Synchronous.** The command waits for its hooks, in `lif-serve` too: the HTTP write timeout is off for `/api/graphql` (see [Web server](../web-server/)). Hook tasks run one at a time in `lif-serve`. A write that matches no hook or gate does not wait for a running hook. A create or write that matches one waits for the running hook, so a slow hook delays the matching writes of every client, and a hung one blocks them until its `timeout:`. A client that disconnects does not cancel a running hook.
 - **A failing after hook** prints `warning: hook "<name>" (task "<task>"): <error>` on stderr. The change stays and the command still exits 0, so a caller does not repeat a write that succeeded. The next hook runs.
 - **Output.** The output and the warnings of a hook go to stderr of the process that runs it: the terminal, or the log of `lif-serve`. The TUI drops the stderr of a successful action; a gate block still reaches it, because the TUI reads the JSON envelope (`POLICY_VIOLATION`).
-- **No chaining.** A `lif` command inside a hook or gate task fires no hooks and no gates: the task gets `LIF_NO_HOOKS=1`.
+- **Timeout.** A hook or gate task runs at most `timeout:` seconds, default 60, `0` for no limit. At the limit Lif kills the task and its process group. On Windows only the `sh` process is killed, not its children. A gate that times out blocks the change with `could not run: ... timed out after <n>s` (fail closed); an after hook prints a warning and the next hook runs.
+- **Output limit.** Lif keeps the first 64 KiB of the output of a hook or gate task and drops the rest; the output ends with `(output cut after 64 KiB)`. The task is not stopped by it.
+- **No chaining.** A `lif` command inside a hook or gate task fires no hooks and no gates: the task gets `LIF_NO_HOOKS=1` and `LIF_HOOK_DEPTH`. As a second brake, a `lif` call with `LIF_HOOK_DEPTH` of 3 or more fires nothing and warns, so a hook that clears `LIF_NO_HOOKS` (`env -u`, an empty value) stops after 3 levels. A call that clears the whole environment (`env -i`, `sudo`, `ssh`, `docker exec`) loses both variables and is not covered: do not call `lif` that way from a hook.
+- **No HTTP callbacks to `lif-serve`.** `LIF_NO_HOOKS` belongs to the process, so a task that calls the `lif-serve` API (for example with `curl`) does not inherit it: the server fires hooks for that write. When it matches a hook, it waits for the running hook, which waits for the call: a deadlock that ends at the `timeout:` of the hook. Give such a call `--max-time` and use `"$LIF"` instead.
 - **Global hooks run only global tasks.** A global task that calls another global task uses `"$LIF" run -g <task>`: without `-g` a project task of the same name wins, and `lif run` does not check trust. In `lif-serve`, `$LIF` is the `lif` next to `lif-serve`, else the one on `PATH`.
 - **Reload.** `lif-serve` reads `.lif.yml` at start: restart it after you edit hooks or tasks. It reads the global file and the trust file on every mutation.
 - **A stale item after a hook.** When an after hook ran, the item that the CLI prints and its ETag can be stale: the CLI keeps items in memory and watches no files. A following `--if-match` gets `CONFLICT`. Read the item again with `lif show --json`. A later target of the same batch that the hook wrote fails with `CONFLICT` and is not overwritten. `lif-serve` has one resolver for all requests, and the effect lasts for its whole life: once a hook has run, every later write without `If-Match` expects the ETag that it read, and fails with `CONFLICT` when the item changed in between, instead of the last write winning. Restart `lif-serve` to reset it.

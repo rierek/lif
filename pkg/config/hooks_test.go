@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 const hkTasks = "tasks:\n    wt-open:\n        steps: [\"true\"]\n"
@@ -229,4 +230,18 @@ func TestV23_GlobalHookErrorStartsWithPath(t *testing.T) {
 func TestV24_KeyWithSpaceNotWatchable(t *testing.T) {
 	hkWantErr(t, "event: [updated]\nchanged: [\"my key\"]\nrun: wt-open", `"my key" is not watchable`)
 	hkWantErr(t, "event: [updated]\nrun: wt-open\nargs: [\"my key\"]", `unknown item field "my key"`)
+}
+
+func TestHookTimeoutDefaultsAndRejectsNegative(t *testing.T) {
+	hkWantErr(t, "event: [updated]\nrun: wt-open\ntimeout: -1", "timeout: must be 0")
+	if got := (Hook{}).TimeoutDuration(); got != DefaultHookTimeout {
+		t.Errorf("default = %v", got)
+	}
+	zero, five := 0, 5
+	if got := (Hook{Timeout: &zero}).TimeoutDuration(); got != 0 {
+		t.Errorf("0 = %v", got)
+	}
+	if got := (Hook{Timeout: &five}).TimeoutDuration(); got != 5*time.Second {
+		t.Errorf("5 = %v", got)
+	}
 }

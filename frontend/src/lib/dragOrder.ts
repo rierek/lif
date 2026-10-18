@@ -120,8 +120,10 @@ export function applyReparent(
     .mutation(UpdateItemOrderDocument, { id: draggedId, input })
     .toPromise()
     .then((result) => {
+      if (!result.error) itemsStore.writeError = null;
       if (result.error) {
         console.error('Failed to reparent item:', result.error);
+        itemsStore.writeError = result.error.message;
         // Roll back optimistic update
         itemsStore.optimisticUpdate(draggedId, { parentId: prevParentId, order: prevOrder });
       }
@@ -188,6 +190,7 @@ export function applyDrop(
     .mutation(UpdateItemOrderDocument, { id: draggedId, input })
     .toPromise()
     .then((result) => {
+      if (!result.error) itemsStore.writeError = null;
       if (result.error) {
         console.error('Failed to update item:', result.error);
         itemsStore.writeError = result.error.message;

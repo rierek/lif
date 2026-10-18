@@ -81,6 +81,7 @@
     const result = await client
       .mutation(UpdateItemStatusDocument, { id: item.id, input: { status: newStatus } })
       .toPromise();
+    if (!result.error) itemsStore.writeError = null;
     if (result.error) {
       itemsStore.optimisticUpdate(item.id, { status: oldStatus });
       itemsStore.writeError = result.error.message;

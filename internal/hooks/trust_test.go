@@ -511,3 +511,33 @@ func TestStatusSaysWhetherProjectHooksRun(t *testing.T) {
 		t.Errorf("Status without hooks = %q, want empty", got)
 	}
 }
+
+// Edit, allow the new file, revert the file: the process holds the old config
+// and the trust entry names the new one. The gates must not switch off.
+func TestT20c_AllowThenRevertKeepsGatesClosed(t *testing.T) {
+	v1 := tasksOf(task("pg", `touch "$LIF_ROOT/gate-ran"`)) +
+		hooksOf(hook("p-gate", "stage: before", "event: [updated]", "run: pg"))
+	p := newProj(t, v1)
+	p.allow()
+	if _, err := p.d.Gate(toProgress()); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := os.Remove(filepath.Join(p.dir, "gate-ran")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, p.cfg.ConfigFile(), strings.Replace(v1, "gate-ran", "gate-ran2", 1))
+	v2, err := config.Load(p.cfg.ConfigFile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	allow(t, v2)
+	writeFile(t, p.cfg.ConfigFile(), v1)
+	_, err = p.d.Gate(toProgress())
+	var blocked *BlockedError
+	if !errors.As(err, &blocked) || blocked.Hook != "p-gate" {
+		t.Fatalf("Gate err = %v, want a block by p-gate", err)
+	}
+	if p.exists("gate-ran") {
+		t.Error("the gate task ran")
+	}
+}

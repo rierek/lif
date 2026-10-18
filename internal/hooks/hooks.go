@@ -37,6 +37,8 @@ type Dispatcher struct {
 	runMu   sync.Mutex // hook tasks run one at a time: lif serve handles requests in parallel
 	warned  bool       // the not-allowed warning was printed
 	key, fp string     // trust key and fingerprint of cfg; set on first use
+	trust0  string     // trust entry of key at the first use ("" none)
+	seen    bool       // trust0 is set
 }
 
 // New returns a Dispatcher for cfg. storeRoot is the directory that
@@ -221,8 +223,16 @@ func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err er
 	allowed, stale := false, false
 	if len(d.cfg.Hooks) > 0 {
 		key, fp := d.trustID()
+		if !d.seen {
+			d.seen, d.trust0 = true, trusted[key]
+		}
 		switch {
 		case d.changedOnDisk(fp):
+			d.warnChanged()
+			stale = true
+		case trusted[key] != "" && trusted[key] != fp && trusted[key] != d.trust0:
+			// The trust entry moved to another content after this process
+			// started (edit, allow, revert the file): fail closed as well.
 			d.warnChanged()
 			stale = true
 		case !isAllowed(trusted, key, fp):

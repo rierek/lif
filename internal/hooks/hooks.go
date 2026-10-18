@@ -33,12 +33,14 @@ type Dispatcher struct {
 	storeRoot string
 	warn      io.Writer
 
-	stateMu sync.Mutex // guards the three fields below and the load in prepare
-	runMu   sync.Mutex // hook tasks run one at a time: lif serve handles requests in parallel
-	warned  bool       // the not-allowed warning was printed
-	key, fp string     // trust key and fingerprint of cfg; set on first use
-	trust0  string     // trust entry of key at the first use ("" none)
-	seen    bool       // trust0 is set
+	stateMu sync.Mutex      // guards the three fields below and the load in prepare
+	runMu   sync.Mutex      // hook tasks run one at a time: lif serve handles requests in parallel
+	warned  bool            // the not-allowed warning was printed
+	shadow  map[string]bool // global gates that a project hook of the same name tried to replace, warned about
+	key, fp string          // trust key and fingerprint of cfg; set on first use
+	trust0  string          // trust entry of key at the first use ("" none)
+	seen    bool            // trust0 is set
+	clashed map[string]bool // env-name collisions that were reported ("suffix/key"); used under runMu only
 }
 
 // New returns a Dispatcher for cfg. storeRoot is the directory that
@@ -66,10 +68,10 @@ type BlockedError struct {
 func (e *BlockedError) Error() string {
 	s := fmt.Sprintf("hook %q blocked the change of %s", e.Hook, e.ItemID)
 	if e.Message != "" {
-		s += ": " + tasks.Printable(e.Message) // the message comes from .lif.yml
+		s += ": " + tasks.Printable(strings.TrimSpace(e.Message)) // the message comes from .lif.yml; a block scalar ends with a newline
 	}
 	if e.Output != "" {
-		s += "\n" + e.Output
+		s += "\n" + tasks.Printable(e.Output) // a task may echo item fields
 	}
 	return s
 }
@@ -243,13 +245,18 @@ func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err er
 	}
 
 	// A project hook replaces a global hook of the same name, but only when
-	// project hooks are allowed.
+	// project hooks are allowed. A global gate is never replaced: a repo
+	// must not switch off the policy of the user.
 	merged := make(map[string]active, len(global.Hooks)+len(d.cfg.Hooks))
 	for name, h := range global.Hooks {
 		merged[name] = active{Hook: h, name: name}
 	}
 	if allowed {
 		for name, h := range d.cfg.Hooks {
+			if g, ok := global.Hooks[name]; ok && g.IsGate() {
+				d.warnShadow(name)
+				continue
+			}
 			merged[name] = active{Hook: h, name: name, project: true}
 		}
 	} else if stale {
@@ -340,6 +347,19 @@ func (d *Dispatcher) Status() string {
 		return "Hooks: " + what + " active"
 	}
 	return fmt.Sprintf("Hooks: OFF, %s do not run: not allowed. Run 'lif hooks allow', then restart this process", what)
+}
+
+// warnShadow prints, once per name, that a project hook is ignored because
+// it has the name of a global gate.
+func (d *Dispatcher) warnShadow(name string) {
+	if d.shadow[name] {
+		return
+	}
+	if d.shadow == nil {
+		d.shadow = map[string]bool{}
+	}
+	d.shadow[name] = true
+	fmt.Fprintf(d.warn, "warning: hook %q in %s ignored: a global gate of that name cannot be replaced; rename it\n", name, d.configPath())
 }
 
 // warnNotAllowed prints, once per Dispatcher, that the project hooks do not
@@ -479,16 +499,28 @@ func (c *cappedWriter) Write(p []byte) (int, error) {
 
 // match reports whether h fires for m: every condition that h sets must
 // hold. The before state is m.Prev, or an empty item for a created item.
+// type: and tags: of a gate hold when the before or the after state
+// satisfies them: a change of type or tag must not take an item out of the
+// gate that guarded it (one `-t task -s completed`, then `-t feature`).
 func match(h config.Hook, m itemgraph.Mutation) bool {
 	cur, prev := orEmpty(m.Item), orEmpty(m.Prev)
 	is := func(want string) func(string) bool { return func(s string) bool { return s == want } }
 	oneOf := func(list []string) func(string) bool { return func(s string) bool { return slices.Contains(list, s) } }
+	// states are the states that type: and tags: test.
+	states := []*item.Item{cur}
+	if h.IsGate() {
+		states = append(states, prev)
+	}
 	return holds(h.Event, is(m.Event)) &&
 		holds(h.Changed, oneOf(m.Changed)) &&
 		holds(h.From, is(prev.Status)) &&
 		holds(h.To, is(cur.Status)) &&
-		holds(h.Type, is(cur.Type)) &&
-		holds(h.Tags, oneOf(cur.Tags)) &&
+		holds(h.Type, func(t string) bool {
+			return slices.ContainsFunc(states, func(s *item.Item) bool { return s.Type == t })
+		}) &&
+		holds(h.Tags, func(t string) bool {
+			return slices.ContainsFunc(states, func(s *item.Item) bool { return slices.Contains(s.Tags, t) })
+		}) &&
 		holds(h.TagsAdded, func(tag string) bool { return slices.Contains(cur.Tags, tag) && !slices.Contains(prev.Tags, tag) }) &&
 		holds(h.TagsRemoved, func(tag string) bool { return slices.Contains(prev.Tags, tag) && !slices.Contains(cur.Tags, tag) })
 }

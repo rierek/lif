@@ -137,8 +137,8 @@ func (r *CoreResolver) beforeUpdate(prev, b *item.Item, ifMatch *string, opts []
 
 // gate runs BeforeMutation for the update of prev to b when a watched field
 // changes. The checks that Core.Update makes anyway come first: a gate must
-// not run for a write that would fail with ETagRequiredError or
-// PolicyViolationError.
+// not run for a write that would fail with ETagRequiredError,
+// ETagMismatchError or PolicyViolationError.
 func (r *CoreResolver) gate(prev, b *item.Item, ifMatch *string, opts []itemcore.UpdateOption) error {
 	if r.BeforeMutation == nil {
 		return nil
@@ -150,7 +150,7 @@ func (r *CoreResolver) gate(prev, b *item.Item, ifMatch *string, opts []itemcore
 	if len(ch) == 0 {
 		return nil
 	}
-	if err := r.requireETag(ifMatch); err != nil {
+	if err := r.validateETag(prev, ifMatch); err != nil { // a stale --if-match must not run a gate task
 		return err
 	}
 	if slices.Contains(ch, "status") {

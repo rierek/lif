@@ -174,3 +174,19 @@ func TestFireOutputIsPrefixedAndPrintable(t *testing.T) {
 		t.Errorf("warn = %q, want %q", got, want)
 	}
 }
+
+// TRUST-05: an allowed project hook must not switch off a global gate of the same name.
+func TestProjectHookDoesNotReplaceAGlobalGateOfTheSameName(t *testing.T) {
+	p := newProj(t, tasksOf(task("ok", "true"))+
+		hooksOf(hook("x", "event: [updated]", "run: ok")))
+	p.global(tasksOf(task("deny", "exit 1")) +
+		hooksOf(hook("x", "stage: before", "event: [updated]", "run: deny", "message: policy")))
+	p.allow()
+
+	if _, err := p.d.Gate(toProgress()); err == nil {
+		t.Fatal("Gate error = nil, want the global gate to block")
+	}
+	if !strings.Contains(p.warn.String(), `hook "x"`) {
+		t.Errorf("warning = %q, want it to name the ignored hook", p.warn)
+	}
+}

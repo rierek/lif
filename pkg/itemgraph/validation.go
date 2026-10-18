@@ -64,7 +64,7 @@ func ValidateBody(body string) error {
 // ValidateTags checks every tag against the shared tag rules.
 func ValidateTags(tags []string) error {
 	for _, tag := range tags {
-		if err := item.ValidateTag(item.NormalizeTag(tag)); err != nil {
+		if err := item.ValidateTag(tag); err != nil {
 			return &itemcore.ValidationError{Err: err}
 		}
 	}

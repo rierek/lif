@@ -39,7 +39,7 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 		b.Body = *input.Body
 	}
 	if len(input.Tags) > 0 {
-		b.Tags = normalizeTags(input.Tags)
+		b.Tags = input.Tags
 	}
 
 	// Handle parent (with validation)
@@ -204,7 +204,7 @@ func (r *CoreResolver) updateItem(ctx context.Context, id string, input model.Up
 	}
 	// Handle tags
 	if input.Tags != nil {
-		b.Tags = normalizeTags(input.Tags)
+		b.Tags = input.Tags
 	} else if input.AddTags != nil || input.RemoveTags != nil {
 		// Build a set of current tags
 		tagSet := make(map[string]bool)
@@ -215,7 +215,7 @@ func (r *CoreResolver) updateItem(ctx context.Context, id string, input model.Up
 		// Add new tags
 		if input.AddTags != nil {
 			for _, tag := range input.AddTags {
-				tagSet[item.NormalizeTag(tag)] = true
+				tagSet[tag] = true
 			}
 		}
 
@@ -531,12 +531,3 @@ func (r *CoreResolver) retryStale(id string, ifMatch *string, write func() (*ite
 // staleRetries bounds retryStale. Every failed attempt means another writer
 // succeeded in between, so the bound is the number of concurrent writers.
 const staleRetries = 100
-
-// normalizeTags returns tags in the canonical form ValidateTags checked.
-func normalizeTags(tags []string) []string {
-	out := make([]string, len(tags))
-	for i, t := range tags {
-		out[i] = item.NormalizeTag(t)
-	}
-	return out
-}

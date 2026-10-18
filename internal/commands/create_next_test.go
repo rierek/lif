@@ -77,7 +77,7 @@ func TestCreateInteractiveCreateNextCarriesTicked(t *testing.T) {
 		cnForm1,
 		cmBody, []string{"body of A", keyEnter},
 		cmStatus, []string{keyDown, keyEnter},
-		cmTags, []string{",tagA", keyEnter},
+		cmTags, []string{",taga", keyEnter},
 		cmNext,
 		[]string{keyEnter}, // checklist: all four ticked on first open
 		cnForm2Carried,
@@ -114,13 +114,13 @@ func TestCreateInteractiveCreateNextUntickedFallsBackAndChecklistRemembers(t *te
 	cnFixture(t)
 	got, _, _, err := cnRun(t, []string{"A"},
 		cnForm1,
-		cmTags, []string{",tagA", keyEnter},
+		cmTags, []string{",taga", keyEnter},
 		cmNext,
 		// untick priority and tags
 		[]string{keyDown, "x", keyDown, keyDown, "x", keyEnter},
-		// B: priority high again, tag tagB on top of the default tag
+		// B: priority high again, tag tagb on top of the default tag
 		[]string{"B", keyEnter, keyEnter, keyDown, keyDown, keyEnter, keyEnter},
-		cmTags, []string{",tagB", keyEnter},
+		cmTags, []string{",tagb", keyEnter},
 		cmNext,
 		// second checklist must start with type and parent ticked only
 		[]string{keyEnter},

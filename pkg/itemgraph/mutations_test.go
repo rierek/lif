@@ -221,32 +221,28 @@ func TestUpdateItemTitleChangeKeepsCustomSlug(t *testing.T) {
 	}
 }
 
-// ValidateTags accepts a tag in any case because it lowercases first; the
-// write path has to store the lowercased form too, or check and hooks reject
-// what update accepted. Removing matches any case, so a tag that a
+// The write path rejects a tag in capitals like one with a space, so check
+// and hooks never meet it. Removing matches any case, so a tag that a
 // hand-edited file carries in capitals can still be removed.
-func TestTagsAreStoredLowercase(t *testing.T) {
+func TestUppercaseTagIsRejectedAndRemovedInAnyCase(t *testing.T) {
 	r := newTestResolver(t)
 	ctx := context.Background()
 	b := &item.Item{ID: "beans-tg01", Slug: "t", Title: "T", Status: "todo", Type: "task", Tags: []string{"OldCaps"}}
 	if err := r.Core.Create(b); err != nil {
 		t.Fatal(err)
 	}
-
-	got, err := r.UpdateItem(ctx, b.ID, model.UpdateItemInput{AddTags: []string{" URGENT "}, RemoveTags: []string{"oldcaps"}})
-	if err != nil {
-		t.Fatal(err)
+	for _, in := range []model.UpdateItemInput{{AddTags: []string{"URGENT"}}, {Tags: []string{"Mixed"}}} {
+		_, err := r.UpdateItem(ctx, b.ID, in)
+		if err == nil || !strings.Contains(err.Error(), "must be lowercase, start with a letter") {
+			t.Fatalf("UpdateItem(%+v) err = %v, want the tag validation error", in, err)
+		}
 	}
-	if len(got.Tags) != 1 || got.Tags[0] != "urgent" {
-		t.Fatalf("tags = %v, want [urgent]", got.Tags)
+	if _, err := r.CreateItem(ctx, model.CreateItemInput{Title: "C", Tags: []string{"UPPER"}}); err == nil {
+		t.Fatal("CreateItem accepted an uppercase tag")
 	}
-	got, err = r.UpdateItem(ctx, b.ID, model.UpdateItemInput{Tags: []string{"Mixed"}})
-	if err != nil || len(got.Tags) != 1 || got.Tags[0] != "mixed" {
-		t.Fatalf("tags = %v, err %v, want [mixed]", got.Tags, err)
-	}
-	created, err := r.CreateItem(ctx, model.CreateItemInput{Title: "C", Tags: []string{"UPPER"}})
-	if err != nil || len(created.Tags) != 1 || created.Tags[0] != "upper" {
-		t.Fatalf("created tags = %v, err %v, want [upper]", created.Tags, err)
+	got, err := r.UpdateItem(ctx, b.ID, model.UpdateItemInput{RemoveTags: []string{"oldcaps"}})
+	if err != nil || len(got.Tags) != 0 {
+		t.Fatalf("tags = %v, err %v, want none", got.Tags, err)
 	}
 }
 

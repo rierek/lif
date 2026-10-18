@@ -50,9 +50,18 @@ func mustPublicURL(t *testing.T, s string) *url.URL {
 // guardedRequest sends one request through the router. host and origin are the
 // Host and Origin headers; an empty origin sends none, like curl.
 func guardedRequest(router http.Handler, method, host, origin, path string) *httptest.ResponseRecorder {
+	return guardedRequestAs(router, method, host, origin, path, "")
+}
+
+// guardedRequestAs is guardedRequest with the access token in the
+// Authorization header; an empty token sends none.
+func guardedRequestAs(router http.Handler, method, host, origin, path, token string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, "http://"+host+path, strings.NewReader("{}"))
 	if origin != "" {
 		req.Header.Set("Origin", origin)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -192,6 +201,11 @@ func TestPublicURLAllowsItsOwnHostAndOrigin(t *testing.T) {
 	ran := 0
 	router.POST("/api/graphql", func(c *gin.Context) { ran++; c.String(http.StatusOK, "ran") })
 
+	// The proxy hides who the client is, so a public URL implies the token.
+	if rec := guardedRequest(router, "POST", "box.example.ts.net", "https://box.example.ts.net", "/api/graphql"); rec.Code != 401 || ran != 0 {
+		t.Errorf("without the token: status %d, handler ran %v; want a 401", rec.Code, ran != 0)
+	}
+
 	tests := []struct {
 		name   string
 		host   string
@@ -207,7 +221,7 @@ func TestPublicURLAllowsItsOwnHostAndOrigin(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			before := ran
-			rec := guardedRequest(router, "POST", tt.host, tt.origin, "/api/graphql")
+			rec := guardedRequestAs(router, "POST", tt.host, tt.origin, "/api/graphql", access.token)
 			if rec.Code != tt.want {
 				t.Fatalf("host=%q origin=%q: status %d, want %d (body %q)", tt.host, tt.origin, rec.Code, tt.want, rec.Body.String())
 			}
@@ -255,6 +269,78 @@ func TestParsePublicURL(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "must be an absolute http:// or https:// URL without query or fragment") {
 			t.Errorf("parsePublicURL(%q): err = %v, want the invalid --public-url error", in, err)
 		}
+	}
+}
+
+// A proxy in front of a loopback server puts it on the network, and the
+// listener cannot see that. --require-token and --public-url give such a
+// listener the rules of a network one: the token, and no terminal unless asked.
+func TestRequireTokenMakesALoopbackListenerRemote(t *testing.T) {
+	for name, opts := range map[string]serveOptions{
+		"--require-token": {requireToken: true},
+		"--public-url":    {publicURL: mustPublicURL(t, "https://box.example.ts.net/lif")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			a := mustAccessOpts(t, "127.0.0.1", opts)
+			if !a.loopback || !a.remote() {
+				t.Fatalf("loopback = %v, remote() = %v; want a loopback listener that counts as remote", a.loopback, a.remote())
+			}
+			if len(a.token) < 32 {
+				t.Errorf("no usable token: %q", a.token)
+			}
+			if a.terminalEnabled() {
+				t.Error("the terminal is enabled behind a proxy without --allow-remote-terminal")
+			}
+			opts.allowRemoteTerminal = true
+			if !mustAccessOpts(t, "127.0.0.1", opts).terminalEnabled() {
+				t.Error("--allow-remote-terminal did not enable the terminal")
+			}
+		})
+	}
+}
+
+// Without a token a loopback server cannot tell a proxied request from a local
+// one, except by the headers the proxy adds. It refuses those and names the
+// way out. A server that asks for the token needs no such guard.
+func TestProxyGuardRefusesProxiedRequestsWithoutToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	newRouter := func(a serveAccess) *gin.Engine {
+		router := gin.New()
+		router.Use(a.middleware(cors.NewChecker(config.DefaultCORSOrigins))...)
+		router.GET("/page", func(c *gin.Context) { c.String(http.StatusOK, "page") })
+		return router
+	}
+	get := func(router http.Handler, header, token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", "http://localhost:8080/page", nil)
+		if header != "" {
+			req.Header.Set(header, "1.2.3.4")
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	plain := newRouter(mustAccess(t, "127.0.0.1", false))
+	if rec := get(plain, "", ""); rec.Code != 200 {
+		t.Errorf("a plain local request: status %d, want 200", rec.Code)
+	}
+	for _, h := range proxyHeaders {
+		rec := get(plain, h, "")
+		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "came through a proxy") || !strings.Contains(rec.Body.String(), "--public-url") {
+			t.Errorf("%s: status %d, body %q; want a 403 that names the proxy and --public-url", h, rec.Code, rec.Body.String())
+		}
+	}
+
+	remote := mustAccessOpts(t, "127.0.0.1", serveOptions{requireToken: true})
+	proxied := newRouter(remote)
+	if rec := get(proxied, "X-Forwarded-For", remote.token); rec.Code != 200 {
+		t.Errorf("a proxied request with the token: status %d, want 200", rec.Code)
+	}
+	if rec := get(proxied, "X-Forwarded-For", ""); rec.Code != 401 {
+		t.Errorf("a proxied request without the token: status %d, want 401", rec.Code)
 	}
 }
 
@@ -815,10 +901,27 @@ func TestStartupLinesNameTheRealBindAddress(t *testing.T) {
 		log := join(a, config.DefaultCORSOrigins)
 		mustContain(t, log,
 			"[lif] Listening on 127.0.0.1:8080 (loopback only",
-			"[lif] Starting server at https://box.example.ts.net/lif/",
-			"[lif] GraphQL Playground: https://box.example.ts.net/lif/playground",
+			"[lif] Access: token required (--require-token or --public-url)",
+			"[lif] WARNING:",
+			"[lif] Access token: "+a.token,
+			"[lif] Open the UI: https://box.example.ts.net/lif/?token="+a.token,
+			"[lif] GraphQL Playground: https://box.example.ts.net/lif/playground?token="+a.token,
+			"[lif] Terminal: disabled",
 		)
-		mustNotContain(t, log, "127.0.0.1:8080/")
+		mustNotContain(t, log, "Starting server at", "127.0.0.1:8080/")
+	})
+
+	t.Run("token required on loopback", func(t *testing.T) {
+		a := mustAccessOpts(t, "127.0.0.1", serveOptions{requireToken: true})
+		log := join(a, config.DefaultCORSOrigins)
+		mustContain(t, log,
+			"[lif] Listening on 127.0.0.1:8080 (loopback only",
+			"[lif] Access: token required (--require-token or --public-url)",
+			"[lif] Access token: "+a.token,
+			"[lif] Open the UI: http://127.0.0.1:8080/?token="+a.token,
+			"[lif] Terminal: disabled",
+		)
+		mustNotContain(t, log, "Starting server at")
 	})
 
 	t.Run("wildcard origin", func(t *testing.T) {

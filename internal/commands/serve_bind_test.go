@@ -180,6 +180,24 @@ func (p *serveProcess) doAs(t *testing.T, host, path string) (int, string, http.
 	return send(t, req)
 }
 
+// getWithHeaders sends a GET with the given request headers, as a proxy in
+// front of the server would add them, and the token in the Authorization
+// header when it is not empty.
+func (p *serveProcess) getWithHeaders(t *testing.T, path, token string, header http.Header) (int, string, http.Header) {
+	t.Helper()
+	req, err := http.NewRequest("GET", p.url(path), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, v := range header {
+		req.Header[k] = v
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	return send(t, req)
+}
+
 func send(t *testing.T, req *http.Request) (int, string, http.Header) {
 	t.Helper()
 	client := &http.Client{
@@ -219,7 +237,7 @@ func TestServeFlagsDefaultToLoopbackWithoutRemoteTerminal(t *testing.T) {
 	} else {
 		root.AddCommand(serveCmd)
 	}
-	for flag, want := range map[string]string{"host": "127.0.0.1", "allow-remote-terminal": "false"} {
+	for flag, want := range map[string]string{"host": "127.0.0.1", "allow-remote-terminal": "false", "require-token": "false", "public-url": ""} {
 		f := serveCmd.Flags().Lookup(flag)
 		if f == nil {
 			t.Fatalf("lif-serve has no --%s flag", flag)
@@ -400,6 +418,56 @@ func TestServeOnTheNetworkNeedsTheTokenAndHasNoTerminal(t *testing.T) {
 	for _, line := range strings.Split(live, "\n") {
 		if strings.HasPrefix(line, "[GIN]") && strings.Contains(line, p.token) {
 			t.Errorf("an access log line carries the token: %s", line)
+		}
+	}
+}
+
+// --require-token gives a loopback server the rules of a network one, for use
+// behind a proxy: the token for every client, and no terminal.
+func TestServeRequireTokenOnLoopback(t *testing.T) {
+	p := startServeProcess(t, "--require-token")
+
+	for _, want := range []string{
+		fmt.Sprintf("[lif] Listening on 127.0.0.1:%d (loopback only", p.port),
+		"[lif] Access: token required (--require-token or --public-url)",
+		"[lif] Terminal: disabled",
+	} {
+		if !strings.Contains(p.log, want) {
+			t.Errorf("startup log lacks %q:\n%s", want, p.log)
+		}
+	}
+	if len(p.token) < 32 {
+		t.Fatalf("no usable access token in the startup log:\n%s", p.log)
+	}
+
+	if status, _, _ := p.do(t, "GET", "/playground", "", "", ""); status != 401 {
+		t.Errorf("GET /playground without token: status %d, want 401", status)
+	}
+	if status, body, _ := p.do(t, "GET", "/playground", p.token, "", ""); status != 200 || !strings.Contains(body, "<title>Lif GraphQL</title>") {
+		t.Errorf("GET /playground with the token: status %d, body %.200q", status, body)
+	}
+	status, body, _ := p.do(t, "GET", "/api/terminal", p.token, "http://localhost:5173", "")
+	if status != http.StatusForbidden || !strings.Contains(body, "terminal is disabled") {
+		t.Errorf("GET /api/terminal: status %d, body %q; want a 403 that says the terminal is disabled", status, body)
+	}
+	// A proxy adds its headers; with the token they are no reason to refuse.
+	if status, _, _ := p.getWithHeaders(t, "/playground", p.token, http.Header{"X-Forwarded-For": {"203.0.113.9"}}); status != 200 {
+		t.Errorf("proxied GET /playground with the token: status %d, want 200", status)
+	}
+}
+
+// Without a token the server cannot tell a proxied request from a local one,
+// so it refuses the requests that carry proxy headers and says what to do.
+func TestServeRefusesProxiedRequestsWithoutToken(t *testing.T) {
+	p := startServeProcess(t)
+
+	if status, _, _ := p.do(t, "GET", "/playground", "", "", ""); status != 200 {
+		t.Errorf("GET /playground without proxy headers: status %d, want 200", status)
+	}
+	for _, h := range proxyHeaders {
+		status, body, _ := p.getWithHeaders(t, "/playground", "", http.Header{h: {"203.0.113.9"}})
+		if status != http.StatusForbidden || !strings.Contains(body, "came through a proxy") {
+			t.Errorf("%s: status %d, body %q; want a 403 that names the proxy", h, status, body)
 		}
 	}
 }

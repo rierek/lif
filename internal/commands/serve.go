@@ -41,6 +41,7 @@ var (
 	corsOrigins         []string
 	allowRemoteTerminal bool
 	servePublicURL      string
+	serveRequireToken   bool
 )
 
 const centralAgentPrompt = `You are the planning agent for this project. Your primary role is to help manage and organize work through items.
@@ -68,7 +69,10 @@ var serveCmd = &cobra.Command{
 By default the server listens on 127.0.0.1 only, so only this machine can reach
 it. --host with any other address makes it reachable from the network. The
 server then asks every client for an access token, printed at startup, and
-serves the terminal only with --allow-remote-terminal. There is no TLS.`,
+serves the terminal only with --allow-remote-terminal. A proxy in front of the
+server (tailscale serve, nginx, Caddy) connects from loopback, so tell the
+server: --public-url (or --require-token) gives it the same rules. There is no
+TLS.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine the port: CLI flag > config > default
 		port := servePort
@@ -90,7 +94,11 @@ serves the terminal only with --allow-remote-terminal. There is no TLS.`,
 			}
 		}
 
-		return runServer(serveHost, port, origins, serveOptions{allowRemoteTerminal: allowRemoteTerminal, publicURL: publicURL})
+		return runServer(serveHost, port, origins, serveOptions{
+			allowRemoteTerminal: allowRemoteTerminal,
+			requireToken:        serveRequireToken,
+			publicURL:           publicURL,
+		})
 	},
 }
 
@@ -519,7 +527,8 @@ func RegisterServeCmd(root *cobra.Command) {
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", config.DefaultServerPort, "Port to listen on")
 	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", config.DefaultCORSOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
 	serveCmd.Flags().BoolVar(&allowRemoteTerminal, "allow-remote-terminal", false, "Serve the terminal even when the server listens beyond loopback")
-	serveCmd.Flags().StringVar(&servePublicURL, "public-url", "", "Public URL of this server behind a proxy, e.g. https://box.tailnet.ts.net/lif; its origin and host are allowed and the links in the log use it")
+	serveCmd.Flags().StringVar(&servePublicURL, "public-url", "", "Public URL of this server behind a proxy, e.g. https://box.tailnet.ts.net/lif (implies --require-token)")
+	serveCmd.Flags().BoolVar(&serveRequireToken, "require-token", false, "Require the access token even on loopback (use behind a proxy)")
 	root.AddCommand(serveCmd)
 }
 

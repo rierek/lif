@@ -30,11 +30,18 @@ import (
 // nothing, because a script sends whatever headers it likes, so every client
 // must present a token generated at startup. The terminal, a shell as the
 // server user, is served there only when the operator asks for it.
+//
+// A proxy in front of a loopback listener puts it on the network too, and the
+// listener cannot see that: every request comes from loopback. The operator
+// says so with --require-token or --public-url, which give such a listener the
+// rules of a network one (see remote). Without them a request that carries
+// proxy headers is refused.
 type serveAccess struct {
 	addr                *net.TCPAddr
 	loopback            bool
+	requireToken        bool // --require-token, or implied by --public-url
 	allowRemoteTerminal bool
-	token               string // empty on a loopback listener
+	token               string // empty unless the server is remote
 	publicBase          string // --public-url without a trailing slash; empty without one
 	publicOrigin        string // scheme://host[:port] of publicBase
 }
@@ -43,6 +50,7 @@ type serveAccess struct {
 // flag: no key of a committed .lif.yml may open the server.
 type serveOptions struct {
 	allowRemoteTerminal bool
+	requireToken        bool
 	publicURL           *url.URL // nil unless --public-url
 }
 
@@ -71,12 +79,17 @@ func newServeAccess(addr net.Addr, opts serveOptions) (serveAccess, error) {
 	if !ok {
 		return serveAccess{}, fmt.Errorf("listener address %v is not a TCP address", addr)
 	}
-	a := serveAccess{addr: tcp, loopback: tcp.IP.IsLoopback(), allowRemoteTerminal: opts.allowRemoteTerminal}
+	a := serveAccess{
+		addr:                tcp,
+		loopback:            tcp.IP.IsLoopback(),
+		requireToken:        opts.requireToken || opts.publicURL != nil,
+		allowRemoteTerminal: opts.allowRemoteTerminal,
+	}
 	if u := opts.publicURL; u != nil {
 		a.publicBase = u.String()
 		a.publicOrigin = u.Scheme + "://" + u.Host
 	}
-	if !a.loopback {
+	if a.remote() {
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
 			return serveAccess{}, fmt.Errorf("failed to generate the access token: %w", err)
@@ -86,9 +99,17 @@ func newServeAccess(addr net.Addr, opts serveOptions) (serveAccess, error) {
 	return a, nil
 }
 
+// remote reports whether the server is reachable by more than the user of this
+// machine: its listener is beyond loopback, or the operator announced a proxy
+// in front of it (--require-token, --public-url). Remote servers ask for the
+// token and serve the terminal only on request.
+func (a serveAccess) remote() bool {
+	return !a.loopback || a.requireToken
+}
+
 // terminalEnabled reports whether the terminal is served at all.
 func (a serveAccess) terminalEnabled() bool {
-	return a.loopback || a.allowRemoteTerminal
+	return !a.remote() || a.allowRemoteTerminal
 }
 
 // withOwnAddress adds the address a loopback listener is bound to to the
@@ -128,10 +149,32 @@ func (a serveAccess) graphqlEndpoint() string {
 // request reaches no handler and takes no WebSocket slot.
 func (a serveAccess) middleware(checker *cors.Checker) []gin.HandlerFunc {
 	var guards []gin.HandlerFunc
-	if !a.loopback {
+	if !a.remote() {
+		guards = append(guards, proxyGuard())
+	}
+	if a.token != "" {
 		guards = append(guards, tokenGuard(a.token, a.addr.Port))
 	}
 	return append(guards, originGuard(checker, a.loopback))
+}
+
+// proxyHeaders are the request headers a proxy in front of the server adds:
+// the standard forwarding headers and the one of tailscale serve.
+var proxyHeaders = []string{"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "Forwarded", "Tailscale-User-Login"}
+
+// proxyGuard refuses a request that came through a proxy while the server asks
+// for no token. A proxy connects from loopback, so a loopback server without a
+// token would serve every client of the proxy, with its terminal.
+func proxyGuard() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, h := range proxyHeaders {
+			if c.Request.Header.Get(h) != "" {
+				deny(c, http.StatusForbidden, "lif-serve: this request came through a proxy, but lif-serve runs without an access token. Start it with --public-url <url> or --require-token.")
+				return
+			}
+		}
+		c.Next()
+	}
 }
 
 // originGuard turns away web pages that must not use the server.
@@ -276,8 +319,11 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 	default:
 		add("Listening on %s (non-loopback address: reachable from the network)", a.addr)
 	}
-	if a.loopback {
-		serverURL := cmp.Or(a.publicBase, "http://"+net.JoinHostPort(a.addr.IP.String(), port))
+	if a.loopback && a.requireToken {
+		add("Access: token required (--require-token or --public-url)")
+	}
+	if a.token == "" {
+		serverURL := "http://" + net.JoinHostPort(a.addr.IP.String(), port)
 		add("Starting server at %s/", serverURL)
 		add("GraphQL Playground: %s/playground", serverURL)
 	} else {
@@ -294,7 +340,7 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 		add("WARNING: allowed origins include *: every web page can read the answers of this server. Only the UI of this server and the other listed origins can change items or use the terminal, a shell as the user running lif-serve.")
 	}
 	switch {
-	case a.loopback:
+	case !a.remote():
 		add("Terminal: enabled")
 	case a.allowRemoteTerminal:
 		add("Terminal: enabled (--allow-remote-terminal). WARNING: a client with the access token gets a shell as the user running lif-serve.")

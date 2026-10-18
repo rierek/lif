@@ -41,7 +41,10 @@ func (s Set) Lookup(name string, forceGlobal bool) (Planned, bool) {
 	return Planned{}, false
 }
 
-// Plan resolves name and its dependencies (post-order DFS, each name once).
+// key identifies a task: a global and a project task may share a name.
+type key struct{ name, origin string }
+
+// Plan resolves name and its dependencies (post-order DFS, each task once).
 // forceGlobal affects the named task only; dependencies resolve normally.
 // The last entry is the top task.
 func (s Set) Plan(name string, forceGlobal bool) ([]Planned, error) {
@@ -54,25 +57,30 @@ func (s Set) Plan(name string, forceGlobal bool) ([]Planned, error) {
 	}
 	var (
 		plan  []Planned
-		done  = map[string]bool{}
-		stack []string
+		done  = map[key]bool{}
+		stack []key
 	)
 	var visit func(p Planned) error
 	visit = func(p Planned) error {
-		stack = append(stack, p.Name)
+		stack = append(stack, key{p.Name, p.Origin})
 		defer func() { stack = stack[:len(stack)-1] }()
 		for _, d := range p.Task.Deps {
-			for i, n := range stack {
-				if n == d {
-					return fmt.Errorf("task cycle: %s", strings.Join(append(append([]string{}, stack[i:]...), d), " -> "))
-				}
-			}
-			if done[d] {
-				continue
-			}
 			dp, ok := s.Lookup(d, false)
 			if !ok {
 				return fmt.Errorf("task %q: unknown dependency %q", p.Name, d)
+			}
+			dk := key{dp.Name, dp.Origin}
+			for i, k := range stack {
+				if k == dk {
+					names := []string{}
+					for _, sk := range stack[i:] {
+						names = append(names, sk.name)
+					}
+					return fmt.Errorf("task cycle: %s", strings.Join(append(names, d), " -> "))
+				}
+			}
+			if done[dk] {
+				continue
 			}
 			if len(dp.Task.Args) > 0 {
 				return fmt.Errorf("task %q: dependency %q needs arguments (%s); dependencies run without arguments",
@@ -82,7 +90,7 @@ func (s Set) Plan(name string, forceGlobal bool) ([]Planned, error) {
 				return err
 			}
 		}
-		done[p.Name] = true
+		done[key{p.Name, p.Origin}] = true
 		plan = append(plan, p)
 		return nil
 	}
@@ -131,6 +139,14 @@ func (e *StepError) Error() string {
 
 func (e *StepError) Unwrap() error { return e.Err }
 
+// shell is sh from PATH, else /bin/sh: cron and launchd start with a bare PATH.
+func shell() string {
+	if p, err := exec.LookPath("sh"); err == nil {
+		return p
+	}
+	return "/bin/sh"
+}
+
 // Run executes plan in order. args go to the last entry (the top task) only.
 func Run(root string, plan []Planned, args []string, streams IO, extraEnv []string) error {
 	if LifPath == "" {
@@ -154,11 +170,14 @@ func Run(root string, plan []Planned, args []string, streams IO, extraEnv []stri
 			}
 		}
 		for j, step := range p.Task.Steps {
-			cmd := exec.Command("sh", append([]string{"-c", step, p.Name}, taskArgs...)...)
+			cmd := exec.Command(shell(), append([]string{"-c", step, p.Name}, taskArgs...)...)
 			cmd.Dir = root
 			cmd.Env = env
 			cmd.Stdin, cmd.Stdout, cmd.Stderr = streams.Stdin, streams.Stdout, streams.Stderr
-			// A background child holding the output pipe must not hang the run.
+			// WaitDelay only cuts a background child that holds a pipe lift
+			// opened for the step (a non-file writer, as hooks use). A step
+			// whose stdout is an *os.File gets that fd directly, so `lif run`
+			// into a pipe waits for such a child.
 			cmd.WaitDelay = 2 * time.Second
 			err := cmd.Run()
 			if err == nil || errors.Is(err, exec.ErrWaitDelay) {

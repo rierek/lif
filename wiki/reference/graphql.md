@@ -150,6 +150,7 @@ lif graphql --json '{ items(filter:{type:["epic"]}) { id children { id status } 
 - In the CLI one error prints as `Error: graphql: <message>`; several print as `graphql errors:` with an indented list. The exit code is 1.
 - Over HTTP the response has `errors[0].message` and `data: null`.
 - A write that fails with an ETag conflict, a status policy, a blocking gate or a validation error also has `errors[0].extensions.code`: `CONFLICT`, `POLICY_VIOLATION` or `VALIDATION_ERROR`, the codes of `--json`. A blocking gate adds `extensions.hook` (name of the gate), `extensions.itemId` and `extensions.output` (the first 8 KiB of the gate output). Other errors have no `extensions`.
+- `updateItem` has no input for extra front-matter keys, so a hook that watches an extra key (`changed: [target]`) never fires from the web UI or GraphQL. The schema has no query or mutation for tasks, hooks or trust state.
 - Write validation is the same as in the CLI: title not empty, without control characters (NUL, newline, escape), and at most 1000 characters, body at most 1 MiB, tags match the tag pattern, `body` and `bodyMod` exclusive. Type, status and priority names are checked against the configured tables for the supplied fields.
 - Parent rules apply on `createItem` (with `parent`), `setParent` and `updateItem` with `parent` or a changed `type`: rank rule and cycle check, as in [Configuration](../configuration/#types-ranks-and-hierarchy-rules).
 

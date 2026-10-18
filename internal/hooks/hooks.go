@@ -187,7 +187,9 @@ func (d *Dispatcher) Fire(m itemgraph.Mutation) (ran bool) {
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
 	for _, h := range hooks {
-		started, err := d.run(base, h, m, d.warn)
+		out := &lineWriter{w: d.warn, prefix: "[" + h.name + "] "}
+		started, err := d.run(base, h, m, out)
+		out.flush()
 		ran = ran || started
 		if err != nil {
 			fmt.Fprintf(d.warn, "warning: hook %q (task %q): %v\n", h.name, h.Run, err)
@@ -389,6 +391,38 @@ func (d *Dispatcher) run(base tasks.Set, h active, m itemgraph.Mutation, out io.
 		fmt.Fprintf(out, "\n(output cut after %d KiB)\n", maxOutput>>10)
 	}
 	return true, err
+}
+
+// lineWriter writes whole lines to w, each behind prefix and without control
+// characters. The output of an after hook goes to a log or a terminal: the
+// prefix says where a line comes from, so an item title with a newline cannot
+// forge a log line, and an escape sequence cannot clear the screen.
+type lineWriter struct {
+	w      io.Writer
+	prefix string
+	part   []byte // the last line, until its newline arrives
+}
+
+func (l *lineWriter) Write(p []byte) (int, error) {
+	l.part = append(l.part, p...)
+	for {
+		i := bytes.IndexByte(l.part, '\n')
+		if i < 0 {
+			return len(p), nil
+		}
+		if _, err := fmt.Fprintf(l.w, "%s%s\n", l.prefix, tasks.Printable(string(l.part[:i]))); err != nil {
+			return 0, err
+		}
+		l.part = l.part[i+1:]
+	}
+}
+
+// flush writes the last line, which has no newline.
+func (l *lineWriter) flush() {
+	if len(l.part) > 0 {
+		fmt.Fprintf(l.w, "%s%s\n", l.prefix, tasks.Printable(string(l.part)))
+		l.part = nil
+	}
 }
 
 // maxBlockedOutput is the most gate output that a BlockedError carries. The

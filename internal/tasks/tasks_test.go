@@ -325,7 +325,7 @@ func TestTP20_EmptyLifPath(t *testing.T) {
 	t.Cleanup(func() { LifPath = old })
 	root := t.TempDir()
 	marker := filepath.Join(root, "marker")
-	set := Set{Root: root, Project: map[string]config.Task{"x": steps("touch " + marker)}}
+	set := Set{Root: root, Project: map[string]config.Task{"x": steps("touch " + marker + `; "$LIF" version`)}}
 	plan, err := set.Plan("x", false)
 	if err != nil {
 		t.Fatal(err)
@@ -336,6 +336,26 @@ func TestTP20_EmptyLifPath(t *testing.T) {
 	}
 	if _, statErr := os.Stat(marker); statErr == nil {
 		t.Fatal("step ran")
+	}
+}
+
+// A task that never refers to $LIF runs without a lif binary; $LIF_ROOT is not $LIF.
+func TestEmptyLifPathRunsTasksThatDoNotUseLif(t *testing.T) {
+	old := LifPath
+	LifPath = ""
+	t.Cleanup(func() { LifPath = old })
+	root := t.TempDir()
+	marker := filepath.Join(root, "marker")
+	set := Set{Root: root, Project: map[string]config.Task{"x": steps(`touch "$LIF_ROOT/marker"`)}}
+	plan, err := set.Plan("x", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(root, plan, nil, IO{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}, nil); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if _, statErr := os.Stat(marker); statErr != nil {
+		t.Fatal("step did not run")
 	}
 }
 

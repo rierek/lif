@@ -192,7 +192,7 @@ func TestGateThatCannotRunBlocks(t *testing.T) {
 		old := tasks.LifPath
 		tasks.LifPath = ""
 		t.Cleanup(func() { tasks.LifPath = old })
-		p := newProj(t, tasksOf(task("t", "true"))+
+		p := newProj(t, tasksOf(task("t", `"$LIF" version`))+
 			hooksOf(hook("g", "stage: before", "event: [updated]", "run: t")))
 		p.allow()
 

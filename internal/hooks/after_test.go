@@ -161,3 +161,16 @@ func TestFireOutputGoesToWarn(t *testing.T) {
 		t.Errorf("warn = %q, want stdout and stderr of the hook", out)
 	}
 }
+
+// The output of an after hook is prefixed per line and loses its control
+// characters: it must not forge log lines or clear a terminal.
+func TestFireOutputIsPrefixedAndPrintable(t *testing.T) {
+	p := newProj(t, tasksOf(task("t", `printf 'a\033[2Jb\nforged: line\nlast'`))+
+		hooksOf(hook("h", "event: [updated]", "run: t")))
+	p.allow()
+
+	p.d.Fire(toProgress())
+	if got, want := p.warn.String(), "[h] a[2Jb\n[h] forged: line\n[h] last\n"; got != want {
+		t.Errorf("warn = %q, want %q", got, want)
+	}
+}

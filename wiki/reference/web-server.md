@@ -50,7 +50,7 @@ Startup output with the defaults:
 [lif] Terminal: enabled
 ```
 
-The `Hooks:` line appears when `.lif.yml` has hooks. It says `OFF` with the reason when they do not run: not allowed yet (`lif hooks allow`, then restart), or `LIF_NO_HOOKS` set. A project hook that is not allowed fails open (the change goes through, the gate is not enforced), so check the line after you edit `.lif.yml`.
+The `Hooks:` line appears when `.lif.yml` has hooks. It says `OFF` with the reason when they do not run: not allowed yet (`lif hooks allow`, then restart), or `LIF_NO_HOOKS` set. A project hook that is not allowed fails open (the change goes through, the gate is not enforced), so check the line after you edit `.lif.yml`. The web UI and GraphQL show no hook state: there is no query for tasks, hooks or the trust state. A refused write shows its message (a gate block in an alert, the Edit dialog in its error box).
 
 The first line is the address the listener really got [9a66]. With `--host 0.0.0.0` the output is:
 

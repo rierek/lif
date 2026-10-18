@@ -5,6 +5,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/rierek/lif/pkg/item"
 	"gopkg.in/yaml.v3"
@@ -24,6 +25,18 @@ type Hook struct {
 	Run         string   `yaml:"run"`
 	Args        []string `yaml:"args,omitempty"`
 	Message     string   `yaml:"message,omitempty"`
+	Timeout     *int     `yaml:"timeout,omitempty" json:",omitempty"` // seconds; nil means DefaultHookTimeout, 0 means none
+}
+
+// DefaultHookTimeout bounds a hook or gate task that sets no timeout.
+const DefaultHookTimeout = 60 * time.Second
+
+// TimeoutDuration returns the time that the task of h may run; 0 means no limit.
+func (h Hook) TimeoutDuration() time.Duration {
+	if h.Timeout == nil {
+		return DefaultHookTimeout
+	}
+	return time.Duration(*h.Timeout) * time.Second
 }
 
 // IsGate reports whether the hook runs before the write and can block it.
@@ -47,9 +60,9 @@ func (h *Hook) UnmarshalYAML(value *yaml.Node) error {
 	for i := 0; i+1 < len(value.Content); i += 2 {
 		keyNode := value.Content[i]
 		switch keyNode.Value {
-		case "stage", "event", "changed", "from", "to", "type", "tags", "tags_added", "tags_removed", "run", "args", "message":
+		case "stage", "event", "changed", "from", "to", "type", "tags", "tags_added", "tags_removed", "run", "args", "message", "timeout":
 		default:
-			return fmt.Errorf("line %d: unknown hook key %q (known: stage, event, changed, from, to, type, tags, tags_added, tags_removed, run, args, message)", keyNode.Line, keyNode.Value)
+			return fmt.Errorf("line %d: unknown hook key %q (known: stage, event, changed, from, to, type, tags, tags_added, tags_removed, run, args, message, timeout)", keyNode.Line, keyNode.Value)
 		}
 	}
 	type plain Hook
@@ -132,6 +145,9 @@ func validateHooks(hooks map[string]Hook, c *Config) error {
 					return fmt.Errorf("hooks.%s.%s: %v", name, f.key, err)
 				}
 			}
+		}
+		if h.Timeout != nil && *h.Timeout < 0 {
+			return fmt.Errorf("hooks.%s.timeout: must be 0 (no limit) or more seconds", name)
 		}
 		if h.Run == "" {
 			return fmt.Errorf("hooks.%s: no run task", name)

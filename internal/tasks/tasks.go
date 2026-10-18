@@ -3,13 +3,18 @@
 package tasks
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
+
+	"golang.org/x/term"
 
 	"github.com/rierek/lif/pkg/config"
 )
@@ -139,6 +144,10 @@ func (e *StepError) Error() string {
 
 func (e *StepError) Unwrap() error { return e.Err }
 
+// ErrInterrupted is the Err of a StepError after lif got SIGINT, SIGTERM or
+// SIGHUP while a step ran. The run stops after that step.
+var ErrInterrupted = errors.New("interrupted")
+
 // shell is sh from PATH, else /bin/sh: cron and launchd start with a bare PATH.
 func shell() string {
 	if p, err := exec.LookPath("sh"); err == nil {
@@ -149,6 +158,19 @@ func shell() string {
 
 // Run executes plan in order. args go to the last entry (the top task) only.
 func Run(root string, plan []Planned, args []string, streams IO, extraEnv []string) error {
+	return RunContext(context.Background(), root, plan, args, streams, extraEnv)
+}
+
+// RunContext is Run with a context: when ctx ends, the running step is killed
+// and the StepError carries context.Cause(ctx).
+//
+// Signals: while a step runs, SIGINT, SIGTERM and SIGHUP go to the step instead
+// of ending lif, and lif waits for it, so a trap in the step can clean up and
+// its exit code comes back. Unless stdin is a terminal, the step runs in its own
+// process group and gets the signal as a group, so no child is orphaned. With a
+// terminal on stdin the step stays in the foreground group, which the terminal
+// signals on Ctrl-C itself; only SIGTERM and SIGHUP are forwarded, to the step.
+func RunContext(ctx context.Context, root string, plan []Planned, args []string, streams IO, extraEnv []string) error {
 	if LifPath == "" {
 		return errors.New("lif binary not found")
 	}
@@ -170,7 +192,7 @@ func Run(root string, plan []Planned, args []string, streams IO, extraEnv []stri
 			}
 		}
 		for j, step := range p.Task.Steps {
-			cmd := exec.Command(shell(), append([]string{"-c", step, p.Name}, taskArgs...)...)
+			cmd := exec.CommandContext(ctx, shell(), append([]string{"-c", step, p.Name}, taskArgs...)...)
 			cmd.Dir = root
 			cmd.Env = env
 			cmd.Stdin, cmd.Stdout, cmd.Stderr = streams.Stdin, streams.Stdout, streams.Stderr
@@ -179,8 +201,8 @@ func Run(root string, plan []Planned, args []string, streams IO, extraEnv []stri
 			// whose stdout is an *os.File gets that fd directly, so `lif run`
 			// into a pipe waits for such a child.
 			cmd.WaitDelay = 2 * time.Second
-			err := cmd.Run()
-			if err == nil || errors.Is(err, exec.ErrWaitDelay) {
+			interrupted, err := runStep(cmd, streams.Stdin)
+			if err == nil && !interrupted || errors.Is(err, exec.ErrWaitDelay) && !interrupted {
 				continue
 			}
 			se := &StepError{Task: p.Name, Step: j + 1, Total: len(p.Task.Steps), Err: err}
@@ -188,8 +210,48 @@ func Run(root string, plan []Planned, args []string, streams IO, extraEnv []stri
 			if errors.As(err, &ee) && ee.ExitCode() > 0 {
 				se.Code = ee.ExitCode()
 			}
+			if ctx.Err() != nil {
+				se.Err = context.Cause(ctx)
+			} else if interrupted {
+				se.Err = ErrInterrupted
+			}
 			return se
 		}
 	}
 	return nil
+}
+
+// runStep runs cmd and forwards signals to it; see RunContext.
+func runStep(cmd *exec.Cmd, stdin io.Reader) (interrupted bool, err error) {
+	f, isFile := stdin.(*os.File)
+	group := !(isFile && term.IsTerminal(int(f.Fd())))
+	if group {
+		ownGroup(cmd)
+	}
+	sigs := make(chan os.Signal, 4)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(sigs)
+	if err := cmd.Start(); err != nil {
+		return false, err
+	}
+	done := make(chan struct{})
+	got := make(chan bool, 1)
+	go func() {
+		seen := false
+		for {
+			select {
+			case s := <-sigs:
+				seen = true
+				if group || s != os.Interrupt { // the terminal already signaled a foreground step
+					signalStep(cmd, s, group)
+				}
+			case <-done:
+				got <- seen
+				return
+			}
+		}
+	}()
+	err = cmd.Wait()
+	close(done)
+	return <-got, err
 }

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"cmp"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,15 +35,47 @@ type serveAccess struct {
 	loopback            bool
 	allowRemoteTerminal bool
 	token               string // empty on a loopback listener
+	publicBase          string // --public-url without a trailing slash; empty without one
+	publicOrigin        string // scheme://host[:port] of publicBase
+}
+
+// serveOptions are the access choices of the operator. Every one of them is a
+// flag: no key of a committed .lif.yml may open the server.
+type serveOptions struct {
+	allowRemoteTerminal bool
+	publicURL           *url.URL // nil unless --public-url
+}
+
+// parsePublicURL checks the value of --public-url: the address of the server
+// as a proxy in front of it shows it, an absolute http or https URL that may
+// carry a path (the proxy strips it) but no query or fragment. The host is
+// lower case and a default port is dropped, as in the Origin header of a
+// browser, and the path loses its trailing slash.
+func parsePublicURL(s string) (*url.URL, error) {
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return nil, fmt.Errorf("invalid --public-url %q: must be an absolute http:// or https:// URL without query or fragment", s)
+	}
+	u.Host = strings.ToLower(u.Host)
+	if port := u.Port(); (u.Scheme == "https" && port == "443") || (u.Scheme == "http" && port == "80") {
+		u.Host = strings.TrimSuffix(u.Host, ":"+port)
+	}
+	u.Path = strings.TrimRight(u.Path, "/")
+	u.RawPath = strings.TrimRight(u.RawPath, "/")
+	return u, nil
 }
 
 // newServeAccess decides the access rules from the address of the listener.
-func newServeAccess(addr net.Addr, allowRemoteTerminal bool) (serveAccess, error) {
+func newServeAccess(addr net.Addr, opts serveOptions) (serveAccess, error) {
 	tcp, ok := addr.(*net.TCPAddr)
 	if !ok {
 		return serveAccess{}, fmt.Errorf("listener address %v is not a TCP address", addr)
 	}
-	a := serveAccess{addr: tcp, loopback: tcp.IP.IsLoopback(), allowRemoteTerminal: allowRemoteTerminal}
+	a := serveAccess{addr: tcp, loopback: tcp.IP.IsLoopback(), allowRemoteTerminal: opts.allowRemoteTerminal}
+	if u := opts.publicURL; u != nil {
+		a.publicBase = u.String()
+		a.publicOrigin = u.Scheme + "://" + u.Host
+	}
 	if !a.loopback {
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
@@ -71,6 +105,23 @@ func (a serveAccess) withOwnAddress(origins []string) []string {
 		return origins
 	}
 	return append(slices.Clone(origins), own)
+}
+
+// withPublicOrigin adds the origin of --public-url to the origin list: a page
+// the UI served under that address is of that origin, and the list doubles as
+// the list of hosts the server answers to. The list passed in is not modified.
+func (a serveAccess) withPublicOrigin(origins []string) []string {
+	if a.publicOrigin == "" || slices.Contains(origins, a.publicOrigin) {
+		return origins
+	}
+	return append(slices.Clone(origins), a.publicOrigin)
+}
+
+// graphqlEndpoint is the URL of the GraphQL API the playground page talks to:
+// absolute behind a public URL, because the page then lives under a prefix
+// that a root-relative path would leave.
+func (a serveAccess) graphqlEndpoint() string {
+	return a.publicBase + "/api/graphql"
 }
 
 // middleware returns the guards that run in front of every route. A refused
@@ -226,13 +277,13 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 		add("Listening on %s (non-loopback address: reachable from the network)", a.addr)
 	}
 	if a.loopback {
-		serverURL := "http://" + net.JoinHostPort(a.addr.IP.String(), port)
+		serverURL := cmp.Or(a.publicBase, "http://"+net.JoinHostPort(a.addr.IP.String(), port))
 		add("Starting server at %s/", serverURL)
 		add("GraphQL Playground: %s/playground", serverURL)
 	} else {
 		// Every request needs the token, so the first address a person opens
 		// carries it. Without it the server answers 401.
-		serverURL := "http://" + net.JoinHostPort(a.networkHost(interfaceAddrs), port)
+		serverURL := cmp.Or(a.publicBase, "http://"+net.JoinHostPort(a.networkHost(interfaceAddrs), port))
 		add("WARNING: anyone who can reach this port and has the access token can read and change items and run agent sessions as the user running lif-serve. There is no TLS, so the token travels in clear text. Prefer the default loopback address with an SSH tunnel or a VPN.")
 		add("Access token: %s", a.token)
 		add("Open the UI: %s/?token=%s", serverURL, a.token)

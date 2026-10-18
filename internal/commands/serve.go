@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -39,6 +40,7 @@ var (
 	servePort           int
 	corsOrigins         []string
 	allowRemoteTerminal bool
+	servePublicURL      string
 )
 
 const centralAgentPrompt = `You are the planning agent for this project. Your primary role is to help manage and organize work through items.
@@ -80,7 +82,15 @@ serves the terminal only with --allow-remote-terminal. There is no TLS.`,
 			origins = cfg.GetCORSOrigins()
 		}
 
-		return runServer(serveHost, port, origins, allowRemoteTerminal)
+		var publicURL *url.URL
+		if cmd.Flags().Changed("public-url") {
+			var err error
+			if publicURL, err = parsePublicURL(servePublicURL); err != nil {
+				return err
+			}
+		}
+
+		return runServer(serveHost, port, origins, serveOptions{allowRemoteTerminal: allowRemoteTerminal, publicURL: publicURL})
 	},
 }
 
@@ -107,7 +117,7 @@ func (g gqlWebsocketImplementation) Accept(w http.ResponseWriter, r *http.Reques
 // runServer serves the web UI and the API on host:port until it is told to
 // stop. The address the listener really gets decides who may use the server;
 // see serveAccess.
-func runServer(host string, port int, origins []string, allowRemoteTerminal bool) error {
+func runServer(host string, port int, origins []string, opts serveOptions) error {
 	// Bind first: a taken port fails before anything else starts, and the real
 	// address, not the text of --host, decides the access rules.
 	ln, err := net.Listen("tcp", net.JoinHostPort(strings.Trim(host, "[]"), strconv.Itoa(port)))
@@ -115,13 +125,14 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 		return fmt.Errorf("server error: %w", err)
 	}
 	defer ln.Close()
-	access, err := newServeAccess(ln.Addr(), allowRemoteTerminal)
+	access, err := newServeAccess(ln.Addr(), opts)
 	if err != nil {
 		return err
 	}
 	// A loopback listener also answers under its own address (::1, 127.0.0.2),
-	// which the default list does not name.
-	origins = access.withOwnAddress(origins)
+	// which the default list does not name. A public URL names the host a proxy
+	// in front of the server is reached under.
+	origins = access.withPublicOrigin(access.withOwnAddress(origins))
 
 	// Start file watcher for subscriptions
 	if err := core.StartWatching(); err != nil {
@@ -408,7 +419,7 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 	router.Any("/api/graphql", exemptWriteTimeout(), gin.WrapH(gqlHandler))
 
 	// GraphQL Playground
-	router.GET("/playground", gin.WrapH(playground.Handler("Lif GraphQL", "/api/graphql")))
+	router.GET("/playground", gin.WrapH(playground.Handler("Lif GraphQL", access.graphqlEndpoint())))
 
 	// Serve agent chat image attachments
 	router.GET("/api/attachments/:beanId/:filename", func(c *gin.Context) {
@@ -506,8 +517,9 @@ func newWorktreeManager(c *config.Config, storeRoot, worktreeRoot string) *workt
 func RegisterServeCmd(root *cobra.Command) {
 	serveCmd.Flags().StringVar(&serveHost, "host", "127.0.0.1", "Address to listen on; any address but a loopback one makes the server reachable from the network and requires the access token")
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", config.DefaultServerPort, "Port to listen on")
-	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", cors.DefaultOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
+	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", config.DefaultCORSOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
 	serveCmd.Flags().BoolVar(&allowRemoteTerminal, "allow-remote-terminal", false, "Serve the terminal even when the server listens beyond loopback")
+	serveCmd.Flags().StringVar(&servePublicURL, "public-url", "", "Public URL of this server behind a proxy, e.g. https://box.tailnet.ts.net/lif; its origin and host are allowed and the links in the log use it")
 	root.AddCommand(serveCmd)
 }
 

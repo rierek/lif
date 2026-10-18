@@ -3,6 +3,8 @@ package cors
 import (
 	"net/http"
 	"testing"
+
+	"github.com/rierek/lif/pkg/config"
 )
 
 func TestCheckerIsAllowed(t *testing.T) {
@@ -29,8 +31,8 @@ func TestCheckerIsAllowed(t *testing.T) {
 		{"127.0.0.1 wildcard", []string{"http://127.0.0.1:*"}, "http://127.0.0.1:3000", true},
 		{"multiple patterns", []string{"http://localhost:*", "http://127.0.0.1:*"}, "http://127.0.0.1:8080", true},
 		{"multiple patterns miss", []string{"http://localhost:*", "http://127.0.0.1:*"}, "http://example.com:8080", false},
-		{"default origins", DefaultOrigins, "http://localhost:5173", true},
-		{"default origins reject external", DefaultOrigins, "http://evil.com:5173", false},
+		{"default origins", config.DefaultCORSOrigins, "http://localhost:5173", true},
+		{"default origins reject external", config.DefaultCORSOrigins, "http://evil.com:5173", false},
 	}
 
 	for _, tt := range tests {
@@ -106,7 +108,7 @@ func TestCheckerCheckOriginFuncIgnoresTheWildcard(t *testing.T) {
 // Origin is the address the request was sent to. It needs no entry in the list;
 // a page of any other origin, a look-alike included, still does.
 func TestCheckerCheckOriginFuncAcceptsTheServersOwnOrigin(t *testing.T) {
-	fn := NewChecker(DefaultOrigins).CheckOriginFunc()
+	fn := NewChecker(config.DefaultCORSOrigins).CheckOriginFunc()
 
 	tests := []struct {
 		name   string
@@ -140,6 +142,36 @@ func TestCheckerCheckOriginFuncAcceptsTheServersOwnOrigin(t *testing.T) {
 	}
 }
 
+// Behind TLS the page the server served is an https page: only an https origin
+// is the server's own then, and an http one is a page of another site.
+func TestCheckerUseTLSMakesHTTPSTheOwnOrigin(t *testing.T) {
+	c := NewChecker(config.DefaultCORSOrigins)
+	c.UseTLS()
+	fn := c.CheckOriginFunc()
+
+	tests := []struct {
+		name   string
+		origin string
+		want   bool
+	}{
+		{"https origin of this server", "https://192.168.1.50:8080", true},
+		{"http origin of this server", "http://192.168.1.50:8080", false},
+		{"https look-alike with another port", "https://192.168.1.50:9999", false},
+		{"no Origin", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &http.Request{Host: "192.168.1.50:8080", Header: http.Header{}}
+			if tt.origin != "" {
+				r.Header.Set("Origin", tt.origin)
+			}
+			if got := fn(r); got != tt.want {
+				t.Errorf("Origin %q: allowed = %v, want %v", tt.origin, got, tt.want)
+			}
+		})
+	}
+}
+
 // A request names its target in the Host header. The origin list doubles as the
 // list of hosts the server answers to, so a page that reaches the server under
 // a name outside the list (DNS rebinding) is turned away.
@@ -150,19 +182,19 @@ func TestCheckerIsHostAllowed(t *testing.T) {
 		host    string
 		want    bool
 	}{
-		{"default list: localhost with port", DefaultOrigins, "localhost:8080", true},
-		{"default list: localhost without port", DefaultOrigins, "localhost", true},
-		{"default list: loopback address", DefaultOrigins, "127.0.0.1:22880", true},
-		{"default list: case does not matter", DefaultOrigins, "LocalHost:8080", true},
-		{"default list: rebinding name", DefaultOrigins, "evil.example:8080", false},
-		{"default list: name that merely starts with localhost", DefaultOrigins, "localhost.evil.example:8080", false},
-		{"default list: name that merely ends with localhost", DefaultOrigins, "evil-localhost:8080", false},
-		{"default list: loopback address as a name prefix", DefaultOrigins, "127.0.0.1.evil.example:8080", false},
-		{"default list: userinfo trick", DefaultOrigins, "localhost@evil.example:8080", false},
-		{"default list: other address", DefaultOrigins, "192.168.1.50:8080", false},
+		{"default list: localhost with port", config.DefaultCORSOrigins, "localhost:8080", true},
+		{"default list: localhost without port", config.DefaultCORSOrigins, "localhost", true},
+		{"default list: loopback address", config.DefaultCORSOrigins, "127.0.0.1:22880", true},
+		{"default list: case does not matter", config.DefaultCORSOrigins, "LocalHost:8080", true},
+		{"default list: rebinding name", config.DefaultCORSOrigins, "evil.example:8080", false},
+		{"default list: name that merely starts with localhost", config.DefaultCORSOrigins, "localhost.evil.example:8080", false},
+		{"default list: name that merely ends with localhost", config.DefaultCORSOrigins, "evil-localhost:8080", false},
+		{"default list: loopback address as a name prefix", config.DefaultCORSOrigins, "127.0.0.1.evil.example:8080", false},
+		{"default list: userinfo trick", config.DefaultCORSOrigins, "localhost@evil.example:8080", false},
+		{"default list: other address", config.DefaultCORSOrigins, "192.168.1.50:8080", false},
 		// The list alone does not name ::1; a server bound to it adds its own address.
-		{"default list alone does not name IPv6 loopback", DefaultOrigins, "[::1]:8080", false},
-		{"default list: empty host", DefaultOrigins, "", false},
+		{"default list alone does not name IPv6 loopback", config.DefaultCORSOrigins, "[::1]:8080", false},
+		{"default list: empty host", config.DefaultCORSOrigins, "", false},
 		{"listed IPv6 loopback", []string{"http://[::1]:*"}, "[::1]:8080", true},
 		{"listed IPv6 loopback without port", []string{"http://[::1]:*"}, "[::1]", true},
 		{"exact origin lists its host for any port", []string{"http://192.168.1.50:8080"}, "192.168.1.50:9090", true},

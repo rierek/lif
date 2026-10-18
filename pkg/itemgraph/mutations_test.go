@@ -220,3 +220,50 @@ func TestUpdateItemTitleChangeKeepsCustomSlug(t *testing.T) {
 		t.Fatalf("store files = %v, want [%s]", names, want)
 	}
 }
+
+// The write path rejects a tag in capitals like one with a space, so check
+// and hooks never meet it. Removing matches any case, so a tag that a
+// hand-edited file carries in capitals can still be removed.
+func TestUppercaseTagIsRejectedAndRemovedInAnyCase(t *testing.T) {
+	r := newTestResolver(t)
+	ctx := context.Background()
+	b := &item.Item{ID: "beans-tg01", Slug: "t", Title: "T", Status: "todo", Type: "task", Tags: []string{"OldCaps"}}
+	if err := r.Core.Create(b); err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range []model.UpdateItemInput{{AddTags: []string{"URGENT"}}, {Tags: []string{"Mixed"}}} {
+		_, err := r.UpdateItem(ctx, b.ID, in)
+		if err == nil || !strings.Contains(err.Error(), "must be lowercase, start with a letter") {
+			t.Fatalf("UpdateItem(%+v) err = %v, want the tag validation error", in, err)
+		}
+	}
+	if _, err := r.CreateItem(ctx, model.CreateItemInput{Title: "C", Tags: []string{"UPPER"}}); err == nil {
+		t.Fatal("CreateItem accepted an uppercase tag")
+	}
+	got, err := r.UpdateItem(ctx, b.ID, model.UpdateItemInput{RemoveTags: []string{"oldcaps"}})
+	if err != nil || len(got.Tags) != 0 {
+		t.Fatalf("tags = %v, err %v, want none", got.Tags, err)
+	}
+}
+
+// WithOrder puts the order into the creating write: the created hook gets the
+// item with its order, and no second write is left to fail behind the hook.
+func TestCreateItemWithOrderIsOneWrite(t *testing.T) {
+	r := newTestResolver(t)
+	var seen string
+	r.AfterMutation = func(m Mutation) bool {
+		seen = m.Item.Order
+		return true
+	}
+	b, err := r.CreateItem(context.Background(), model.CreateItemInput{Title: "Ordered"}, itemcore.WithOrder("a2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seen != "a2" || b.Order != "a2" {
+		t.Fatalf("hook saw order %q, item has %q, want a2", seen, b.Order)
+	}
+	data, err := os.ReadFile(filepath.Join(r.Core.Root(), b.Path))
+	if err != nil || !strings.Contains(string(data), "order: a2") {
+		t.Fatalf("file lacks the order: %v\n%s", err, data)
+	}
+}

@@ -60,7 +60,9 @@ ETAG=$(lif show <id> --etag-only)
 lif update <id> --if-match "$ETAG" --status in-progress              # fails if the item changed
 ```
 
-`--tag` and `--remove-tag` merge into the existing tags.
+`--tag` and `--remove-tag` merge into the existing tags. Tags must be lowercase: `--tag URGENT` is rejected like `--tag "has space"`. `--remove-tag` ignores case.
+
+Parallel `lif` calls on one item are safe: every write checks that the file is still the one it read, under a lock on the item file. A call that lost the race reads the item again and applies its change on top, so no change is lost. `--if-match` is never retried; it fails with `CONFLICT`. Item IDs are checked against the store when they are generated, and `lif check` reports an ID that two files carry.
 
 ## Tasks
 

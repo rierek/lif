@@ -431,3 +431,14 @@ func TestCheckExplainsACycleThroughTheHierarchy(t *testing.T) {
 		t.Errorf("exit code = %d, want 1 for a store with a cycle", code)
 	}
 }
+
+func TestDuplicateIDIssues(t *testing.T) {
+	got := duplicateIDIssues(map[string][]string{"ab12": {"ab12--b.md", "ab12--a.md"}})
+	want := "ID ab12 is carried by 2 files: ab12--a.md, ab12--b.md (give all but one a new ID with lif rename)"
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("duplicateIDIssues = %q, want %q", got, want)
+	}
+	if got := duplicateIDIssues(nil); len(got) != 0 {
+		t.Fatalf("no duplicates gave %q", got)
+	}
+}

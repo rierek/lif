@@ -198,31 +198,16 @@ func writeCreateDraft(cmd *cobra.Command, d createDraft) (*item.Item, error) {
 		return nil, cmdError(createJSON, output.ErrValidation, "%s", err)
 	}
 
-	resolver := newResolver()
-	b, err := resolver.CreateItem(context.Background(), input, itemcore.WithExtraOps(setMap, createUnset))
+	// --unset and --order go into the creating write (WithExtraOps, WithOrder):
+	// the generated CreateItemInput has no order, and a second write would
+	// fail with CONFLICT after a created hook wrote its own item.
+	opts := []itemcore.UpdateOption{itemcore.WithExtraOps(setMap, createUnset)}
+	if cmd.Flags().Changed("order") {
+		opts = append(opts, itemcore.WithOrder(createOrder))
+	}
+	b, err := newResolver().CreateItem(context.Background(), input, opts...)
 	if err != nil {
 		return nil, cmdError(createJSON, mutationErrorCode(err), "failed to create item: %v", err)
-	}
-
-	// --unset went into the write above (WithExtraOps). An explicit order is
-	// not part of the generated CreateItemInput, so it is applied and
-	// persisted as a second write. A created hook that writes its own item
-	// makes that write fail with CONFLICT: the file is no longer the one that
-	// b was created from.
-	if cmd.Flags().Changed("order") {
-		// Capture the freshly-created item's own etag before mutating it,
-		// and pass it as ifMatch below instead of nil: nil bypasses
-		// optimistic concurrency control -- silently ignored under a
-		// normal config, and under require_if_match:true it makes the
-		// write fail outright, leaving the item on disk without the
-		// order that was just requested. The item's own current
-		// etag satisfies require_if_match and still catches a genuine
-		// concurrent external write between the two writes.
-		etag := b.ETag()
-		b.Order = createOrder
-		if err := core.Update(b, &etag); err != nil {
-			return nil, mutationError(createJSON, err)
-		}
 	}
 	return b, nil
 }

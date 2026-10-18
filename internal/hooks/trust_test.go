@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -395,6 +396,25 @@ func TestT20_ConfigChangedOnDiskAfterStartIsNotAllowed(t *testing.T) {
 	}
 	if !strings.Contains(p.warn.String(), "changed since") {
 		t.Errorf("warn = %q, want a note that the file changed", p.warn.String())
+	}
+}
+
+// A gate of the config that this process read stays on when the file changes
+// on disk (edit, then `lif hooks allow`): it blocks until a restart.
+func TestT20b_ChangedConfigKeepsProjectGatesClosed(t *testing.T) {
+	v1 := tasksOf(task("pg", `touch "$LIF_ROOT/gate-ran"`)) +
+		hooksOf(hook("p-gate", "stage: before", "event: [updated]", "run: pg"))
+	p := newProj(t, v1)
+	p.allow()
+	writeFile(t, p.cfg.ConfigFile(), strings.Replace(v1, "gate-ran", "gate-ran2", 1)) // a comment would keep the fingerprint
+	p.allow() // the user allows the new file; this process still holds the old one
+	_, err := p.d.Gate(toProgress())
+	var blocked *BlockedError
+	if !errors.As(err, &blocked) || blocked.Hook != "p-gate" || !strings.Contains(blocked.Message, "restart") {
+		t.Fatalf("Gate err = %v, want a block by p-gate that asks for a restart", err)
+	}
+	if p.exists("gate-ran") {
+		t.Error("the stale gate task ran")
 	}
 }
 

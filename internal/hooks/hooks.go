@@ -104,6 +104,7 @@ type active struct {
 	config.Hook
 	name    string
 	project bool // defined in .lif.yml, not in the global file
+	stale   bool // a gate of the project config that changed on disk: it blocks, it does not run
 }
 
 // Gate runs every active matching gate in name order; the first block wins.
@@ -136,6 +137,10 @@ func (d *Dispatcher) Gate(m itemgraph.Mutation) (ran bool, err error) {
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
 	for _, g := range gates {
+		if g.stale {
+			return ran, &BlockedError{Hook: g.name, ItemID: orEmpty(m.Item).ID,
+				Message: d.configPath() + " changed since this process started; restart it to apply the new config"}
+		}
 		var out bytes.Buffer
 		started, runErr := d.run(base, g, m, &out)
 		ran = ran || started
@@ -211,12 +216,13 @@ func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err er
 		return tasks.Set{}, nil, err
 	}
 
-	allowed := false
+	allowed, stale := false, false
 	if len(d.cfg.Hooks) > 0 {
 		key, fp := d.trustID()
 		switch {
 		case d.changedOnDisk(fp):
 			d.warnChanged()
+			stale = true
 		case !isAllowed(trusted, key, fp):
 			d.warnNotAllowed()
 		default:
@@ -233,6 +239,15 @@ func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err er
 	if allowed {
 		for name, h := range d.cfg.Hooks {
 			merged[name] = active{Hook: h, name: name, project: true}
+		}
+	} else if stale {
+		// Fail closed: a gate must not switch off because the file changed
+		// (an edit, then `lif hooks allow`). The gates this process knows block
+		// their matching changes until it restarts. After hooks stay off.
+		for name, h := range d.cfg.Hooks {
+			if h.IsGate() {
+				merged[name] = active{Hook: h, name: name, project: true, stale: true}
+			}
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(merged)) {
@@ -283,7 +298,7 @@ func (d *Dispatcher) warnChanged() {
 		return
 	}
 	d.warned = true
-	fmt.Fprintf(d.warn, "warning: %s changed since this process started; its hooks are not allowed until you restart and run 'lif hooks allow'\n", d.configPath())
+	fmt.Fprintf(d.warn, "warning: %s changed since this process started; its gates block their changes and its after hooks do not run until you restart\n", d.configPath())
 }
 
 // warnNotAllowed prints, once per Dispatcher, that the project hooks do not

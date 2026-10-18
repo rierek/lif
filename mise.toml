@@ -1,7 +1,7 @@
 [tools]
 go = "1.26"  # keep in step with go.mod; Go 1.27 needs golang.org/x/tools >= v0.52 for gqlgen
-node = "latest"
-pnpm = "latest"
+node = "24"
+pnpm = "10"
 svu = "latest"
 watchexec = "latest"
 

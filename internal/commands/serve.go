@@ -450,6 +450,9 @@ func runServer(host string, port int, origins []string, allowRemoteTerminal bool
 
 	// The listener is already open: print what it exposes, then serve on it.
 	interfaceAddrs, _ := net.InterfaceAddrs() // none: a listener on all interfaces is shown as localhost
+	if !web.Built() {
+		fmt.Println("[lif] WARNING: the web UI is not built into this binary; run just build")
+	}
 	for _, line := range access.startupLines(origins, interfaceAddrs) {
 		fmt.Println(line)
 	}

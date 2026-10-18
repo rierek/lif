@@ -3,46 +3,52 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"testing/fstest"
 )
 
-func TestHandler(t *testing.T) {
-	handler := Handler()
+func get(h http.Handler, path string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	return rec
+}
 
-	t.Run("serves index.html for root path", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		rec := httptest.NewRecorder()
+func TestHandlerWithoutFrontendBuild(t *testing.T) {
+	h := handlerFor(fstest.MapFS{})
 
-		handler.ServeHTTP(rec, req)
+	for _, path := range []string{"/", "/workspace/x"} {
+		t.Run("serves the notice for "+path, func(t *testing.T) {
+			rec := get(h, path)
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Errorf("status = %d, want 503", rec.Code)
+			}
+			if ct := rec.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
+				t.Errorf("Content-Type = %q, want text/html; charset=utf-8", ct)
+			}
+			if body := rec.Body.String(); !strings.Contains(body, "<h1>Web UI not built</h1>") || !strings.Contains(body, "just build") {
+				t.Errorf("body does not carry the notice: %q", body)
+			}
+		})
+	}
 
-		// Should serve index.html (200) or at least not 500
-		if rec.Code == http.StatusInternalServerError {
-			t.Errorf("Handler returned 500 for root path")
+	t.Run("keeps 404 for a missing asset", func(t *testing.T) {
+		if rec := get(h, "/x.js"); rec.Code != http.StatusNotFound {
+			t.Errorf("status = %d, want 404", rec.Code)
 		}
 	})
+}
 
-	t.Run("returns 404 for missing asset files", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/nonexistent.js", nil)
-		rec := httptest.NewRecorder()
+func TestHandlerWithFrontendBuild(t *testing.T) {
+	h := handlerFor(fstest.MapFS{"index.html": {Data: []byte("<html>app</html>")}})
 
-		handler.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("Handler returned %d for missing asset, want 404", rec.Code)
-		}
-	})
-
-	t.Run("serves index.html for SPA routes without extension", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/some/deep/route", nil)
-		rec := httptest.NewRecorder()
-
-		handler.ServeHTTP(rec, req)
-
-		// SPA routes should get index.html (200 or redirect), not 404
-		if rec.Code == http.StatusNotFound {
-			t.Errorf("Handler returned 404 for SPA route, should serve index.html")
-		}
-	})
+	rec := get(h, "/")
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "app") {
+		t.Errorf("body is not index.html: %q", rec.Body.String())
+	}
 }
 
 func TestDistFS(t *testing.T) {

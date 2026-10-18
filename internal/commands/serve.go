@@ -40,6 +40,7 @@ var (
 	servePort           int
 	corsOrigins         []string
 	allowRemoteTerminal bool
+	allowRemoteAgent    bool
 	servePublicURL      string
 	serveRequireToken   bool
 )
@@ -69,7 +70,8 @@ var serveCmd = &cobra.Command{
 By default the server listens on 127.0.0.1 only, so only this machine can reach
 it. --host with any other address makes it reachable from the network. The
 server then asks every client for an access token, printed at startup, and
-serves the terminal only with --allow-remote-terminal. A proxy in front of the
+serves the terminal only with --allow-remote-terminal and agent sessions only
+with --allow-remote-agent. A proxy in front of the
 server (tailscale serve, nginx, Caddy) connects from loopback, so tell the
 server: --public-url (or --require-token) gives it the same rules. There is no
 TLS.`,
@@ -96,6 +98,7 @@ TLS.`,
 
 		return runServer(serveHost, port, origins, serveOptions{
 			allowRemoteTerminal: allowRemoteTerminal,
+			allowRemoteAgent:    allowRemoteAgent,
 			requireToken:        serveRequireToken,
 			publicURL:           publicURL,
 		})
@@ -397,12 +400,20 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 		return strings.Join(lines, "\n")
 	})
 
-	// Create GraphQL server with explicit transports
+	// Create GraphQL server with explicit transports. A remote server leaves
+	// the agent manager out unless --allow-remote-agent says otherwise: every
+	// agent mutation then fails with "agent manager not available" and the UI
+	// learns from agentEnabled to hide the agent. The manager itself stays: the
+	// attachment route and the callbacks above use it.
+	var resolverAgentMgr *agent.Manager
+	if access.agentEnabled() {
+		resolverAgentMgr = agentMgr
+	}
 	es := graph.NewExecutableSchema(graph.Config{
 		Resolvers: &graph.Resolver{
 			CoreResolver: newResolver(),
 			WorktreeMgr:  wtManager,
-			AgentMgr:     agentMgr,
+			AgentMgr:     resolverAgentMgr,
 			TerminalMgr:  termMgr,
 			PortAlloc:    portAlloc,
 			Forge:        forgeProvider,
@@ -527,6 +538,7 @@ func RegisterServeCmd(root *cobra.Command) {
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", config.DefaultServerPort, "Port to listen on")
 	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", config.DefaultCORSOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
 	serveCmd.Flags().BoolVar(&allowRemoteTerminal, "allow-remote-terminal", false, "Serve the terminal even when the server listens beyond loopback")
+	serveCmd.Flags().BoolVar(&allowRemoteAgent, "allow-remote-agent", false, "Allow agent sessions even when the server is reachable beyond this machine")
 	serveCmd.Flags().StringVar(&servePublicURL, "public-url", "", "Public URL of this server behind a proxy, e.g. https://box.tailnet.ts.net/lif (implies --require-token)")
 	serveCmd.Flags().BoolVar(&serveRequireToken, "require-token", false, "Require the access token even on loopback (use behind a proxy)")
 	root.AddCommand(serveCmd)

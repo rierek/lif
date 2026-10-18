@@ -344,6 +344,34 @@ func TestProxyGuardRefusesProxiedRequestsWithoutToken(t *testing.T) {
 	}
 }
 
+// An agent session runs commands as the server user, a shell like the
+// terminal. It is served on loopback; beyond it, and behind a proxy, only on
+// request, and asking for the terminal does not ask for the agent.
+func TestAgentIsServedOnLoopbackOrOnRequest(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+		opts serveOptions
+		want bool
+	}{
+		{"loopback", "127.0.0.1", serveOptions{}, true},
+		{"loopback, opt-in changes nothing", "127.0.0.1", serveOptions{allowRemoteAgent: true}, true},
+		{"all interfaces", "0.0.0.0", serveOptions{}, false},
+		{"LAN address", "192.168.1.50", serveOptions{}, false},
+		{"all interfaces, agent opted in", "0.0.0.0", serveOptions{allowRemoteAgent: true}, true},
+		{"all interfaces, terminal opted in only", "0.0.0.0", serveOptions{allowRemoteTerminal: true}, false},
+		{"behind a proxy", "127.0.0.1", serveOptions{requireToken: true}, false},
+		{"behind a proxy, agent opted in", "127.0.0.1", serveOptions{requireToken: true, allowRemoteAgent: true}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mustAccessOpts(t, tt.ip, tt.opts).agentEnabled(); got != tt.want {
+				t.Errorf("agentEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // On loopback the Host and Origin checks stand in front of every route. A
 // browser page that is not the UI must not change anything, and neither must a
 // page under a name that resolves to this machine (DNS rebinding). A client
@@ -922,6 +950,30 @@ func TestStartupLinesNameTheRealBindAddress(t *testing.T) {
 			"[lif] Terminal: disabled",
 		)
 		mustNotContain(t, log, "Starting server at")
+	})
+
+	// The agent line comes right before the terminal line: the process tests
+	// wait for "[lif] Terminal: " as the last startup line.
+	t.Run("agent state next to the terminal state", func(t *testing.T) {
+		cases := []struct {
+			name  string
+			a     serveAccess
+			agent string
+		}{
+			{"loopback", mustAccess(t, "127.0.0.1", false), "[lif] Agent: enabled"},
+			{"network", mustAccess(t, "0.0.0.0", false), "[lif] Agent: disabled (the server is reachable from the network). Add --allow-remote-agent to enable it."},
+			{"network, opted in", mustAccessOpts(t, "0.0.0.0", serveOptions{allowRemoteAgent: true}), "[lif] Agent: enabled (--allow-remote-agent). WARNING: a client with the access token can run commands through agent sessions as the user running lif-serve."},
+		}
+		for _, tt := range cases {
+			lines := tt.a.startupLines(config.DefaultCORSOrigins, machine)
+			n := len(lines)
+			if lines[n-2] != tt.agent {
+				t.Errorf("%s: second to last line = %q, want %q", tt.name, lines[n-2], tt.agent)
+			}
+			if !strings.HasPrefix(lines[n-1], "[lif] Terminal: ") {
+				t.Errorf("%s: last line = %q, want the terminal line", tt.name, lines[n-1])
+			}
+		}
 	})
 
 	t.Run("wildcard origin", func(t *testing.T) {

@@ -41,6 +41,7 @@ type serveAccess struct {
 	loopback            bool
 	requireToken        bool // --require-token, or implied by --public-url
 	allowRemoteTerminal bool
+	allowRemoteAgent    bool
 	token               string // empty unless the server is remote
 	publicBase          string // --public-url without a trailing slash; empty without one
 	publicOrigin        string // scheme://host[:port] of publicBase
@@ -50,6 +51,7 @@ type serveAccess struct {
 // flag: no key of a committed .lif.yml may open the server.
 type serveOptions struct {
 	allowRemoteTerminal bool
+	allowRemoteAgent    bool
 	requireToken        bool
 	publicURL           *url.URL // nil unless --public-url
 }
@@ -84,6 +86,7 @@ func newServeAccess(addr net.Addr, opts serveOptions) (serveAccess, error) {
 		loopback:            tcp.IP.IsLoopback(),
 		requireToken:        opts.requireToken || opts.publicURL != nil,
 		allowRemoteTerminal: opts.allowRemoteTerminal,
+		allowRemoteAgent:    opts.allowRemoteAgent,
 	}
 	if u := opts.publicURL; u != nil {
 		a.publicBase = u.String()
@@ -110,6 +113,14 @@ func (a serveAccess) remote() bool {
 // terminalEnabled reports whether the terminal is served at all.
 func (a serveAccess) terminalEnabled() bool {
 	return !a.remote() || a.allowRemoteTerminal
+}
+
+// agentEnabled reports whether agent sessions are served at all. An agent
+// session in act mode runs commands as the user running lif-serve, which is a
+// shell like the terminal, so a remote server refuses them unless the operator
+// asks for them with --allow-remote-agent.
+func (a serveAccess) agentEnabled() bool {
+	return !a.remote() || a.allowRemoteAgent
 }
 
 // withOwnAddress adds the address a loopback listener is bound to to the
@@ -338,6 +349,14 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 	add("Allowed origins: %s", strings.Join(origins, ", "))
 	if slices.Contains(origins, "*") {
 		add("WARNING: allowed origins include *: every web page can read the answers of this server. Only the UI of this server and the other listed origins can change items or use the terminal, a shell as the user running lif-serve.")
+	}
+	switch {
+	case !a.remote():
+		add("Agent: enabled")
+	case a.allowRemoteAgent:
+		add("Agent: enabled (--allow-remote-agent). WARNING: a client with the access token can run commands through agent sessions as the user running lif-serve.")
+	default:
+		add("Agent: disabled (the server is reachable from the network). Add --allow-remote-agent to enable it.")
 	}
 	switch {
 	case !a.remote():

@@ -20,8 +20,8 @@
 </script>
 
 <div class="toolbar bg-surface-alt">
-  {#if configStore.agentEnabled && showPanelToggles}
-    {#if showAgentToggle && onToggleAgent}
+  {#if showPanelToggles}
+    {#if configStore.agentEnabled && showAgentToggle && onToggleAgent}
       <button
         onclick={onToggleAgent}
         class={['btn-toggle', agentActive ? 'btn-toggle-active' : 'btn-toggle-inactive']}

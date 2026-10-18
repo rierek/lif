@@ -828,6 +828,9 @@ func (r *queryResolver) MainBranch(ctx context.Context) (string, error) {
 
 // AgentEnabled is the resolver for the agentEnabled field.
 func (r *queryResolver) AgentEnabled(ctx context.Context) (bool, error) {
+	if r.AgentMgr == nil {
+		return false, nil
+	}
 	cfg := r.Core.Config()
 	if cfg == nil {
 		return true, nil

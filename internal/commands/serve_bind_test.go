@@ -237,7 +237,7 @@ func TestServeFlagsDefaultToLoopbackWithoutRemoteTerminal(t *testing.T) {
 	} else {
 		root.AddCommand(serveCmd)
 	}
-	for flag, want := range map[string]string{"host": "127.0.0.1", "allow-remote-terminal": "false", "require-token": "false", "public-url": ""} {
+	for flag, want := range map[string]string{"host": "127.0.0.1", "allow-remote-terminal": "false", "allow-remote-agent": "false", "require-token": "false", "public-url": ""} {
 		f := serveCmd.Flags().Lookup(flag)
 		if f == nil {
 			t.Fatalf("lif-serve has no --%s flag", flag)
@@ -469,6 +469,44 @@ func TestServeRefusesProxiedRequestsWithoutToken(t *testing.T) {
 		if status != http.StatusForbidden || !strings.Contains(body, "came through a proxy") {
 			t.Errorf("%s: status %d, body %q; want a 403 that names the proxy", h, status, body)
 		}
+	}
+}
+
+// An agent session in act mode runs commands as the server user, a shell like
+// the terminal. Beyond loopback, and behind a proxy, the server refuses it
+// entirely and tells the UI to hide it, unless --allow-remote-agent asks for it.
+func TestServeAgentGate(t *testing.T) {
+	const agentEnabled = `{"query":"{ agentEnabled }"}`
+	const sendMessage = `{"query":"mutation { sendAgentMessage(itemId: \"__central__\", message: \"run ls\") }"}`
+
+	tests := []struct {
+		name    string
+		args    []string
+		wantLog string
+		want    bool
+	}{
+		{"loopback", nil, "[lif] Agent: enabled\n", true},
+		{"network", []string{"--host", "0.0.0.0"}, "[lif] Agent: disabled (the server is reachable from the network). Add --allow-remote-agent to enable it.", false},
+		{"network, opted in", []string{"--host", "0.0.0.0", "--allow-remote-agent"}, "[lif] Agent: enabled (--allow-remote-agent). WARNING:", true},
+		{"behind a proxy", []string{"--require-token"}, "[lif] Agent: disabled", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := startServeProcess(t, tt.args...)
+			if !strings.Contains(p.log, tt.wantLog) {
+				t.Errorf("startup log lacks %q:\n%s", tt.wantLog, p.log)
+			}
+
+			status, body, _ := p.do(t, "POST", "/api/graphql", p.token, "", agentEnabled)
+			if want := fmt.Sprintf(`{"data":{"agentEnabled":%v}}`, tt.want); status != 200 || strings.TrimSpace(body) != want {
+				t.Errorf("{ agentEnabled }: status %d, body %q; want %s", status, body, want)
+			}
+			if !tt.want {
+				if _, body, _ := p.do(t, "POST", "/api/graphql", p.token, "", sendMessage); !strings.Contains(body, "agent manager not available") {
+					t.Errorf("sendAgentMessage with the agent refused: %s, want the error \"agent manager not available\"", body)
+				}
+			}
+		})
 	}
 }
 

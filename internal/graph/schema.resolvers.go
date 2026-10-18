@@ -895,6 +895,33 @@ func (r *queryResolver) Theme(ctx context.Context) (string, error) {
 	return r.Core.Config().GetTheme(), nil
 }
 
+// Statuses is the resolver for the statuses field.
+func (r *queryResolver) Statuses(ctx context.Context) ([]*model.ConfigValue, error) {
+	cfg := r.Core.Config()
+	if cfg == nil {
+		return []*model.ConfigValue{}, nil
+	}
+	return configValues(cfg.StatusList(), func(s config.StatusConfig) (string, string) { return s.Name, s.Color }), nil
+}
+
+// Types is the resolver for the types field.
+func (r *queryResolver) Types(ctx context.Context) ([]*model.ConfigValue, error) {
+	cfg := r.Core.Config()
+	if cfg == nil {
+		return []*model.ConfigValue{}, nil
+	}
+	return configValues(cfg.TypeList(), func(t config.TypeConfig) (string, string) { return t.Name, t.Color }), nil
+}
+
+// Priorities is the resolver for the priorities field.
+func (r *queryResolver) Priorities(ctx context.Context) ([]*model.ConfigValue, error) {
+	cfg := r.Core.Config()
+	if cfg == nil {
+		return []*model.ConfigValue{}, nil
+	}
+	return configValues(cfg.PriorityList(), func(p config.PriorityConfig) (string, string) { return p.Name, p.Color }), nil
+}
+
 // ListFiles is the resolver for the listFiles field.
 // It does case-insensitive substring matching across all git-tracked file paths.
 // Each query term (space-separated) must match somewhere in the path.

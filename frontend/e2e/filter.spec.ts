@@ -12,10 +12,11 @@ test.describe('Filter', () => {
     const filterInput = page.getByTestId('filter-input');
     await filterInput.fill('auth');
 
-    // Should show only items matching "auth" (case-insensitive)
+    // Should show only items matching "auth" (case-insensitive); the same status and
+    // priority sort by type in config order, as in the CLI: feature before bug
     await expect(async () => {
       const titles = await backlogPage.getItemTitles();
-      expect(titles).toEqual(['Auth Bug Fix', 'Authentication Feature']);
+      expect(titles).toEqual(['Authentication Feature', 'Auth Bug Fix']);
     }).toPass({ timeout: 5_000 });
   });
 

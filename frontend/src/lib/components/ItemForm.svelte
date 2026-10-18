@@ -2,6 +2,7 @@
   import type { Item } from '#lib/items.svelte.js';
   import { itemsStore } from '#lib/items.svelte.js';
   import { client } from '#lib/graphqlClient.js';
+  import { configStore } from '#lib/config.svelte.js';
   import { CreateItemDocument, UpdateItemDocument, type CreateItemInput, type UpdateItemInput } from '#lib/graphql/generated.js';
 
   interface Props {
@@ -35,9 +36,9 @@
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
-  const types = ['task', 'bug', 'feature', 'epic', 'milestone'];
-  const statuses = ['draft', 'todo', 'in-progress', 'completed', 'scrapped'];
-  const priorities = ['critical', 'high', 'normal', 'low', 'deferred'];
+  const types = $derived(configStore.types.map((t) => t.name));
+  const statuses = $derived(configStore.statuses.map((s) => s.name));
+  const priorities = $derived(configStore.priorities.map((p) => p.name));
 
   // Available parents (all items except current item and its descendants)
   const availableParents = $derived(

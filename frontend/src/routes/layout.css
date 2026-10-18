@@ -102,6 +102,24 @@ a,
   @apply rounded px-1.5 py-0.5 text-[10px] font-medium shadow-[0_1px_0_0_var(--th-shadow)];
 }
 
+/* ── Config colours: `--tone` is set inline from .lif.yml, see styles.ts ── */
+.badge-tone {
+  background-color: color-mix(in srgb, var(--tone) 20%, var(--th-surface));
+  color: var(--th-text);
+}
+
+.border-l-tone {
+  border-left-color: var(--tone);
+}
+
+.text-tone {
+  color: var(--tone);
+}
+
+.border-tone {
+  border-color: var(--tone);
+}
+
 /* ── Item link ───────────────────────────────── */
 .item-link {
   @apply inline-flex cursor-pointer rounded bg-accent/10 px-1 align-baseline font-mono text-[0.85em] whitespace-nowrap text-accent no-underline transition-colors hover:border-accent/45 hover:bg-accent/20;
@@ -337,37 +355,6 @@ tr.diff-hunk td {
   --th-shadow: rgb(0 0 0 / 0.3);
   --th-scroll-shadow: rgb(0 0 0 / 0.08);
 
-  /* Status colors (bg + text pairs) */
-  --th-status-draft-bg: var(--color-gray-100);
-  --th-status-draft-text: var(--color-gray-500);
-  --th-status-todo-bg: var(--color-green-100);
-  --th-status-todo-text: var(--color-green-700);
-  --th-status-in-progress-bg: var(--color-blue-100);
-  --th-status-in-progress-text: var(--color-blue-700);
-  --th-status-completed-bg: var(--color-purple-100);
-  --th-status-completed-text: var(--color-purple-700);
-  --th-status-scrapped-bg: var(--color-red-100);
-  --th-status-scrapped-text: var(--color-red-700);
-  --th-status-blocked-bg: var(--color-amber-100);
-  --th-status-blocked-text: var(--color-amber-700);
-
-  /* Type colors (bg + text + border) */
-  --th-type-milestone-bg: var(--color-purple-100);
-  --th-type-milestone-text: var(--color-purple-700);
-  --th-type-milestone-border: var(--color-purple-400);
-  --th-type-epic-bg: var(--color-indigo-100);
-  --th-type-epic-text: var(--color-indigo-700);
-  --th-type-epic-border: var(--color-indigo-400);
-  --th-type-feature-bg: var(--color-cyan-100);
-  --th-type-feature-text: var(--color-cyan-700);
-  --th-type-feature-border: var(--color-cyan-400);
-  --th-type-bug-bg: var(--color-red-100);
-  --th-type-bug-text: var(--color-red-700);
-  --th-type-bug-border: var(--color-red-400);
-  --th-type-task-bg: var(--color-gray-100);
-  --th-type-task-text: var(--color-gray-500);
-  --th-type-task-border: var(--color-gray-200);
-
   /* Markdown heading colors */
   --th-md-h1: var(--ctp-text);
   --th-md-h2: var(--ctp-text);
@@ -380,35 +367,6 @@ tr.diff-hunk td {
 /* ── Dark palette ────────────────────────────── */
 :root[data-theme='dark'] {
   color-scheme: dark;
-
-  --th-status-draft-bg: var(--color-zinc-700);
-  --th-status-draft-text: var(--color-zinc-400);
-  --th-status-todo-bg: var(--color-green-900);
-  --th-status-todo-text: var(--color-green-400);
-  --th-status-in-progress-bg: var(--color-sky-900);
-  --th-status-in-progress-text: var(--color-blue-300);
-  --th-status-completed-bg: var(--color-purple-900);
-  --th-status-completed-text: var(--color-purple-300);
-  --th-status-scrapped-bg: var(--color-red-950);
-  --th-status-scrapped-text: var(--color-red-300);
-  --th-status-blocked-bg: var(--color-amber-950);
-  --th-status-blocked-text: var(--color-amber-300);
-
-  --th-type-milestone-bg: var(--color-purple-950);
-  --th-type-milestone-text: var(--color-purple-300);
-  --th-type-milestone-border: var(--color-purple-500);
-  --th-type-epic-bg: var(--color-indigo-950);
-  --th-type-epic-text: var(--color-indigo-300);
-  --th-type-epic-border: var(--color-indigo-500);
-  --th-type-feature-bg: var(--color-cyan-950);
-  --th-type-feature-text: var(--color-cyan-300);
-  --th-type-feature-border: var(--color-cyan-600);
-  --th-type-bug-bg: var(--color-red-900);
-  --th-type-bug-text: var(--color-red-300);
-  --th-type-bug-border: var(--color-red-500);
-  --th-type-task-bg: var(--color-zinc-800);
-  --th-type-task-text: var(--color-zinc-400);
-  --th-type-task-border: var(--color-zinc-600);
 }
 
 /* ── Tailwind theme tokens (reference CSS vars) ── */
@@ -426,33 +384,4 @@ tr.diff-hunk td {
   --color-warning: var(--th-warning);
   --color-success: var(--th-success);
   --color-info: var(--th-info);
-
-  --color-status-draft-bg: var(--th-status-draft-bg);
-  --color-status-draft-text: var(--th-status-draft-text);
-  --color-status-todo-bg: var(--th-status-todo-bg);
-  --color-status-todo-text: var(--th-status-todo-text);
-  --color-status-in-progress-bg: var(--th-status-in-progress-bg);
-  --color-status-in-progress-text: var(--th-status-in-progress-text);
-  --color-status-completed-bg: var(--th-status-completed-bg);
-  --color-status-completed-text: var(--th-status-completed-text);
-  --color-status-scrapped-bg: var(--th-status-scrapped-bg);
-  --color-status-scrapped-text: var(--th-status-scrapped-text);
-  --color-status-blocked-bg: var(--th-status-blocked-bg);
-  --color-status-blocked-text: var(--th-status-blocked-text);
-
-  --color-type-milestone-bg: var(--th-type-milestone-bg);
-  --color-type-milestone-text: var(--th-type-milestone-text);
-  --color-type-milestone-border: var(--th-type-milestone-border);
-  --color-type-epic-bg: var(--th-type-epic-bg);
-  --color-type-epic-text: var(--th-type-epic-text);
-  --color-type-epic-border: var(--th-type-epic-border);
-  --color-type-feature-bg: var(--th-type-feature-bg);
-  --color-type-feature-text: var(--th-type-feature-text);
-  --color-type-feature-border: var(--th-type-feature-border);
-  --color-type-bug-bg: var(--th-type-bug-bg);
-  --color-type-bug-text: var(--th-type-bug-text);
-  --color-type-bug-border: var(--th-type-bug-border);
-  --color-type-task-bg: var(--th-type-task-bg);
-  --color-type-task-text: var(--th-type-task-text);
-  --color-type-task-border: var(--th-type-task-border);
 }

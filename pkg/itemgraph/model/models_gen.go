@@ -125,6 +125,13 @@ type BranchStatus struct {
 	HasConflicts bool `json:"hasConflicts"`
 }
 
+// A configured status, type or priority and its display colour.
+type ConfigValue struct {
+	Name string `json:"name"`
+	// Catppuccin tone name (e.g. "green") or "#rrggbb"; empty when unset or invalid.
+	Color string `json:"color"`
+}
+
 // Input for creating a new item
 type CreateItemInput struct {
 	// Item title (required)

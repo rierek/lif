@@ -1,6 +1,7 @@
 import { pipe, subscribe } from 'wonka';
 import { SvelteMap } from 'svelte/reactivity';
 import { client } from './graphqlClient';
+import { configStore } from './config.svelte';
 import {
   ItemChangedDocument,
   type ItemFieldsFragment,
@@ -162,17 +163,13 @@ export class ItemsStore {
 }
 
 /**
- * Sort order arrays matching the backend's config.DefaultStatuses/Priorities/Types.
- * These must stay in sync with internal/config/config.go.
+ * Statuses, priorities and types sort in config order, like the CLI
+ * (SortByStatusPriorityAndType). A name the config does not list sorts last.
  */
-const STATUS_ORDER = ['in-progress', 'todo', 'draft', 'completed', 'scrapped'];
-const PRIORITY_ORDER = ['critical', 'high', 'normal', 'low', 'deferred'];
-const TYPE_ORDER = ['milestone', 'epic', 'bug', 'feature', 'task'];
-
-function orderOf(value: string, order: string[], defaultTo?: string): number {
+function orderOf(value: string, list: { name: string }[], defaultTo?: string): number {
   if (!value && defaultTo) value = defaultTo;
-  const idx = order.indexOf(value);
-  return idx >= 0 ? idx : order.length;
+  const idx = list.findIndex((v) => v.name === value);
+  return idx >= 0 ? idx : list.length;
 }
 
 /**
@@ -180,9 +177,10 @@ function orderOf(value: string, order: string[], defaultTo?: string): number {
  * SortByStatusPriorityAndType from internal/item/sort.go.
  */
 export function sortItems(items: Item[]): Item[] {
+  const { statuses, priorities, types } = configStore;
   return items.toSorted((a, b) => {
     // Primary: status
-    let d = orderOf(a.status, STATUS_ORDER) - orderOf(b.status, STATUS_ORDER);
+    let d = orderOf(a.status, statuses) - orderOf(b.status, statuses);
     if (d !== 0) return d;
 
     // Secondary: manual order (fractional index) — items with order come first
@@ -193,12 +191,11 @@ export function sortItems(items: Item[]): Item[] {
     else if (!a.order && b.order) return 1;
 
     // Tertiary: priority (empty = normal)
-    d =
-      orderOf(a.priority, PRIORITY_ORDER, 'normal') - orderOf(b.priority, PRIORITY_ORDER, 'normal');
+    d = orderOf(a.priority, priorities, 'normal') - orderOf(b.priority, priorities, 'normal');
     if (d !== 0) return d;
 
     // Quaternary: type
-    d = orderOf(a.type, TYPE_ORDER) - orderOf(b.type, TYPE_ORDER);
+    d = orderOf(a.type, types) - orderOf(b.type, types);
     if (d !== 0) return d;
 
     // Final: title (case-insensitive)

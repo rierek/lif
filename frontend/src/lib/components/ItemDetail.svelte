@@ -4,7 +4,7 @@
   import { configStore } from '#lib/config.svelte.js';
   import { worktreeStore } from '#lib/worktrees.svelte.js';
   import { ui } from '#lib/uiState.svelte.js';
-  import { statusColors, typeColors, priorityColors } from '#lib/styles.js';
+  import { statusTone, typeTone, priorityTone } from '#lib/styles.js';
   import { client } from '#lib/graphqlClient.js';
   import { SendAgentMessageDocument, UpdateItemStatusDocument, ArchiveItemDocument } from '#lib/graphql/generated.js';
   import ItemCard from './ItemCard.svelte';
@@ -136,25 +136,10 @@
           </svg>
         {/if}
       </button>
-      <span
-        class={[
-          'badge',
-          typeColors[item.type] ?? 'bg-type-task-bg text-type-task-text'
-        ]}>{item.type}</span
-      >
-      <span
-        class={[
-          'badge',
-          statusColors[item.status] ?? 'bg-status-todo-bg text-status-todo-text'
-        ]}>{item.status}</span
-      >
+      <span class="badge badge-tone" style={typeTone(item.type)}>{item.type}</span>
+      <span class="badge badge-tone" style={statusTone(item.status)}>{item.status}</span>
       {#if item.priority && item.priority !== 'normal'}
-        <span
-          class={[
-            'badge border',
-            priorityColors[item.priority]
-          ]}
-        >
+        <span class="badge border border-tone text-tone" style={priorityTone(item.priority)}>
           {item.priority}
         </span>
       {/if}

@@ -53,7 +53,7 @@
 </script>
 
 {#if interaction.type === 'EXIT_PLAN'}
-  <div class="border-t border-status-in-progress-text/20 bg-status-in-progress-bg/50 p-3">
+  <div class="border-t border-info/20 bg-info/10 p-3">
     <p class="mb-2 text-text-muted">
       Agent wants to leave plan mode and start working.
     </p>
@@ -69,7 +69,7 @@
     <div class="flex items-center gap-3">
       <button
         onclick={onApprove}
-        class="cursor-pointer rounded bg-status-in-progress-text px-3 py-1.5 text-accent-text transition-colors hover:opacity-90"
+        class="cursor-pointer rounded bg-accent px-3 py-1.5 text-accent-text transition-colors hover:opacity-90"
       >
         Approve
       </button>

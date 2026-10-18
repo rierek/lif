@@ -107,7 +107,8 @@ The frontend (SvelteKit) is embedded in the binary. No second server is needed.
 - The UI has a filter field (substring over title, type, status, ID, tags). It does not use [search syntax](../search-syntax/).
 - The UI keeps layout in `localStorage` under `lif-planning-chat`, `lif-changes-pane`, `lif-filter-text`, `lif-theme`, `lif-dark-flavour` and `lif-split-<panel>`. The selected item is mirrored as `?item=<id>`, so `http://localhost:8080/?item=<id>` is a deep link.
 - There is no settings page. The theme button at the right end of the toolbar switches between Auto, Light and Dark; see [Theme](#theme).
-- The status list is hard-coded (`draft`, `todo`, `in-progress`, `completed`, `scrapped`). Custom statuses are not shown on the board; `scrapped` is shown in neither view.
+- Statuses, types and priorities come from `.lif.yml`: the built-in lists plus your entries, in config order (the order also sorts items, as in the CLI). Badges, card borders and priority labels use the `color` of their entry, a Catppuccin tone name or `#rrggbb`. An entry without a valid colour, and a name the config does not list, gets a neutral grey. The server reads the config at start: restart `lif-serve` after a change and reload the page.
+- The Backlog sections (Todo, Draft) and the Board columns (Todo, In Progress, Completed) stay fixed. A top-level item whose status has no section or column, such as `scrapped` or a custom status, is not listed; it appears under its parent and opens from its `?item=<id>` link.
 
 Screenshot follows.
 

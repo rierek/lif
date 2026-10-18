@@ -2,6 +2,7 @@ package itemgraph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -128,6 +129,10 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 
 // UpdateItem updates an existing item.
 func (r *CoreResolver) UpdateItem(ctx context.Context, id string, input model.UpdateItemInput, opts ...itemcore.UpdateOption) (*item.Item, error) {
+	return r.retryStale(id, input.IfMatch, func() (*item.Item, error) { return r.updateItem(ctx, id, input, opts...) })
+}
+
+func (r *CoreResolver) updateItem(ctx context.Context, id string, input model.UpdateItemInput, opts ...itemcore.UpdateOption) (*item.Item, error) {
 	b, err := r.Core.Get(id)
 	if err != nil {
 		return nil, err
@@ -338,6 +343,10 @@ func (r *CoreResolver) DeleteItem(ctx context.Context, id string) (bool, error) 
 
 // SetParent sets or clears the parent of an item.
 func (r *CoreResolver) SetParent(ctx context.Context, id string, parentID *string, ifMatch *string) (*item.Item, error) {
+	return r.retryStale(id, ifMatch, func() (*item.Item, error) { return r.setParent(ctx, id, parentID, ifMatch) })
+}
+
+func (r *CoreResolver) setParent(ctx context.Context, id string, parentID *string, ifMatch *string) (*item.Item, error) {
 	b, err := r.Core.Get(id)
 	if err != nil {
 		return nil, err
@@ -376,6 +385,10 @@ func (r *CoreResolver) SetParent(ctx context.Context, id string, parentID *strin
 
 // AddBlocking adds a blocking relationship.
 func (r *CoreResolver) AddBlocking(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
+	return r.retryStale(id, ifMatch, func() (*item.Item, error) { return r.addBlocking(ctx, id, targetID, ifMatch) })
+}
+
+func (r *CoreResolver) addBlocking(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
 	b, err := r.Core.Get(id)
 	if err != nil {
 		return nil, err
@@ -407,6 +420,10 @@ func (r *CoreResolver) AddBlocking(ctx context.Context, id string, targetID stri
 
 // RemoveBlocking removes a blocking relationship.
 func (r *CoreResolver) RemoveBlocking(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
+	return r.retryStale(id, ifMatch, func() (*item.Item, error) { return r.removeBlocking(ctx, id, targetID, ifMatch) })
+}
+
+func (r *CoreResolver) removeBlocking(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
 	b, err := r.Core.Get(id)
 	if err != nil {
 		return nil, err
@@ -423,6 +440,10 @@ func (r *CoreResolver) RemoveBlocking(ctx context.Context, id string, targetID s
 
 // AddBlockedBy adds a blocked-by relationship.
 func (r *CoreResolver) AddBlockedBy(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
+	return r.retryStale(id, ifMatch, func() (*item.Item, error) { return r.addBlockedBy(ctx, id, targetID, ifMatch) })
+}
+
+func (r *CoreResolver) addBlockedBy(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
 	b, err := r.Core.Get(id)
 	if err != nil {
 		return nil, err
@@ -453,6 +474,10 @@ func (r *CoreResolver) AddBlockedBy(ctx context.Context, id string, targetID str
 
 // RemoveBlockedBy removes a blocked-by relationship.
 func (r *CoreResolver) RemoveBlockedBy(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
+	return r.retryStale(id, ifMatch, func() (*item.Item, error) { return r.removeBlockedBy(ctx, id, targetID, ifMatch) })
+}
+
+func (r *CoreResolver) removeBlockedBy(ctx context.Context, id string, targetID string, ifMatch *string) (*item.Item, error) {
 	b, err := r.Core.Get(id)
 	if err != nil {
 		return nil, err
@@ -474,3 +499,34 @@ func (r *CoreResolver) ArchiveItem(ctx context.Context, id string) (bool, error)
 	}
 	return true, nil
 }
+
+// retryStale runs write, which reads the item, applies a change and writes it.
+// A write without an If-Match fails with an implicit ETagMismatchError when
+// another process wrote the item after this one loaded it; write then runs
+// again on the item reloaded from disk, so neither change is lost. A caller's
+// own If-Match is never retried. After a hook ran, the item is reloaded first:
+// the hook task may have written it through another process.
+func (r *CoreResolver) retryStale(id string, ifMatch *string, write func() (*item.Item, error)) (*item.Item, error) {
+	if ifMatch != nil && *ifMatch != "" {
+		return write()
+	}
+	if r.hooksRan.Load() {
+		if err := r.Core.ReloadItem(id); err != nil && !errors.Is(err, itemcore.ErrNotFound) {
+			return nil, err
+		}
+	}
+	for attempt := 0; ; attempt++ {
+		b, err := write()
+		var mismatch *itemcore.ETagMismatchError
+		if !errors.As(err, &mismatch) || !mismatch.Implicit || attempt >= staleRetries {
+			return b, err
+		}
+		if err := r.Core.ReloadItem(id); err != nil {
+			return nil, err
+		}
+	}
+}
+
+// staleRetries bounds retryStale. Every failed attempt means another writer
+// succeeded in between, so the bound is the number of concurrent writers.
+const staleRetries = 100

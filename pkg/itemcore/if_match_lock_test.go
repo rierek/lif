@@ -71,9 +71,9 @@ func TestUpdateIfMatchWaitsForTheItemLockAndThenChecksTheFile(t *testing.T) {
 	}
 }
 
-// An update without --if-match has no check to protect: it takes no lock, so
-// a stuck holder cannot keep it waiting.
-func TestUpdateWithoutIfMatchTakesNoItemLock(t *testing.T) {
+// An update without --if-match checks the etag of its own copy, so it takes
+// the item lock too: it waits for a holder and then writes.
+func TestUpdateWithoutIfMatchWaitsForItemLock(t *testing.T) {
 	core, path, _ := lockedItem(t)
 	b, err := core.Get("lock-aaa1")
 	if err != nil {
@@ -85,17 +85,22 @@ func TestUpdateWithoutIfMatchTakesNoItemLock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Acquire() error = %v", err)
 	}
-	defer held.Release()
 
 	done := make(chan error, 1)
 	go func() { done <- core.Update(b, nil) }()
 	select {
 	case err := <-done:
+		t.Fatalf("Update() returned while the lock was held: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+	held.Release()
+	select {
+	case err := <-done:
 		if err != nil {
-			t.Errorf("Update() without --if-match error = %v", err)
+			t.Errorf("Update() after release error = %v", err)
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("Update() without --if-match waited for the item lock")
+	case <-time.After(5 * time.Second):
+		t.Fatal("Update() did not return after the lock was released")
 	}
 }
 

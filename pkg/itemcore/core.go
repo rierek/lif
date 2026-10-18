@@ -44,9 +44,14 @@ var ErrNotFound = errors.New("item not found")
 // This allows callers to distinguish concurrency conflicts from other errors.
 // Current is empty when there is no file to take an etag from: another process
 // renamed, replaced or deleted the item file after the caller read it.
+//
+// Implicit marks a mismatch of the etag Update took from its own in-memory copy
+// because the caller gave none: another process wrote the item after this one
+// loaded it. Such a caller may reload the item and apply its change again.
 type ETagMismatchError struct {
 	Provided string
 	Current  string
+	Implicit bool
 }
 
 func (e *ETagMismatchError) Error() string {
@@ -306,6 +311,29 @@ func (c *Core) Load() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	return c.loadFromDisk()
+}
+
+// ReloadItem replaces the in-memory copy of id with the file on disk, for a
+// caller whose write failed with an implicit ETagMismatchError. When the file
+// is gone from its old path (another process renamed it) the whole store is
+// loaded again. Runtime-only (dirty) items are kept: they exist only in memory.
+func (c *Core) ReloadItem(id string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.dirty[id] {
+		return nil
+	}
+	if rel := c.mainPaths[id]; rel != "" {
+		if b, err := c.loadItem(filepath.Join(c.root, rel)); err == nil && b.ID == id {
+			c.setItemLocked(id, b)
+			return nil
+		}
+	}
+	if len(c.dirty) > 0 {
+		return fmt.Errorf("item %s moved while runtime-only changes are pending", id)
+	}
 	return c.loadFromDisk()
 }
 
@@ -874,8 +902,10 @@ var itemLockTimeout = 10 * time.Second
 // If ifMatch is provided, validates the current version's etag matches before updating.
 // The check and the write run under a lock on the item's file that every lif
 // process respects, so of two simultaneous updates with the same etag only
-// one succeeds. An update without ifMatch and without WithExpectedETag has no
-// check and takes no lock; WithExpectedETag checks and locks like ifMatch.
+// one succeeds. An update without ifMatch and without WithExpectedETag checks
+// and locks against the etag of the in-memory copy (a failure is an
+// ETagMismatchError with Implicit set); WithExpectedETag checks and locks like
+// ifMatch.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error {
 	o := defaultUpdateOptions()
@@ -915,6 +945,17 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	// between the etag check and the write below, so an --if-match write to the
 	// main store also holds an exclusive lock on the item file from before the
 	// etag is read until Update returns.
+	//
+	// A write without any etag takes one from the in-memory copy and checks it
+	// the same way, so a write based on a copy that another process has since
+	// replaced fails instead of silently undoing that write (see
+	// ETagMismatchError.Implicit). Runtime-only (dirty) items have no
+	// disk state to compare with.
+	implicit := false
+	if (ifMatch == nil || *ifMatch == "") && o.persist && wtPath == "" && storedItem.Path != "" && !c.dirty[b.ID] {
+		etag := storedItem.ETag()
+		ifMatch, implicit = &etag, true
+	}
 	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
 	var lock *filelock.Lock
 	if wantsETagFromDisk && o.persist && wtPath == "" && storedItem.Path != "" {
@@ -928,7 +969,7 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 			// title change does, once the file is written), moved or deleted it
 			// since this one read the store. The etag cannot match, and a write
 			// would put the old file name back next to the new one.
-			return &ETagMismatchError{Provided: *ifMatch}
+			return &ETagMismatchError{Provided: *ifMatch, Implicit: implicit}
 		case errors.Is(err, filelock.ErrTimeout):
 			return fmt.Errorf("item %s is locked by another process (waited %s): %w", b.ID, itemLockTimeout, err)
 		default:
@@ -959,7 +1000,7 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 			// the one that went first renamed or replaced the file.
 			content, err := lock.ReadFile(mainPath)
 			if os.IsNotExist(err) || errors.Is(err, filelock.ErrReplaced) {
-				return &ETagMismatchError{Provided: *ifMatch}
+				return &ETagMismatchError{Provided: *ifMatch, Implicit: implicit}
 			}
 			if err != nil {
 				return fmt.Errorf("reading item %s: %w", b.ID, err)
@@ -987,6 +1028,7 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 			return &ETagMismatchError{
 				Provided: *ifMatch,
 				Current:  currentETag,
+				Implicit: implicit,
 			}
 		}
 	}

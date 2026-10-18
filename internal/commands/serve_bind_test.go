@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,11 +52,12 @@ func serveTestBinary(t *testing.T) string {
 
 // serveProcess is a running lif-serve binary and what it printed at startup.
 type serveProcess struct {
-	out   *syncBuffer // everything the process printed so far
-	log   string      // the startup lines
-	port  int         // from the "Listening on" line: the port the listener really got
-	host  string      // host:port under which this machine reaches the server
-	token string      // from the "Access token" line; empty when the server prints none
+	out    *syncBuffer // everything the process printed so far
+	log    string      // the startup lines
+	port   int         // from the "Listening on" line: the port the listener really got
+	host   string      // host:port under which this machine reaches the server
+	token  string      // from the "Access token" line; empty when the server prints none
+	scheme string      // "https" when the server was started with --tls-cert, else "http"
 }
 
 var (
@@ -105,7 +107,10 @@ func startServeProcess(t *testing.T, args ...string) *serveProcess {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	p := &serveProcess{out: &out, log: out.String()}
+	p := &serveProcess{out: &out, log: out.String(), scheme: "http"}
+	if slices.Contains(args, "--tls-cert") {
+		p.scheme = "https"
+	}
 	m := listeningLine.FindStringSubmatch(p.log)
 	if m == nil {
 		t.Fatalf("no \"Listening on\" line in the startup log:\n%s", p.log)
@@ -146,7 +151,7 @@ func (p *serveProcess) waitForLog(t *testing.T, text string) string {
 // loopback listener under its own address, a listener on all interfaces under
 // 127.0.0.1.
 func (p *serveProcess) url(path string) string {
-	return "http://" + p.host + path
+	return p.scheme + "://" + p.host + path
 }
 
 // do sends one request without following redirects. A non-empty token goes in
@@ -204,6 +209,7 @@ func send(t *testing.T, req *http.Request) (int, string, http.Header) {
 	client := &http.Client{
 		Timeout:       10 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		Transport:     insecureTransport(), // the test certificate is self-signed
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -227,7 +233,11 @@ func (p *serveProcess) dialWS(t *testing.T, path, origin, token string, subproto
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return coderws.Dial(ctx, "ws://"+p.host+path, &coderws.DialOptions{HTTPHeader: header, Subprotocols: subprotocols})
+	scheme := "ws"
+	if p.scheme == "https" {
+		scheme = "wss"
+	}
+	return coderws.Dial(ctx, scheme+"://"+p.host+path, &coderws.DialOptions{HTTPHeader: header, Subprotocols: subprotocols, HTTPClient: &http.Client{Transport: insecureTransport()}})
 }
 
 // The serve flags the safe default rests on.

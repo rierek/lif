@@ -54,6 +54,7 @@ type serveAccess struct {
 	tokenDerived        bool   // token is derived from the one in tokenSource (see deriveToken)
 	publicBase          string // --public-url without a trailing slash; empty without one
 	publicOrigin        string // scheme://host[:port] of publicBase
+	scheme              string // "https" when the server speaks TLS itself, else "http"
 }
 
 // serveOptions are the access choices of the operator. Every one of them is a
@@ -64,6 +65,8 @@ type serveOptions struct {
 	requireToken        bool
 	tokenFile           string   // --token-file
 	envToken            string   // LIF_SERVE_TOKEN
+	tlsCert             string   // --tls-cert
+	tlsKey              string   // --tls-key
 	publicURL           *url.URL // nil unless --public-url
 }
 
@@ -98,6 +101,10 @@ func newServeAccess(addr net.Addr, opts serveOptions) (serveAccess, error) {
 		requireToken:        opts.requireToken || opts.publicURL != nil,
 		allowRemoteTerminal: opts.allowRemoteTerminal,
 		allowRemoteAgent:    opts.allowRemoteAgent,
+		scheme:              "http",
+	}
+	if opts.tlsCert != "" {
+		a.scheme = "https"
 	}
 	if u := opts.publicURL; u != nil {
 		a.publicBase = u.String()
@@ -235,6 +242,14 @@ func (a serveAccess) agentEnabled() bool {
 	return !a.remote() || a.allowRemoteAgent
 }
 
+// secure reports whether the token travels encrypted: the server speaks TLS
+// itself, or the public URL of the proxy in front of it is an https one. The
+// cookie then carries the Secure flag, and the log drops the clear-text
+// warning.
+func (a serveAccess) secure() bool {
+	return a.scheme == "https" || strings.HasPrefix(a.publicBase, "https://")
+}
+
 // withOwnAddress adds the address a loopback listener is bound to to the
 // origin list. ::1 and 127.0.0.2 are loopback addresses too, but the default
 // list names only localhost and 127.0.0.1: without this the URL the server
@@ -244,7 +259,7 @@ func (a serveAccess) withOwnAddress(origins []string) []string {
 	if !a.loopback {
 		return origins
 	}
-	own := "http://" + net.JoinHostPort(a.addr.IP.String(), "*")
+	own := a.scheme + "://" + net.JoinHostPort(a.addr.IP.String(), "*")
 	if slices.Contains(origins, own) {
 		return origins
 	}
@@ -276,7 +291,7 @@ func (a serveAccess) middleware(checker *cors.Checker) []gin.HandlerFunc {
 		guards = append(guards, proxyGuard())
 	}
 	if a.token != "" {
-		guards = append(guards, tokenGuard(a.token, a.addr.Port))
+		guards = append(guards, tokenGuard(a.token, a.addr.Port, a.secure()))
 	}
 	return append(guards, originGuard(checker, a.loopback))
 }
@@ -342,8 +357,9 @@ func changesState(r *http.Request) bool {
 // the cookie by opening the address printed at startup once, which ends in
 // ?token=<token>; the guard then redirects to the same address without the
 // token. The cookie name carries the port, because cookies do not separate
-// servers on one host.
-func tokenGuard(token string, port int) gin.HandlerFunc {
+// servers on one host. The cookie is Secure when the token travels encrypted
+// (see serveAccess.secure).
+func tokenGuard(token string, port int, secure bool) gin.HandlerFunc {
 	cookieName := "lif_token_" + strconv.Itoa(port)
 	valid := func(got string) bool {
 		return subtle.ConstantTimeCompare([]byte(got), []byte(token)) == 1
@@ -359,7 +375,7 @@ func tokenGuard(token string, port int) gin.HandlerFunc {
 			return
 		}
 		if q := r.URL.Query(); valid(q.Get("token")) {
-			http.SetCookie(c.Writer, &http.Cookie{Name: cookieName, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode})
+			http.SetCookie(c.Writer, &http.Cookie{Name: cookieName, Value: token, Path: "/", HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode})
 			if r.Method != http.MethodGet || isWebSocketUpgrade(r) {
 				c.Next()
 				return
@@ -446,14 +462,18 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 		add("Access: token required (--require-token or --public-url)")
 	}
 	if a.token == "" {
-		serverURL := "http://" + net.JoinHostPort(a.addr.IP.String(), port)
+		serverURL := a.scheme + "://" + net.JoinHostPort(a.addr.IP.String(), port)
 		add("Starting server at %s/", serverURL)
 		add("GraphQL Playground: %s/playground", serverURL)
 	} else {
 		// Every request needs the token, so the first address a person opens
 		// carries it. Without it the server answers 401.
-		serverURL := cmp.Or(a.publicBase, "http://"+net.JoinHostPort(a.networkHost(interfaceAddrs), port))
-		add("WARNING: anyone who can reach this port and has the access token can read and change items and run agent sessions as the user running lif-serve. There is no TLS, so the token travels in clear text. Prefer the default loopback address with an SSH tunnel or a VPN.")
+		serverURL := cmp.Or(a.publicBase, a.scheme+"://"+net.JoinHostPort(a.networkHost(interfaceAddrs), port))
+		warning := "WARNING: anyone who can reach this port and has the access token can read and change items and run agent sessions as the user running lif-serve."
+		if !a.secure() {
+			warning += " There is no TLS, so the token travels in clear text."
+		}
+		add("%s Prefer the default loopback address with an SSH tunnel or a VPN.", warning)
 		if a.tokenSource != "" && !a.tokenDerived {
 			add("Access token: read from %s", a.tokenSource)
 			add("Open the UI: %s/", serverURL)

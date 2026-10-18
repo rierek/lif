@@ -701,8 +701,8 @@ func TestNetworkListenerRequiresTheToken(t *testing.T) {
 			t.Fatalf("got %d cookies, want 1", len(cookies))
 		}
 		c := cookies[0]
-		if c.Name != "lif_token_8080" || c.Value != access.token || !c.HttpOnly || c.SameSite != http.SameSiteLaxMode || c.Path != "/" {
-			t.Errorf("cookie %+v: want name lif_token_8080, the token, HttpOnly, SameSite=Lax, Path=/", c)
+		if c.Name != "lif_token_8080" || c.Value != access.token || !c.HttpOnly || c.Secure || c.SameSite != http.SameSiteLaxMode || c.Path != "/" {
+			t.Errorf("cookie %+v: want name lif_token_8080, the token, HttpOnly, not Secure (no TLS), SameSite=Lax, Path=/", c)
 		}
 		if rec := get("/page", func(r *http.Request) { r.AddCookie(c) }); rec.Code != 200 {
 			t.Errorf("with the cookie: status %d, want 200", rec.Code)

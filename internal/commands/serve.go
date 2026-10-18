@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -44,6 +45,8 @@ var (
 	servePublicURL      string
 	serveRequireToken   bool
 	serveTokenFile      string
+	serveTLSCert        string
+	serveTLSKey         string
 )
 
 const centralAgentPrompt = `You are the planning agent for this project. Your primary role is to help manage and organize work through items.
@@ -75,7 +78,8 @@ at every start; --token-file or LIF_SERVE_TOKEN keep one across restarts), and
 serves the terminal only with --allow-remote-terminal and agent sessions only
 with --allow-remote-agent. A proxy in front of the server (tailscale serve,
 nginx, Caddy) connects from loopback, so tell the server: --public-url (or
---require-token) gives it the same rules. There is no TLS.`,
+--require-token) gives it the same rules. Without TLS the token travels in clear
+text beyond loopback: --tls-cert and --tls-key serve HTTPS.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine the port: CLI flag > config > default
 		port := servePort
@@ -103,6 +107,8 @@ nginx, Caddy) connects from loopback, so tell the server: --public-url (or
 			requireToken:        serveRequireToken,
 			tokenFile:           serveTokenFile,
 			envToken:            os.Getenv(serveTokenEnv),
+			tlsCert:             serveTLSCert,
+			tlsKey:              serveTLSKey,
 			publicURL:           publicURL,
 		})
 	},
@@ -128,10 +134,33 @@ func (g gqlWebsocketImplementation) Accept(w http.ResponseWriter, r *http.Reques
 	return impl.Accept(w, r, options)
 }
 
+// loadTLSConfig loads the certificate of --tls-cert and --tls-key. Without
+// both flags the server speaks plain HTTP (nil); one flag without the other is
+// an error.
+func loadTLSConfig(certFile, keyFile string) (*tls.Config, error) {
+	if certFile == "" && keyFile == "" {
+		return nil, nil
+	}
+	if certFile == "" || keyFile == "" {
+		return nil, fmt.Errorf("--tls-cert and --tls-key must be given together")
+	}
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load the TLS certificate: %w", err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}, nil
+}
+
 // runServer serves the web UI and the API on host:port until it is told to
 // stop. The address the listener really gets decides who may use the server;
 // see serveAccess.
 func runServer(host string, port int, origins []string, opts serveOptions) error {
+	// A certificate that does not load fails before anything is bound.
+	tlsConfig, err := loadTLSConfig(opts.tlsCert, opts.tlsKey)
+	if err != nil {
+		return err
+	}
+
 	// Bind first: a taken port fails before anything else starts, and the real
 	// address, not the text of --host, decides the access rules.
 	ln, err := net.Listen("tcp", net.JoinHostPort(strings.Trim(host, "[]"), strconv.Itoa(port)))
@@ -156,6 +185,9 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 
 	// Set up origin checker for CORS and WebSocket
 	checker := cors.NewChecker(origins)
+	if tlsConfig != nil {
+		checker.UseTLS() // the UI is an https page: only an https origin is the server's own
+	}
 
 	// Set Gin to release mode for cleaner output
 	gin.SetMode(gin.ReleaseMode)
@@ -473,6 +505,7 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 
 	// Create HTTP server
 	server := newHTTPServer(ln.Addr().String(), router)
+	server.TLSConfig = tlsConfig
 
 	// Set up signal handling with context
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -490,6 +523,10 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 		fmt.Println(line)
 	}
 	go func() {
+		if tlsConfig != nil {
+			serverErr <- server.ServeTLS(ln, "", "")
+			return
+		}
 		serverErr <- server.Serve(ln)
 	}()
 
@@ -545,6 +582,8 @@ func RegisterServeCmd(root *cobra.Command) {
 	serveCmd.Flags().StringVar(&servePublicURL, "public-url", "", "Public URL of this server behind a proxy, e.g. https://box.tailnet.ts.net/lif (implies --require-token)")
 	serveCmd.Flags().BoolVar(&serveRequireToken, "require-token", false, "Require the access token even on loopback (use behind a proxy)")
 	serveCmd.Flags().StringVar(&serveTokenFile, "token-file", "", "File that holds the access token, created with mode 0600 when missing, so the token survives restarts (alternative: the LIF_SERVE_TOKEN environment variable); used only when the server requires a token")
+	serveCmd.Flags().StringVar(&serveTLSCert, "tls-cert", "", "Certificate file (PEM) to serve HTTPS; needs --tls-key")
+	serveCmd.Flags().StringVar(&serveTLSKey, "tls-key", "", "Private key file (PEM) of --tls-cert")
 	root.AddCommand(serveCmd)
 }
 

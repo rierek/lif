@@ -615,7 +615,7 @@ func TestG15_BatchBlockInTextModeNamesTheBlockedAndTheWrittenItem(t *testing.T) 
 
 	_, stderr, err := runInProject(t, dir, "update", "ex-aaaa", "ex-bbbb", "-s", "completed")
 
-	want := "Error: hook \"g\" blocked the change of ex-bbbb: Fix it.\ndetail (already written: ex-aaaa)\n"
+	want := "Error: hook \"g\" blocked the change of ex-bbbb: Fix it.\ndetail\n(already written: ex-aaaa)\n"
 	if stderr != want {
 		t.Errorf("stderr = %q, want %q", stderr, want)
 	}

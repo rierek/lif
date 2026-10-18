@@ -245,3 +245,10 @@ func TestHookTimeoutDefaultsAndRejectsNegative(t *testing.T) {
 		t.Errorf("5 = %v", got)
 	}
 }
+
+// TRUST-13: id, slug, path and body are never extra keys, so a hook on them would never fire.
+func TestV09_ManagedNamesNotWatchable(t *testing.T) {
+	for _, key := range []string{"id", "slug", "path", "body"} {
+		hkWantErr(t, "event: [updated]\nchanged: ["+key+"]\nrun: wt-open", `"`+key+`" is not watchable`)
+	}
+}

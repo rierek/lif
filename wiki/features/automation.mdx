@@ -154,7 +154,7 @@ hooks:
 
 ### Gates
 
-A gate has `stage: before`. It runs before the write, and a non-zero exit refuses the change: nothing is written. This gate refuses `completed` until the item is listed in the file that its field `target_entry` names:
+A gate has `stage: before`. It runs before the write, and a non-zero exit refuses the change: nothing is written. With several targets, the ones before the blocked target stay written ([Gates](../../reference/configuration/)). This gate refuses `completed` until the item is listed in the file that its field `target_entry` names:
 
 ```yaml
 tasks:
@@ -190,6 +190,7 @@ With `--json`, the same text is the `error` and the `code` is `POLICY_VIOLATION`
 
 - A gate fails closed. A gate that cannot run, for example an unknown task, blocks the change with `could not run: <error>`.
 - A gate in a project config that is not allowed does not run. Lif warns and counts the gates: `hooks in <path> are not allowed (1 gates not enforced)`.
+- A gate does not guard creation (`lif create -s completed`, `createItem`), and it does not run with `--config` or `--lif-path` from another directory. Editing `.lif.yml` takes the allow back, and the gates stop until the next `lif hooks allow`. [Paths that fire nothing](../../reference/configuration/#paths-that-fire-nothing) lists them.
 - `LIF_NO_HOOKS` with any non-empty value skips after hooks and gates. It is a deliberate bypass, and every process that a hook starts inherits it. An agent must fix what the gate reports and must not set it.
 
 ### Limits

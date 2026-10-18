@@ -234,3 +234,11 @@ func TestBlockedErrorDropsControlCharactersOfTheMessage(t *testing.T) {
 		t.Errorf("Error() = %q, want %q", got, want)
 	}
 }
+
+// GATES-12: a block scalar message ends with a newline, and the task output may carry escapes.
+func TestBlockedErrorTrimsTheMessageAndCleansTheOutput(t *testing.T) {
+	e := &BlockedError{Hook: "g", ItemID: "x", Message: "Fix it.\n", Output: "a\x1b[31mb"}
+	if got, want := e.Error(), "hook \"g\" blocked the change of x: Fix it.\na[31mb"; got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/rierek/lif/pkg/item"
@@ -51,6 +52,7 @@ func (d *Dispatcher) env(hook, stage string, m itemgraph.Mutation) []string {
 	f := itemFields(m)
 	env := []string{
 		"LIF_NO_HOOKS=1",
+		"LIF_HOOK_DEPTH=" + strconv.Itoa(hookDepth()+1),
 		"LIF_HOOK=" + hook,
 		"LIF_STAGE=" + stage,
 		"LIF_EVENT=" + m.Event,

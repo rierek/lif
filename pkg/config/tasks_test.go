@@ -221,3 +221,10 @@ func TestTK17_GlobalErrorStartsWithPath(t *testing.T) {
 		}
 	}
 }
+
+func TestTK_NonStringStepRejected(t *testing.T) {
+	tkWantProjectErr(t, "tasks:\n    a:\n        steps: [1, true]\n", "steps[0]: step must be a string")
+	if _, _, err := tkLoadProject(t, "tasks:\n    a:\n        steps:\n            - '1'\n            - |\n              echo hi\n"); err != nil {
+		t.Fatalf("string steps rejected: %v", err)
+	}
+}

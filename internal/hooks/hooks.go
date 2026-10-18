@@ -4,6 +4,7 @@ package hooks
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -31,7 +33,8 @@ type Dispatcher struct {
 	storeRoot string
 	warn      io.Writer
 
-	mu      sync.Mutex // hook tasks run one at a time: lif serve handles requests in parallel
+	stateMu sync.Mutex // guards the three fields below and the load in prepare
+	runMu   sync.Mutex // hook tasks run one at a time: lif serve handles requests in parallel
 	warned  bool       // the not-allowed warning was printed
 	key, fp string     // trust key and fingerprint of cfg; set on first use
 }
@@ -73,6 +76,29 @@ func (e *BlockedError) Error() string {
 // non-empty value does, also "0".
 func noHooks() bool { return os.Getenv("LIF_NO_HOOKS") != "" }
 
+// maxHookDepth is the most nested hook levels. The task of a hook gets
+// LIF_HOOK_DEPTH one higher than the caller's. A lif call that dropped
+// LIF_NO_HOOKS (env -u, an empty value) still carries it, so a hook that calls
+// lif again cannot loop forever. A call that drops the whole environment (env -i,
+// sudo, ssh) is not covered.
+const maxHookDepth = 3
+
+func hookDepth() int {
+	n, _ := strconv.Atoi(os.Getenv("LIF_HOOK_DEPTH"))
+	return n
+}
+
+// skipReason says why this call runs no hooks, or is "".
+func skipReason() string {
+	if noHooks() {
+		return "LIF_NO_HOOKS is set"
+	}
+	if hookDepth() >= maxHookDepth {
+		return fmt.Sprintf("LIF_HOOK_DEPTH=%d reached the limit of %d nested hooks", hookDepth(), maxHookDepth)
+	}
+	return ""
+}
+
 // active is a hook that may run in this call.
 type active struct {
 	config.Hook
@@ -86,26 +112,30 @@ func (d *Dispatcher) Gate(m itemgraph.Mutation) (ran bool, err error) {
 	if d == nil {
 		return false, nil
 	}
-	skip := noHooks()
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
+	skip := skipReason()
+	d.stateMu.Lock()
 	base, gates, err := d.prepare(true)
+	d.stateMu.Unlock()
 	if err != nil {
-		if skip { // the escape hatch must work with a broken file
+		if skip != "" { // the escape hatch must work with a broken file
 			return false, nil
 		}
 		return false, &BlockedError{Hook: "*", ItemID: orEmpty(m.Item).ID,
 			Message: "hooks could not be loaded: " + err.Error() + " (fix it or set LIF_NO_HOOKS=1)"}
 	}
+	gates = slices.DeleteFunc(gates, func(g active) bool { return !match(g.Hook, m) })
+	if len(gates) == 0 {
+		return false, nil // no lock: a write that no gate watches never waits for a running hook
+	}
+	if skip != "" {
+		for _, g := range gates {
+			fmt.Fprintf(d.warn, "warning: gate %q skipped (%s)\n", g.name, skip)
+		}
+		return false, nil
+	}
+	d.runMu.Lock()
+	defer d.runMu.Unlock()
 	for _, g := range gates {
-		if !match(g.Hook, m) {
-			continue
-		}
-		if skip {
-			fmt.Fprintf(d.warn, "warning: gate %q skipped (LIF_NO_HOOKS is set)\n", g.name)
-			continue
-		}
 		var out bytes.Buffer
 		started, runErr := d.run(base, g, m, &out)
 		ran = ran || started
@@ -125,28 +155,40 @@ func (d *Dispatcher) Gate(m itemgraph.Mutation) (ran bool, err error) {
 }
 
 // Fire runs every active matching after hook. It never returns an error: a
-// failing hook prints a warning and the next one runs. ran is true when a
-// hook task started.
+// failing hook prints a warning and the next one runs; an interrupted hook
+// stops the rest. ran is true when a hook task started.
 func (d *Dispatcher) Fire(m itemgraph.Mutation) (ran bool) {
-	if d == nil || noHooks() {
+	if d == nil {
 		return false
 	}
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
+	if skip := skipReason(); skip != "" {
+		if noHooks() {
+			return false
+		}
+		fmt.Fprintf(d.warn, "warning: hooks skipped (%s)\n", skip)
+		return false
+	}
+	d.stateMu.Lock()
 	base, hooks, err := d.prepare(false)
+	d.stateMu.Unlock()
 	if err != nil {
 		fmt.Fprintf(d.warn, "warning: hooks could not be loaded: %v\n", err)
 		return false
 	}
+	hooks = slices.DeleteFunc(hooks, func(h active) bool { return !match(h.Hook, m) })
+	if len(hooks) == 0 {
+		return false
+	}
+	d.runMu.Lock()
+	defer d.runMu.Unlock()
 	for _, h := range hooks {
-		if !match(h.Hook, m) {
-			continue
-		}
 		started, err := d.run(base, h, m, d.warn)
 		ran = ran || started
 		if err != nil {
 			fmt.Fprintf(d.warn, "warning: hook %q (task %q): %v\n", h.name, h.Run, err)
+			if errors.Is(err, tasks.ErrInterrupted) {
+				break
+			}
 		}
 	}
 	return ran
@@ -154,7 +196,7 @@ func (d *Dispatcher) Fire(m itemgraph.Mutation) (ran bool) {
 
 // prepare loads the state of one call and returns the active hooks of a
 // stage, in name order, with the task set that holds the global tasks and
-// the project directory. The caller holds d.mu.
+// the project directory. The caller holds d.stateMu.
 func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err error) {
 	root, err := filepath.Abs(d.cfg.ConfigDir()) // an empty directory is the working directory
 	if err != nil {
@@ -263,8 +305,45 @@ func (d *Dispatcher) run(base tasks.Set, h active, m itemgraph.Mutation, out io.
 	if h.IsGate() {
 		stage = "before"
 	}
-	streams := tasks.IO{Stdin: strings.NewReader(""), Stdout: out, Stderr: out} // hooks are not interactive
-	return true, tasks.Run(base.Root, plan, args, streams, d.env(h.name, stage, m))
+	ctx := context.Background()
+	if limit := h.TimeoutDuration(); limit > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeoutCause(ctx, limit, fmt.Errorf("timed out after %s", limit))
+		defer cancel()
+	}
+	capped := &cappedWriter{w: out, left: maxOutput}
+	streams := tasks.IO{Stdin: strings.NewReader(""), Stdout: capped, Stderr: capped} // hooks are not interactive
+	err = tasks.RunContext(ctx, base.Root, plan, args, streams, d.env(h.name, stage, m))
+	if capped.cut {
+		fmt.Fprintf(out, "\n(output cut after %d KiB)\n", maxOutput>>10)
+	}
+	return true, err
+}
+
+// maxOutput is the most output of one hook or gate task that is kept. A task
+// that writes more is not stopped; the rest is dropped.
+const maxOutput = 64 << 10
+
+// cappedWriter passes the first left bytes to w and drops the rest. It reports
+// every write as complete, so the task never sees a broken pipe.
+type cappedWriter struct {
+	w    io.Writer
+	left int
+	cut  bool
+}
+
+func (c *cappedWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	if n > c.left {
+		p, c.cut = p[:c.left], true
+	}
+	c.left -= len(p)
+	if len(p) > 0 {
+		if _, err := c.w.Write(p); err != nil {
+			return 0, err
+		}
+	}
+	return n, nil
 }
 
 // match reports whether h fires for m: every condition that h sets must

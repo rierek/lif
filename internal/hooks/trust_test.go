@@ -407,7 +407,7 @@ func TestT20b_ChangedConfigKeepsProjectGatesClosed(t *testing.T) {
 	p := newProj(t, v1)
 	p.allow()
 	writeFile(t, p.cfg.ConfigFile(), strings.Replace(v1, "gate-ran", "gate-ran2", 1)) // a comment would keep the fingerprint
-	p.allow() // the user allows the new file; this process still holds the old one
+	p.allow()                                                                         // the user allows the new file; this process still holds the old one
 	_, err := p.d.Gate(toProgress())
 	var blocked *BlockedError
 	if !errors.As(err, &blocked) || blocked.Hook != "p-gate" || !strings.Contains(blocked.Message, "restart") {

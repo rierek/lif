@@ -492,3 +492,39 @@ func TestAfterHookThatRanChecksETagOfLaterWrites(t *testing.T) {
 		t.Errorf("status on disk = %q, want todo: the stale write must not land", disk.Status)
 	}
 }
+
+// An after hook that wrote the item it ran for: the returned item and its ETag
+// are what is on disk, and the next write without If-Match goes through.
+func TestAfterHookThatWroteTheItemReturnsTheFreshItem(t *testing.T) {
+	ctx := context.Background()
+	r := newTestResolver(t)
+	createTyped(t, r, "beans-ah03", "task", "")
+	rec := newRecorder(r)
+	rec.afterFn = func(Mutation) bool {
+		b, err := r.Core.Get("beans-ah03")
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(r.Core.Root(), b.Path)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, "\nedited by the hook\n"...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return true
+	}
+
+	got, err := r.UpdateItem(ctx, "beans-ah03", statusInput("in-progress"))
+	if err != nil {
+		t.Fatalf("UpdateItem: %v", err)
+	}
+	if disk := onDisk(t, r, "beans-ah03"); got.ETag() != disk.ETag() || !strings.Contains(got.Body, "edited by the hook") {
+		t.Errorf("returned etag %s, body %q; disk etag %s: the result is stale", got.ETag(), got.Body, disk.ETag())
+	}
+	body := "next"
+	if _, err := r.UpdateItem(ctx, "beans-ah03", model.UpdateItemInput{Body: &body}); err != nil {
+		t.Errorf("write after the hook: %v", err)
+	}
+}

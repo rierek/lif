@@ -86,7 +86,7 @@ func TestTP04_DepsOrderEachOnce(t *testing.T) {
 	}
 }
 
-func TestTP05_DepsIgnoreForceGlobal(t *testing.T) {
+func TestTP05_DepsFollowForceGlobal(t *testing.T) {
 	set := Set{
 		Project: map[string]config.Task{"b": steps("echo project-b")},
 		Global: map[string]config.Task{
@@ -98,8 +98,20 @@ func TestTP05_DepsIgnoreForceGlobal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan) != 2 || plan[0].Name != "b" || plan[0].Origin != "project" || plan[1].Name != "a" || plan[1].Origin != "global" {
-		t.Fatalf("plan = %+v", plan)
+	if len(plan) != 2 || plan[0].Name != "b" || plan[0].Origin != "global" || plan[1].Name != "a" || plan[1].Origin != "global" {
+		t.Fatalf("plan = %+v, want the global b as dependency", plan)
+	}
+	plan, err = set.Plan("a", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan[0].Origin != "project" {
+		t.Fatalf("without force the project b wins: plan = %+v", plan)
+	}
+	set.Global = map[string]config.Task{"a": {Deps: []string{"p"}, Steps: []string{"echo a"}}}
+	set.Project = map[string]config.Task{"p": steps("echo p")}
+	if _, err := set.Plan("a", true); err == nil {
+		t.Error("-g let a global task depend on a project-only task")
 	}
 }
 
@@ -197,7 +209,7 @@ func TestTP12_StepEnvironment(t *testing.T) {
 		Project: map[string]config.Task{"b": steps(step)},
 		Global:  map[string]config.Task{"a": {Deps: []string{"b"}, Steps: []string{step}}},
 	}
-	out, _, err := runTask(t, set, "a", true, nil, "", nil)
+	out, _, err := runTask(t, set, "a", false, nil, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

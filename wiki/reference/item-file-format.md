@@ -29,7 +29,7 @@ Lif writes the fields in this order.
 
 | Field | Type | Default | Validation |
 |---|---|---|---|
-| `title` | string | `Untitled` on `lif create` without a title | Required, not empty, at most 1000 characters on write. |
+| `title` | string | `Untitled` on `lif create` without a title | Required, not empty, no control characters (NUL, newline, escape), at most 1000 characters on write. |
 | `status` | string | `todo` | A name from the status table. |
 | `type` | string | `task` | A name from the type table. Empty becomes `task` on load. |
 | `priority` | string | none written | A name from the priority table. Empty counts as `normal`. |

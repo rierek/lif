@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -94,6 +95,11 @@ const (
 	// packages, one edit away from drifting apart.
 	DefaultMaxWidth = 110
 )
+
+// DefaultCORSOrigins are the allowed origins when neither the server.cors_origins
+// key nor --cors-origin names any: the local origins of the UI and of a dev
+// server. GetCORSOrigins hands out a copy.
+var DefaultCORSOrigins = []string{"http://localhost:*", "http://127.0.0.1:*"}
 
 // DefaultStatuses defines the built-in status table. Config.Statuses can
 // override individual entries; see (*Config).StatusList.
@@ -1188,7 +1194,7 @@ func (c *Config) toYAMLNode() *yaml.Node {
 	}
 	if len(c.Server.CORSOrigins) > 0 {
 		key := strNode("cors_origins")
-		key.HeadComment = "Allowed origins for CORS and WebSocket (default: http://localhost:*, http://127.0.0.1:*)"
+		key.HeadComment = "Allowed origins for CORS and WebSocket (default: see `lif-serve --help`)"
 		seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle}
 		for _, origin := range c.Server.CORSOrigins {
 			seq.Content = append(seq.Content, strNode(origin))
@@ -1950,7 +1956,7 @@ func (c *Config) GetCORSOrigins() []string {
 	if c != nil && len(c.Server.CORSOrigins) > 0 {
 		return c.Server.CORSOrigins
 	}
-	return []string{"http://localhost:*", "http://127.0.0.1:*"}
+	return slices.Clone(DefaultCORSOrigins)
 }
 
 // GetTheme returns the configured theme name, or "mocha" when unset.

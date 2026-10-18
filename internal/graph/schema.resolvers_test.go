@@ -3054,6 +3054,37 @@ func TestExecuteAgentAction(t *testing.T) {
 	})
 }
 
+// Without an agent manager, which lif-serve leaves out beyond loopback unless
+// --allow-remote-agent is given, the server refuses every agent mutation and
+// tells the UI to hide the agent.
+func TestAgentRefusedWithoutManager(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("no manager", func(t *testing.T) {
+		resolver, _ := setupTestResolver(t)
+
+		enabled, err := (&queryResolver{resolver}).AgentEnabled(ctx)
+		if err != nil || enabled {
+			t.Errorf("AgentEnabled() = %v, %v; want false, nil", enabled, err)
+		}
+
+		sent, err := (&mutationResolver{resolver}).SendAgentMessage(ctx, CentralSessionID, "run ls", nil, nil)
+		if err == nil || sent || !strings.Contains(err.Error(), "agent manager not available") {
+			t.Errorf("SendAgentMessage() = %v, %v; want false and the error \"agent manager not available\"", sent, err)
+		}
+	})
+
+	t.Run("manager present", func(t *testing.T) {
+		resolver, _ := setupTestResolver(t)
+		resolver.AgentMgr = agent.NewManager("", nil)
+
+		enabled, err := (&queryResolver{resolver}).AgentEnabled(ctx)
+		if err != nil || !enabled {
+			t.Errorf("AgentEnabled() = %v, %v; want true, nil", enabled, err)
+		}
+	})
+}
+
 func TestAgentActionRegistry(t *testing.T) {
 	expectedActions := []string{"commit", "review", "integrate"}
 	for _, id := range expectedActions {

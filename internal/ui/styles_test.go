@@ -406,3 +406,25 @@ func TestIsValidColorRejectsNonHexDigits(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeColor(t *testing.T) {
+	tests := map[string]string{
+		"green":     "green",
+		"Green":     "green",
+		" sky ":     "sky",
+		"purple":    "mauve",
+		"GRAY":      "overlay1",
+		"#AABBCC":   "#aabbcc",
+		"#abc":      "#abc",
+		" #FF0000 ": "#ff0000",
+		"#zzz":      "",
+		"#abcd":     "",
+		"nope":      "",
+		"":          "",
+	}
+	for in, want := range tests {
+		if got := NormalizeColor(in); got != want {
+			t.Errorf("NormalizeColor(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

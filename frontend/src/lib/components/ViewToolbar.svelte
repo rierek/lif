@@ -3,6 +3,7 @@
   import { changesStore } from '#lib/changes.svelte.js';
   import { ui } from '#lib/uiState.svelte.js';
   import { configStore } from '#lib/config.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
 
   const hasChanges = $derived(changesStore.allChanges.length > 0);
 
@@ -19,8 +20,8 @@
 </script>
 
 <div class="toolbar bg-surface-alt">
-  {#if configStore.agentEnabled && showPanelToggles}
-    {#if showAgentToggle && onToggleAgent}
+  {#if showPanelToggles}
+    {#if configStore.agentEnabled && showAgentToggle && onToggleAgent}
       <button
         onclick={onToggleAgent}
         class={['btn-toggle', agentActive ? 'btn-toggle-active' : 'btn-toggle-inactive']}
@@ -47,7 +48,7 @@
       title={ui.showChanges ? 'Hide changes' : 'Show changes'}
     >
       {#if hasChanges}
-        <span class="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400"></span>
+        <span class="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-warning"></span>
       {/if}
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -79,4 +80,13 @@
   {#if right}
     {@render right()}
   {/if}
+  <button
+    class="btn-toggle btn-toggle-inactive ml-1"
+    data-testid="theme-toggle"
+    onclick={() => theme.cycle()}
+    title="Theme: {theme.preference}"
+    aria-label="Theme: {theme.preference}"
+  >
+    {theme.preference === 'system' ? 'Auto' : theme.preference === 'light' ? 'Light' : 'Dark'}
+  </button>
 </div>

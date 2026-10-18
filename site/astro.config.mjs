@@ -95,6 +95,7 @@ export default defineConfig({
 						'reference/json-output',
 						'reference/graphql',
 						'reference/web-server',
+						'reference/remote-access',
 						{
 							label: 'TUI',
 							items: [

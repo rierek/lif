@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/rierek/lif/internal/cors"
 	"github.com/rierek/lif/internal/terminal"
+	"github.com/rierek/lif/pkg/config"
 )
 
 func tcpAddr(ip string, port int) *net.TCPAddr {
@@ -24,19 +26,42 @@ func tcpAddr(ip string, port int) *net.TCPAddr {
 
 func mustAccess(t *testing.T, ip string, allowRemoteTerminal bool) serveAccess {
 	t.Helper()
-	a, err := newServeAccess(tcpAddr(ip, 8080), allowRemoteTerminal)
+	return mustAccessOpts(t, ip, serveOptions{allowRemoteTerminal: allowRemoteTerminal})
+}
+
+func mustAccessOpts(t *testing.T, ip string, opts serveOptions) serveAccess {
+	t.Helper()
+	a, err := newServeAccess(tcpAddr(ip, 8080), opts)
 	if err != nil {
 		t.Fatalf("newServeAccess(%s): %v", ip, err)
 	}
 	return a
 }
 
+func mustPublicURL(t *testing.T, s string) *url.URL {
+	t.Helper()
+	u, err := parsePublicURL(s)
+	if err != nil {
+		t.Fatalf("parsePublicURL(%q): %v", s, err)
+	}
+	return u
+}
+
 // guardedRequest sends one request through the router. host and origin are the
 // Host and Origin headers; an empty origin sends none, like curl.
 func guardedRequest(router http.Handler, method, host, origin, path string) *httptest.ResponseRecorder {
+	return guardedRequestAs(router, method, host, origin, path, "")
+}
+
+// guardedRequestAs is guardedRequest with the access token in the
+// Authorization header; an empty token sends none.
+func guardedRequestAs(router http.Handler, method, host, origin, path, token string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, "http://"+host+path, strings.NewReader("{}"))
 	if origin != "" {
 		req.Header.Set("Origin", origin)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -98,7 +123,7 @@ func TestLoopbackListenerAllowsItsOwnAddress(t *testing.T) {
 		t.Run(ip, func(t *testing.T) {
 			access := mustAccess(t, ip, false)
 			router := gin.New()
-			router.Use(access.middleware(cors.NewChecker(access.withOwnAddress(cors.DefaultOrigins)))...)
+			router.Use(access.middleware(cors.NewChecker(access.withOwnAddress(config.DefaultCORSOrigins)))...)
 			router.GET("/", func(c *gin.Context) { c.String(http.StatusOK, "page") })
 			router.POST("/api/graphql", func(c *gin.Context) { c.String(http.StatusOK, "ran") })
 
@@ -127,21 +152,21 @@ func TestLoopbackListenerAllowsItsOwnAddress(t *testing.T) {
 
 // The list the operator gave is what the server prints and uses: the own
 // address is added only where it is missing, and the list passed in, which may
-// be cors.DefaultOrigins itself, is never modified.
+// be config.DefaultCORSOrigins itself, is never modified.
 func TestWithOwnAddressOnlyAddsWhatIsMissing(t *testing.T) {
-	defaults := slices.Clone(cors.DefaultOrigins)
+	defaults := slices.Clone(config.DefaultCORSOrigins)
 
-	if got := mustAccess(t, "127.0.0.1", false).withOwnAddress(cors.DefaultOrigins); !slices.Equal(got, defaults) {
+	if got := mustAccess(t, "127.0.0.1", false).withOwnAddress(config.DefaultCORSOrigins); !slices.Equal(got, defaults) {
 		t.Errorf("127.0.0.1 is in the default list already: got %v", got)
 	}
-	if got := mustAccess(t, "0.0.0.0", false).withOwnAddress(cors.DefaultOrigins); !slices.Equal(got, defaults) {
+	if got := mustAccess(t, "0.0.0.0", false).withOwnAddress(config.DefaultCORSOrigins); !slices.Equal(got, defaults) {
 		t.Errorf("a listener on the network has no loopback address of its own: got %v", got)
 	}
-	if got := mustAccess(t, "192.168.1.50", false).withOwnAddress(cors.DefaultOrigins); !slices.Equal(got, defaults) {
+	if got := mustAccess(t, "192.168.1.50", false).withOwnAddress(config.DefaultCORSOrigins); !slices.Equal(got, defaults) {
 		t.Errorf("a LAN address is not added: got %v", got)
 	}
 
-	got := mustAccess(t, "::1", false).withOwnAddress(cors.DefaultOrigins)
+	got := mustAccess(t, "::1", false).withOwnAddress(config.DefaultCORSOrigins)
 	if want := append(slices.Clone(defaults), "http://[::1]:*"); !slices.Equal(got, want) {
 		t.Errorf("::1: got %v, want %v", got, want)
 	}
@@ -149,8 +174,201 @@ func TestWithOwnAddressOnlyAddsWhatIsMissing(t *testing.T) {
 	if want := []string{"http://localhost:5173", "http://127.0.0.1:*"}; !slices.Equal(got, want) {
 		t.Errorf("a replaced list keeps the own address: got %v, want %v", got, want)
 	}
-	if !slices.Equal(cors.DefaultOrigins, defaults) {
-		t.Errorf("the default list was modified: %v", cors.DefaultOrigins)
+	if !slices.Equal(config.DefaultCORSOrigins, defaults) {
+		t.Errorf("the default list was modified: %v", config.DefaultCORSOrigins)
+	}
+}
+
+// Behind a proxy the browser reaches the server under the public name. That
+// host passes the host check and a page of that origin may change things
+// without a --cors-origin entry, whichever Host the proxy forwards. Every
+// other host and origin stays out.
+func TestPublicURLAllowsItsOwnHostAndOrigin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	access := mustAccessOpts(t, "127.0.0.1", serveOptions{publicURL: mustPublicURL(t, "https://box.example.ts.net/lif/")})
+
+	defaults := slices.Clone(config.DefaultCORSOrigins)
+	origins := access.withPublicOrigin(access.withOwnAddress(config.DefaultCORSOrigins))
+	if want := append(slices.Clone(defaults), "https://box.example.ts.net"); !slices.Equal(origins, want) {
+		t.Fatalf("origins = %v, want %v", origins, want)
+	}
+	if !slices.Equal(config.DefaultCORSOrigins, defaults) {
+		t.Errorf("the default list was modified: %v", config.DefaultCORSOrigins)
+	}
+
+	router := gin.New()
+	router.Use(access.middleware(cors.NewChecker(origins))...)
+	ran := 0
+	router.POST("/api/graphql", func(c *gin.Context) { ran++; c.String(http.StatusOK, "ran") })
+
+	// The proxy hides who the client is, so a public URL implies the token.
+	if rec := guardedRequest(router, "POST", "box.example.ts.net", "https://box.example.ts.net", "/api/graphql"); rec.Code != 401 || ran != 0 {
+		t.Errorf("without the token: status %d, handler ran %v; want a 401", rec.Code, ran != 0)
+	}
+
+	tests := []struct {
+		name   string
+		host   string
+		origin string
+		want   int
+	}{
+		{"the UI under the public name", "box.example.ts.net", "https://box.example.ts.net", 200},
+		{"a proxy that forwards its own Host", "127.0.0.1:8080", "https://box.example.ts.net", 200},
+		{"a script through the proxy", "box.example.ts.net", "", 200},
+		{"a page of another site", "box.example.ts.net", "https://evil.example", 403},
+		{"a foreign host", "evil.example", "https://evil.example", 403},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := ran
+			rec := guardedRequestAs(router, "POST", tt.host, tt.origin, "/api/graphql", access.token)
+			if rec.Code != tt.want {
+				t.Fatalf("host=%q origin=%q: status %d, want %d (body %q)", tt.host, tt.origin, rec.Code, tt.want, rec.Body.String())
+			}
+			if tt.want == 403 && ran != before {
+				t.Errorf("the refused request still reached the handler")
+			}
+		})
+	}
+}
+
+// The playground page lives under the prefix of the public URL, so it gets the
+// API as an absolute URL; a root-relative path would leave the prefix.
+func TestGraphQLEndpointFollowsThePublicURL(t *testing.T) {
+	if got := mustAccess(t, "127.0.0.1", false).graphqlEndpoint(); got != "/api/graphql" {
+		t.Errorf("without a public URL: %q, want /api/graphql", got)
+	}
+	a := mustAccessOpts(t, "127.0.0.1", serveOptions{publicURL: mustPublicURL(t, "https://box.example.ts.net/lif/")})
+	if got, want := a.graphqlEndpoint(), "https://box.example.ts.net/lif/api/graphql"; got != want {
+		t.Errorf("behind a public URL: %q, want %q", got, want)
+	}
+}
+
+func TestParsePublicURL(t *testing.T) {
+	valid := map[string]string{
+		"https://box.example.ts.net":         "https://box.example.ts.net",
+		"https://box.example.ts.net/lif/":    "https://box.example.ts.net/lif",
+		"https://Box.Example.TS.net/lif//":   "https://box.example.ts.net/lif",
+		"http://nas.local:8080":              "http://nas.local:8080",
+		"https://box.example.ts.net:443/lif": "https://box.example.ts.net/lif",
+		"http://nas.local:80":                "http://nas.local",
+	}
+	for in, want := range valid {
+		u, err := parsePublicURL(in)
+		if err != nil {
+			t.Errorf("parsePublicURL(%q): %v", in, err)
+			continue
+		}
+		if got := u.String(); got != want {
+			t.Errorf("parsePublicURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+
+	for _, in := range []string{"", "box.example.ts.net", "/lif", "ftp://box.example", "https://", "https:box", "https://box?x=1", "https://box/?", "https://box#top"} {
+		_, err := parsePublicURL(in)
+		if err == nil || !strings.Contains(err.Error(), "must be an absolute http:// or https:// URL without query or fragment") {
+			t.Errorf("parsePublicURL(%q): err = %v, want the invalid --public-url error", in, err)
+		}
+	}
+}
+
+// A proxy in front of a loopback server puts it on the network, and the
+// listener cannot see that. --require-token and --public-url give such a
+// listener the rules of a network one: the token, and no terminal unless asked.
+func TestRequireTokenMakesALoopbackListenerRemote(t *testing.T) {
+	for name, opts := range map[string]serveOptions{
+		"--require-token": {requireToken: true},
+		"--public-url":    {publicURL: mustPublicURL(t, "https://box.example.ts.net/lif")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			a := mustAccessOpts(t, "127.0.0.1", opts)
+			if !a.loopback || !a.remote() {
+				t.Fatalf("loopback = %v, remote() = %v; want a loopback listener that counts as remote", a.loopback, a.remote())
+			}
+			if len(a.token) < 32 {
+				t.Errorf("no usable token: %q", a.token)
+			}
+			if a.terminalEnabled() {
+				t.Error("the terminal is enabled behind a proxy without --allow-remote-terminal")
+			}
+			opts.allowRemoteTerminal = true
+			if !mustAccessOpts(t, "127.0.0.1", opts).terminalEnabled() {
+				t.Error("--allow-remote-terminal did not enable the terminal")
+			}
+		})
+	}
+}
+
+// Without a token a loopback server cannot tell a proxied request from a local
+// one, except by the headers the proxy adds. It refuses those and names the
+// way out. A server that asks for the token needs no such guard.
+func TestProxyGuardRefusesProxiedRequestsWithoutToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	newRouter := func(a serveAccess) *gin.Engine {
+		router := gin.New()
+		router.Use(a.middleware(cors.NewChecker(config.DefaultCORSOrigins))...)
+		router.GET("/page", func(c *gin.Context) { c.String(http.StatusOK, "page") })
+		return router
+	}
+	get := func(router http.Handler, header, token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", "http://localhost:8080/page", nil)
+		if header != "" {
+			req.Header.Set(header, "1.2.3.4")
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	plain := newRouter(mustAccess(t, "127.0.0.1", false))
+	if rec := get(plain, "", ""); rec.Code != 200 {
+		t.Errorf("a plain local request: status %d, want 200", rec.Code)
+	}
+	for _, h := range proxyHeaders {
+		rec := get(plain, h, "")
+		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "came through a proxy") || !strings.Contains(rec.Body.String(), "--public-url") {
+			t.Errorf("%s: status %d, body %q; want a 403 that names the proxy and --public-url", h, rec.Code, rec.Body.String())
+		}
+	}
+
+	remote := mustAccessOpts(t, "127.0.0.1", serveOptions{requireToken: true})
+	proxied := newRouter(remote)
+	if rec := get(proxied, "X-Forwarded-For", remote.token); rec.Code != 200 {
+		t.Errorf("a proxied request with the token: status %d, want 200", rec.Code)
+	}
+	if rec := get(proxied, "X-Forwarded-For", ""); rec.Code != 401 {
+		t.Errorf("a proxied request without the token: status %d, want 401", rec.Code)
+	}
+}
+
+// An agent session runs commands as the server user, a shell like the
+// terminal. It is served on loopback; beyond it, and behind a proxy, only on
+// request, and asking for the terminal does not ask for the agent.
+func TestAgentIsServedOnLoopbackOrOnRequest(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+		opts serveOptions
+		want bool
+	}{
+		{"loopback", "127.0.0.1", serveOptions{}, true},
+		{"loopback, opt-in changes nothing", "127.0.0.1", serveOptions{allowRemoteAgent: true}, true},
+		{"all interfaces", "0.0.0.0", serveOptions{}, false},
+		{"LAN address", "192.168.1.50", serveOptions{}, false},
+		{"all interfaces, agent opted in", "0.0.0.0", serveOptions{allowRemoteAgent: true}, true},
+		{"all interfaces, terminal opted in only", "0.0.0.0", serveOptions{allowRemoteTerminal: true}, false},
+		{"behind a proxy", "127.0.0.1", serveOptions{requireToken: true}, false},
+		{"behind a proxy, agent opted in", "127.0.0.1", serveOptions{requireToken: true, allowRemoteAgent: true}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mustAccessOpts(t, tt.ip, tt.opts).agentEnabled(); got != tt.want {
+				t.Errorf("agentEnabled() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -162,7 +380,7 @@ func TestWithOwnAddressOnlyAddsWhatIsMissing(t *testing.T) {
 func TestLoopbackGuardRefusesForeignHostAndOrigin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(mustAccess(t, "127.0.0.1", false).middleware(cors.NewChecker(cors.DefaultOrigins))...)
+	router.Use(mustAccess(t, "127.0.0.1", false).middleware(cors.NewChecker(config.DefaultCORSOrigins))...)
 	ran := 0
 	router.POST("/api/graphql", func(c *gin.Context) { ran++; c.String(http.StatusOK, "ran") })
 	router.GET("/api/graphql", func(c *gin.Context) { c.String(http.StatusOK, "read") })
@@ -301,7 +519,7 @@ func dialTerminal(t *testing.T, srv *httptest.Server, host string, header http.H
 // web UI uses the terminal, and a browser always sends one on a WebSocket
 // upgrade.
 func TestTerminalNeedsAnAllowedOriginAndHost(t *testing.T) {
-	srv := terminalServer(t, mustAccess(t, "127.0.0.1", false), cors.DefaultOrigins)
+	srv := terminalServer(t, mustAccess(t, "127.0.0.1", false), config.DefaultCORSOrigins)
 	local := srv.Listener.Addr().String() // 127.0.0.1:<port>
 
 	refused := []struct {
@@ -416,7 +634,7 @@ func TestNetworkListenerRequiresTheToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	access := mustAccess(t, "0.0.0.0", false)
 	router := gin.New()
-	router.Use(access.middleware(cors.NewChecker(cors.DefaultOrigins))...)
+	router.Use(access.middleware(cors.NewChecker(config.DefaultCORSOrigins))...)
 	ran := 0
 	router.POST("/api/graphql", func(c *gin.Context) { ran++; c.String(http.StatusOK, "ran") })
 	router.GET("/page", func(c *gin.Context) { c.String(http.StatusOK, "page") })
@@ -475,16 +693,18 @@ func TestNetworkListenerRequiresTheToken(t *testing.T) {
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("status %d, want 303", rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/page?item=abc" {
-			t.Errorf("Location %q, want /page?item=abc", loc)
+		// Relative: behind a proxy that stripped a prefix, "./page" is still the
+		// same address without the token.
+		if loc := rec.Header().Get("Location"); loc != "./page?item=abc" {
+			t.Errorf("Location %q, want ./page?item=abc", loc)
 		}
 		cookies := rec.Result().Cookies()
 		if len(cookies) != 1 {
 			t.Fatalf("got %d cookies, want 1", len(cookies))
 		}
 		c := cookies[0]
-		if c.Name != "lif_token_8080" || c.Value != access.token || !c.HttpOnly || c.SameSite != http.SameSiteLaxMode || c.Path != "/" {
-			t.Errorf("cookie %+v: want name lif_token_8080, the token, HttpOnly, SameSite=Lax, Path=/", c)
+		if c.Name != "lif_token_8080" || c.Value != access.token || !c.HttpOnly || c.Secure || c.SameSite != http.SameSiteLaxMode || c.Path != "/" {
+			t.Errorf("cookie %+v: want name lif_token_8080, the token, HttpOnly, not Secure (no TLS), SameSite=Lax, Path=/", c)
 		}
 		if rec := get("/page", func(r *http.Request) { r.AddCookie(c) }); rec.Code != 200 {
 			t.Errorf("with the cookie: status %d, want 200", rec.Code)
@@ -493,9 +713,28 @@ func TestNetworkListenerRequiresTheToken(t *testing.T) {
 
 	t.Run("the redirect stays on this site", func(t *testing.T) {
 		rec := get("//evil.example/page?token="+access.token, nil)
-		loc := rec.Header().Get("Location")
-		if rec.Code != http.StatusSeeOther || strings.HasPrefix(loc, "//") {
-			t.Errorf("status %d, Location %q: want a 303 to a path on this server", rec.Code, loc)
+		if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != "./page" {
+			t.Errorf("status %d, Location %q: want a 303 to ./page", rec.Code, loc)
+		}
+	})
+
+	// The target is "./" and the last segment of the path, whatever depth a
+	// proxy that stripped a prefix has put the server at.
+	t.Run("the redirect is relative", func(t *testing.T) {
+		for _, tt := range []struct{ path, query, want string }{
+			{"/", "", "./"},
+			{"/page", "", "./page"},
+			{"/workspace/abc", "", "./abc"},
+			{"/workspace/abc/", "", "./"},
+			{"/a%2Fb", "", "./a%2Fb"},
+			{"/javascript:alert(1)", "", "./javascript:alert(1)"},
+			{"/page", "z=1&", "./page?z=1"},
+		} {
+			target := tt.path + "?" + tt.query + "token=" + access.token
+			rec := get(target, nil)
+			if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != tt.want {
+				t.Errorf("GET %s: status %d, Location %q; want a 303 to %q", tt.path+"?"+tt.query+"token=…", rec.Code, loc, tt.want)
+			}
 		}
 	})
 
@@ -647,7 +886,7 @@ func TestStartupLinesNameTheRealBindAddress(t *testing.T) {
 	}
 
 	t.Run("loopback", func(t *testing.T) {
-		log := join(mustAccess(t, "127.0.0.1", false), cors.DefaultOrigins)
+		log := join(mustAccess(t, "127.0.0.1", false), config.DefaultCORSOrigins)
 		mustContain(t, log,
 			"[lif] Listening on 127.0.0.1:8080 (loopback only",
 			"[lif] Starting server at http://127.0.0.1:8080/",
@@ -659,7 +898,7 @@ func TestStartupLinesNameTheRealBindAddress(t *testing.T) {
 	})
 
 	t.Run("IPv6 loopback", func(t *testing.T) {
-		mustContain(t, join(mustAccess(t, "::1", false), append(cors.DefaultOrigins, "http://[::1]:*")),
+		mustContain(t, join(mustAccess(t, "::1", false), append(config.DefaultCORSOrigins, "http://[::1]:*")),
 			"[lif] Listening on [::1]:8080 (loopback only",
 			"[lif] Starting server at http://[::1]:8080/",
 			"[lif] Allowed origins: http://localhost:*, http://127.0.0.1:*, http://[::1]:*",
@@ -671,7 +910,7 @@ func TestStartupLinesNameTheRealBindAddress(t *testing.T) {
 	// address the server cannot be opened under without it.
 	t.Run("all interfaces", func(t *testing.T) {
 		a := mustAccess(t, "0.0.0.0", false)
-		log := join(a, cors.DefaultOrigins)
+		log := join(a, config.DefaultCORSOrigins)
 		mustContain(t, log,
 			"[lif] Listening on 0.0.0.0:8080 (ALL network interfaces",
 			"[lif] WARNING:",
@@ -686,13 +925,13 @@ func TestStartupLinesNameTheRealBindAddress(t *testing.T) {
 
 	t.Run("all interfaces on a machine without a LAN address", func(t *testing.T) {
 		a := mustAccess(t, "0.0.0.0", false)
-		log := strings.Join(a.startupLines(cors.DefaultOrigins, machine[:2]), "\n")
+		log := strings.Join(a.startupLines(config.DefaultCORSOrigins, machine[:2]), "\n")
 		mustContain(t, log, "[lif] Open the UI: http://localhost:8080/?token="+a.token)
 	})
 
 	t.Run("one LAN address", func(t *testing.T) {
 		a := mustAccess(t, "10.0.0.9", false)
-		log := join(a, cors.DefaultOrigins)
+		log := join(a, config.DefaultCORSOrigins)
 		mustContain(t, log,
 			"[lif] Listening on 10.0.0.9:8080 (non-loopback address",
 			"[lif] Open the UI: http://10.0.0.9:8080/?token="+a.token,
@@ -701,9 +940,61 @@ func TestStartupLinesNameTheRealBindAddress(t *testing.T) {
 	})
 
 	t.Run("terminal opted in on the network", func(t *testing.T) {
-		log := join(mustAccess(t, "0.0.0.0", true), cors.DefaultOrigins)
+		log := join(mustAccess(t, "0.0.0.0", true), config.DefaultCORSOrigins)
 		mustContain(t, log, "[lif] Terminal: enabled (--allow-remote-terminal)", "shell")
 		mustNotContain(t, log, "Terminal: disabled")
+	})
+
+	t.Run("public URL", func(t *testing.T) {
+		a := mustAccessOpts(t, "127.0.0.1", serveOptions{publicURL: mustPublicURL(t, "https://box.example.ts.net/lif")})
+		log := join(a, config.DefaultCORSOrigins)
+		mustContain(t, log,
+			"[lif] Listening on 127.0.0.1:8080 (loopback only",
+			"[lif] Access: token required (--require-token or --public-url)",
+			"[lif] WARNING:",
+			"[lif] Access token: "+a.token,
+			"[lif] Open the UI: https://box.example.ts.net/lif/?token="+a.token,
+			"[lif] GraphQL Playground: https://box.example.ts.net/lif/playground?token="+a.token,
+			"[lif] Terminal: disabled",
+		)
+		mustNotContain(t, log, "Starting server at", "127.0.0.1:8080/")
+	})
+
+	t.Run("token required on loopback", func(t *testing.T) {
+		a := mustAccessOpts(t, "127.0.0.1", serveOptions{requireToken: true})
+		log := join(a, config.DefaultCORSOrigins)
+		mustContain(t, log,
+			"[lif] Listening on 127.0.0.1:8080 (loopback only",
+			"[lif] Access: token required (--require-token or --public-url)",
+			"[lif] Access token: "+a.token,
+			"[lif] Open the UI: http://127.0.0.1:8080/?token="+a.token,
+			"[lif] Terminal: disabled",
+		)
+		mustNotContain(t, log, "Starting server at")
+	})
+
+	// The agent line comes right before the terminal line: the process tests
+	// wait for "[lif] Terminal: " as the last startup line.
+	t.Run("agent state next to the terminal state", func(t *testing.T) {
+		cases := []struct {
+			name  string
+			a     serveAccess
+			agent string
+		}{
+			{"loopback", mustAccess(t, "127.0.0.1", false), "[lif] Agent: enabled"},
+			{"network", mustAccess(t, "0.0.0.0", false), "[lif] Agent: disabled (the server is reachable from the network). Add --allow-remote-agent to enable it."},
+			{"network, opted in", mustAccessOpts(t, "0.0.0.0", serveOptions{allowRemoteAgent: true}), "[lif] Agent: enabled (--allow-remote-agent). WARNING: a client with the access token can run commands through agent sessions as the user running lif-serve."},
+		}
+		for _, tt := range cases {
+			lines := tt.a.startupLines(config.DefaultCORSOrigins, machine)
+			n := len(lines)
+			if lines[n-2] != tt.agent {
+				t.Errorf("%s: second to last line = %q, want %q", tt.name, lines[n-2], tt.agent)
+			}
+			if !strings.HasPrefix(lines[n-1], "[lif] Terminal: ") {
+				t.Errorf("%s: last line = %q, want the terminal line", tt.name, lines[n-1])
+			}
+		}
 	})
 
 	t.Run("wildcard origin", func(t *testing.T) {

@@ -3,12 +3,13 @@
   import favicon from '#lib/assets/favicon.svg';
   import { preloadHighlighter } from '#lib/markdown.js';
   import { page } from '$app/state';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
   import { itemsStore } from '#lib/items.svelte.js';
   import { worktreeStore, MAIN_WORKSPACE_ID } from '#lib/worktrees.svelte.js';
   import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
   import { configStore } from '#lib/config.svelte.js';
   import { ui } from '#lib/uiState.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
   import ItemForm from '#lib/components/ItemForm.svelte';
   import Sidebar from '#lib/components/Sidebar.svelte';
   import SplitPane from '#lib/components/SplitPane.svelte';
@@ -51,7 +52,14 @@
     }
   });
 
+  // Follow display.theme once the config has loaded (it picks the dark flavour)
+  $effect(() => {
+    const name = configStore.theme;
+    if (name) untrack(() => theme.setConfigured(name));
+  });
+
   onMount(() => {
+    theme.init();
     configStore.load();
     itemsStore.subscribe();
     worktreeStore.subscribe();

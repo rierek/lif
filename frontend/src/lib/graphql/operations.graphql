@@ -156,6 +156,19 @@ query Config {
   worktreeBaseRef
   worktreeRunCommand
   worktreeIntegrateMode
+  theme
+  statuses {
+    name
+    color
+  }
+  types {
+    name
+    color
+  }
+  priorities {
+    name
+    color
+  }
 }
 
 query Worktrees {

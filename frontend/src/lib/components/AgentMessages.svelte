@@ -4,6 +4,7 @@
   import { fade } from 'svelte/transition';
   import { decryptText } from '#lib/actions/decryptText.js';
   import { itemLinks } from '#lib/actions/itemLinks.js';
+  import { apiUrl } from '#lib/paths.js';
 
   interface Props {
     messages: AgentMessage[];
@@ -151,7 +152,7 @@
                 <div class="mt-2 flex flex-wrap gap-2">
                   {#each msg.images as img}
                     <img
-                      src={img.url}
+                      src={apiUrl(img.url)}
                       alt="Attachment"
                       class="max-h-48 max-w-xs rounded border border-border"
                     />

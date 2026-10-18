@@ -147,7 +147,7 @@ func (d *Dispatcher) Gate(m itemgraph.Mutation) (ran bool, err error) {
 		if runErr == nil {
 			continue
 		}
-		blocked := &BlockedError{Hook: g.name, ItemID: orEmpty(m.Item).ID, Output: strings.TrimSpace(out.String())}
+		blocked := &BlockedError{Hook: g.name, ItemID: orEmpty(m.Item).ID, Output: blockedOutput(out.String())}
 		var step *tasks.StepError
 		if errors.As(runErr, &step) && step.Code > 0 {
 			blocked.Message = g.Message
@@ -301,6 +301,35 @@ func (d *Dispatcher) warnChanged() {
 	fmt.Fprintf(d.warn, "warning: %s changed since this process started; its gates block their changes and its after hooks do not run until you restart\n", d.configPath())
 }
 
+// Status says in one line whether the project hooks of d run, for the startup
+// of a long-running process; "" when the project config has no hooks.
+func (d *Dispatcher) Status() string {
+	if d == nil || len(d.cfg.Hooks) == 0 {
+		return ""
+	}
+	gates := 0
+	for _, h := range d.cfg.Hooks {
+		if h.IsGate() {
+			gates++
+		}
+	}
+	what := fmt.Sprintf("%d project hooks (%d gates)", len(d.cfg.Hooks), gates)
+	if skip := skipReason(); skip != "" {
+		return fmt.Sprintf("Hooks: OFF, %s do not run (%s)", what, skip)
+	}
+	d.stateMu.Lock()
+	defer d.stateMu.Unlock()
+	trusted, err := readTrust()
+	if err != nil {
+		return fmt.Sprintf("Hooks: %s; the trust file cannot be read, so gates block: %v", what, err)
+	}
+	key, fp := d.trustID()
+	if isAllowed(trusted, key, fp) {
+		return "Hooks: " + what + " active"
+	}
+	return fmt.Sprintf("Hooks: OFF, %s do not run: not allowed. Run 'lif hooks allow', then restart this process", what)
+}
+
 // warnNotAllowed prints, once per Dispatcher, that the project hooks do not
 // run. It counts the gates, because a gate that is off is a policy that is off.
 func (d *Dispatcher) warnNotAllowed() {
@@ -360,6 +389,22 @@ func (d *Dispatcher) run(base tasks.Set, h active, m itemgraph.Mutation, out io.
 		fmt.Fprintf(out, "\n(output cut after %d KiB)\n", maxOutput>>10)
 	}
 	return true, err
+}
+
+// maxBlockedOutput is the most gate output that a BlockedError carries. The
+// error reaches every client of lif-serve, the web UI and GraphQL callers, so
+// it is smaller than the 64 KiB that the log keeps.
+const maxBlockedOutput = 8 << 10
+
+// blockedOutput trims the output of a gate task, drops its control characters
+// (the text reaches a terminal or a web page) and cuts it at maxBlockedOutput
+// bytes.
+func blockedOutput(s string) string {
+	s = tasks.Printable(strings.TrimSpace(s))
+	if len(s) <= maxBlockedOutput {
+		return s
+	}
+	return strings.ToValidUTF8(s[:maxBlockedOutput], "") + fmt.Sprintf("\n(output cut after %d KiB)", maxBlockedOutput>>10)
 }
 
 // maxOutput is the most output of one hook or gate task that is kept. A task

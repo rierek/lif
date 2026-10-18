@@ -496,3 +496,18 @@ func TestT23_AllowAndDenyReplaceACorruptTrustFile(t *testing.T) {
 		t.Errorf("Allowed = %v, %v; want true, nil", ok, err)
 	}
 }
+
+// A long-running process says at start whether its project hooks run.
+func TestStatusSaysWhetherProjectHooksRun(t *testing.T) {
+	p := newProj(t, tasksOf(task("pg", "true"))+hooksOf(hook("p-gate", "stage: before", "event: [updated]", "run: pg")))
+	if got := p.d.Status(); !strings.Contains(got, "OFF") || !strings.Contains(got, "lif hooks allow") || !strings.Contains(got, "1 gates") {
+		t.Errorf("Status before allow = %q", got)
+	}
+	p.allow()
+	if got := p.d.Status(); !strings.Contains(got, "active") {
+		t.Errorf("Status after allow = %q", got)
+	}
+	if got := New(config.Default(), t.TempDir(), nil).Status(); got != "" {
+		t.Errorf("Status without hooks = %q, want empty", got)
+	}
+}

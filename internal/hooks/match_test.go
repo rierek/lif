@@ -86,3 +86,24 @@ func TestM12_CreatedAndUpdatedBothEnterAStatus(t *testing.T) {
 	wantMatch(t, h, created(it("in-progress"), "status", "type"), true)
 	wantMatch(t, h, upd(it("todo"), it("in-progress"), "status"), true)
 }
+
+// GATES-01: a gate with type: or tags: still holds when the change takes the
+// item out of that type or tag; an after hook tests the after state only.
+func TestGateTypeAndTagsMatchTheBeforeStateToo(t *testing.T) {
+	feature := func(status string, tags ...string) *item.Item {
+		i := it(status, tags...)
+		i.Type = "feature"
+		return i
+	}
+	gate := config.Hook{Stage: "before", Event: []string{"updated"}, Type: []string{"feature"}}
+	wantMatch(t, gate, upd(feature("todo"), it("completed"), "type", "status"), true)
+	wantMatch(t, gate, upd(it("todo"), feature("todo"), "type"), true)
+	wantMatch(t, gate, upd(it("todo"), it("completed"), "status"), false) // control: a task all along
+	after := gate
+	after.Stage = ""
+	wantMatch(t, after, upd(feature("todo"), it("completed"), "type", "status"), false)
+
+	tagged := config.Hook{Stage: "before", Event: []string{"updated"}, Tags: []string{"locked"}}
+	wantMatch(t, tagged, upd(it("completed", "locked"), it("todo"), "tags", "status"), true)
+	wantMatch(t, tagged, upd(it("completed"), it("todo"), "status"), false)
+}

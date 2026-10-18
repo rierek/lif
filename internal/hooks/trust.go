@@ -4,10 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/rierek/lif/internal/filelock"
 	"github.com/rierek/lif/internal/gitutil"
 	"github.com/rierek/lif/pkg/config"
 	"gopkg.in/yaml.v3"
@@ -79,30 +82,94 @@ func Allowed(key, fp string) (bool, error) {
 	return isAllowed(trusted, key, fp), nil
 }
 
-// Allow stores fp for key.
+// Allow stores fp for key. A trust file that does not parse is replaced.
 func Allow(key, fp string) error {
-	trusted, err := readTrust()
+	if _, err := trustPath(); err != nil {
+		return err
+	}
+	return updateTrust(func(trusted map[string]string) bool {
+		trusted[key] = fp
+		return true
+	})
+}
+
+// Deny removes key from the trust file. A key that is not there is no error.
+// A trust file that does not parse is replaced.
+func Deny(key string) error {
+	if _, err := trustPath(); err != nil {
+		return nil // no HOME: nothing is allowed
+	}
+	return updateTrust(func(trusted map[string]string) bool {
+		_, ok := trusted[key]
+		delete(trusted, key)
+		return ok
+	})
+}
+
+// updateTrust applies change to the trust file under a lock, so that parallel
+// allows and denies do not lose each other's update. change reports whether
+// it changed the map; an unchanged map is not written, except to replace a
+// corrupt file.
+func updateTrust(change func(map[string]string) bool) error {
+	path, err := trustPath()
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	lockPath := path + ".lock"
+	f, err := os.OpenFile(lockPath, os.O_RDONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	lock, err := filelock.Acquire(lockPath, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("%s: %w", lockPath, err)
+	}
+	defer lock.Release()
+
+	trusted, err := readTrust()
+	var corrupt *CorruptTrustError
+	switch {
+	case errors.As(err, &corrupt):
+		trusted = nil
+	case err != nil:
 		return err
 	}
 	if trusted == nil {
 		trusted = make(map[string]string)
 	}
-	trusted[key] = fp
+	if !change(trusted) && corrupt == nil {
+		return nil
+	}
 	return writeTrust(trusted)
 }
 
-// Deny removes key from the trust file. A key that is not there is no error.
-func Deny(key string) error {
-	trusted, err := readTrust()
-	if err != nil {
+// CorruptTrustError reports a trust file that cannot be parsed. `lif hooks
+// allow` and `lif hooks deny` replace such a file.
+type CorruptTrustError struct {
+	Path string
+	Err  error
+}
+
+func (e *CorruptTrustError) Error() string {
+	return fmt.Sprintf("%s: %v (run 'lif hooks deny' or 'lif hooks allow' to replace the file; this drops all allows)", e.Path, e.Err)
+}
+
+func (e *CorruptTrustError) Unwrap() error { return e.Err }
+
+// TrustFileProblem returns a *CorruptTrustError when the trust file does not
+// parse, so that a command can say that it replaces the file. It is nil for a
+// good file, a missing file and any other read error.
+func TrustFileProblem() error {
+	_, err := readTrust()
+	var corrupt *CorruptTrustError
+	if errors.As(err, &corrupt) {
 		return err
 	}
-	if _, ok := trusted[key]; !ok {
-		return nil
-	}
-	delete(trusted, key)
-	return writeTrust(trusted)
+	return nil
 }
 
 func isAllowed(trusted map[string]string, key, fp string) bool {
@@ -136,7 +203,7 @@ func readTrust() (map[string]string, error) {
 	}
 	var trusted map[string]string
 	if err := yaml.Unmarshal(data, &trusted); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, &CorruptTrustError{Path: path, Err: err}
 	}
 	return trusted, nil
 }
@@ -153,11 +220,14 @@ func writeTrust(trusted map[string]string) error {
 	if err != nil {
 		return err
 	}
+	if target, err := filepath.EvalSymlinks(path); err == nil {
+		path = target // a dotfile manager's link stays a link
+	}
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, trustFileName+".*.tmp") // created with mode 0600
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".*.tmp") // created with mode 0600
 	if err != nil {
 		return err
 	}

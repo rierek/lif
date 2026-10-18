@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -508,6 +509,83 @@ func TestServeAgentGate(t *testing.T) {
 			}
 		})
 	}
+}
+
+// --token-file keeps the access token across restarts: the first start
+// creates the file with mode 0600, the log names the file and does not print
+// the token, and a restart accepts the same token.
+func TestServeTokenFileKeepsTheTokenAcrossRestarts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "serve-token")
+
+	first := startServeProcess(t, "--require-token", "--token-file", path)
+	if want := "[lif] Access token: read from " + path; !strings.Contains(first.log, want) {
+		t.Errorf("startup log lacks %q:\n%s", want, first.log)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("the token file was not created: %v", err)
+	}
+	token := strings.TrimSpace(string(data))
+	if len(token) < 32 {
+		t.Fatalf("token file holds %q, want a usable token", token)
+	}
+	if strings.Contains(first.log, token) {
+		t.Errorf("the startup log prints the token of the file:\n%s", first.log)
+	}
+	if info, err := os.Stat(path); err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o600) {
+		t.Errorf("token file: %v, %v; want mode 0600", info, err)
+	}
+	if status, _, _ := first.do(t, "GET", "/playground", "", "", ""); status != 401 {
+		t.Errorf("GET /playground without token: status %d, want 401", status)
+	}
+	if status, _, _ := first.do(t, "GET", "/playground", token, "", ""); status != 200 {
+		t.Errorf("GET /playground with the token of the file: status %d, want 200", status)
+	}
+
+	second := startServeProcess(t, "--require-token", "--token-file", path)
+	if status, _, _ := second.do(t, "GET", "/playground", token, "", ""); status != 200 {
+		t.Errorf("after a restart, GET /playground with the same token: status %d, want 200", status)
+	}
+}
+
+// A token file other users can read, and a token that is too short, stop the
+// server at startup and say why.
+func TestServeRefusesAnUnsafeToken(t *testing.T) {
+	bin := serveTestBinary(t)
+	run := func(t *testing.T, env string, args ...string) string {
+		t.Helper()
+		project := t.TempDir()
+		store := filepath.Join(project, ".lif")
+		if err := os.MkdirAll(store, 0755); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, bin, append([]string{"--lif-path", store, "--port", "0", "--require-token"}, args...)...)
+		cmd.Dir = project
+		cmd.Env = append(os.Environ(), "HOME="+t.TempDir(), env)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("lif-serve started although the token is unsafe:\n%s", out)
+		}
+		return string(out)
+	}
+
+	t.Run("file other users can read", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows has no file modes")
+		}
+		path := writeTokenFile(t, strings.Repeat("a", 43)+"\n", 0o644)
+		if out := run(t, "LIF_SERVE_TOKEN=", "--token-file", path); !strings.Contains(out, "accessible by other users") || !strings.Contains(out, "chmod 600 "+path) {
+			t.Errorf("output lacks the refusal with the chmod hint:\n%s", out)
+		}
+	})
+
+	t.Run("short token", func(t *testing.T) {
+		if out := run(t, "LIF_SERVE_TOKEN=short"); !strings.Contains(out, "token from LIF_SERVE_TOKEN is shorter than 32 characters") {
+			t.Errorf("output lacks the length refusal:\n%s", out)
+		}
+	})
 }
 
 // --allow-remote-terminal turns the terminal on for a listener on the network.

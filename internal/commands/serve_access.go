@@ -2,14 +2,21 @@ package commands
 
 import (
 	"cmp"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -43,6 +50,8 @@ type serveAccess struct {
 	allowRemoteTerminal bool
 	allowRemoteAgent    bool
 	token               string // empty unless the server is remote
+	tokenSource         string // where a token the operator brought comes from; empty for a random one
+	tokenDerived        bool   // token is derived from the one in tokenSource (see deriveToken)
 	publicBase          string // --public-url without a trailing slash; empty without one
 	publicOrigin        string // scheme://host[:port] of publicBase
 }
@@ -53,6 +62,8 @@ type serveOptions struct {
 	allowRemoteTerminal bool
 	allowRemoteAgent    bool
 	requireToken        bool
+	tokenFile           string   // --token-file
+	envToken            string   // LIF_SERVE_TOKEN
 	publicURL           *url.URL // nil unless --public-url
 }
 
@@ -93,13 +104,114 @@ func newServeAccess(addr net.Addr, opts serveOptions) (serveAccess, error) {
 		a.publicOrigin = u.Scheme + "://" + u.Host
 	}
 	if a.remote() {
-		b := make([]byte, 32)
-		if _, err := rand.Read(b); err != nil {
-			return serveAccess{}, fmt.Errorf("failed to generate the access token: %w", err)
+		token, source, err := loadToken(opts.tokenFile, opts.envToken)
+		if err != nil {
+			return serveAccess{}, err
 		}
-		a.token = base64.RawURLEncoding.EncodeToString(b)
+		// US-16: the opt-in for a remote shell gives a new token, so a client
+		// that got the plain one before keeps out. The derived token is stable,
+		// as the token it comes from is.
+		if source != "" && (a.allowRemoteTerminal || a.allowRemoteAgent) {
+			token = deriveToken(token, a.allowRemoteTerminal, a.allowRemoteAgent)
+			a.tokenDerived = true
+		}
+		a.token, a.tokenSource = token, source
 	}
 	return a, nil
+}
+
+// serveTokenEnv is the environment variable that holds an access token the
+// operator brings (see loadToken).
+const serveTokenEnv = "LIF_SERVE_TOKEN"
+
+// minTokenLength is the least a token the operator brings may have, in
+// characters.
+const minTokenLength = 32
+
+// newRandomToken returns a fresh access token: 32 random bytes, base64url.
+func newRandomToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate the access token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// loadToken returns the access token and where it comes from. An operator who
+// wants it to survive a restart brings one: tokenFile (--token-file) wins over
+// envToken (LIF_SERVE_TOKEN); a missing token file is created with a random
+// token. The source is the path or the variable name. Without both the token is
+// random and the source is empty.
+func loadToken(tokenFile, envToken string) (token, source string, err error) {
+	switch {
+	case tokenFile != "":
+		token, err = readOrCreateTokenFile(tokenFile)
+		return token, tokenFile, err
+	case envToken != "":
+		token = strings.TrimSpace(envToken)
+		if len(token) < minTokenLength {
+			return "", "", fmt.Errorf("token from %s is shorter than %d characters", serveTokenEnv, minTokenLength)
+		}
+		return token, serveTokenEnv, nil
+	}
+	token, err = newRandomToken()
+	return token, "", err
+}
+
+func readOrCreateTokenFile(path string) (string, error) {
+	info, err := os.Stat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return createTokenFile(path)
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to read the token file: %w", err)
+	}
+	// The token opens the server, so a file other users can read is refused.
+	// Windows has no such modes.
+	if perm := info.Mode().Perm(); runtime.GOOS != "windows" && perm&0o077 != 0 {
+		return "", fmt.Errorf("token file %s is accessible by other users (mode %04o); run chmod 600 %s", path, perm, path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read the token file: %w", err)
+	}
+	token := strings.TrimSpace(string(data))
+	if len(token) < minTokenLength {
+		return "", fmt.Errorf("token from %s is shorter than %d characters", path, minTokenLength)
+	}
+	return token, nil
+}
+
+func createTokenFile(path string) (string, error) {
+	token, err := newRandomToken()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", fmt.Errorf("failed to create the token file: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return "", fmt.Errorf("failed to create the token file: %w", err)
+	}
+	if _, err := f.WriteString(token + "\n"); err != nil {
+		f.Close()
+		return "", fmt.Errorf("failed to write the token file %s: %w", path, err)
+	}
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("failed to write the token file %s: %w", path, err)
+	}
+	return token, nil
+}
+
+// deriveToken is the token of a server started with a remote opt-in on top of
+// a token the operator brought: a keyed hash of the opt-ins, with the brought
+// token as the key. The plain token then no longer opens the server, and the
+// same flags give the same token after a restart.
+func deriveToken(base string, terminal, agent bool) string {
+	mac := hmac.New(sha256.New, []byte(base))
+	fmt.Fprintf(mac, "allow-remote-terminal=%t,allow-remote-agent=%t", terminal, agent)
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
 // remote reports whether the server is reachable by more than the user of this
@@ -342,9 +454,19 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 		// carries it. Without it the server answers 401.
 		serverURL := cmp.Or(a.publicBase, "http://"+net.JoinHostPort(a.networkHost(interfaceAddrs), port))
 		add("WARNING: anyone who can reach this port and has the access token can read and change items and run agent sessions as the user running lif-serve. There is no TLS, so the token travels in clear text. Prefer the default loopback address with an SSH tunnel or a VPN.")
-		add("Access token: %s", a.token)
-		add("Open the UI: %s/?token=%s", serverURL, a.token)
-		add("GraphQL Playground: %s/playground?token=%s", serverURL, a.token)
+		if a.tokenSource != "" && !a.tokenDerived {
+			add("Access token: read from %s", a.tokenSource)
+			add("Open the UI: %s/", serverURL)
+			add("GraphQL Playground: %s/playground", serverURL)
+		} else {
+			if a.tokenDerived {
+				add("Access token: %s (derived from %s for the remote opt-ins)", a.token, a.tokenSource)
+			} else {
+				add("Access token: %s", a.token)
+			}
+			add("Open the UI: %s/?token=%s", serverURL, a.token)
+			add("GraphQL Playground: %s/playground?token=%s", serverURL, a.token)
+		}
 	}
 	add("Allowed origins: %s", strings.Join(origins, ", "))
 	if slices.Contains(origins, "*") {

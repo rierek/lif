@@ -43,6 +43,7 @@ var (
 	allowRemoteAgent    bool
 	servePublicURL      string
 	serveRequireToken   bool
+	serveTokenFile      string
 )
 
 const centralAgentPrompt = `You are the planning agent for this project. Your primary role is to help manage and organize work through items.
@@ -69,12 +70,12 @@ var serveCmd = &cobra.Command{
 
 By default the server listens on 127.0.0.1 only, so only this machine can reach
 it. --host with any other address makes it reachable from the network. The
-server then asks every client for an access token, printed at startup, and
+server then asks every client for an access token, printed at startup (random
+at every start; --token-file or LIF_SERVE_TOKEN keep one across restarts), and
 serves the terminal only with --allow-remote-terminal and agent sessions only
-with --allow-remote-agent. A proxy in front of the
-server (tailscale serve, nginx, Caddy) connects from loopback, so tell the
-server: --public-url (or --require-token) gives it the same rules. There is no
-TLS.`,
+with --allow-remote-agent. A proxy in front of the server (tailscale serve,
+nginx, Caddy) connects from loopback, so tell the server: --public-url (or
+--require-token) gives it the same rules. There is no TLS.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine the port: CLI flag > config > default
 		port := servePort
@@ -100,6 +101,8 @@ TLS.`,
 			allowRemoteTerminal: allowRemoteTerminal,
 			allowRemoteAgent:    allowRemoteAgent,
 			requireToken:        serveRequireToken,
+			tokenFile:           serveTokenFile,
+			envToken:            os.Getenv(serveTokenEnv),
 			publicURL:           publicURL,
 		})
 	},
@@ -541,6 +544,7 @@ func RegisterServeCmd(root *cobra.Command) {
 	serveCmd.Flags().BoolVar(&allowRemoteAgent, "allow-remote-agent", false, "Allow agent sessions even when the server is reachable beyond this machine")
 	serveCmd.Flags().StringVar(&servePublicURL, "public-url", "", "Public URL of this server behind a proxy, e.g. https://box.tailnet.ts.net/lif (implies --require-token)")
 	serveCmd.Flags().BoolVar(&serveRequireToken, "require-token", false, "Require the access token even on loopback (use behind a proxy)")
+	serveCmd.Flags().StringVar(&serveTokenFile, "token-file", "", "File that holds the access token, created with mode 0600 when missing, so the token survives restarts (alternative: the LIF_SERVE_TOKEN environment variable); used only when the server requires a token")
 	root.AddCommand(serveCmd)
 }
 

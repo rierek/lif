@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  lif-serve as a launchd user agent.
+
+    1. Copy this file to ~/Library/LaunchAgents/org.lif.serve.plist
+    2. Replace every CHANGE-ME (user name, project) and the path of lif-serve.
+    3. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/org.lif.serve.plist
+    4. Stop it: launchctl bootout gui/$(id -u)/org.lif.serve
+       Restart it: launchctl kickstart -k gui/$(id -u)/org.lif.serve
+
+  The server listens on 127.0.0.1:8080 and requires no token there. The token
+  file keeps the token across restarts; lif-serve uses it only when the server
+  asks for a token (--require-token, --public-url, or a --host beyond
+  loopback). Add the flag that matches your setup to ProgramArguments, for
+  example --public-url and its value as two more strings.
+  See https://rierek.github.io/lif/reference/remote-access/
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.lif.serve</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/lif-serve</string>
+		<string>--port</string>
+		<string>8080</string>
+		<string>--token-file</string>
+		<string>/Users/CHANGE-ME/.config/lif/serve-token</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/CHANGE-ME/project</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Users/CHANGE-ME/Library/Logs/lif-serve.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/CHANGE-ME/Library/Logs/lif-serve.log</string>
+</dict>
+</plist>

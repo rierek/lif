@@ -83,6 +83,7 @@
       .toPromise();
     if (result.error) {
       itemsStore.optimisticUpdate(item.id, { status: oldStatus });
+      itemsStore.writeError = result.error.message;
     }
     updatingStatus = false;
   }

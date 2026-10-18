@@ -190,6 +190,7 @@ export function applyDrop(
     .then((result) => {
       if (result.error) {
         console.error('Failed to update item:', result.error);
+        itemsStore.writeError = result.error.message;
         itemsStore.optimisticUpdate(draggedId, {
           order: prevOrder,
           status: prevStatus,

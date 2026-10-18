@@ -2,9 +2,11 @@ package hooks
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/rierek/lif/pkg/config"
@@ -368,5 +370,109 @@ func TestFingerprintCoversHooksAndTasks(t *testing.T) {
 		if fp(changed) == fp(base) {
 			t.Errorf("a changed %s leaves the fingerprint as it was", name)
 		}
+	}
+}
+
+// A running dispatcher must not trust the .lif.yml that it read at start when
+// the file on disk has changed: a step that runs `$LIF run <task>` reads the
+// new file.
+func TestT20_ConfigChangedOnDiskAfterStartIsNotAllowed(t *testing.T) {
+	const when = "event: [updated]"
+	v1 := tasksOf(task("t", `echo v1 >> "$LIF_ROOT/log"`)) + hooksOf(hook("h", when, "run: t"))
+	v2 := tasksOf(task("t", `echo v2 >> "$LIF_ROOT/log"`)) + hooksOf(hook("h", when, "run: t"))
+	p := newProj(t, v1)
+	p.allow()
+	if !p.d.Fire(toProgress()) {
+		t.Fatal("the allowed hook did not run")
+	}
+
+	writeFile(t, p.cfg.ConfigFile(), v2) // a git pull while the dispatcher lives
+	if p.d.Fire(toProgress()) {
+		t.Error("the hook ran although .lif.yml changed on disk since start")
+	}
+	if got, want := p.read("log"), "v1\n"; got != want {
+		t.Errorf("log = %q, want %q", got, want)
+	}
+	if !strings.Contains(p.warn.String(), "changed since") {
+		t.Errorf("warn = %q, want a note that the file changed", p.warn.String())
+	}
+}
+
+// TRUST-05: parallel allows and denies must not lose each other's update.
+func TestT21_ParallelAllowsKeepEveryEntry(t *testing.T) {
+	isolate(t)
+	const n = 30
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := Allow(fmt.Sprintf("/repo%d/.lif.yml", i), "fp"); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	for i := range n {
+		if ok, _ := Allowed(fmt.Sprintf("/repo%d/.lif.yml", i), "fp"); !ok {
+			t.Errorf("entry %d was lost", i)
+		}
+	}
+}
+
+// TRUST-15: a symlinked trust file stays a link; the target is updated.
+func TestT22_SymlinkedTrustFileKeepsItsLink(t *testing.T) {
+	home := isolate(t)
+	dir := filepath.Join(home, config.HomeDir)
+	real := filepath.Join(home, "real.yml")
+	writeFile(t, real, "")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "allowed-hooks.yml")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := Allow("/repo/.lif.yml", "fp1"); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("trust file is no longer a symlink: %v, %v", info, err)
+	}
+	if data := readFile(t, real); !strings.Contains(data, "/repo/.lif.yml") {
+		t.Errorf("target = %q, want the entry", data)
+	}
+	if err := Deny("/repo/.lif.yml"); err != nil {
+		t.Fatal(err)
+	}
+	if data := readFile(t, real); strings.Contains(data, "/repo/.lif.yml") {
+		t.Errorf("target = %q after Deny, want no entry", data)
+	}
+}
+
+// TRUST-14: allow and deny replace a trust file that does not parse.
+func TestT23_AllowAndDenyReplaceACorruptTrustFile(t *testing.T) {
+	home := isolate(t)
+	path := filepath.Join(home, config.HomeDir, "allowed-hooks.yml")
+	writeFile(t, path, "a: [b\n")
+
+	if _, err := Allowed("k", "f"); err == nil || !strings.Contains(err.Error(), "lif hooks") {
+		t.Errorf("Allowed error = %v, want a hint to repair with lif hooks", err)
+	}
+	if err := TrustFileProblem(); err == nil {
+		t.Error("TrustFileProblem = nil for a corrupt file")
+	}
+	if err := Deny("k"); err != nil {
+		t.Fatalf("Deny: %v", err)
+	}
+	if err := TrustFileProblem(); err != nil {
+		t.Errorf("TrustFileProblem after Deny = %v, want nil", err)
+	}
+	writeFile(t, path, "a: [b\n")
+	if err := Allow("k", "f"); err != nil {
+		t.Fatalf("Allow: %v", err)
+	}
+	if ok, err := Allowed("k", "f"); !ok || err != nil {
+		t.Errorf("Allowed = %v, %v; want true, nil", ok, err)
 	}
 }

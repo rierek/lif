@@ -105,8 +105,11 @@ func TestHooksAllowAndDenyChangeTheListedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "Allowed hooks of " + path + " (1 hooks).\n"; out != want {
-		t.Errorf("allow printed %q, want %q", out, want)
+	if want := "Allowed hooks of " + path + " (1 hooks). These steps may now run:\n"; !strings.HasPrefix(out, want) {
+		t.Errorf("allow printed %q, want the prefix %q", out, want)
+	}
+	if !strings.Contains(out, "step 1: \"true\"") {
+		t.Errorf("allow printed %q, want the steps that it allows", out)
 	}
 	if got := listState(t, dir); got != "Project hooks: allowed" {
 		t.Errorf("after allow: %q, want allowed", got)
@@ -156,6 +159,7 @@ hooks:
     changed: [status]
     run: t
 `)
+	allowHooks(t, dir)
 
 	stdout, _, err := runInProject(t, dir, "hooks")
 
@@ -287,5 +291,100 @@ hooks:
 		if got := fields[3]; got != want[fields[0]] {
 			t.Errorf("when of %s = %q, want %q", fields[0], got, want[fields[0]])
 		}
+	}
+}
+
+// TRUST-07: a project that is not allowed hides no global hook in the listing.
+func TestHooksListShowsTheGlobalHookWhileTheProjectIsNotAllowed(t *testing.T) {
+	home := hookEnv(t)
+	writeFixtureFile(t, filepath.Join(home, ".lif", "tasks.yml"), `tasks:
+  t:
+    steps: ['true']
+hooks:
+  x:
+    stage: before
+    event: [updated]
+    run: t
+`)
+	dir := hookProject(t, `tasks:
+  t:
+    steps: ['true']
+hooks:
+  x:
+    event: [updated]
+    run: t
+`)
+
+	stdout, _, err := runInProject(t, dir, "hooks")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("listing = %q, want the state line and two rows", stdout)
+	}
+	if got, want := listFields(lines[1]), []string{"x", "[global]", "before", "updated", "t"}; !slices.Equal(got, want) {
+		t.Errorf("row 1 = %q, want %q", got, want)
+	}
+	if got, want := listFields(lines[2]), []string{"x", "[project, not allowed]", "after", "updated", "t"}; !slices.Equal(got, want) {
+		t.Errorf("row 2 = %q, want %q", got, want)
+	}
+}
+
+// TRUST-17: a hook or gate must not allow hooks.
+func TestHooksAllowRefusesInsideAHook(t *testing.T) {
+	hookEnv(t)
+	t.Setenv("LIF_HOOK", "h")
+	dir := hookProject(t, projectHookYAML)
+
+	_, _, err := runInProject(t, dir, "hooks", "allow")
+
+	if err == nil || !strings.Contains(err.Error(), "refusing to allow") {
+		t.Fatalf("err = %v, want a refusal", err)
+	}
+}
+
+// TRUST-14: deny and allow repair a corrupt trust file.
+func TestHooksDenyReplacesACorruptTrustFile(t *testing.T) {
+	home := hookEnv(t)
+	dir := hookProject(t, projectHookYAML)
+	writeFixtureFile(t, filepath.Join(home, ".lif", "allowed-hooks.yml"), "a: [b\n")
+
+	_, stderr, err := runInProject(t, dir, "hooks", "deny")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr, "replacing the unreadable trust file") {
+		t.Errorf("stderr = %q, want a notice", stderr)
+	}
+	allowHooks(t, dir)
+	if got := listState(t, dir); got != "Project hooks: allowed" {
+		t.Errorf("state = %q, want allowed", got)
+	}
+}
+
+// TRUST-18: a global hook with a status that the project does not know is flagged.
+func TestHooksListFlagsAnUnknownStatusOfAGlobalHook(t *testing.T) {
+	home := hookEnv(t)
+	writeFixtureFile(t, filepath.Join(home, ".lif", "tasks.yml"), `tasks:
+  t:
+    steps: ['true']
+hooks:
+  g:
+    event: [updated]
+    to: [complted]
+    run: t
+`)
+	dir := hookProject(t, "")
+
+	stdout, _, err := runInProject(t, dir, "hooks")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, `(warning: status "complted" unknown in this project)`) {
+		t.Errorf("listing = %q, want the warning", stdout)
 	}
 }

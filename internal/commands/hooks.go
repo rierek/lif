@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -14,6 +15,8 @@ import (
 	"github.com/rierek/lif/pkg/config"
 	"github.com/spf13/cobra"
 )
+
+var hooksSteps bool
 
 var hooksCmd = &cobra.Command{
 	Use:   "hooks",
@@ -30,6 +33,9 @@ Each row shows the name, the origin, the stage, when the hook fires, and the
 task with the item fields that it gets as arguments. A hook whose task cannot
 be run shows the reason.
 
+--steps also prints the steps of the tasks that the project hooks run, quoted
+so that control characters show: read them before 'lif hooks allow'.
+
 LIF_NO_HOOKS, set to any non-empty value, skips all hooks and gates of one call.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,13 +47,19 @@ LIF_NO_HOOKS, set to any non-empty value, skips all hooks and gates of one call.
 		if err != nil {
 			return err
 		}
-		state, err := projectHooksState(c)
+		state, allowed, err := projectHooksState(c)
 		if err != nil {
 			return err
 		}
 		out := cmd.OutOrStdout()
 		fmt.Fprintf(out, "Project hooks: %s\n", state)
-		return listHooks(out, c, global)
+		if err := listHooks(out, c, global, allowed); err != nil {
+			return err
+		}
+		if hooksSteps {
+			return printSteps(out, c, global)
+		}
+		return nil
 	},
 }
 
@@ -62,6 +74,9 @@ that their steps call. Any change to a hook or a task takes the allow back;
 run 'lif hooks allow' again after you have read the change.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if os.Getenv("LIF_HOOK") != "" {
+			return errors.New("refusing to allow hooks from inside a hook or gate: run 'lif hooks allow' yourself, after you have read .lif.yml")
+		}
 		c, err := loadProjectConfig()
 		if err != nil {
 			return err
@@ -69,11 +84,17 @@ run 'lif hooks allow' again after you have read the change.`,
 		if len(c.Hooks) == 0 {
 			return errors.New("no project hooks to allow")
 		}
+		warnReplacedTrustFile(cmd)
 		if err := hooks.Allow(hooks.Key(c.ConfigFile()), hooks.Fingerprint(c)); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Allowed hooks of %s (%d hooks).\n", c.ConfigFile(), len(c.Hooks))
-		return nil
+		out := cmd.OutOrStdout()
+		fmt.Fprintf(out, "Allowed hooks of %s (%d hooks). These steps may now run:\n", c.ConfigFile(), len(c.Hooks))
+		global, err := config.LoadGlobal()
+		if err != nil {
+			return err
+		}
+		return printSteps(out, c, global)
 	},
 }
 
@@ -92,6 +113,7 @@ var hooksDenyCmd = &cobra.Command{
 		if path == "" {
 			return fmt.Errorf("no %s found", config.ConfigFileName)
 		}
+		warnReplacedTrustFile(cmd)
 		if err := hooks.Deny(hooks.Key(path)); err != nil {
 			return err
 		}
@@ -100,45 +122,69 @@ var hooksDenyCmd = &cobra.Command{
 	},
 }
 
-// projectHooksState says whether the hooks of the project config run.
-func projectHooksState(c *config.Config) (string, error) {
+// warnReplacedTrustFile tells the user that allow or deny is about to replace
+// a trust file that does not parse.
+func warnReplacedTrustFile(cmd *cobra.Command) {
+	if err := hooks.TrustFileProblem(); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: replacing the unreadable trust file, all allows are dropped: %v\n", err)
+	}
+}
+
+// projectHooksState says whether the hooks of the project config run;
+// allowed is true only when they do.
+func projectHooksState(c *config.Config) (state string, allowed bool, err error) {
 	if len(c.Hooks) == 0 {
-		return "none", nil
+		return "none", false, nil
 	}
 	ok, err := hooks.Allowed(hooks.Key(c.ConfigFile()), hooks.Fingerprint(c))
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if !ok {
-		return "not allowed (run 'lif hooks allow')", nil
+		return "not allowed (run 'lif hooks allow')", false, nil
 	}
-	return "allowed", nil
+	return "allowed", true, nil
 }
 
 // listedHook is one row of the listing.
 type listedHook struct {
+	name    string
 	hook    config.Hook
 	origin  string
 	project bool
 }
 
-// listHooks prints one row per hook, sorted by name. A project hook replaces
-// a global hook of the same name.
-func listHooks(out io.Writer, c *config.Config, global config.Global) error {
-	all := make(map[string]listedHook, len(global.Hooks)+len(c.Hooks))
+// listHooks prints one row per hook, sorted by name. An allowed project hook
+// replaces a global hook of the same name. While the project is not allowed
+// its hooks do not run and replace nothing: both rows show, the project row
+// marked "not allowed" (the header line says that for the others).
+func listHooks(out io.Writer, c *config.Config, global config.Global, allowed bool) error {
+	var rows []listedHook
 	for name, h := range global.Hooks {
-		all[name] = listedHook{hook: h, origin: "global"}
+		if _, replaced := c.Hooks[name]; replaced && allowed {
+			continue
+		}
+		rows = append(rows, listedHook{name: name, hook: h, origin: "global"})
 	}
 	for name, h := range c.Hooks {
 		origin := "project"
-		if _, ok := all[name]; ok {
+		_, overrides := global.Hooks[name]
+		switch {
+		case overrides && !allowed:
+			origin = "project, not allowed"
+		case overrides:
 			origin = "project, overrides global"
 		}
-		all[name] = listedHook{hook: h, origin: origin, project: true}
+		rows = append(rows, listedHook{name: name, hook: h, origin: origin, project: true})
 	}
+	slices.SortFunc(rows, func(a, b listedHook) int {
+		if c := strings.Compare(a.name, b.name); c != 0 {
+			return c
+		}
+		return strings.Compare(a.origin, b.origin)
+	})
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	for _, name := range slices.Sorted(maps.Keys(all)) {
-		l := all[name]
+	for _, l := range rows {
 		stage := "after"
 		if l.hook.IsGate() {
 			stage = "before"
@@ -148,9 +194,46 @@ func listHooks(out io.Writer, c *config.Config, global config.Global) error {
 		if l.project {
 			set.Project = c.Tasks
 		}
-		fmt.Fprintf(tw, "%s\t[%s]\t%s\t%s\t%s\n", name, l.origin, stage, hookWhen(l.hook), hookRun(l.hook, set))
+		fmt.Fprintf(tw, "%s\t[%s]\t%s\t%s\t%s%s\n", l.name, l.origin, stage, hookWhen(l.hook), hookRun(l.hook, set), unknownStatuses(l, c))
 	}
 	return tw.Flush()
+}
+
+// unknownStatuses warns about a status in a global hook that this project
+// does not know: validation skips the global file, so a typo there is a gate
+// that never fires.
+func unknownStatuses(l listedHook, c *config.Config) string {
+	if l.project {
+		return ""
+	}
+	var warn string
+	for _, status := range append(slices.Clone(l.hook.From), l.hook.To...) {
+		if !c.IsValidStatus(status) {
+			warn += fmt.Sprintf("  (warning: status %q unknown in this project)", status)
+		}
+	}
+	return warn
+}
+
+// printSteps prints what the project hooks can run: for each hook the tasks
+// that it reaches (dependencies first) and their steps, quoted so that
+// control and look-alike characters show. This is what an allow covers.
+func printSteps(out io.Writer, c *config.Config, global config.Global) error {
+	set := tasks.Set{Project: c.Tasks, Global: global.Tasks}
+	for _, name := range slices.Sorted(maps.Keys(c.Hooks)) {
+		plan, err := set.Plan(c.Hooks[name].Run, false)
+		if err != nil {
+			fmt.Fprintf(out, "\nhook %s: (error: %v)\n", name, err)
+			continue
+		}
+		for _, p := range plan {
+			fmt.Fprintf(out, "\nhook %s runs task %s [%s]:\n", name, p.Name, p.Origin)
+			for i, step := range p.Task.Steps {
+				fmt.Fprintf(out, "  step %d: %q\n", i+1, step)
+			}
+		}
+	}
+	return nil
 }
 
 // hookWhen renders the conditions that h sets: the events, then each set
@@ -219,6 +302,7 @@ func plural(n int, one, many string) string {
 
 // RegisterHooksCmd adds the hooks command and its sub-commands to root.
 func RegisterHooksCmd(root *cobra.Command) {
+	hooksCmd.Flags().BoolVar(&hooksSteps, "steps", false, "Also print the steps of the tasks that the project hooks run")
 	hooksCmd.AddCommand(hooksAllowCmd, hooksDenyCmd)
 	root.AddCommand(hooksCmd)
 }

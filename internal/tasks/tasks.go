@@ -50,7 +50,9 @@ func (s Set) Lookup(name string, forceGlobal bool) (Planned, bool) {
 type key struct{ name, origin string }
 
 // Plan resolves name and its dependencies (post-order DFS, each task once).
-// forceGlobal affects the named task only; dependencies resolve normally.
+// forceGlobal looks in the global tasks only, for the named task and for its
+// dependencies: a repository must not run its own task as a dependency of a
+// global one that was asked for with -g.
 // The last entry is the top task.
 func (s Set) Plan(name string, forceGlobal bool) ([]Planned, error) {
 	top, ok := s.Lookup(name, forceGlobal)
@@ -70,7 +72,7 @@ func (s Set) Plan(name string, forceGlobal bool) ([]Planned, error) {
 		stack = append(stack, key{p.Name, p.Origin})
 		defer func() { stack = stack[:len(stack)-1] }()
 		for _, d := range p.Task.Deps {
-			dp, ok := s.Lookup(d, false)
+			dp, ok := s.Lookup(d, forceGlobal)
 			if !ok {
 				return fmt.Errorf("task %q: unknown dependency %q", p.Name, d)
 			}

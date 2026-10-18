@@ -22,7 +22,8 @@ var runCmd = &cobra.Command{
 
 Tasks live under "tasks:" in the project .lif.yml and in the global file
 ~/.lif/tasks.yml (a standard shared across projects). A project task replaces
-a global task of the same name as a whole; -g runs the global one instead.
+a global task of the same name as a whole; -g runs the global one instead,
+and resolves its dependencies in the global file only.
 
   tasks:
     po-accept:
@@ -64,7 +65,12 @@ runs without 'set -e': start it with 'set -e' to stop at the first failure.`,
 		if err != nil {
 			return err
 		}
-		if err := tasks.CheckArgs(plan[len(plan)-1], args[1:]); err != nil {
+		top := plan[len(plan)-1]
+		if _, shadows := set.Global[top.Name]; shadows && top.Origin == "project" {
+			// The project file may come from a clone: say whose task runs.
+			fmt.Fprintf(cmd.ErrOrStderr(), "running project task %q (overrides global; use -g for the global one)\n", top.Name)
+		}
+		if err := tasks.CheckArgs(top, args[1:]); err != nil {
 			return err
 		}
 		return tasks.Run(set.Root, plan, args[1:], tasks.IO{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()}, storeEnv())
@@ -81,7 +87,7 @@ runs without 'set -e': start it with 'set -e' to stop at the first failure.`,
 		out := make([]string, len(names))
 		for i, n := range names {
 			p, _ := set.Lookup(n, runGlobal)
-			out[i] = n + "\t" + p.Task.Desc
+			out[i] = n + "\t" + tasks.Printable(p.Task.Desc)
 		}
 		return out, cobra.ShellCompDirectiveNoFileComp
 	},
@@ -167,7 +173,7 @@ func listTasks(cmd *cobra.Command, set tasks.Set) error {
 			origin = "project, overrides global"
 		}
 		// Always three cells, desc on one line, so the columns stay aligned.
-		fmt.Fprintf(tw, "%s\t[%s]\t%s\n", usage, origin, strings.Join(strings.Fields(p.Task.Desc), " "))
+		fmt.Fprintf(tw, "%s\t[%s]\t%s\n", usage, origin, tasks.Printable(strings.Join(strings.Fields(p.Task.Desc), " ")))
 	}
 	if err := tw.Flush(); err != nil {
 		return err

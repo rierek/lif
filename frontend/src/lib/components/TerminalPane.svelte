@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { ui } from '#lib/uiState.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
   import { Terminal } from '@xterm/xterm';
   import { FitAddon } from '@xterm/addon-fit';
   import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -19,8 +20,6 @@
   let ws: WebSocket | undefined;
   let resizeObserver: ResizeObserver | undefined;
   let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
-  let colorSchemeQuery: MediaQueryList | undefined;
-  let colorSchemeHandler: ((e: MediaQueryListEvent) => void) | undefined;
 
   const darkTheme = {
     foreground: '#e0e0e0',
@@ -65,13 +64,17 @@
     brightWhite: '#a5a5a5'
   };
 
-  function resolveTheme(isDark: boolean) {
-    const bg = getComputedStyle(document.documentElement)
-      .getPropertyValue('--color-surface')
-      .trim();
-    const base = isDark ? darkTheme : lightTheme;
+  function resolveTheme() {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--th-surface').trim();
+    const base = theme.resolved === 'dark' ? darkTheme : lightTheme;
     return { ...base, background: bg, black: bg };
   }
+
+  // Re-apply the terminal theme when the UI scheme changes
+  $effect(() => {
+    const next = resolveTheme();
+    if (terminal) terminal.options.theme = next;
+  });
 
   function connect(term: Terminal) {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -114,20 +117,12 @@
   onMount(() => {
     if (!terminalEl) return;
 
-    colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: '"JetBrainsMono NF", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-      theme: resolveTheme(colorSchemeQuery.matches)
+      theme: resolveTheme()
     });
-
-    // Re-apply theme when color scheme changes
-    colorSchemeHandler = (e) => {
-      term.options.theme = resolveTheme(e.matches);
-    };
-    colorSchemeQuery.addEventListener('change', colorSchemeHandler);
 
     const fit = new FitAddon();
     fitAddon = fit;
@@ -170,9 +165,6 @@
 
   onDestroy(() => {
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
-    if (colorSchemeQuery && colorSchemeHandler) {
-      colorSchemeQuery.removeEventListener('change', colorSchemeHandler);
-    }
     resizeObserver?.disconnect();
     ws?.close();
     terminal?.dispose();

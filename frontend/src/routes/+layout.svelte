@@ -9,6 +9,7 @@
   import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
   import { configStore } from '#lib/config.svelte.js';
   import { ui } from '#lib/uiState.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
   import ItemForm from '#lib/components/ItemForm.svelte';
   import Sidebar from '#lib/components/Sidebar.svelte';
   import SplitPane from '#lib/components/SplitPane.svelte';
@@ -52,6 +53,7 @@
   });
 
   onMount(() => {
+    theme.init();
     configStore.load();
     itemsStore.subscribe();
     worktreeStore.subscribe();

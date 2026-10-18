@@ -3,6 +3,7 @@
   import { changesStore } from '#lib/changes.svelte.js';
   import { ui } from '#lib/uiState.svelte.js';
   import { configStore } from '#lib/config.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
 
   const hasChanges = $derived(changesStore.allChanges.length > 0);
 
@@ -79,4 +80,13 @@
   {#if right}
     {@render right()}
   {/if}
+  <button
+    class="btn-toggle btn-toggle-inactive ml-1"
+    data-testid="theme-toggle"
+    onclick={() => theme.cycle()}
+    title="Theme: {theme.preference}"
+    aria-label="Theme: {theme.preference}"
+  >
+    {theme.preference === 'system' ? 'Auto' : theme.preference === 'light' ? 'Light' : 'Dark'}
+  </button>
 </div>

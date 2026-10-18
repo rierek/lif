@@ -7,6 +7,16 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/mshaugh/nerdfont-webfonts@v3.3.0/build/jetbrainsmono-nf.css"
     />
+    <script>
+      (function () {
+        var p = localStorage.getItem('lif-theme');
+        var dark =
+          p === 'dark' || (p !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        var e = document.documentElement;
+        e.dataset.theme = dark ? 'dark' : 'light';
+        e.dataset.flavour = dark ? localStorage.getItem('lif-dark-flavour') || 'mocha' : 'latte';
+      })();
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

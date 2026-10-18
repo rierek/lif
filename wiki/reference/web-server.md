@@ -105,8 +105,8 @@ The frontend (SvelteKit) is embedded in the binary. No second server is needed.
 - `/planning/board` is the **Board**: three fixed columns Todo, In Progress, Completed. Dragging a card sets `status` and `order`.
 - `/workspace/<id>` is the workspace of a Git worktree: agent chat, changes, terminal. It appears only when `agent.enabled` is true. A **Run** button appears when `worktree.run` is set.
 - The UI has a filter field (substring over title, type, status, ID, tags). It does not use [search syntax](../search-syntax/).
-- The UI keeps layout in `localStorage` under `lif-planning-chat`, `lif-changes-pane`, `lif-filter-text` and `lif-split-<panel>`. The selected item is mirrored as `?item=<id>`, so `http://localhost:8080/?item=<id>` is a deep link.
-- There is no settings page and no theme switch; the colour scheme follows the operating system. `display.theme` is not read by the UI.
+- The UI keeps layout in `localStorage` under `lif-planning-chat`, `lif-changes-pane`, `lif-filter-text`, `lif-theme` and `lif-split-<panel>`. The selected item is mirrored as `?item=<id>`, so `http://localhost:8080/?item=<id>` is a deep link.
+- There is no settings page. The theme button at the right end of the toolbar cycles **Auto** (follows the operating system, live), **Light** and **Dark**. The choice is stored in `lif-theme` and survives a reload. `display.theme` is not read by the UI.
 - The status list is hard-coded (`draft`, `todo`, `in-progress`, `completed`, `scrapped`). Custom statuses are not shown on the board; `scrapped` is shown in neither view.
 
 Screenshot follows.

@@ -492,3 +492,23 @@ func TestAfterHookThatRanChecksETagOfLaterWrites(t *testing.T) {
 		t.Errorf("status on disk = %q, want todo: the stale write must not land", disk.Status)
 	}
 }
+
+// GATES-08: a stale if-match stops the write before the gate runs.
+func TestE13_StaleIfMatchStopsBeforeTheGate(t *testing.T) {
+	r := newTestResolver(t)
+	createTyped(t, r, "beans-ev13", "task", "")
+	disk := fileOf(t, r, "beans-ev13")
+	rec := newRecorder(r)
+	in := statusInput("in-progress")
+	stale := "deadbeef"
+	in.IfMatch = &stale
+
+	_, err := r.UpdateItem(context.Background(), "beans-ev13", in)
+
+	var mismatch *itemcore.ETagMismatchError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("error = %v, want ETagMismatchError", err)
+	}
+	wantStages(t, rec)
+	wantFile(t, r, "beans-ev13", disk)
+}

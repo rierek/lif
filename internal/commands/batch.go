@@ -124,7 +124,12 @@ func emitBatchFailure(jsonMode bool, done []*item.Item, err error) error {
 		// %w, not %v: reportExecutionError and mutationErrorCode classify the
 		// error by its type. With %v a gate's block would print as a usage
 		// error, with the pointer to the manual.
-		return fmt.Errorf("%w (already written: %s)", err, strings.Join(ids, ", "))
+		// The suffix has its own line after a multi-line error (a gate's output).
+		sep := " "
+		if strings.Contains(err.Error(), "\n") {
+			sep = "\n"
+		}
+		return fmt.Errorf("%w%s(already written: %s)", err, sep, strings.Join(ids, ", "))
 	}
 	return err
 }

@@ -63,6 +63,7 @@ Main fields of `Item`:
 - `item(id: ID!)`: full ID or short ID without prefix. Returns `null` if nothing matches.
 - `items(filter: ItemFilter)`: all matching items, in the default sort order of `lif list`.
 - `projectName`, `mainBranch`: project data.
+- `statuses`, `types`, `priorities`: the configured names in config order. Each entry has `name` and `color`: a tone name such as `green`, a lowercase `#rrggbb` or `#rgb` code, or an empty string when the config sets no valid color. The web UI reads them.
 
 `ItemFilter` fields:
 

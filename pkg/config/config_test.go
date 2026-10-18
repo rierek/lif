@@ -1867,6 +1867,14 @@ func TestGetCORSOrigins(t *testing.T) {
 		}
 	})
 
+	t.Run("hands out a copy of the defaults", func(t *testing.T) {
+		origins := Default().GetCORSOrigins()
+		origins[0] = "http://changed.example:*"
+		if DefaultCORSOrigins[0] != "http://localhost:*" {
+			t.Errorf("a caller changed the shared default list: %v", DefaultCORSOrigins)
+		}
+	})
+
 	t.Run("returns configured origins", func(t *testing.T) {
 		cfg := Default()
 		cfg.Server.CORSOrigins = []string{"https://example.com"}

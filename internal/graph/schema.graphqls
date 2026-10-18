@@ -114,11 +114,44 @@ type Query {
   worktreeIntegrateMode: String!
 
   """
+  Catppuccin flavour from display.theme (default mocha).
+  """
+  theme: String!
+
+  """
+  Configured statuses in config order (built-ins merged with .lif.yml), each
+  with its display colour.
+  """
+  statuses: [ConfigValue!]!
+
+  """
+  Configured types in config order, each with its display colour.
+  """
+  types: [ConfigValue!]!
+
+  """
+  Configured priorities in config order, each with its display colour.
+  """
+  priorities: [ConfigValue!]!
+
+  """
   List files tracked by git in a workspace directory.
   Performs case-insensitive substring matching — space-separated terms must all
   match somewhere in the file path. Used for @-mention autocomplete.
   """
   listFiles(workspaceId: ID, prefix: String!, limit: Int): [FileEntry!]!
+}
+
+"""
+A configured status, type or priority and its display colour.
+"""
+type ConfigValue {
+  name: String!
+
+  """
+  Catppuccin tone name (e.g. "green") or "#rrggbb"; empty when unset or invalid.
+  """
+  color: String!
 }
 
 type Subscription {

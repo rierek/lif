@@ -82,14 +82,14 @@ server:
 | | `default_effort` | empty = the tool's own default (`low`, `medium`, `high`, `max`) |
 | `server` | `port` | 8080 |
 | | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` adds the CORS header for every origin and allows nothing else (pages can read, not change) |
-| `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`). Colors the CLI output only: the TUI uses a fixed dark palette and the web UI follows the operating system. |
+| `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`). Colors the CLI output. In the web UI it picks the flavour of the dark scheme (`latte` leaves dark on `mocha`; the light scheme is always `latte`); see [Theme](../web-server/#theme). The TUI uses a fixed dark palette. |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 | `tasks` | `<name>` | none; see [Tasks](#tasks) |
 | `hooks` | `<name>` | none; see [Hooks](#hooks) |
 
 `lif.default_priority` and `lif.default_tags` are read only by the guided `lif create -i` form, which pre-fills them. Plain `lif create`, the GraphQL `createItem` mutation and the TUI create form ignore them. `lif check` fails if `default_priority` names an unknown priority (built-in or configured), or if a `default_tags` entry is empty or not a valid tag. An empty list behaves like an unset key.
 
-`lif check` does not validate `lif.default_status`: it prints "Default status exists" without a real test, because the status table is built in. `lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/). The bind address and the remote terminal have no key on purpose: they are the flags `--host` and `--allow-remote-terminal`.
+`lif check` does not validate `lif.default_status`: it prints "Default status exists" without a real test, because the status table is built in. `lif check` reports invalid values for `agent.default_effort` and `display.theme`. The `agent`, `worktree` and `server` keys matter only for [`lif-serve`](../web-server/). Every option that opens the server has no key on purpose: the bind address, the remote terminal and the remote agent, the token and TLS options are flags (`--host`, `--allow-remote-terminal`, `--allow-remote-agent`, `--require-token`, `--public-url`, `--token-file`, `--tls-cert`, `--tls-key`). See [Remote access](../remote-access/).
 
 New worktrees get the branch `lif/<id>`. Worktrees on legacy `beans/` branches are still listed and used.
 
@@ -275,7 +275,7 @@ See [Automation](../../features/automation/#hooks) for the worktree example and 
 - Entries under `statuses:`, `types:` and `priorities:` override a built-in entry by name or are appended.
 - Fields. `statuses`: `name`, `color`, `archive`, `short`, `description`. `types`: `name`, `color`, `rank`, `emphasis`, `roadmap`, `short`, `description`. `priorities`: `name`, `color`, `symbol`, `description`. Omitting `archive` keeps the default of a built-in entry. `lif archive` moves items with an archive status to `archive/`.
 - `types_exclusive: true`: `types` is the complete table; built-in types are not added. `lif init --profile` sets it.
-- Colors: a Catppuccin tone name or a hex value (`#rgb` or `#rrggbb`, for example `#ff8800`). Tones: `rosewater`, `flamingo`, `pink`, `mauve`, `red`, `maroon`, `peach`, `yellow`, `green`, `teal`, `sky`, `sapphire`, `blue`, `lavender`, `text`, `subtext1`, `subtext0`, `overlay2`, `overlay1`, `overlay0`, `surface2`, `surface1`, `surface0`, `base`. The legacy names `gray`, `grey`, `purple` and `cyan` still work. An empty color is valid. `lif check` reports an invalid one: `✗ invalid color 'notacolor' for type 'spike'`.
+- Colors: a Catppuccin tone name or a hex value (`#rgb` or `#rrggbb`, for example `#ff8800`). Tones: `rosewater`, `flamingo`, `pink`, `mauve`, `red`, `maroon`, `peach`, `yellow`, `green`, `teal`, `sky`, `sapphire`, `blue`, `lavender`, `text`, `subtext1`, `subtext0`, `overlay2`, `overlay1`, `overlay0`, `surface2`, `surface1`, `surface0`, `base`. The legacy names `gray`, `grey`, `purple` and `cyan` still work. An empty color is valid. `lif check` reports an invalid one: `✗ invalid color 'notacolor' for type 'spike'`. The web UI applies these colors to badges and borders too, see [Web UI](../web-server/#web-ui).
 - Blocking logic: "resolved" means `completed` or `scrapped`, fixed. The flag `archive: true` does not count there, so an item in a custom archive status keeps blocking. The ready logic, in contrast, excludes every status with `archive: true`.
 
 ### Recipes

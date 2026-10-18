@@ -252,8 +252,8 @@
           class={[
             "btn-toggle ml-1 cursor-pointer",
             isMerged
-              ? "border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20"
-              : "border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
+              ? "border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
+              : "border-info/30 bg-info/10 text-info hover:bg-info/20"
           ]}
           href={worktree.pullRequest.url}
           target="_blank"

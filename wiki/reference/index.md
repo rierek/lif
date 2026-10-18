@@ -37,6 +37,7 @@ For the task-oriented view (store location, `LIF_PATH`, `--lif-path`, anchor, se
 
 - [GraphQL](graphql/): schema, queries, mutations. Call it with `lif graphql` or over HTTP.
 - [Web server](web-server/): the separate binary `lif-serve`. Read its security notes before you start it.
+- [Remote access](remote-access/): reach `lif-serve` from another machine with Tailscale, an SSH tunnel, Caddy, nginx or TLS, and run it as a service.
 - TUI: five pages, start with [Start and repositories](tui/start-and-repositories/). Then [Views](tui/views/), [Editing items](tui/editing-items/), [Key bindings](tui/key-bindings/) and [Settings and themes](tui/settings-and-themes/).
 
 The web server is its own binary. `lif serve` in the `lif` binary is a hidden placeholder and is not documented.

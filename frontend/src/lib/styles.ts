@@ -1,40 +1,21 @@
-/** Shared color/style maps for item badges, borders, and indicators. */
+/**
+ * Item colours come from .lif.yml through configStore. Each helper returns an
+ * inline `--tone: <colour>` declaration for `style={…}`; the `.badge-tone`,
+ * `.border-l-tone`, `.text-tone` and `.border-tone` classes in layout.css read it.
+ */
+import { configStore } from '#lib/config.svelte.js';
 
-export const statusColors: Record<string, string> = {
-  draft: 'bg-status-draft-bg text-status-draft-text',
-  todo: 'bg-status-todo-bg text-status-todo-text',
-  'in-progress': 'bg-status-in-progress-bg text-status-in-progress-text',
-  completed: 'bg-status-completed-bg text-status-completed-text',
-  scrapped: 'bg-status-scrapped-bg text-status-scrapped-text'
-};
+/** CSS colour for a configured colour: a Catppuccin tone name or "#rrggbb". Unset gives `fallback`. */
+export function toneValue(color: string, fallback = 'var(--th-text-faint)'): string {
+  if (!color) return fallback;
+  return color.startsWith('#') ? color : `var(--ctp-${color})`;
+}
 
-export const typeColors: Record<string, string> = {
-  milestone: 'bg-type-milestone-bg text-type-milestone-text',
-  epic: 'bg-type-epic-bg text-type-epic-text',
-  feature: 'bg-type-feature-bg text-type-feature-text',
-  bug: 'bg-type-bug-bg text-type-bug-text',
-  task: 'bg-type-task-bg text-type-task-text'
-};
+function tone(list: { name: string; color: string }[], name: string, fallback?: string): string {
+  return `--tone: ${toneValue(list.find((v) => v.name === name)?.color ?? '', fallback)}`;
+}
 
-export const typeBorders: Record<string, string> = {
-  milestone: 'border-l-type-milestone-border',
-  epic: 'border-l-type-epic-border',
-  feature: 'border-l-type-feature-border',
-  bug: 'border-l-type-bug-border',
-  task: 'border-l-type-task-border'
-};
-
-export const priorityColors: Record<string, string> = {
-  critical: 'border-danger text-danger',
-  high: 'border-warning text-warning',
-  normal: 'border-border text-text-muted',
-  low: 'border-border text-text-muted opacity-60',
-  deferred: 'border-border text-text-muted opacity-40'
-};
-
-export const priorityIndicators: Record<string, string> = {
-  critical: 'text-danger',
-  high: 'text-warning',
-  low: 'text-text-faint',
-  deferred: 'text-text-faint opacity-60'
-};
+export const statusTone = (name: string) => tone(configStore.statuses, name);
+export const typeTone = (name: string) => tone(configStore.types, name);
+export const priorityTone = (name: string) =>
+  tone(configStore.priorities, name, 'var(--th-text-muted)');

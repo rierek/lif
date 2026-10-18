@@ -221,3 +221,12 @@ func TestTK17_GlobalErrorStartsWithPath(t *testing.T) {
 		}
 	}
 }
+
+// TRUST-12: a reviewer must see what a step runs.
+func TestTK_BinaryStepIsRejected(t *testing.T) {
+	tkWantProjectErr(t, "tasks:\n    x:\n        steps:\n            - !!binary ZWNobyBoaQ==\n", "!!binary")
+}
+
+func TestTK_BidiControlInStepIsRejected(t *testing.T) {
+	tkWantProjectErr(t, "tasks:\n    x:\n        steps: [\"echo \\u202Ehi\"]\n", "U+202E")
+}

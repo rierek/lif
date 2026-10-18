@@ -455,8 +455,9 @@ func TestUpdateItemPolicyCountsExtraOpsOfTheSameCall(t *testing.T) {
 }
 
 // An after hook that ran may have written the next target behind this
-// process's back: the next write without If-Match fails instead of overwriting.
-func TestAfterHookThatRanChecksETagOfLaterWrites(t *testing.T) {
+// process's back: the next write without If-Match starts from the file on
+// disk, so it keeps the hook's edit and still lands.
+func TestAfterHookThatRanRereadsLaterTargets(t *testing.T) {
 	ctx := context.Background()
 	r := newTestResolver(t)
 	createTyped(t, r, "beans-ah01", "task", "")
@@ -482,14 +483,15 @@ func TestAfterHookThatRanChecksETagOfLaterWrites(t *testing.T) {
 	if _, err := r.UpdateItem(ctx, "beans-ah01", statusInput("in-progress")); err != nil {
 		t.Fatalf("first target: %v", err)
 	}
-	_, err := r.UpdateItem(ctx, "beans-ah02", statusInput("in-progress"))
-
-	var mismatch *itemcore.ETagMismatchError
-	if !errors.As(err, &mismatch) {
-		t.Fatalf("second target: error = %v, want ETagMismatchError", err)
+	if _, err := r.UpdateItem(ctx, "beans-ah02", statusInput("in-progress")); err != nil {
+		t.Fatalf("second target: %v", err)
 	}
-	if disk := onDisk(t, r, "beans-ah02"); disk.Status != "todo" {
-		t.Errorf("status on disk = %q, want todo: the stale write must not land", disk.Status)
+	disk := onDisk(t, r, "beans-ah02")
+	if disk.Status != "in-progress" {
+		t.Errorf("status on disk = %q, want in-progress", disk.Status)
+	}
+	if !strings.Contains(disk.Body, "edited by the hook") {
+		t.Errorf("body on disk = %q, lost the edit of the hook", disk.Body)
 	}
 }
 

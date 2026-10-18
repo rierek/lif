@@ -72,7 +72,14 @@ func (d *Dispatcher) env(hook, stage string, m itemgraph.Mutation) []string {
 	for _, key := range extraKeys(cur, prev) {
 		suffix := nonEnvName.ReplaceAllString(strings.ToUpper(key), "_")
 		if first, taken := owner[suffix]; taken {
-			fmt.Fprintf(d.warn, "warning: hook %q: extra key %q maps to LIF_FIELD_%s, taken by %q; ignored\n", hook, key, suffix, first)
+			// Once per process and key, not once per hook and event.
+			if id := suffix + "/" + key; !d.clashed[id] {
+				if d.clashed == nil {
+					d.clashed = make(map[string]bool)
+				}
+				d.clashed[id] = true
+				fmt.Fprintf(d.warn, "warning: hook %q: extra key %q maps to LIF_FIELD_%s, taken by %q; ignored (args use the real key and have no such clash)\n", hook, key, suffix, first)
+			}
 			continue
 		}
 		owner[suffix] = key

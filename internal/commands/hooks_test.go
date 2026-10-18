@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/rierek/lif/internal/hooks"
+	"github.com/rierek/lif/internal/tasks"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
@@ -301,7 +302,7 @@ hooks:
 	}
 }
 
-func TestA09_AHookThatWritesALaterTargetMakesThatTargetConflict(t *testing.T) {
+func TestA09_AHookThatWritesALaterTargetKeepsItsWrite(t *testing.T) {
 	hookEnv(t)
 	dir := hookProject(t, `tasks:
   touch-b:
@@ -315,23 +316,14 @@ hooks:
 	todoItems(t, dir, "ex-aaaa", "ex-bbbb")
 	allowHooks(t, dir)
 
-	_, _, err := runInProject(t, dir, "update", "ex-aaaa", "ex-bbbb", "--tag", "x")
-
-	var mismatch *itemcore.ETagMismatchError
-	if !errors.As(err, &mismatch) {
-		t.Fatalf("err = %v, want an ETagMismatchError", err)
-	}
-	if got := mutationErrorCode(err); got != "CONFLICT" {
-		t.Errorf("error code = %q, want CONFLICT", got)
-	}
-	if !strings.Contains(err.Error(), "(already written: ex-aaaa)") {
-		t.Errorf("error = %q, want it to name ex-aaaa as already written", err)
+	if _, _, err := runInProject(t, dir, "update", "ex-aaaa", "ex-bbbb", "--tag", "x"); err != nil {
+		t.Fatalf("err = %v, want the batch to go through", err)
 	}
 	if got := readHookItem(t, dir, "ex-aaaa").Tags; !slices.Equal(got, []string{"x"}) {
 		t.Errorf("ex-aaaa tags = %v, want [x]", got)
 	}
-	if got := readHookItem(t, dir, "ex-bbbb").Tags; !slices.Equal(got, []string{"from-hook"}) {
-		t.Errorf("ex-bbbb tags = %v, want [from-hook] and no x", got)
+	if got := readHookItem(t, dir, "ex-bbbb").Tags; !slices.Equal(got, []string{"from-hook", "x"}) {
+		t.Errorf("ex-bbbb tags = %v, want [from-hook x]: the write of the hook and the write of the batch", got)
 	}
 }
 
@@ -1068,5 +1060,17 @@ func TestW10_ListShowsAGlobalHookThatNamesAProjectOnlyTaskAsAnError(t *testing.T
 	want := `(error: unknown task "x"; run 'lif run' to list tasks)`
 	if !strings.HasSuffix(lines[1], want) {
 		t.Errorf("row = %q, want it to end with %q", lines[1], want)
+	}
+}
+
+func TestHookWarningsNameSilentNoOps(t *testing.T) {
+	plan := []tasks.Planned{{Name: "one", Task: config.Task{Args: []string{"id"}}}}
+	h := config.Hook{Args: []string{"id", "status"}, Changed: []string{"Status", "priority"}}
+	got := hookWarnings(h, plan)
+	if len(got) != 2 || !strings.Contains(got[0], "takes 1 argument(s), the hook gives 2") || !strings.Contains(got[1], `changed "Status"`) {
+		t.Fatalf("hookWarnings = %q", got)
+	}
+	if got := hookWarnings(config.Hook{Args: []string{"id"}, Changed: []string{"status"}}, plan); len(got) != 0 {
+		t.Fatalf("clean hook warned: %q", got)
 	}
 }

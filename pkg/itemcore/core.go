@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -44,9 +45,14 @@ var ErrNotFound = errors.New("item not found")
 // This allows callers to distinguish concurrency conflicts from other errors.
 // Current is empty when there is no file to take an etag from: another process
 // renamed, replaced or deleted the item file after the caller read it.
+//
+// Implicit marks a mismatch of the etag Update took from its own in-memory copy
+// because the caller gave none: another process wrote the item after this one
+// loaded it. Such a caller may reload the item and apply its change again.
 type ETagMismatchError struct {
 	Provided string
 	Current  string
+	Implicit bool
 }
 
 func (e *ETagMismatchError) Error() string {
@@ -118,6 +124,10 @@ type Core struct {
 	// in items but never touches this map, so it still answers "which file in
 	// the main store holds this item" while a worktree version is active.
 	mainPaths map[string]string
+
+	// duplicates maps an ID that more than one file of the store carries to
+	// the paths (relative to root) of all of them. Only one wins in items.
+	duplicates map[string][]string
 
 	// Search index (optional, lazy-initialized)
 	searchIndex *search.Index
@@ -309,6 +319,41 @@ func (c *Core) Load() error {
 	return c.loadFromDisk()
 }
 
+// ReloadItem replaces the in-memory copy of id with the file on disk, for a
+// caller whose write failed with an implicit ETagMismatchError. When the file
+// is gone from its old path (another process renamed it) the whole store is
+// loaded again. Runtime-only (dirty) items are kept: they exist only in memory.
+func (c *Core) ReloadItem(id string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.dirty[id] {
+		return nil
+	}
+	if rel := c.mainPaths[id]; rel != "" {
+		if b, err := c.loadItem(filepath.Join(c.root, rel)); err == nil && b.ID == id {
+			c.setItemLocked(id, b)
+			return nil
+		}
+	}
+	if len(c.dirty) > 0 {
+		return fmt.Errorf("item %s moved while runtime-only changes are pending", id)
+	}
+	return c.loadFromDisk()
+}
+
+// DuplicateIDs returns, per ID that more than one file carried at the last
+// load, the paths of those files. An item answers to one of them only.
+func (c *Core) DuplicateIDs() map[string][]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make(map[string][]string, len(c.duplicates))
+	for id, paths := range c.duplicates {
+		out[id] = slices.Clone(paths)
+	}
+	return out
+}
+
 // loadFromDisk reads all items from disk (must be called with lock held).
 // Loads all .md files from the root directory and any subdirectories.
 func (c *Core) loadFromDisk() error {
@@ -322,6 +367,7 @@ func (c *Core) loadFromDisk() error {
 	c.items = make(map[string]*item.Item)
 	c.dirty = make(map[string]bool)
 	c.mainPaths = make(map[string]string)
+	c.duplicates = make(map[string][]string)
 	c.invalidateIncomingLocked()
 	err := filepath.WalkDir(c.root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -355,6 +401,12 @@ func (c *Core) loadFromDisk() error {
 			return fmt.Errorf("loading %s: %w", path, loadErr)
 		}
 
+		if prev, dup := c.items[b.ID]; dup {
+			if len(c.duplicates[b.ID]) == 0 {
+				c.duplicates[b.ID] = []string{prev.Path}
+			}
+			c.duplicates[b.ID] = append(c.duplicates[b.ID], b.Path)
+		}
 		c.setItemLocked(b.ID, b)
 		c.mainPaths[b.ID] = b.Path
 		return nil
@@ -576,6 +628,7 @@ type updateOptions struct {
 	worktreePath string // if set, write to this worktree's store dir instead of main
 	extraSet     map[string]any
 	extraUnset   []string
+	order        string // if set, Create writes the item with this order value
 	expectedETag string // if set and Update gets no ifMatch, compared like one; never satisfies require_if_match
 }
 
@@ -608,6 +661,12 @@ func WithExtraOps(set map[string]any, unset []string) UpdateOption {
 		o.extraSet = set
 		o.extraUnset = unset
 	}
+}
+
+// WithOrder makes Create write the item with this order value, in the one write
+// that creates the file, so a created hook sees the item in its final state.
+func WithOrder(order string) UpdateOption {
+	return func(o *updateOptions) { o.order = order }
 }
 
 // WithExpectedETag makes Update compare the etag of the item file like an
@@ -800,6 +859,67 @@ func (c *Core) requiredFieldsFor(status string) []string {
 	return c.config.RequiredFieldsFor(status)
 }
 
+// NewID returns a fresh item ID with the given prefix, one that no loaded item
+// and no file in the store uses. See newIDLocked.
+func (c *Core) NewID(prefix string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.newIDLocked(prefix)
+}
+
+// maxIDAttempts bounds the search for an unused ID.
+const maxIDAttempts = 1000
+
+// newIDLocked generates IDs until one is unused. Besides the loaded items it
+// looks at the files on disk, because another lif process may have created an
+// item since this one loaded the store. Two processes that pick the same free
+// ID in the same instant can still collide: that window is the time between
+// this check and the write of the new file.
+func (c *Core) newIDLocked(prefix string) (string, error) {
+	length := 4
+	if c.config != nil && c.config.Items.IDLength > 0 {
+		length = c.config.Items.IDLength
+	}
+	for range maxIDAttempts {
+		id, err := item.NewID(prefix, length)
+		if err != nil {
+			return "", fmt.Errorf("generating item ID: %w", err)
+		}
+		if !c.idInUseLocked(id) {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("no unused item ID found in %d tries: raise items.id_length", maxIDAttempts)
+}
+
+// idInUseLocked reports whether an item or a file of the store (top level or
+// one directory down, e.g. archive/) already carries id.
+func (c *Core) idInUseLocked(id string) bool {
+	if _, ok := c.items[id]; ok {
+		return true
+	}
+	prefix := id + "--"
+	var subdirs []string
+	entries, _ := os.ReadDir(c.root)
+	for _, e := range entries {
+		switch {
+		case e.IsDir() && !strings.HasPrefix(e.Name(), "."):
+			subdirs = append(subdirs, filepath.Join(c.root, e.Name()))
+		case strings.HasPrefix(e.Name(), prefix) && strings.HasSuffix(e.Name(), ".md"):
+			return true
+		}
+	}
+	for _, dir := range subdirs {
+		sub, _ := os.ReadDir(dir)
+		for _, e := range sub {
+			if strings.HasPrefix(e.Name(), prefix) && strings.HasSuffix(e.Name(), ".md") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Create adds a new item, generating an ID if needed.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
@@ -814,16 +934,12 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	// Generate ID if not provided
 	if b.ID == "" {
 		prefix := ""
-		length := 4
 		if c.config != nil {
 			prefix = c.config.Items.Prefix
-			if c.config.Items.IDLength > 0 {
-				length = c.config.Items.IDLength
-			}
 		}
-		id, err := item.NewID(prefix, length)
+		id, err := c.newIDLocked(prefix)
 		if err != nil {
-			return fmt.Errorf("generating item ID: %w", err)
+			return err
 		}
 		b.ID = id
 	}
@@ -833,6 +949,9 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	b.CreatedAt = &now
 	b.UpdatedAt = &now
 
+	if o.order != "" {
+		b.Order = o.order
+	}
 	applyExtraOptions(b, o.extraSet, o.extraUnset)
 
 	if fields := c.requiredFieldsFor(b.Status); len(fields) > 0 {
@@ -874,8 +993,10 @@ var itemLockTimeout = 10 * time.Second
 // If ifMatch is provided, validates the current version's etag matches before updating.
 // The check and the write run under a lock on the item's file that every lif
 // process respects, so of two simultaneous updates with the same etag only
-// one succeeds. An update without ifMatch and without WithExpectedETag has no
-// check and takes no lock; WithExpectedETag checks and locks like ifMatch.
+// one succeeds. An update without ifMatch and without WithExpectedETag checks
+// and locks against the etag of the in-memory copy (a failure is an
+// ETagMismatchError with Implicit set); WithExpectedETag checks and locks like
+// ifMatch.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error {
 	o := defaultUpdateOptions()
@@ -915,6 +1036,17 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 	// between the etag check and the write below, so an --if-match write to the
 	// main store also holds an exclusive lock on the item file from before the
 	// etag is read until Update returns.
+	//
+	// A write without any etag takes one from the in-memory copy and checks it
+	// the same way, so a write based on a copy that another process has since
+	// replaced fails instead of silently undoing that write (see
+	// ETagMismatchError.Implicit). Runtime-only (dirty) items have no
+	// disk state to compare with.
+	implicit := false
+	if (ifMatch == nil || *ifMatch == "") && o.persist && wtPath == "" && storedItem.Path != "" && !c.dirty[b.ID] {
+		etag := storedItem.ETag()
+		ifMatch, implicit = &etag, true
+	}
 	wantsETagFromDisk := ifMatch != nil && *ifMatch != ""
 	var lock *filelock.Lock
 	if wantsETagFromDisk && o.persist && wtPath == "" && storedItem.Path != "" {
@@ -928,7 +1060,7 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 			// title change does, once the file is written), moved or deleted it
 			// since this one read the store. The etag cannot match, and a write
 			// would put the old file name back next to the new one.
-			return &ETagMismatchError{Provided: *ifMatch}
+			return &ETagMismatchError{Provided: *ifMatch, Implicit: implicit}
 		case errors.Is(err, filelock.ErrTimeout):
 			return fmt.Errorf("item %s is locked by another process (waited %s): %w", b.ID, itemLockTimeout, err)
 		default:
@@ -959,7 +1091,7 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 			// the one that went first renamed or replaced the file.
 			content, err := lock.ReadFile(mainPath)
 			if os.IsNotExist(err) || errors.Is(err, filelock.ErrReplaced) {
-				return &ETagMismatchError{Provided: *ifMatch}
+				return &ETagMismatchError{Provided: *ifMatch, Implicit: implicit}
 			}
 			if err != nil {
 				return fmt.Errorf("reading item %s: %w", b.ID, err)
@@ -987,6 +1119,7 @@ func (c *Core) Update(b *item.Item, ifMatch *string, opts ...UpdateOption) error
 			return &ETagMismatchError{
 				Provided: *ifMatch,
 				Current:  currentETag,
+				Implicit: implicit,
 			}
 		}
 	}

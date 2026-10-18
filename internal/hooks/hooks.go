@@ -38,6 +38,7 @@ type Dispatcher struct {
 	warned  bool            // the not-allowed warning was printed
 	shadow  map[string]bool // global gates that a project hook of the same name tried to replace, warned about
 	key, fp string          // trust key and fingerprint of cfg; set on first use
+	clashed map[string]bool // env-name collisions that were reported ("suffix/key"); used under runMu only
 }
 
 // New returns a Dispatcher for cfg. storeRoot is the directory that

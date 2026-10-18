@@ -247,7 +247,7 @@
                 {@const pr = item.pullRequest}
                 {@const [iconClass, colorClass, title] =
                   pr.state === 'merged'
-                    ? ['icon-[uil--code-branch] rotate-180', 'text-purple-400', `PR #${pr.number} merged`]
+                    ? ['icon-[uil--code-branch] rotate-180', 'text-accent', `PR #${pr.number} merged`]
                     : pr.checkStatus === 'fail'
                       ? ['icon-[uil--times-circle]', 'text-danger', `PR #${pr.number}: checks failed`]
                       : pr.checkStatus === 'pending'

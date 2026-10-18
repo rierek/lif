@@ -57,7 +57,7 @@
     switch (item.status) {
       case 'draft':
         return [
-          { label: 'Todo', status: 'todo', icon: 'icon-[uil--clipboard-notes]', iconColor: 'text-sky-400' },
+          { label: 'Todo', status: 'todo', icon: 'icon-[uil--clipboard-notes]', iconColor: 'text-info' },
           { label: 'Scrap', status: 'scrapped', icon: 'icon-[uil--trash-alt]', iconColor: 'text-danger' }
         ];
       case 'todo':
@@ -197,7 +197,7 @@
           disabled={archiving}
           title="Archive this item"
         >
-          <span class="icon-[uil--archive] size-4 text-amber-400"></span>
+          <span class="icon-[uil--archive] size-4 text-warning"></span>
           {archiving ? 'Archiving…' : 'Archive'}
         </button>
       {/if}
@@ -206,7 +206,7 @@
           class="btn-toggle btn-toggle-inactive"
           onclick={() => onEdit(item)}
         >
-          <span class="icon-[uil--edit] size-4 text-sky-400"></span>
+          <span class="icon-[uil--edit] size-4 text-info"></span>
           Edit
         </button>
       {/if}
@@ -364,7 +364,7 @@
 
   .item-body :global(input[type='checkbox']) {
     margin-top: 0.25rem;
-    accent-color: #22c55e;
+    accent-color: var(--th-success);
   }
 
   .item-body :global(pre.shiki) {

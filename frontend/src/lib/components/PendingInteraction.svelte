@@ -69,7 +69,7 @@
     <div class="flex items-center gap-3">
       <button
         onclick={onApprove}
-        class="cursor-pointer rounded bg-status-in-progress-text px-3 py-1.5 text-white transition-colors hover:opacity-90"
+        class="cursor-pointer rounded bg-status-in-progress-text px-3 py-1.5 text-accent-text transition-colors hover:opacity-90"
       >
         Approve
       </button>

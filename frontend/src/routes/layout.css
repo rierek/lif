@@ -65,7 +65,7 @@ a,
 .loader {
   width: 16px;
   aspect-ratio: 1;
-  --_g: no-repeat radial-gradient(farthest-side, var(--th-text-faint) 94%, #0000);
+  --_g: no-repeat radial-gradient(farthest-side, var(--th-text-faint) 94%, transparent);
   background:
     var(--_g) 0 0,
     var(--_g) 100% 0,
@@ -95,11 +95,11 @@ a,
 
 /* ── Status/type badge ────────────────────────── */
 .badge {
-  @apply rounded px-2 py-0.5 text-[11px] font-medium shadow-[0_1px_0_0_rgba(0,0,0,0.3)];
+  @apply rounded px-2 py-0.5 text-[11px] font-medium shadow-[0_1px_0_0_var(--th-shadow)];
 }
 
 .badge-sm {
-  @apply rounded px-1.5 py-0.5 text-[10px] font-medium shadow-[0_1px_0_0_rgba(0,0,0,0.3)];
+  @apply rounded px-1.5 py-0.5 text-[10px] font-medium shadow-[0_1px_0_0_var(--th-shadow)];
 }
 
 /* ── Item link ───────────────────────────────── */
@@ -173,7 +173,7 @@ a,
 }
 
 .prose input[type='checkbox']:checked {
-  @apply border-green-600 bg-green-600;
+  @apply border-success bg-success;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
 }
 
@@ -212,7 +212,7 @@ a,
   color: var(--shiki-light);
   background-color: var(--th-md-code-bg);
 
-  --code-scroll-shadow: color-mix(in srgb, black 8%, transparent);
+  --code-scroll-shadow: var(--th-scroll-shadow);
 
   /* Scroll-aware fade shadows: the opaque covers sit on top via local attachment
 	   and slide away as you scroll, revealing the translucent shadow beneath. */
@@ -292,17 +292,17 @@ a,
 }
 
 tr.diff-add {
-  @apply bg-green-500/8;
+  background-color: color-mix(in srgb, var(--th-diff-add) 8%, transparent);
 }
 tr.diff-add td:first-child {
-  @apply text-green-400;
+  color: var(--th-diff-add);
 }
 
 tr.diff-del {
-  @apply bg-red-500/8;
+  background-color: color-mix(in srgb, var(--th-diff-del) 8%, transparent);
 }
 tr.diff-del td:first-child {
-  @apply text-red-400;
+  color: var(--th-diff-del);
 }
 
 tr.diff-hunk {
@@ -329,6 +329,13 @@ tr.diff-hunk td {
   --th-warning: var(--ctp-peach);
   --th-success: var(--ctp-green);
   --th-info: var(--ctp-blue);
+
+  /* Diff colours and neutral overlays: the same in both schemes */
+  --th-diff-add: var(--ctp-green);
+  --th-diff-del: var(--ctp-red);
+  --th-backdrop: rgb(0 0 0 / 0.45);
+  --th-shadow: rgb(0 0 0 / 0.3);
+  --th-scroll-shadow: rgb(0 0 0 / 0.08);
 
   /* Status colors (bg + text pairs) */
   --th-status-draft-bg: var(--color-gray-100);

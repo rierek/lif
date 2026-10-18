@@ -21,58 +21,38 @@
   let resizeObserver: ResizeObserver | undefined;
   let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
 
-  const darkTheme = {
-    foreground: '#e0e0e0',
-    cursor: '#e0e0e0',
-    selectionBackground: '#3a3a5c',
-    red: '#f07178',
-    green: '#c3e88d',
-    yellow: '#ffcb6b',
-    blue: '#82aaff',
-    magenta: '#c792ea',
-    cyan: '#89ddff',
-    white: '#e0e0e0',
-    brightBlack: '#545480',
-    brightRed: '#f07178',
-    brightGreen: '#c3e88d',
-    brightYellow: '#ffcb6b',
-    brightBlue: '#82aaff',
-    brightMagenta: '#c792ea',
-    brightCyan: '#89ddff',
-    brightWhite: '#ffffff'
-  };
-
-  const lightTheme = {
-    foreground: '#1e1e1e',
-    cursor: '#1e1e1e',
-    selectionBackground: '#add6ff',
-    black: '#000000',
-    red: '#cd3131',
-    green: '#00bc00',
-    yellow: '#949800',
-    blue: '#0451a5',
-    magenta: '#bc05bc',
-    cyan: '#0598bc',
-    white: '#e0e0e0',
-    brightBlack: '#666666',
-    brightRed: '#cd3131',
-    brightGreen: '#14ce14',
-    brightYellow: '#b5ba00',
-    brightBlue: '#0451a5',
-    brightMagenta: '#bc05bc',
-    brightCyan: '#0598bc',
-    brightWhite: '#a5a5a5'
-  };
-
+  /** xterm theme from the active flavour's tones (--ctp-*), mapped like Catppuccin's terminal themes. */
   function resolveTheme() {
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--th-surface').trim();
-    const base = theme.resolved === 'dark' ? darkTheme : lightTheme;
-    return { ...base, background: bg, black: bg };
+    const style = getComputedStyle(document.documentElement);
+    const ctp = (tone: string) => style.getPropertyValue(`--ctp-${tone}`).trim();
+    return {
+      background: style.getPropertyValue('--th-surface').trim(),
+      foreground: ctp('text'),
+      cursor: ctp('rosewater'),
+      selectionBackground: ctp('surface2'),
+      black: ctp('surface1'),
+      red: ctp('red'),
+      green: ctp('green'),
+      yellow: ctp('yellow'),
+      blue: ctp('blue'),
+      magenta: ctp('pink'),
+      cyan: ctp('teal'),
+      white: ctp('subtext1'),
+      brightBlack: ctp('surface2'),
+      brightRed: ctp('red'),
+      brightGreen: ctp('green'),
+      brightYellow: ctp('yellow'),
+      brightBlue: ctp('blue'),
+      brightMagenta: ctp('pink'),
+      brightCyan: ctp('teal'),
+      brightWhite: ctp('subtext0')
+    };
   }
 
   // Re-apply the terminal theme when the UI scheme or flavour changes
   $effect(() => {
-    void theme.darkFlavour; // the CSS tokens read below change with the flavour
+    void theme.resolved; // the CSS tokens read above change with the scheme and the flavour
+    void theme.darkFlavour;
     const next = resolveTheme();
     if (terminal) terminal.options.theme = next;
   });

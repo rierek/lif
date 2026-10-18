@@ -511,7 +511,7 @@
             type="button"
             onclick={() => removeImage(i)}
             class="absolute -top-1.5 -right-1.5 flex size-5 cursor-pointer items-center justify-center
-              rounded-full bg-danger text-xs text-white opacity-0 transition-opacity
+              rounded-full bg-danger text-xs text-accent-text opacity-0 transition-opacity
               group-hover:opacity-100"
             aria-label="Remove image {i + 1}"
           >

@@ -137,4 +137,24 @@ test.describe('display.theme', () => {
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-flavour', 'frappe');
   });
+
+  test('the terminal paints with the base colour of the flavour', async ({ lif, page }) => {
+    await page.goto(`${lif.baseURL}/`);
+    await expect(page.getByText('Workspaces')).toBeVisible({ timeout: 10_000 });
+    await page.locator('nav button:has(span.truncate)').first().click();
+    await expect(page).toHaveURL(/\/workspace\//, { timeout: 10_000 });
+    await page.getByTitle('Show terminal').click();
+    await expect(page.locator('.xterm-scrollable-element')).toBeVisible({ timeout: 10_000 });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const hex = getComputedStyle(document.documentElement).getPropertyValue('--ctp-base');
+          const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.trim().slice(i, i + 2), 16));
+          const terminal = document.querySelector('.xterm-scrollable-element');
+          return getComputedStyle(terminal!).backgroundColor === `rgb(${r}, ${g}, ${b})`;
+        })
+      )
+      .toBe(true);
+  });
 });

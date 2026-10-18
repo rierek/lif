@@ -48,7 +48,7 @@
       title={ui.showChanges ? 'Hide changes' : 'Show changes'}
     >
       {#if hasChanges}
-        <span class="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400"></span>
+        <span class="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-warning"></span>
       {/if}
       <svg
         xmlns="http://www.w3.org/2000/svg"

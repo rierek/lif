@@ -19,8 +19,11 @@ const trustFileName = "allowed-hooks.yml"
 // Key names the project config at configPath in the trust file. It is the
 // same in every worktree of a repository: the path that the config has in the
 // main checkout. Symlinks are resolved, so the physical path that the TUI
-// passes and the path that a shell reports give one key. Outside a git
-// checkout the key is the absolute path of the config.
+// passes and the path that a shell reports give one key. The main checkout of
+// a bare repository is the bare directory, so repositories that share a parent
+// directory keep separate keys. Outside a git checkout, and in a directory
+// whose .git file names a worktree that is not its own, the key is the
+// absolute path of the config.
 func Key(configPath string) string {
 	abs, err := filepath.Abs(configPath)
 	if err != nil {
@@ -31,9 +34,9 @@ func Key(configPath string) string {
 	if !ok {
 		return filepath.Join(dir, name)
 	}
-	root := top
-	if main, secondary := gitutil.MainWorktreeRoot(dir); secondary {
-		root = main
+	root, ok := gitutil.MainCheckoutRoot(dir)
+	if !ok { // a .git file that is no checkout of the repository it names
+		return filepath.Join(dir, name)
 	}
 	rel, err := filepath.Rel(resolve(top), filepath.Join(dir, name))
 	if err != nil {

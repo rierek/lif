@@ -58,9 +58,13 @@ Startup output with the defaults:
 [lif] Starting server at http://127.0.0.1:8080/
 [lif] GraphQL Playground: http://127.0.0.1:8080/playground
 [lif] Allowed origins: http://localhost:*, http://127.0.0.1:*
+[lif] NOTE: a web page from any port of these hosts, such as another local dev server, may change items (which runs project hooks) and use the terminal. List only the origins you need.
+[lif] Hooks: 2 project hooks (1 gates) active
 [lif] Agent: enabled
 [lif] Terminal: enabled
 ```
+
+The `Hooks:` line appears when `.lif.yml` has hooks. It says `OFF` with the reason when they do not run: not allowed yet (`lif hooks allow`, then restart), or `LIF_NO_HOOKS` set. A project hook that is not allowed fails open (the change goes through, the gate is not enforced), so check the line after you edit `.lif.yml`. The web UI and GraphQL show no hook state: there is no query for tasks, hooks or the trust state. A refused write shows its message (a gate block in an alert, the Edit dialog in its error box).
 
 The first line is the address the listener really got [9a66]. With `--host 0.0.0.0` the output is:
 
@@ -71,6 +75,7 @@ The first line is the address the listener really got [9a66]. With `--host 0.0.0
 [lif] Open the UI: http://192.168.1.50:8080/?token=<token>
 [lif] GraphQL Playground: http://192.168.1.50:8080/playground?token=<token>
 [lif] Allowed origins: http://localhost:*, http://127.0.0.1:*
+[lif] NOTE: a web page from any port of these hosts, such as another local dev server, may change items (which runs project hooks) and use the terminal. List only the origins you need.
 [lif] Agent: disabled (the server is reachable from the network). Add --allow-remote-agent to enable it.
 [lif] Terminal: disabled (the server is reachable from the network). Add --allow-remote-terminal to enable it.
 ```
@@ -103,7 +108,7 @@ What may use the server depends on the address it listens on.
 - **`Origin` header.** A request that can change state, that is any method but GET, HEAD and OPTIONS and every WebSocket upgrade, gets 403 `origin "…" is not allowed` when its `Origin` is neither in the list nor the server's own origin. The server's own origin is `http://` plus the `Host` the request was sent to: the page that `lif-serve` serves comes from there, so the built-in UI needs no `--cors-origin`. `Origin: null` (sandboxed pages) is refused. This stops a page of another site from sending `POST /api/graphql` or opening a WebSocket. Reads are not refused, but the page cannot read the answer: the CORS header goes only to listed origins.
 - **No `Origin` at all** passes, so `curl` and scripts keep working, as in the example on [GraphQL](../graphql/). The two checks keep web pages out; they are no protection against a program, which can send any header. The exception is `/api/terminal`: only the web UI uses it and a browser always sends `Origin` on a WebSocket upgrade, so a client without one gets 403 there.
 - A `POST /api/graphql` needs `Content-Type: application/json`. Form and `text/plain` posts, the kinds a page can send without a CORS preflight, answer `transport not supported`, and a mutation over GET answers `GET requests only allow query operations`.
-- Pattern `scheme://host:*` matches any port. Other entries match exactly. With the default list, a page served from any other local port (`http://localhost:*`) passes: another local web app can use the server.
+- Pattern `scheme://host:*` matches any port. Other entries match exactly. With the default list, a page served from any other local port (`http://localhost:*`) passes: another local web app, or an XSS hole in one, can change items, which runs the project hooks and gates of `.lif.yml`, and open the terminal (a shell as your user). The default stays because dev servers on another port need it. `--cors-origin` replaces the list, but the server always adds `http://<its loopback address>:*` (for example `http://127.0.0.1:*`), so a page on another port of that address still passes; no list closes this. Name only the origins that you need, and do not open untrusted pages in a browser while `lif-serve` runs on a project with hooks. The startup output shows a `NOTE` while the list has a `:*` entry.
 - `--cors-origin '*'` sends `Access-Control-Allow-Origin: *`, so any page can **read** what the server answers: items, workspaces, agent sessions. That is all it does. The host check stays on, a page of another site still cannot change anything or open a WebSocket or the terminal, and the default local origins stay allowed as if they were listed. Name the origins that may change things in the list. The server prints a `WARNING` for `*` that names the shell. In 0.14 `*` also let every origin open a WebSocket, the terminal included.
 
 **Beyond loopback** a script can send any header, so the checks above prove nothing against it. The server asks for the access token instead:

@@ -506,6 +506,9 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 	if slices.Contains(origins, "*") {
 		add("WARNING: allowed origins include *: every web page can read the answers of this server. Only the UI of this server and the other listed origins can change items or use the terminal, a shell as the user running lif-serve.")
 	}
+	if slices.ContainsFunc(origins, func(o string) bool { return strings.HasSuffix(o, ":*") }) {
+		add("NOTE: a web page from any port of these hosts, such as another local dev server, may change items (which runs project hooks) and use the terminal. List only the origins you need.")
+	}
 	switch {
 	case !a.remote():
 		add("Agent: enabled")

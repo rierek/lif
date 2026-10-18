@@ -38,6 +38,8 @@ type Dispatcher struct {
 	warned  bool            // the not-allowed warning was printed
 	shadow  map[string]bool // global gates that a project hook of the same name tried to replace, warned about
 	key, fp string          // trust key and fingerprint of cfg; set on first use
+	trust0  string          // trust entry of key at the first use ("" none)
+	seen    bool            // trust0 is set
 	clashed map[string]bool // env-name collisions that were reported ("suffix/key"); used under runMu only
 }
 
@@ -106,6 +108,7 @@ type active struct {
 	config.Hook
 	name    string
 	project bool // defined in .lif.yml, not in the global file
+	stale   bool // a gate of the project config that changed on disk: it blocks, it does not run
 }
 
 // Gate runs every active matching gate in name order; the first block wins.
@@ -138,13 +141,17 @@ func (d *Dispatcher) Gate(m itemgraph.Mutation) (ran bool, err error) {
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
 	for _, g := range gates {
+		if g.stale {
+			return ran, &BlockedError{Hook: g.name, ItemID: orEmpty(m.Item).ID,
+				Message: d.configPath() + " changed since this process started; restart it to apply the new config"}
+		}
 		var out bytes.Buffer
 		started, runErr := d.run(base, g, m, &out)
 		ran = ran || started
 		if runErr == nil {
 			continue
 		}
-		blocked := &BlockedError{Hook: g.name, ItemID: orEmpty(m.Item).ID, Output: strings.TrimSpace(out.String())}
+		blocked := &BlockedError{Hook: g.name, ItemID: orEmpty(m.Item).ID, Output: blockedOutput(out.String())}
 		var step *tasks.StepError
 		if errors.As(runErr, &step) && step.Code > 0 {
 			blocked.Message = g.Message
@@ -184,7 +191,9 @@ func (d *Dispatcher) Fire(m itemgraph.Mutation) (ran bool) {
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
 	for _, h := range hooks {
-		started, err := d.run(base, h, m, d.warn)
+		out := &lineWriter{w: d.warn, prefix: "[" + h.name + "] "}
+		started, err := d.run(base, h, m, out)
+		out.flush()
 		ran = ran || started
 		if err != nil {
 			fmt.Fprintf(d.warn, "warning: hook %q (task %q): %v\n", h.name, h.Run, err)
@@ -213,12 +222,21 @@ func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err er
 		return tasks.Set{}, nil, err
 	}
 
-	allowed := false
+	allowed, stale := false, false
 	if len(d.cfg.Hooks) > 0 {
 		key, fp := d.trustID()
+		if !d.seen {
+			d.seen, d.trust0 = true, trusted[key]
+		}
 		switch {
 		case d.changedOnDisk(fp):
 			d.warnChanged()
+			stale = true
+		case trusted[key] != "" && trusted[key] != fp && trusted[key] != d.trust0:
+			// The trust entry moved to another content after this process
+			// started (edit, allow, revert the file): fail closed as well.
+			d.warnChanged()
+			stale = true
 		case !isAllowed(trusted, key, fp):
 			d.warnNotAllowed()
 		default:
@@ -240,6 +258,15 @@ func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err er
 				continue
 			}
 			merged[name] = active{Hook: h, name: name, project: true}
+		}
+	} else if stale {
+		// Fail closed: a gate must not switch off because the file changed
+		// (an edit, then `lif hooks allow`). The gates this process knows block
+		// their matching changes until it restarts. After hooks stay off.
+		for name, h := range d.cfg.Hooks {
+			if h.IsGate() {
+				merged[name] = active{Hook: h, name: name, project: true, stale: true}
+			}
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(merged)) {
@@ -290,7 +317,36 @@ func (d *Dispatcher) warnChanged() {
 		return
 	}
 	d.warned = true
-	fmt.Fprintf(d.warn, "warning: %s changed since this process started; its hooks are not allowed until you restart and run 'lif hooks allow'\n", d.configPath())
+	fmt.Fprintf(d.warn, "warning: %s changed since this process started; its gates block their changes and its after hooks do not run until you restart\n", d.configPath())
+}
+
+// Status says in one line whether the project hooks of d run, for the startup
+// of a long-running process; "" when the project config has no hooks.
+func (d *Dispatcher) Status() string {
+	if d == nil || len(d.cfg.Hooks) == 0 {
+		return ""
+	}
+	gates := 0
+	for _, h := range d.cfg.Hooks {
+		if h.IsGate() {
+			gates++
+		}
+	}
+	what := fmt.Sprintf("%d project hooks (%d gates)", len(d.cfg.Hooks), gates)
+	if skip := skipReason(); skip != "" {
+		return fmt.Sprintf("Hooks: OFF, %s do not run (%s)", what, skip)
+	}
+	d.stateMu.Lock()
+	defer d.stateMu.Unlock()
+	trusted, err := readTrust()
+	if err != nil {
+		return fmt.Sprintf("Hooks: %s; the trust file cannot be read, so gates block: %v", what, err)
+	}
+	key, fp := d.trustID()
+	if isAllowed(trusted, key, fp) {
+		return "Hooks: " + what + " active"
+	}
+	return fmt.Sprintf("Hooks: OFF, %s do not run: not allowed. Run 'lif hooks allow', then restart this process", what)
 }
 
 // warnShadow prints, once per name, that a project hook is ignored because
@@ -365,6 +421,54 @@ func (d *Dispatcher) run(base tasks.Set, h active, m itemgraph.Mutation, out io.
 		fmt.Fprintf(out, "\n(output cut after %d KiB)\n", maxOutput>>10)
 	}
 	return true, err
+}
+
+// lineWriter writes whole lines to w, each behind prefix and without control
+// characters. The output of an after hook goes to a log or a terminal: the
+// prefix says where a line comes from, so an item title with a newline cannot
+// forge a log line, and an escape sequence cannot clear the screen.
+type lineWriter struct {
+	w      io.Writer
+	prefix string
+	part   []byte // the last line, until its newline arrives
+}
+
+func (l *lineWriter) Write(p []byte) (int, error) {
+	l.part = append(l.part, p...)
+	for {
+		i := bytes.IndexByte(l.part, '\n')
+		if i < 0 {
+			return len(p), nil
+		}
+		if _, err := fmt.Fprintf(l.w, "%s%s\n", l.prefix, tasks.Printable(string(l.part[:i]))); err != nil {
+			return 0, err
+		}
+		l.part = l.part[i+1:]
+	}
+}
+
+// flush writes the last line, which has no newline.
+func (l *lineWriter) flush() {
+	if len(l.part) > 0 {
+		fmt.Fprintf(l.w, "%s%s\n", l.prefix, tasks.Printable(string(l.part)))
+		l.part = nil
+	}
+}
+
+// maxBlockedOutput is the most gate output that a BlockedError carries. The
+// error reaches every client of lif-serve, the web UI and GraphQL callers, so
+// it is smaller than the 64 KiB that the log keeps.
+const maxBlockedOutput = 8 << 10
+
+// blockedOutput trims the output of a gate task, drops its control characters
+// (the text reaches a terminal or a web page) and cuts it at maxBlockedOutput
+// bytes.
+func blockedOutput(s string) string {
+	s = tasks.Printable(strings.TrimSpace(s))
+	if len(s) <= maxBlockedOutput {
+		return s
+	}
+	return strings.ToValidUTF8(s[:maxBlockedOutput], "") + fmt.Sprintf("\n(output cut after %d KiB)", maxBlockedOutput>>10)
 }
 
 // maxOutput is the most output of one hook or gate task that is kept. A task

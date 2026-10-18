@@ -79,19 +79,37 @@ func changedExtras(prev, next map[string]any) []string {
 
 // after hands a written change to the after hooks; without AfterMutation it
 // does nothing. A hook that ran is remembered: its task may have written
-// items behind the back of this process (see beforeUpdate).
-func (r *CoreResolver) after(m Mutation) {
+// items behind the back of this process (see beforeUpdate). ran says whether
+// a hook task started.
+func (r *CoreResolver) after(m Mutation) (ran bool) {
 	if r.AfterMutation != nil && r.AfterMutation(m) {
 		r.hooksRan.Store(true)
+		return true
 	}
+	return false
+}
+
+// refreshed returns the item as the hook tasks left it when one ran: a task
+// may have written it, and the copy in memory, and so its ETag, is stale until
+// the file watcher catches up. Without a hook, or when the file cannot be read,
+// it returns b.
+func (r *CoreResolver) refreshed(b *item.Item, ran bool) *item.Item {
+	if !ran {
+		return b
+	}
+	if fresh, err := r.Core.Refresh(b.ID); err == nil {
+		return fresh
+	}
+	return b
 }
 
 // afterUpdate fires the after hooks for the update that took prev to b and
 // that Core.Update has written. It fires only when a watched field changed.
-func (r *CoreResolver) afterUpdate(prev, b *item.Item) {
+func (r *CoreResolver) afterUpdate(prev, b *item.Item) (ran bool) {
 	if ch := ChangedFields(prev, b); len(ch) > 0 {
-		r.after(Mutation{Event: "updated", Item: b.Clone(), Prev: prev, Changed: ch})
+		return r.after(Mutation{Event: "updated", Item: b.Clone(), Prev: prev, Changed: ch})
 	}
+	return false
 }
 
 // beforeUpdate is the gate point of an update that takes prev to b: all input
@@ -104,6 +122,8 @@ func (r *CoreResolver) afterUpdate(prev, b *item.Item) {
 // of being overwritten. Only a hook that ran triggers this, never the mere
 // presence of BeforeMutation: an implicit If-Match on every write would
 // satisfy require_if_match and break the batch contract of last write wins.
+// The item that a hook ran for is refreshed (see refreshed), so a write that
+// follows it on the same item sees what the task wrote.
 func (r *CoreResolver) beforeUpdate(prev, b *item.Item, ifMatch *string, opts []itemcore.UpdateOption) ([]itemcore.UpdateOption, error) {
 	if err := r.gate(prev, b, ifMatch, opts); err != nil {
 		return nil, err

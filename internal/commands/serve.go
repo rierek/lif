@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -16,17 +17,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/rierek/lif/internal/agent"
 	"github.com/rierek/lif/internal/cors"
 	"github.com/rierek/lif/internal/gitutil"
 	"github.com/rierek/lif/internal/graph"
+	"github.com/rierek/lif/internal/hooks"
+	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/portalloc"
 	"github.com/rierek/lif/internal/terminal"
 	"github.com/rierek/lif/internal/web"
@@ -466,6 +471,7 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 		},
 	})
 	gqlHandler := handler.New(es)
+	gqlHandler.SetErrorPresenter(presentGraphQLError)
 
 	// Add transports in order (WebSocket first for upgrade handling)
 	gqlHandler.AddTransport(transport.Websocket{
@@ -531,6 +537,9 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 	}
 	for _, line := range access.startupLines(origins, interfaceAddrs) {
 		fmt.Println(line)
+	}
+	if line := hookDispatch.Status(); line != "" {
+		fmt.Println("[lif] " + line)
 	}
 	go func() {
 		if tlsConfig != nil {
@@ -641,4 +650,27 @@ func itemAgentContext(b *item.Item) string {
 // which works in the main repository at root.
 func centralPlanningPrompt(root string) string {
 	return fmt.Sprintf("You are the central planning agent for the Lif project. Your working directory is the main repository at: %s\nNEVER merge pull requests. After creating a PR, stop and report the URL. Do not run `gh pr merge` or any equivalent.\nNEVER assume CI checks are absent. Checks take time to register after a push. If `gh pr checks` returns empty, it means checks haven't started yet, not that none are configured.", root)
+}
+
+// presentGraphQLError adds extensions.code to the errors of a write that a
+// client has to tell apart: CONFLICT (ETag), POLICY_VIOLATION (a status
+// policy or a gate) and VALIDATION_ERROR, the codes of `--json`. A gate block
+// also names the hook, the item and the gate output.
+func presentGraphQLError(ctx context.Context, err error) *gqlerror.Error {
+	out := graphql.DefaultErrorPresenter(ctx, err)
+	code := mutationErrorCode(err)
+	if code == output.ErrFileError {
+		return out
+	}
+	if out.Extensions == nil {
+		out.Extensions = map[string]any{}
+	}
+	out.Extensions["code"] = code
+	var blocked *hooks.BlockedError
+	if errors.As(err, &blocked) {
+		out.Extensions["hook"] = blocked.Hook
+		out.Extensions["itemId"] = blocked.ItemID
+		out.Extensions["output"] = blocked.Output
+	}
+	return out
 }

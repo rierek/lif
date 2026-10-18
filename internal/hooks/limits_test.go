@@ -46,7 +46,7 @@ func TestGateOutputIsCapped(t *testing.T) {
 
 	_, err := p.d.Gate(toProgress())
 	blocked := blockedBy(t, err)
-	if len(blocked.Output) > maxOutput+100 || !strings.Contains(blocked.Output, "(output cut after 64 KiB)") {
+	if len(blocked.Output) > maxBlockedOutput+100 || !strings.Contains(blocked.Output, "(output cut after 8 KiB)") {
 		t.Errorf("output: %d bytes, tail %q", len(blocked.Output), blocked.Output[max(0, len(blocked.Output)-60):])
 	}
 }

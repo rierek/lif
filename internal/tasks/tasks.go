@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -130,6 +132,20 @@ type IO struct {
 // Empty: Run returns "lif binary not found" before the first step.
 var LifPath string
 
+// lifVar matches a use of $LIF or ${LIF}, not of $LIF_ROOT.
+var lifVar = regexp.MustCompile(`\$\{?LIF\b`)
+
+// usesLif reports whether a step of plan refers to $LIF. A task that does not
+// needs no lif binary.
+func usesLif(plan []Planned) bool {
+	for _, p := range plan {
+		if slices.ContainsFunc(p.Task.Steps, lifVar.MatchString) {
+			return true
+		}
+	}
+	return false
+}
+
 // StepError reports the failing step. Code > 0 is the step's exit code.
 type StepError struct {
 	Task              string
@@ -173,7 +189,7 @@ func Run(root string, plan []Planned, args []string, streams IO, extraEnv []stri
 // terminal on stdin the step stays in the foreground group, which the terminal
 // signals on Ctrl-C itself; only SIGTERM and SIGHUP are forwarded, to the step.
 func RunContext(ctx context.Context, root string, plan []Planned, args []string, streams IO, extraEnv []string) error {
-	if LifPath == "" {
+	if LifPath == "" && usesLif(plan) {
 		return errors.New("lif binary not found")
 	}
 	for i, p := range plan {

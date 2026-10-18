@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -398,6 +399,25 @@ func TestT20_ConfigChangedOnDiskAfterStartIsNotAllowed(t *testing.T) {
 	}
 }
 
+// A gate of the config that this process read stays on when the file changes
+// on disk (edit, then `lif hooks allow`): it blocks until a restart.
+func TestT20b_ChangedConfigKeepsProjectGatesClosed(t *testing.T) {
+	v1 := tasksOf(task("pg", `touch "$LIF_ROOT/gate-ran"`)) +
+		hooksOf(hook("p-gate", "stage: before", "event: [updated]", "run: pg"))
+	p := newProj(t, v1)
+	p.allow()
+	writeFile(t, p.cfg.ConfigFile(), strings.Replace(v1, "gate-ran", "gate-ran2", 1)) // a comment would keep the fingerprint
+	p.allow()                                                                         // the user allows the new file; this process still holds the old one
+	_, err := p.d.Gate(toProgress())
+	var blocked *BlockedError
+	if !errors.As(err, &blocked) || blocked.Hook != "p-gate" || !strings.Contains(blocked.Message, "restart") {
+		t.Fatalf("Gate err = %v, want a block by p-gate that asks for a restart", err)
+	}
+	if p.exists("gate-ran") {
+		t.Error("the stale gate task ran")
+	}
+}
+
 // TRUST-05: parallel allows and denies must not lose each other's update.
 func TestT21_ParallelAllowsKeepEveryEntry(t *testing.T) {
 	isolate(t)
@@ -474,5 +494,50 @@ func TestT23_AllowAndDenyReplaceACorruptTrustFile(t *testing.T) {
 	}
 	if ok, err := Allowed("k", "f"); !ok || err != nil {
 		t.Errorf("Allowed = %v, %v; want true, nil", ok, err)
+	}
+}
+
+// A long-running process says at start whether its project hooks run.
+func TestStatusSaysWhetherProjectHooksRun(t *testing.T) {
+	p := newProj(t, tasksOf(task("pg", "true"))+hooksOf(hook("p-gate", "stage: before", "event: [updated]", "run: pg")))
+	if got := p.d.Status(); !strings.Contains(got, "OFF") || !strings.Contains(got, "lif hooks allow") || !strings.Contains(got, "1 gates") {
+		t.Errorf("Status before allow = %q", got)
+	}
+	p.allow()
+	if got := p.d.Status(); !strings.Contains(got, "active") {
+		t.Errorf("Status after allow = %q", got)
+	}
+	if got := New(config.Default(), t.TempDir(), nil).Status(); got != "" {
+		t.Errorf("Status without hooks = %q, want empty", got)
+	}
+}
+
+// Edit, allow the new file, revert the file: the process holds the old config
+// and the trust entry names the new one. The gates must not switch off.
+func TestT20c_AllowThenRevertKeepsGatesClosed(t *testing.T) {
+	v1 := tasksOf(task("pg", `touch "$LIF_ROOT/gate-ran"`)) +
+		hooksOf(hook("p-gate", "stage: before", "event: [updated]", "run: pg"))
+	p := newProj(t, v1)
+	p.allow()
+	if _, err := p.d.Gate(toProgress()); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := os.Remove(filepath.Join(p.dir, "gate-ran")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, p.cfg.ConfigFile(), strings.Replace(v1, "gate-ran", "gate-ran2", 1))
+	v2, err := config.Load(p.cfg.ConfigFile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	allow(t, v2)
+	writeFile(t, p.cfg.ConfigFile(), v1)
+	_, err = p.d.Gate(toProgress())
+	var blocked *BlockedError
+	if !errors.As(err, &blocked) || blocked.Hook != "p-gate" {
+		t.Fatalf("Gate err = %v, want a block by p-gate", err)
+	}
+	if p.exists("gate-ran") {
+		t.Error("the gate task ran")
 	}
 }

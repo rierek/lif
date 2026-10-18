@@ -108,7 +108,7 @@
 
     {#if error}
       <div
-        class="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+        class="mt-4 max-h-48 overflow-auto rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm whitespace-pre-wrap text-danger"
       >
         {error}
       </div>

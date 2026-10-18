@@ -27,6 +27,12 @@ export class ItemsStore {
   /** Error state */
   error = $state<string | null>(null);
 
+  /**
+   * Message of the last refused write (a gate block, an ETag conflict) that has
+   * no form of its own to show it, such as a status button or a board drag.
+   */
+  writeError = $state<string | null>(null);
+
   /** Whether subscription is connected */
   connected = $state(false);
 

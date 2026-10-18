@@ -207,7 +207,7 @@ func TestFireCreatedHasAnEmptyBeforeState(t *testing.T) {
 	if !p.d.Fire(created(it("todo", "a"), "status", "type", "tags")) {
 		t.Fatal("Fire reported no run")
 	}
-	if got, want := p.warn.String(), "created||todo|"; got != want {
+	if got, want := p.warn.String(), "[h] created||todo|\n"; got != want {
 		t.Errorf("task output = %q, want %q", got, want)
 	}
 }

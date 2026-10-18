@@ -104,6 +104,22 @@
   {/if}
 </div>
 
+{#if itemsStore.writeError}
+  <div
+    role="alert"
+    class="fixed right-4 bottom-4 z-50 flex w-11/12 max-w-lg items-start gap-3 rounded-lg border border-danger/30 bg-surface px-4 py-3 text-sm text-danger shadow-xl"
+  >
+    <span class="max-h-48 min-w-0 flex-1 overflow-auto whitespace-pre-wrap">{itemsStore.writeError}</span>
+    <button
+      class="cursor-pointer px-1 text-danger/60 hover:text-danger"
+      aria-label="Dismiss"
+      onclick={() => (itemsStore.writeError = null)}
+    >
+      ✕
+    </button>
+  </div>
+{/if}
+
 {#if ui.showForm}
   <ItemForm
     item={ui.editingItem}

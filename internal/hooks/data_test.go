@@ -21,7 +21,7 @@ func TestD01_EnvAndArgsCarryBeforeAndAfterState(t *testing.T) {
 	if !p.d.Fire(upd(prev, next, "status", "type", "parent")) {
 		t.Fatal("Fire reported no run")
 	}
-	if got, want := p.warn.String(), "beans-x1 todo>in-progress m1>m2 [status type parent] task"; got != want {
+	if got, want := p.warn.String(), "[h] beans-x1 todo>in-progress m1>m2 [status type parent] task\n"; got != want {
 		t.Errorf("task output = %q, want %q", got, want)
 	}
 }
@@ -38,7 +38,7 @@ func TestD02_ExtraKeyReachesArgsAndEnvBeforeAndAfter(t *testing.T) {
 	if !p.d.Fire(upd(prev, next, "target_entry")) {
 		t.Fatal("Fire reported no run")
 	}
-	if got, want := p.warn.String(), "docs/R.md||docs/R.md|"; got != want {
+	if got, want := p.warn.String(), "[h] docs/R.md||docs/R.md|\n"; got != want {
 		t.Errorf("task output = %q, want %q", got, want)
 	}
 }
@@ -60,7 +60,7 @@ func TestD03_ExtraValuesAreFormattedByKind(t *testing.T) {
 	if !p.d.Fire(upd(it("todo"), next, "list", "m", "my-key", "n", "ok")) {
 		t.Fatal("Fire reported no run")
 	}
-	if got, want := p.warn.String(), `3|true|a b|{"k":"v"}|z`; got != want {
+	if got, want := p.warn.String(), "[h] "+`3|true|a b|{"k":"v"}|z`+"\n"; got != want {
 		t.Errorf("task output = %q, want %q", got, want)
 	}
 }
@@ -76,7 +76,7 @@ func TestD04_EnvNamesHookStageAndEvent(t *testing.T) {
 		if !p.d.Fire(m) {
 			t.Fatal("Fire reported no run")
 		}
-		if got, want := p.warn.String(), "h after updated a b"; got != want {
+		if got, want := p.warn.String(), "[h] h after updated a b\n"; got != want {
 			t.Errorf("warn = %q, want %q", got, want)
 		}
 	})
@@ -105,7 +105,7 @@ func TestD05_ArgsAreNotInterpretedByTheShell(t *testing.T) {
 	if !p.d.Fire(upd(it("todo"), next, "tags")) {
 		t.Fatal("Fire reported no run")
 	}
-	if got, want := p.warn.String(), "$(echo pwned)"; got != want {
+	if got, want := p.warn.String(), "[h] $(echo pwned)\n"; got != want {
 		t.Errorf("task output = %q, want %q", got, want)
 	}
 }
@@ -153,7 +153,7 @@ func TestD07_StdinIsEmpty(t *testing.T) {
 	if !p.d.Fire(toProgress()) {
 		t.Fatal("Fire reported no run")
 	}
-	if got, want := p.warn.String(), "EOF\n"; got != want {
+	if got, want := p.warn.String(), "[h] EOF\n"; got != want {
 		t.Errorf("task output = %q, want %q", got, want)
 	}
 }
@@ -196,7 +196,7 @@ func TestD09_BuiltInNameWinsOverAnExtraKey(t *testing.T) {
 	if !p.d.Fire(upd(it("todo"), next, "id")) {
 		t.Fatal("Fire reported no run")
 	}
-	if got, want := p.warn.String(), "beans-x1"; got != want {
+	if got, want := p.warn.String(), "[h] beans-x1\n"; got != want {
 		t.Errorf("task output = %q, want %q", got, want)
 	}
 }
@@ -225,7 +225,8 @@ func TestEnvListsEveryVariable(t *testing.T) {
 		"PREV_STATUS=todo", "PREV_TYPE=task", "PREV_PARENT=m1", "PREV_TAGS=a",
 		"FIELD_K=v", "PREV_FIELD_K=w",
 	}, "\n") + "\n"
-	if got := p.warn.String(); got != want {
+	got := strings.ReplaceAll(p.warn.String(), "[h] ", "")
+	if got != want {
 		t.Errorf("task environment:\n%s\nwant:\n%s", got, want)
 	}
 }

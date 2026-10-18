@@ -117,9 +117,9 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 		return nil, err
 	}
 
-	r.after(Mutation{Event: "created", Item: b.Clone(), Changed: ChangedFields(nil, b)})
+	ran := r.after(Mutation{Event: "created", Item: b.Clone(), Changed: ChangedFields(nil, b)})
 
-	return b, nil
+	return r.refreshed(b, ran), nil
 }
 
 // UpdateItem updates an existing item.
@@ -297,12 +297,12 @@ func (r *CoreResolver) updateItem(ctx context.Context, id string, input model.Up
 	}
 	// The write is on disk even when the rename failed: the after hooks fire
 	// exactly once either way, and the rename error is returned after them.
-	r.afterUpdate(prev, b)
+	ran := r.afterUpdate(prev, b)
 	if renameErr != nil {
 		return nil, renameErr
 	}
 
-	return b, nil
+	return r.refreshed(b, ran), nil
 }
 
 // renameToTitleSlug moves the file of b, which Core.Update has written under
@@ -380,8 +380,8 @@ func (r *CoreResolver) setParent(ctx context.Context, id string, parentID *strin
 	if err := r.Core.Update(b, ifMatch, opts...); err != nil {
 		return nil, err
 	}
-	r.afterUpdate(prev, b)
-	return b, nil
+	ran := r.afterUpdate(prev, b)
+	return r.refreshed(b, ran), nil
 }
 
 // AddBlocking adds a blocking relationship.

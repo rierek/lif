@@ -427,6 +427,30 @@ func (c *Core) loadFromDisk() error {
 	return nil
 }
 
+// Refresh reads the main-store file of id again and returns a copy of the
+// item. It is for a caller that knows another process wrote the file (a hook
+// task) and does not want to wait for the file watcher. An item that is
+// linked to a worktree, has unsaved state or is gone from the main store is
+// returned as held in memory. The search index follows with the file watcher.
+func (c *Core) Refresh(id string) (*item.Item, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	stored, ok := c.items[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if c.worktreeLinks[id] != "" || c.dirty[id] || stored.Path == "" {
+		return stored.Clone(), nil
+	}
+	b, err := c.loadItem(filepath.Join(c.root, stored.Path))
+	if err != nil {
+		return nil, err
+	}
+	c.setItemLocked(b.ID, b)
+	c.mainPaths[b.ID] = b.Path
+	return b.Clone(), nil
+}
+
 // loadItem reads and parses a single item file.
 func (c *Core) loadItem(path string) (*item.Item, error) {
 	f, err := os.Open(path)

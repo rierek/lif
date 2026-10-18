@@ -137,7 +137,7 @@ func TestTR05_ListSortedWithOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "hello <name>  [project]  greet\n" +
+	want := "hello <name>  [project]                    greet\n" +
 		"ver           [global]\n" +
 		"who           [project, overrides global]\n"
 	if out != want {
@@ -298,5 +298,48 @@ func TestTR_ListDropsControlCharactersOfDesc(t *testing.T) {
 	}
 	if strings.ContainsAny(out, "\x1b\a") || !strings.Contains(out, "RED") {
 		t.Errorf("listing = %q, want the desc without control characters", out)
+	}
+}
+
+func TestTR15_MissingConfigFileIsError(t *testing.T) {
+	runEnv(t, trListProject, "")
+	_, _, err := runTR(t, "--config", "/nonexistent/.lif.yml", "run", "hello")
+	if err == nil || !strings.Contains(err.Error(), "config file not found") {
+		t.Fatalf("err = %v; want config file not found", err)
+	}
+}
+
+func TestTR16_StorePathReachesStepsAbsolute(t *testing.T) {
+	dir := runEnv(t, "tasks:\n    p:\n        steps: ['echo \"$LIF_PATH\"']\n", "")
+	out, _, err := runTR(t, "--lif-path", "rel/store", "run", "p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(dir, "rel/store") + "\n"; out != want {
+		t.Fatalf("out = %q; want %q", out, want)
+	}
+}
+
+func TestTR16b_RelativeEnvStorePathBecomesAbsolute(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	storePath = ""
+	t.Setenv("LIF_PATH", "relenv")
+	got := storeEnv()
+	want, _ := filepath.Abs("relenv")
+	if len(got) != 1 || got[0] != "LIF_PATH="+want {
+		t.Fatalf("storeEnv() = %v; want LIF_PATH=%s", got, want)
+	}
+}
+
+func TestTR17_ListingCellsStayAligned(t *testing.T) {
+	runEnv(t, "tasks:\n    a:\n        desc: \"l1\\nl2\\ttab\"\n        steps: ['true']\n    b:\n        steps: ['true']\n    c:\n        desc: d\n        steps: ['true']\n", "")
+	out, _, err := runTR(t, "run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "a  [project]  l1 l2 tab\nb  [project]\nc  [project]  d\n"
+	if out != want {
+		t.Fatalf("out = %q; want %q", out, want)
 	}
 }

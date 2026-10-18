@@ -352,3 +352,32 @@ func TestTP21_BackgroundChildDoesNotHang(t *testing.T) {
 		t.Fatalf("took %v", d)
 	}
 }
+
+func TestTP22_CycleKeyedByOrigin(t *testing.T) {
+	set := Set{
+		Project: map[string]config.Task{"shadow": steps("echo project")},
+		Global:  map[string]config.Task{"shadow": {Deps: []string{"shadow"}, Steps: []string{"echo global"}}},
+	}
+	plan, err := set.Plan("shadow", true)
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan) != 2 || plan[0].Origin != "project" || plan[1].Origin != "global" {
+		t.Fatalf("plan = %+v; want project then global", plan)
+	}
+	// A real cycle through a same-named pair still fails.
+	set.Project["shadow"] = config.Task{Deps: []string{"shadow"}, Steps: []string{"true"}}
+	if _, err := set.Plan("shadow", true); err == nil || !strings.Contains(err.Error(), "task cycle") {
+		t.Fatalf("err = %v; want task cycle", err)
+	}
+}
+
+func TestTP23_ShellFallbackWithoutPath(t *testing.T) {
+	t.Setenv("PATH", "/nonexistent")
+	root := t.TempDir()
+	set := Set{Root: root, Project: map[string]config.Task{"x": steps("echo hi")}}
+	out, _, err := runTask(t, set, "x", false, nil, "", nil)
+	if err != nil || out != "hi\n" {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+}

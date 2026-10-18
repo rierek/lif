@@ -184,7 +184,37 @@ func hookRun(h config.Hook, set tasks.Set) string {
 	if err != nil {
 		cell += "  (error: " + err.Error() + ")"
 	}
+	for _, w := range hookWarnings(h, plan) {
+		cell += "  (warning: " + w + ")"
+	}
 	return cell
+}
+
+// hookWarnings names what a hook config accepts but silently does nothing
+// with: arguments the task does not declare, and a changed entry that is a
+// capitalised built-in field (it matches an extra key "Status", never the
+// status). plan is the plan of h.Run, empty when the task cannot be planned.
+func hookWarnings(h config.Hook, plan []tasks.Planned) []string {
+	var out []string
+	if len(plan) > 0 {
+		if top := plan[len(plan)-1]; len(h.Args) > len(top.Task.Args) {
+			out = append(out, fmt.Sprintf("task %q takes %d argument(s), the hook gives %d; the extra %s ignored",
+				top.Name, len(top.Task.Args), len(h.Args), plural(len(h.Args)-len(top.Task.Args), "one is", "ones are")))
+		}
+	}
+	for _, key := range h.Changed {
+		if lower := strings.ToLower(key); lower != key && slices.Contains(config.HookBuiltinWatched, lower) {
+			out = append(out, fmt.Sprintf("changed %q never fires on a %s change; the field is called %q", key, lower, lower))
+		}
+	}
+	return out
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // RegisterHooksCmd adds the hooks command and its sub-commands to root.

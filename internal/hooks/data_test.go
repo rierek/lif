@@ -172,8 +172,17 @@ func TestD08_TwoKeysOfOneEnvNameFirstInSortedOrderWins(t *testing.T) {
 	if !strings.Contains(out, "[a]") {
 		t.Errorf("warn = %q, want the task to print [a]", out)
 	}
-	if want := `warning: hook "h": extra key "my_key" maps to LIF_FIELD_MY_KEY, taken by "my-key"; ignored` + "\n"; !strings.Contains(out, want) {
+	if want := `warning: hook "h": extra key "my_key" maps to LIF_FIELD_MY_KEY, taken by "my-key"; ignored (args use the real key and have no such clash)` + "\n"; !strings.Contains(out, want) {
 		t.Errorf("warn = %q, want it to contain %q", out, want)
+	}
+
+	// The clash is reported once per process, not again for the next event.
+	p.warn.Reset()
+	if !p.d.Fire(upd(it("todo"), next, "my-key", "my_key")) {
+		t.Fatal("second Fire reported no run")
+	}
+	if out := p.warn.String(); strings.Contains(out, "warning:") {
+		t.Errorf("second Fire warned again: %q", out)
 	}
 }
 

@@ -31,9 +31,10 @@ type Dispatcher struct {
 	storeRoot string
 	warn      io.Writer
 
-	mu      sync.Mutex // hook tasks run one at a time: lif serve handles requests in parallel
-	warned  bool       // the not-allowed warning was printed
-	key, fp string     // trust key and fingerprint of cfg; set on first use
+	mu      sync.Mutex      // hook tasks run one at a time: lif serve handles requests in parallel
+	warned  bool            // the not-allowed warning was printed
+	clashed map[string]bool // env-name collisions that were reported ("suffix/key"): once per process
+	key, fp string          // trust key and fingerprint of cfg; set on first use
 }
 
 // New returns a Dispatcher for cfg. storeRoot is the directory that

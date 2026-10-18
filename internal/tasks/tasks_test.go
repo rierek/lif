@@ -358,17 +358,15 @@ func TestTP22_CycleKeyedByOrigin(t *testing.T) {
 		Project: map[string]config.Task{"shadow": steps("echo project")},
 		Global:  map[string]config.Task{"shadow": {Deps: []string{"shadow"}, Steps: []string{"echo global"}}},
 	}
-	plan, err := set.Plan("shadow", true)
-	if err != nil {
-		t.Fatalf("Plan: %v", err)
-	}
-	if len(plan) != 2 || plan[0].Origin != "project" || plan[1].Origin != "global" {
-		t.Fatalf("plan = %+v; want project then global", plan)
-	}
-	// A real cycle through a same-named pair still fails.
-	set.Project["shadow"] = config.Task{Deps: []string{"shadow"}, Steps: []string{"true"}}
+	// With -g the dependency resolves globally too (beans-jq6e): the global
+	// task depends on itself, which is a cycle, not on the project task.
 	if _, err := set.Plan("shadow", true); err == nil || !strings.Contains(err.Error(), "task cycle") {
 		t.Fatalf("err = %v; want task cycle", err)
+	}
+	// Without -g the project task wins as top and has no dependency.
+	plan, err := set.Plan("shadow", false)
+	if err != nil || len(plan) != 1 || plan[0].Origin != "project" {
+		t.Fatalf("plan = %+v, err = %v; want the project task alone", plan, err)
 	}
 }
 

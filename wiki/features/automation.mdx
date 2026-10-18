@@ -105,7 +105,7 @@ Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment
 
 A hook runs a task by itself when an item is created or one of its fields changes: `status`, `type`, `parent`, `tags` or any extra front matter key of your workflow. Tasks are the *what*, hooks are the *when*. Nobody has to remember the step, neither a person nor an agent. A hook reacts after the change is written. A gate checks before the write and can refuse the change.
 
-Project hooks run only after you have read them and run `lif hooks allow`. `lif hooks` lists every hook and gate and says whether the project hooks run.
+Project hooks run only after you have read them and run `lif hooks allow`. `lif hooks` lists every hook and gate and says whether the project hooks run. While the project is not allowed, the list shows the global hooks that run and marks a project hook of the same name `not allowed`. `lif hooks --steps` prints the steps that the hooks can run: read them before you allow.
 
 ### Open and close a container worktree
 

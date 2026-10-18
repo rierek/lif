@@ -273,6 +273,34 @@ func TestTR14_RunIsBootstrapSkip(t *testing.T) {
 	}
 }
 
+// TRUST-09: a project task that hides a global one says so on stderr.
+func TestTR_ProjectTaskShadowingAGlobalOneIsAnnounced(t *testing.T) {
+	runEnv(t, "tasks:\n  who:\n    steps: ['echo project']\n", "tasks:\n  who:\n    steps: ['echo global']\n")
+	out, errOut, err := runTR(t, "run", "who")
+	if err != nil || out != "project\n" {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+	if want := `running project task "who" (overrides global`; !strings.Contains(errOut, want) {
+		t.Errorf("stderr = %q, want it to contain %q", errOut, want)
+	}
+	_, errOut, err = runTR(t, "run", "-g", "who")
+	if err != nil || strings.Contains(errOut, "overrides") {
+		t.Errorf("-g: stderr = %q, err = %v; want no notice", errOut, err)
+	}
+}
+
+// TRUST-11: no escape sequence of a task desc reaches the listing.
+func TestTR_ListDropsControlCharactersOfDesc(t *testing.T) {
+	runEnv(t, "tasks:\n  t:\n    desc: \"\\e[31mRED\\e]0;PWNED\\a\\e[2J\"\n    steps: ['true']\n", "")
+	out, _, err := runTR(t, "run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsAny(out, "\x1b\a") || !strings.Contains(out, "RED") {
+		t.Errorf("listing = %q, want the desc without control characters", out)
+	}
+}
+
 func TestTR15_MissingConfigFileIsError(t *testing.T) {
 	runEnv(t, trListProject, "")
 	_, _, err := runTR(t, "--config", "/nonexistent/.lif.yml", "run", "hello")

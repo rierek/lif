@@ -64,7 +64,7 @@ type BlockedError struct {
 func (e *BlockedError) Error() string {
 	s := fmt.Sprintf("hook %q blocked the change of %s", e.Hook, e.ItemID)
 	if e.Message != "" {
-		s += ": " + e.Message
+		s += ": " + tasks.Printable(e.Message) // the message comes from .lif.yml
 	}
 	if e.Output != "" {
 		s += "\n" + e.Output
@@ -214,9 +214,13 @@ func (d *Dispatcher) prepare(gates bool) (base tasks.Set, hooks []active, err er
 	allowed := false
 	if len(d.cfg.Hooks) > 0 {
 		key, fp := d.trustID()
-		allowed = isAllowed(trusted, key, fp)
-		if !allowed {
+		switch {
+		case d.changedOnDisk(fp):
+			d.warnChanged()
+		case !isAllowed(trusted, key, fp):
 			d.warnNotAllowed()
+		default:
+			allowed = true
 		}
 	}
 
@@ -257,6 +261,29 @@ func (d *Dispatcher) trustID() (key, fp string) {
 		d.key, d.fp = Key(d.configPath()), Fingerprint(d.cfg)
 	}
 	return d.key, d.fp
+}
+
+// changedOnDisk reports whether the project config on disk no longer has the
+// fingerprint fp of the config that d was built with. A step that runs
+// `$LIF run <task>` reads the file again, so the allow of the old content
+// says nothing about what such a step runs. A file that is gone or no longer
+// loads counts as changed.
+func (d *Dispatcher) changedOnDisk(fp string) bool {
+	if d.cfg.ConfigFile() == "" {
+		return false // the defaults: no file to read again
+	}
+	disk, err := config.Load(d.configPath())
+	return err != nil || Fingerprint(disk) != fp
+}
+
+// warnChanged prints, once per Dispatcher, that the project config changed
+// after this process read it.
+func (d *Dispatcher) warnChanged() {
+	if d.warned {
+		return
+	}
+	d.warned = true
+	fmt.Fprintf(d.warn, "warning: %s changed since this process started; its hooks are not allowed until you restart and run 'lif hooks allow'\n", d.configPath())
 }
 
 // warnNotAllowed prints, once per Dispatcher, that the project hooks do not

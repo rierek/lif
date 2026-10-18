@@ -41,6 +41,15 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 		default:
 			return fmt.Errorf("line %d: unknown task key %q (known: desc, args, deps, steps)", keyNode.Line, keyNode.Value)
 		}
+		if keyNode.Value == "steps" {
+			// A !!binary step shows base64 in the file and runs as another text:
+			// a reviewer of the file would not see what is allowed.
+			for _, step := range value.Content[i+1].Content {
+				if step.Tag == "!!binary" {
+					return fmt.Errorf("line %d: a step must be plain text, not !!binary", step.Line)
+				}
+			}
+		}
 	}
 	for i := 0; i+1 < len(value.Content); i += 2 {
 		if value.Content[i].Value != "steps" || value.Content[i+1].Kind != yaml.SequenceNode {
@@ -57,8 +66,19 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 	if err := value.Decode(&raw); err != nil {
 		return err
 	}
+	for _, step := range raw.Steps {
+		if i := strings.IndexFunc(step, isBidiControl); i >= 0 {
+			return fmt.Errorf("line %d: a step must not contain the bidirectional control character U+%04X", value.Line, []rune(step[i:])[0])
+		}
+	}
 	*t = Task(raw)
 	return nil
+}
+
+// isBidiControl reports the Unicode characters that reorder displayed text, so
+// that a step reads differently from the way it runs.
+func isBidiControl(r rune) bool {
+	return (r >= 0x202A && r <= 0x202E) || (r >= 0x2066 && r <= 0x2069)
 }
 
 // validateTasks returns the first problem in tasks, visiting names sorted.

@@ -8,6 +8,8 @@ class ConfigStore {
   worktreeBaseRef = $state('main');
   worktreeRunCommand = $state('');
   worktreeIntegrateMode = $state<'local' | 'pr'>('local');
+  /** display.theme from .lif.yml; empty until the config has loaded. */
+  theme = $state('');
 
   async load(): Promise<void> {
     const result = await client.query(ConfigDocument, {}).toPromise();
@@ -22,6 +24,7 @@ class ConfigStore {
       this.worktreeBaseRef = result.data.worktreeBaseRef;
       this.worktreeRunCommand = result.data.worktreeRunCommand;
       this.worktreeIntegrateMode = result.data.worktreeIntegrateMode as 'local' | 'pr';
+      this.theme = result.data.theme;
     }
   }
 }

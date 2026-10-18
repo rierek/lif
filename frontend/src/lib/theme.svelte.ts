@@ -2,6 +2,9 @@ type Preference = 'system' | 'light' | 'dark';
 
 const PREFERENCES: Preference[] = ['system', 'light', 'dark'];
 
+/** Flavours display.theme can pick for dark mode; light mode is always latte. */
+const DARK_FLAVOURS = ['frappe', 'macchiato', 'mocha'];
+
 /**
  * Light/dark/system switch. The choice lives in localStorage (`lif-theme`) and is
  * mirrored onto <html> as `data-theme` (light|dark) and `data-flavour` (the Catppuccin
@@ -32,6 +35,14 @@ class ThemeStore {
   cycle() {
     this.preference = PREFERENCES[(PREFERENCES.indexOf(this.preference) + 1) % PREFERENCES.length];
     localStorage.setItem('lif-theme', this.preference);
+    this.apply();
+  }
+
+  /** Apply display.theme. latte or an unknown name leaves dark mode on mocha. */
+  setConfigured(name: string) {
+    const flavour = name.toLowerCase();
+    this.darkFlavour = DARK_FLAVOURS.includes(flavour) ? flavour : 'mocha';
+    localStorage.setItem('lif-dark-flavour', this.darkFlavour);
     this.apply();
   }
 

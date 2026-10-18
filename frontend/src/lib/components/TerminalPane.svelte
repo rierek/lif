@@ -70,8 +70,9 @@
     return { ...base, background: bg, black: bg };
   }
 
-  // Re-apply the terminal theme when the UI scheme changes
+  // Re-apply the terminal theme when the UI scheme or flavour changes
   $effect(() => {
+    void theme.darkFlavour; // the CSS tokens read below change with the flavour
     const next = resolveTheme();
     if (terminal) terminal.options.theme = next;
   });

@@ -105,11 +105,23 @@ The frontend (SvelteKit) is embedded in the binary. No second server is needed.
 - `/planning/board` is the **Board**: three fixed columns Todo, In Progress, Completed. Dragging a card sets `status` and `order`.
 - `/workspace/<id>` is the workspace of a Git worktree: agent chat, changes, terminal. It appears only when `agent.enabled` is true. A **Run** button appears when `worktree.run` is set.
 - The UI has a filter field (substring over title, type, status, ID, tags). It does not use [search syntax](../search-syntax/).
-- The UI keeps layout in `localStorage` under `lif-planning-chat`, `lif-changes-pane`, `lif-filter-text`, `lif-theme` and `lif-split-<panel>`. The selected item is mirrored as `?item=<id>`, so `http://localhost:8080/?item=<id>` is a deep link.
-- There is no settings page. The theme button at the right end of the toolbar cycles **Auto** (follows the operating system, live), **Light** and **Dark**. The choice is stored in `lif-theme` and survives a reload. `display.theme` is not read by the UI.
+- The UI keeps layout in `localStorage` under `lif-planning-chat`, `lif-changes-pane`, `lif-filter-text`, `lif-theme`, `lif-dark-flavour` and `lif-split-<panel>`. The selected item is mirrored as `?item=<id>`, so `http://localhost:8080/?item=<id>` is a deep link.
+- There is no settings page. The theme button at the right end of the toolbar switches between Auto, Light and Dark; see [Theme](#theme).
 - The status list is hard-coded (`draft`, `todo`, `in-progress`, `completed`, `scrapped`). Custom statuses are not shown on the board; `scrapped` is shown in neither view.
 
 Screenshot follows.
+
+## Theme
+
+The UI uses the [Catppuccin](https://catppuccin.com) palette, the same as the CLI. It has a light and a dark scheme:
+
+- **Light** is always `latte`.
+- **Dark** uses the flavour that `display.theme` names in `.lif.yml`: `frappe`, `macchiato` or `mocha` (the default). `latte` or an unknown name leaves the dark scheme on `mocha`. The server reads the key at start: restart `lif-serve` after a change and reload the page.
+- The theme button chooses the scheme. **Auto** follows the operating system and changes with it while the page is open; **Light** and **Dark** override it.
+- The choice is stored in `localStorage` under `lif-theme`, and the last dark flavour under `lif-dark-flavour`. A small script in the page applies both before the first paint, so a reload does not flash.
+- The accent is the mauve of the flavour, as in the CLI. Code blocks and the terminal follow the scheme and the flavour.
+
+The palette is generated from the colour table in `internal/ui/theme.go`: `go generate ./internal/ui` writes `frontend/src/lib/catppuccin.css`, and a test fails when the file is stale. The web UI therefore carries no second copy of the colours.
 
 ## Live updates
 

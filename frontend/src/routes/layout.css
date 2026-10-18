@@ -1,6 +1,7 @@
 @import '@fontsource-variable/rubik';
 @import '@fontsource-variable/roboto-mono';
 @import 'tailwindcss';
+@import '../lib/catppuccin.css';
 @plugin '@iconify/tailwind4';
 
 @theme {
@@ -315,19 +316,19 @@ tr.diff-hunk td {
 :root {
   color-scheme: light;
 
-  --th-surface: var(--color-white);
-  --th-surface-alt: var(--color-gray-50);
-  --th-surface-dim: var(--color-gray-100);
-  --th-border: var(--color-gray-200);
-  --th-text: var(--color-gray-900);
-  --th-text-muted: var(--color-gray-500);
-  --th-text-faint: var(--color-gray-400);
-  --th-accent: var(--color-gray-400);
-  --th-accent-text: var(--color-white);
-  --th-danger: var(--color-red-600);
-  --th-warning: var(--color-amber-600);
-  --th-success: var(--color-green-600);
-  --th-info: var(--color-blue-600);
+  --th-surface: var(--ctp-base);
+  --th-surface-alt: var(--ctp-surface0);
+  --th-surface-dim: var(--ctp-surface1);
+  --th-border: var(--ctp-surface2);
+  --th-text: var(--ctp-text);
+  --th-text-muted: var(--ctp-subtext1);
+  --th-text-faint: var(--ctp-overlay1);
+  --th-accent: var(--ctp-mauve);
+  --th-accent-text: var(--ctp-base);
+  --th-danger: var(--ctp-red);
+  --th-warning: var(--ctp-peach);
+  --th-success: var(--ctp-green);
+  --th-info: var(--ctp-blue);
 
   /* Status colors (bg + text pairs) */
   --th-status-draft-bg: var(--color-gray-100);
@@ -361,31 +362,17 @@ tr.diff-hunk td {
   --th-type-task-border: var(--color-gray-200);
 
   /* Markdown heading colors */
-  --th-md-h1: var(--color-slate-800);
-  --th-md-h2: var(--color-slate-700);
-  --th-md-h3: var(--color-slate-600);
-  --th-md-h456: var(--color-slate-500);
-  --th-md-h1-border: var(--color-slate-200);
-  --th-md-code-bg: var(--color-slate-100);
+  --th-md-h1: var(--ctp-text);
+  --th-md-h2: var(--ctp-text);
+  --th-md-h3: var(--ctp-subtext1);
+  --th-md-h456: var(--ctp-subtext1);
+  --th-md-h1-border: var(--ctp-surface1);
+  --th-md-code-bg: var(--ctp-surface0);
 }
 
 /* ── Dark palette ────────────────────────────── */
 :root[data-theme='dark'] {
   color-scheme: dark;
-
-  --th-surface: var(--color-stone-900);
-  --th-surface-alt: var(--color-stone-800);
-  --th-surface-dim: var(--color-stone-700);
-  --th-border: var(--color-stone-700);
-  --th-text: var(--color-stone-300);
-  --th-text-muted: var(--color-stone-400);
-  --th-text-faint: var(--color-stone-500);
-  --th-accent: var(--color-stone-400);
-  --th-accent-text: var(--color-stone-900);
-  --th-danger: var(--color-red-600);
-  --th-warning: var(--color-amber-600);
-  --th-success: var(--color-green-600);
-  --th-info: var(--color-blue-600);
 
   --th-status-draft-bg: var(--color-zinc-700);
   --th-status-draft-text: var(--color-zinc-400);
@@ -415,13 +402,6 @@ tr.diff-hunk td {
   --th-type-task-bg: var(--color-zinc-800);
   --th-type-task-text: var(--color-zinc-400);
   --th-type-task-border: var(--color-zinc-600);
-
-  --th-md-h1: var(--color-blue-300);
-  --th-md-h2: var(--color-slate-300);
-  --th-md-h3: var(--color-slate-400);
-  --th-md-h456: var(--color-slate-400);
-  --th-md-h1-border: var(--color-zinc-600);
-  --th-md-code-bg: var(--color-stone-800);
 }
 
 /* ── Tailwind theme tokens (reference CSS vars) ── */

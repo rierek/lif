@@ -156,6 +156,7 @@ query Config {
   worktreeBaseRef
   worktreeRunCommand
   worktreeIntegrateMode
+  theme
 }
 
 query Worktrees {

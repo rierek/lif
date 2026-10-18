@@ -887,6 +887,11 @@ func (r *queryResolver) WorktreeIntegrateMode(ctx context.Context) (string, erro
 	return string(cfg.GetWorktreeIntegrate()), nil
 }
 
+// Theme is the resolver for the theme field.
+func (r *queryResolver) Theme(ctx context.Context) (string, error) {
+	return r.Core.Config().GetTheme(), nil
+}
+
 // ListFiles is the resolver for the listFiles field.
 // It does case-insensitive substring matching across all git-tracked file paths.
 // Each query term (space-separated) must match somewhere in the path.

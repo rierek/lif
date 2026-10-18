@@ -114,6 +114,11 @@ type Query {
   worktreeIntegrateMode: String!
 
   """
+  Catppuccin flavour from display.theme (default mocha).
+  """
+  theme: String!
+
+  """
   List files tracked by git in a workspace directory.
   Performs case-insensitive substring matching — space-separated terms must all
   match somewhere in the file path. Used for @-mention autocomplete.

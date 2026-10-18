@@ -209,6 +209,7 @@ type ComplexityRoot struct {
 		ListFiles             func(childComplexity int, workspaceID *string, prefix string, limit *int) int
 		MainBranch            func(childComplexity int) int
 		ProjectName           func(childComplexity int) int
+		Theme                 func(childComplexity int) int
 		WorkspacePort         func(childComplexity int, workspaceID string) int
 		WorktreeBaseRef       func(childComplexity int) int
 		WorktreeIntegrateMode func(childComplexity int) int
@@ -319,6 +320,7 @@ type QueryResolver interface {
 	WorkspacePort(ctx context.Context, workspaceID string) (int, error)
 	IsRunning(ctx context.Context, workspaceID string) (bool, error)
 	WorktreeIntegrateMode(ctx context.Context) (string, error)
+	Theme(ctx context.Context) (string, error)
 	ListFiles(ctx context.Context, workspaceID *string, prefix string, limit *int) ([]*model.FileEntry, error)
 }
 type SubscriptionResolver interface {
@@ -1290,6 +1292,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.ProjectName(childComplexity), true
+	case "Query.theme":
+		if e.ComplexityRoot.Query.Theme == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.Theme(childComplexity), true
 	case "Query.workspacePort":
 		if e.ComplexityRoot.Query.WorkspacePort == nil {
 			break
@@ -6737,6 +6745,29 @@ func (ec *executionContext) fieldContext_Query_worktreeIntegrateMode(_ context.C
 	return graphql.NewScalarFieldContext("Query", field, true, true, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Query_theme(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_theme(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().Theme(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_theme(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Query", field, true, true, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Query_listFiles(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11011,6 +11042,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_worktreeIntegrateMode(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "theme":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_theme(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}

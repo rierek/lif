@@ -1,6 +1,10 @@
 package ui
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func TestThemeByNameReturnsEveryFlavour(t *testing.T) {
 	for _, name := range []string{"latte", "frappe", "macchiato", "mocha"} {
@@ -95,5 +99,18 @@ func TestThemeLookupIsCaseInsensitive(t *testing.T) {
 	th, ok := ThemeByName("MOCHA")
 	if !ok || th.Name != "mocha" {
 		t.Errorf(`ThemeByName("MOCHA") = %+v, %v, want the mocha theme`, th, ok)
+	}
+}
+
+// TestPaletteCSSMatchesGeneratedFile keeps the web UI's palette a pure copy
+// of the Go one: the committed CSS must be exactly what PaletteCSS renders.
+func TestPaletteCSSMatchesGeneratedFile(t *testing.T) {
+	got, err := os.ReadFile("../../frontend/src/lib/catppuccin.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A Windows checkout with autocrlf stores the file with CRLF.
+	if strings.ReplaceAll(string(got), "\r\n", "\n") != PaletteCSS() {
+		t.Error("frontend/src/lib/catppuccin.css is stale: run go generate ./internal/ui")
 	}
 }

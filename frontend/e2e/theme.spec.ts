@@ -104,3 +104,37 @@ test.describe('theme switch, light OS', () => {
     await expect.poll(() => terminalLuminance(page)).toBeLessThan(0.3);
   });
 });
+
+test.describe('display.theme', () => {
+  test.use({ colorScheme: 'dark', lifConfigExtra: 'display:\n    theme: frappe\n' });
+
+  test('picks the dark flavour, and the light scheme stays latte', async ({ lif, page }) => {
+    await page.goto(`${lif.baseURL}/`);
+    await expect(page.locator('html')).toHaveAttribute('data-flavour', 'frappe');
+    expect(await page.evaluate(() => localStorage.getItem('lif-dark-flavour'))).toBe('frappe');
+
+    // system -> light
+    await page.getByTestId('theme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-flavour', 'latte');
+  });
+
+  test('the UI tokens read the flavour palette, and a reload keeps the flavour', async ({
+    lif,
+    page
+  }) => {
+    await page.goto(`${lif.baseURL}/`);
+    await expect(page.locator('html')).toHaveAttribute('data-flavour', 'frappe');
+
+    const tokens = await page.evaluate(() => {
+      const style = getComputedStyle(document.documentElement);
+      return [style.getPropertyValue('--th-surface'), style.getPropertyValue('--ctp-base')];
+    });
+    expect(tokens[0]).not.toBe('');
+    expect(tokens[0]).toBe(tokens[1]);
+
+    // The inline script alone restores the flavour from localStorage.
+    await page.route('**/_app/**', (route) => route.abort());
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-flavour', 'frappe');
+  });
+});

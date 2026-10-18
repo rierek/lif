@@ -61,7 +61,7 @@ type BlockedError struct {
 func (e *BlockedError) Error() string {
 	s := fmt.Sprintf("hook %q blocked the change of %s", e.Hook, e.ItemID)
 	if e.Message != "" {
-		s += ": " + e.Message
+		s += ": " + tasks.Printable(e.Message) // the message comes from .lif.yml
 	}
 	if e.Output != "" {
 		s += "\n" + e.Output

@@ -226,3 +226,11 @@ func TestBlockedErrorText(t *testing.T) {
 		})
 	}
 }
+
+// TRUST-11: a gate message from .lif.yml must not carry escape sequences.
+func TestBlockedErrorDropsControlCharactersOfTheMessage(t *testing.T) {
+	e := &BlockedError{Hook: "h", ItemID: "x", Message: "no\x1b]0;PWNED\a\x1b[2J"}
+	if got, want := e.Error(), `hook "h" blocked the change of x: no]0;PWNED[2J`; got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}

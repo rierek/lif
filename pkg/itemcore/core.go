@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -123,6 +124,10 @@ type Core struct {
 	// in items but never touches this map, so it still answers "which file in
 	// the main store holds this item" while a worktree version is active.
 	mainPaths map[string]string
+
+	// duplicates maps an ID that more than one file of the store carries to
+	// the paths (relative to root) of all of them. Only one wins in items.
+	duplicates map[string][]string
 
 	// Search index (optional, lazy-initialized)
 	searchIndex *search.Index
@@ -337,6 +342,18 @@ func (c *Core) ReloadItem(id string) error {
 	return c.loadFromDisk()
 }
 
+// DuplicateIDs returns, per ID that more than one file carried at the last
+// load, the paths of those files. An item answers to one of them only.
+func (c *Core) DuplicateIDs() map[string][]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make(map[string][]string, len(c.duplicates))
+	for id, paths := range c.duplicates {
+		out[id] = slices.Clone(paths)
+	}
+	return out
+}
+
 // loadFromDisk reads all items from disk (must be called with lock held).
 // Loads all .md files from the root directory and any subdirectories.
 func (c *Core) loadFromDisk() error {
@@ -350,6 +367,7 @@ func (c *Core) loadFromDisk() error {
 	c.items = make(map[string]*item.Item)
 	c.dirty = make(map[string]bool)
 	c.mainPaths = make(map[string]string)
+	c.duplicates = make(map[string][]string)
 	c.invalidateIncomingLocked()
 	err := filepath.WalkDir(c.root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -383,6 +401,12 @@ func (c *Core) loadFromDisk() error {
 			return fmt.Errorf("loading %s: %w", path, loadErr)
 		}
 
+		if prev, dup := c.items[b.ID]; dup {
+			if len(c.duplicates[b.ID]) == 0 {
+				c.duplicates[b.ID] = []string{prev.Path}
+			}
+			c.duplicates[b.ID] = append(c.duplicates[b.ID], b.Path)
+		}
 		c.setItemLocked(b.ID, b)
 		c.mainPaths[b.ID] = b.Path
 		return nil
@@ -604,6 +628,7 @@ type updateOptions struct {
 	worktreePath string // if set, write to this worktree's store dir instead of main
 	extraSet     map[string]any
 	extraUnset   []string
+	order        string // if set, Create writes the item with this order value
 	expectedETag string // if set and Update gets no ifMatch, compared like one; never satisfies require_if_match
 }
 
@@ -636,6 +661,12 @@ func WithExtraOps(set map[string]any, unset []string) UpdateOption {
 		o.extraSet = set
 		o.extraUnset = unset
 	}
+}
+
+// WithOrder makes Create write the item with this order value, in the one write
+// that creates the file, so a created hook sees the item in its final state.
+func WithOrder(order string) UpdateOption {
+	return func(o *updateOptions) { o.order = order }
 }
 
 // WithExpectedETag makes Update compare the etag of the item file like an
@@ -828,6 +859,67 @@ func (c *Core) requiredFieldsFor(status string) []string {
 	return c.config.RequiredFieldsFor(status)
 }
 
+// NewID returns a fresh item ID with the given prefix, one that no loaded item
+// and no file in the store uses. See newIDLocked.
+func (c *Core) NewID(prefix string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.newIDLocked(prefix)
+}
+
+// maxIDAttempts bounds the search for an unused ID.
+const maxIDAttempts = 1000
+
+// newIDLocked generates IDs until one is unused. Besides the loaded items it
+// looks at the files on disk, because another lif process may have created an
+// item since this one loaded the store. Two processes that pick the same free
+// ID in the same instant can still collide: that window is the time between
+// this check and the write of the new file.
+func (c *Core) newIDLocked(prefix string) (string, error) {
+	length := 4
+	if c.config != nil && c.config.Items.IDLength > 0 {
+		length = c.config.Items.IDLength
+	}
+	for range maxIDAttempts {
+		id, err := item.NewID(prefix, length)
+		if err != nil {
+			return "", fmt.Errorf("generating item ID: %w", err)
+		}
+		if !c.idInUseLocked(id) {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("no unused item ID found in %d tries: raise items.id_length", maxIDAttempts)
+}
+
+// idInUseLocked reports whether an item or a file of the store (top level or
+// one directory down, e.g. archive/) already carries id.
+func (c *Core) idInUseLocked(id string) bool {
+	if _, ok := c.items[id]; ok {
+		return true
+	}
+	prefix := id + "--"
+	var subdirs []string
+	entries, _ := os.ReadDir(c.root)
+	for _, e := range entries {
+		switch {
+		case e.IsDir() && !strings.HasPrefix(e.Name(), "."):
+			subdirs = append(subdirs, filepath.Join(c.root, e.Name()))
+		case strings.HasPrefix(e.Name(), prefix) && strings.HasSuffix(e.Name(), ".md"):
+			return true
+		}
+	}
+	for _, dir := range subdirs {
+		sub, _ := os.ReadDir(dir)
+		for _, e := range sub {
+			if strings.HasPrefix(e.Name(), prefix) && strings.HasSuffix(e.Name(), ".md") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Create adds a new item, generating an ID if needed.
 // By default, persists to disk. Use WithPersist(false) to only update runtime state.
 func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
@@ -842,16 +934,12 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	// Generate ID if not provided
 	if b.ID == "" {
 		prefix := ""
-		length := 4
 		if c.config != nil {
 			prefix = c.config.Items.Prefix
-			if c.config.Items.IDLength > 0 {
-				length = c.config.Items.IDLength
-			}
 		}
-		id, err := item.NewID(prefix, length)
+		id, err := c.newIDLocked(prefix)
 		if err != nil {
-			return fmt.Errorf("generating item ID: %w", err)
+			return err
 		}
 		b.ID = id
 	}
@@ -861,6 +949,9 @@ func (c *Core) Create(b *item.Item, opts ...UpdateOption) error {
 	b.CreatedAt = &now
 	b.UpdatedAt = &now
 
+	if o.order != "" {
+		b.Order = o.order
+	}
 	applyExtraOptions(b, o.extraSet, o.extraUnset)
 
 	if fields := c.requiredFieldsFor(b.Status); len(fields) > 0 {

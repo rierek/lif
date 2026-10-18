@@ -220,3 +220,54 @@ func TestUpdateItemTitleChangeKeepsCustomSlug(t *testing.T) {
 		t.Fatalf("store files = %v, want [%s]", names, want)
 	}
 }
+
+// ValidateTags accepts a tag in any case because it lowercases first; the
+// write path has to store the lowercased form too, or check and hooks reject
+// what update accepted. Removing matches any case, so a tag that a
+// hand-edited file carries in capitals can still be removed.
+func TestTagsAreStoredLowercase(t *testing.T) {
+	r := newTestResolver(t)
+	ctx := context.Background()
+	b := &item.Item{ID: "beans-tg01", Slug: "t", Title: "T", Status: "todo", Type: "task", Tags: []string{"OldCaps"}}
+	if err := r.Core.Create(b); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := r.UpdateItem(ctx, b.ID, model.UpdateItemInput{AddTags: []string{" URGENT "}, RemoveTags: []string{"oldcaps"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0] != "urgent" {
+		t.Fatalf("tags = %v, want [urgent]", got.Tags)
+	}
+	got, err = r.UpdateItem(ctx, b.ID, model.UpdateItemInput{Tags: []string{"Mixed"}})
+	if err != nil || len(got.Tags) != 1 || got.Tags[0] != "mixed" {
+		t.Fatalf("tags = %v, err %v, want [mixed]", got.Tags, err)
+	}
+	created, err := r.CreateItem(ctx, model.CreateItemInput{Title: "C", Tags: []string{"UPPER"}})
+	if err != nil || len(created.Tags) != 1 || created.Tags[0] != "upper" {
+		t.Fatalf("created tags = %v, err %v, want [upper]", created.Tags, err)
+	}
+}
+
+// WithOrder puts the order into the creating write: the created hook gets the
+// item with its order, and no second write is left to fail behind the hook.
+func TestCreateItemWithOrderIsOneWrite(t *testing.T) {
+	r := newTestResolver(t)
+	var seen string
+	r.AfterMutation = func(m Mutation) bool {
+		seen = m.Item.Order
+		return true
+	}
+	b, err := r.CreateItem(context.Background(), model.CreateItemInput{Title: "Ordered"}, itemcore.WithOrder("a2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seen != "a2" || b.Order != "a2" {
+		t.Fatalf("hook saw order %q, item has %q, want a2", seen, b.Order)
+	}
+	data, err := os.ReadFile(filepath.Join(r.Core.Root(), b.Path))
+	if err != nil || !strings.Contains(string(data), "order: a2") {
+		t.Fatalf("file lacks the order: %v\n%s", err, data)
+	}
+}

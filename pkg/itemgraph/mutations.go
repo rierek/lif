@@ -3,7 +3,6 @@ package itemgraph
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"sort"
 
@@ -40,7 +39,7 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 		b.Body = *input.Body
 	}
 	if len(input.Tags) > 0 {
-		b.Tags = input.Tags
+		b.Tags = normalizeTags(input.Tags)
 	}
 
 	// Handle parent (with validation)
@@ -92,13 +91,9 @@ func (r *CoreResolver) CreateItem(ctx context.Context, input model.CreateItemInp
 
 	// Handle custom prefix - pre-generate ID if prefix is provided
 	if input.Prefix != nil && *input.Prefix != "" {
-		idLength := 4 // default
-		if cfg := r.Core.Config(); cfg != nil && cfg.Items.IDLength > 0 {
-			idLength = cfg.Items.IDLength
-		}
-		id, err := item.NewID(*input.Prefix, idLength)
+		id, err := r.Core.NewID(*input.Prefix)
 		if err != nil {
-			return nil, fmt.Errorf("generating item ID: %w", err)
+			return nil, err
 		}
 		b.ID = id
 	}
@@ -209,7 +204,7 @@ func (r *CoreResolver) updateItem(ctx context.Context, id string, input model.Up
 	}
 	// Handle tags
 	if input.Tags != nil {
-		b.Tags = input.Tags
+		b.Tags = normalizeTags(input.Tags)
 	} else if input.AddTags != nil || input.RemoveTags != nil {
 		// Build a set of current tags
 		tagSet := make(map[string]bool)
@@ -220,14 +215,20 @@ func (r *CoreResolver) updateItem(ctx context.Context, id string, input model.Up
 		// Add new tags
 		if input.AddTags != nil {
 			for _, tag := range input.AddTags {
-				tagSet[tag] = true
+				tagSet[item.NormalizeTag(tag)] = true
 			}
 		}
 
 		// Remove tags
 		if input.RemoveTags != nil {
 			for _, tag := range input.RemoveTags {
-				delete(tagSet, tag)
+				// Any case: a hand-edited file may carry the tag in capitals.
+				want := item.NormalizeTag(tag)
+				for have := range tagSet {
+					if item.NormalizeTag(have) == want {
+						delete(tagSet, have)
+					}
+				}
 			}
 		}
 
@@ -530,3 +531,12 @@ func (r *CoreResolver) retryStale(id string, ifMatch *string, write func() (*ite
 // staleRetries bounds retryStale. Every failed attempt means another writer
 // succeeded in between, so the bound is the number of concurrent writers.
 const staleRetries = 100
+
+// normalizeTags returns tags in the canonical form ValidateTags checked.
+func normalizeTags(tags []string) []string {
+	out := make([]string, len(tags))
+	for i, t := range tags {
+		out[i] = item.NormalizeTag(t)
+	}
+	return out
+}

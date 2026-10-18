@@ -90,7 +90,7 @@ func TestCreateInteractiveCreateNextCarriesTicked(t *testing.T) {
 	if a == nil || b == nil || len(got) != 2 {
 		t.Fatalf("written = %v, want A and B", got)
 	}
-	if a.Type != "feature" || a.Priority != "high" || a.Parent != "pp-e1" || !slices.Equal(a.Tags, []string{"dflt", "tagA"}) {
+	if a.Type != "feature" || a.Priority != "high" || a.Parent != "pp-e1" || !slices.Equal(a.Tags, []string{"dflt", "taga"}) {
 		t.Fatalf("item A = %s %s %s %v", a.Type, a.Priority, a.Parent, a.Tags)
 	}
 	if b.Type != a.Type || b.Priority != a.Priority || b.Parent != a.Parent || !slices.Equal(b.Tags, a.Tags) {
@@ -134,7 +134,7 @@ func TestCreateInteractiveCreateNextUntickedFallsBackAndChecklistRemembers(t *te
 	if a == nil || b == nil || c == nil {
 		t.Fatalf("written = %v", got)
 	}
-	if b.Priority != "high" || !slices.Equal(b.Tags, []string{"dflt", "tagB"}) || b.Type != "feature" || b.Parent != "pp-e1" {
+	if b.Priority != "high" || !slices.Equal(b.Tags, []string{"dflt", "tagb"}) || b.Type != "feature" || b.Parent != "pp-e1" {
 		t.Fatalf("item B = %s %s %s %v", b.Type, b.Priority, b.Parent, b.Tags)
 	}
 	if c.Type != "feature" || c.Parent != "pp-e1" {

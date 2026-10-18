@@ -370,3 +370,28 @@ func TestFingerprintCoversHooksAndTasks(t *testing.T) {
 		}
 	}
 }
+
+// A running dispatcher must not trust the .lif.yml that it read at start when
+// the file on disk has changed: a step that runs `$LIF run <task>` reads the
+// new file.
+func TestT20_ConfigChangedOnDiskAfterStartIsNotAllowed(t *testing.T) {
+	const when = "event: [updated]"
+	v1 := tasksOf(task("t", `echo v1 >> "$LIF_ROOT/log"`)) + hooksOf(hook("h", when, "run: t"))
+	v2 := tasksOf(task("t", `echo v2 >> "$LIF_ROOT/log"`)) + hooksOf(hook("h", when, "run: t"))
+	p := newProj(t, v1)
+	p.allow()
+	if !p.d.Fire(toProgress()) {
+		t.Fatal("the allowed hook did not run")
+	}
+
+	writeFile(t, p.cfg.ConfigFile(), v2) // a git pull while the dispatcher lives
+	if p.d.Fire(toProgress()) {
+		t.Error("the hook ran although .lif.yml changed on disk since start")
+	}
+	if got, want := p.read("log"), "v1\n"; got != want {
+		t.Errorf("log = %q, want %q", got, want)
+	}
+	if !strings.Contains(p.warn.String(), "changed since") {
+		t.Errorf("warn = %q, want a note that the file changed", p.warn.String())
+	}
+}

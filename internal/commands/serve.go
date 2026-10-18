@@ -72,14 +72,16 @@ var serveCmd = &cobra.Command{
 	Long: `Start the web server.
 
 By default the server listens on 127.0.0.1 only, so only this machine can reach
-it. --host with any other address makes it reachable from the network. The
-server then asks every client for an access token, printed at startup (random
-at every start; --token-file or LIF_SERVE_TOKEN keep one across restarts), and
-serves the terminal only with --allow-remote-terminal and agent sessions only
-with --allow-remote-agent. A proxy in front of the server (tailscale serve,
-nginx, Caddy) connects from loopback, so tell the server: --public-url (or
---require-token) gives it the same rules. Without TLS the token travels in clear
-text beyond loopback: --tls-cert and --tls-key serve HTTPS.`,
+it. --host with any other address makes it reachable from the network
+(--host tailscale: on the Tailscale address of this machine, shown under its
+MagicDNS name). The server then asks every client for an access token, printed
+at startup (random at every start; --token-file or LIF_SERVE_TOKEN keep one
+across restarts), and serves the terminal only with --allow-remote-terminal and
+agent sessions only with --allow-remote-agent. A proxy in front of the server
+(tailscale serve, nginx, Caddy) connects from loopback, so tell the server:
+--public-url (or --require-token) gives it the same rules. Without TLS the
+token travels in clear text beyond loopback: --tls-cert and --tls-key serve
+HTTPS.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine the port: CLI flag > config > default
 		port := servePort
@@ -159,6 +161,14 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 	tlsConfig, err := loadTLSConfig(opts.tlsCert, opts.tlsKey)
 	if err != nil {
 		return err
+	}
+
+	// --host tailscale binds the tailnet address of this machine; a person on
+	// the tailnet opens the server under its MagicDNS name.
+	if host == tailscaleHost {
+		if host, opts.tailnetName, err = resolveTailscaleHost(tailscaleStatusJSON); err != nil {
+			return err
+		}
 	}
 
 	// Bind first: a taken port fails before anything else starts, and the real
@@ -574,7 +584,7 @@ func newWorktreeManager(c *config.Config, storeRoot, worktreeRoot string) *workt
 }
 
 func RegisterServeCmd(root *cobra.Command) {
-	serveCmd.Flags().StringVar(&serveHost, "host", "127.0.0.1", "Address to listen on; any address but a loopback one makes the server reachable from the network and requires the access token")
+	serveCmd.Flags().StringVar(&serveHost, "host", "127.0.0.1", "Address to listen on; any address but a loopback one makes the server reachable from the network and requires the access token; \"tailscale\" listens on the Tailscale address of this machine")
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", config.DefaultServerPort, "Port to listen on")
 	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", config.DefaultCORSOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
 	serveCmd.Flags().BoolVar(&allowRemoteTerminal, "allow-remote-terminal", false, "Serve the terminal even when the server listens beyond loopback")

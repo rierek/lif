@@ -55,6 +55,7 @@ type serveAccess struct {
 	publicBase          string // --public-url without a trailing slash; empty without one
 	publicOrigin        string // scheme://host[:port] of publicBase
 	scheme              string // "https" when the server speaks TLS itself, else "http"
+	tailnetName         string // MagicDNS name of this machine under --host tailscale; empty otherwise
 }
 
 // serveOptions are the access choices of the operator. Every one of them is a
@@ -68,6 +69,7 @@ type serveOptions struct {
 	tlsCert             string   // --tls-cert
 	tlsKey              string   // --tls-key
 	publicURL           *url.URL // nil unless --public-url
+	tailnetName         string   // set by --host tailscale: the MagicDNS name of this machine
 }
 
 // parsePublicURL checks the value of --public-url: the address of the server
@@ -102,6 +104,7 @@ func newServeAccess(addr net.Addr, opts serveOptions) (serveAccess, error) {
 		allowRemoteTerminal: opts.allowRemoteTerminal,
 		allowRemoteAgent:    opts.allowRemoteAgent,
 		scheme:              "http",
+		tailnetName:         opts.tailnetName,
 	}
 	if opts.tlsCert != "" {
 		a.scheme = "https"
@@ -415,9 +418,13 @@ func registerTerminalDisabled(router *gin.Engine) {
 }
 
 // networkHost is the host under which a person on the network opens the
-// server: the address of the listener, or for a listener on all interfaces the
-// first LAN address of this machine, or localhost on a machine without one.
+// server: the MagicDNS name under --host tailscale, else the address of the
+// listener, or for a listener on all interfaces the first LAN address of this
+// machine, or localhost on a machine without one.
 func (a serveAccess) networkHost(interfaceAddrs []net.Addr) string {
+	if a.tailnetName != "" {
+		return a.tailnetName
+	}
 	if !a.addr.IP.IsUnspecified() {
 		return a.addr.IP.String()
 	}

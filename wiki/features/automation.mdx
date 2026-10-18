@@ -75,6 +75,7 @@ tasks:
     args: [id]
     steps:
       - |
+        set -e
         "$LIF" update "$id" --tag accepted --body-append "## PO acceptance $(date +%F)"
         file="$("$LIF" path)/$("$LIF" show "$id" --json | jq -r .path)"
         git add -- "$file"
@@ -98,7 +99,7 @@ tasks:
 lif run wt start lif-ab12 milestone/0.16   # runs: just -g wt start lif-ab12 milestone/0.16
 ```
 
-Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run and sets the exit code of `lif run`. A signal (Ctrl-C, SIGTERM) goes to the step and its child processes, and `lif run` waits for the step to end. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
+Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run and sets the exit code of `lif run`. Inside a multi-line step only the last command decides: start the script with `set -e`, as `po-accept` above does. A signal (Ctrl-C, SIGTERM) goes to the step and its child processes, and `lif run` waits for the step to end. `lif run` has no `--json`. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
 
 ## Hooks
 

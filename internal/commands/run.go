@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/rierek/lif/internal/tasks"
@@ -41,8 +42,11 @@ Environment of every step:
   LIF_ROOT         the directory the steps run in
   LIF_TASK         name of the running task (a dependency has its own name)
   LIF_TASK_ORIGIN  "project" or "global"
+  LIF_PATH         absolute store path, when --lif-path or LIF_PATH is set
 
-A failing step stops the run. lif then exits with the exit code of that step.`,
+A failing step stops the run. lif then exits with the exit code of that step.
+Other failures (signal, unknown task, bad config) exit 1. A multi-line step
+runs without 'set -e': start it with 'set -e' to stop at the first failure.`,
 	Example: `  lif run
   lif run test
   lif run po-accept lif-ab12
@@ -63,7 +67,7 @@ A failing step stops the run. lif then exits with the exit code of that step.`,
 		if err := tasks.CheckArgs(plan[len(plan)-1], args[1:]); err != nil {
 			return err
 		}
-		return tasks.Run(set.Root, plan, args[1:], tasks.IO{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()}, nil)
+		return tasks.Run(set.Root, plan, args[1:], tasks.IO{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()}, storeEnv())
 	},
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) > 0 {
@@ -88,6 +92,9 @@ A failing step stops the run. lif then exits with the exit code of that step.`,
 // directory.
 func loadProjectConfig() (*config.Config, error) {
 	if configPath != "" {
+		if _, err := os.Stat(configPath); err != nil {
+			return nil, fmt.Errorf("config file not found: %s", configPath)
+		}
 		return config.Load(configPath)
 	}
 	wd, err := os.Getwd()
@@ -147,7 +154,8 @@ func listTasks(cmd *cobra.Command, set tasks.Set) error {
 		fmt.Fprintln(cmd.OutOrStdout(), "No tasks. Define them under tasks: in .lif.yml or in ~/.lif/tasks.yml.")
 		return nil
 	}
-	tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+	var buf strings.Builder
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 	for _, n := range names {
 		p, _ := set.Lookup(n, runGlobal)
 		usage := n
@@ -158,13 +166,34 @@ func listTasks(cmd *cobra.Command, set tasks.Set) error {
 		if _, ok := set.Global[n]; ok && p.Origin == "project" {
 			origin = "project, overrides global"
 		}
-		row := usage + "\t[" + origin + "]"
-		if p.Task.Desc != "" {
-			row += "\t" + p.Task.Desc
-		}
-		fmt.Fprintln(tw, row)
+		// Always three cells, desc on one line, so the columns stay aligned.
+		fmt.Fprintf(tw, "%s\t[%s]\t%s\n", usage, origin, strings.Join(strings.Fields(p.Task.Desc), " "))
 	}
-	return tw.Flush()
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	// An empty desc leaves the padding of the origin column at line end.
+	for _, line := range strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n") {
+		fmt.Fprintln(cmd.OutOrStdout(), strings.TrimRight(line, " "))
+	}
+	return nil
+}
+
+// storeEnv hands the store to the steps as an absolute LIF_PATH when --lif-path
+// or a relative LIF_PATH names it: steps run in the project root, not in the
+// directory the user typed the path in.
+func storeEnv() []string {
+	p := storePath
+	if p == "" {
+		p = os.Getenv(config.StoreEnvVar)
+	}
+	if p == "" {
+		return nil
+	}
+	if abs, err := filepath.Abs(p); err == nil {
+		p = abs
+	}
+	return []string{config.StoreEnvVar + "=" + p}
 }
 
 // RegisterRunCmd adds the run command to root.

@@ -42,6 +42,16 @@ func (t *Task) UnmarshalYAML(value *yaml.Node) error {
 			return fmt.Errorf("line %d: unknown task key %q (known: desc, args, deps, steps)", keyNode.Line, keyNode.Value)
 		}
 	}
+	for i := 0; i+1 < len(value.Content); i += 2 {
+		if value.Content[i].Value != "steps" || value.Content[i+1].Kind != yaml.SequenceNode {
+			continue
+		}
+		for j, step := range value.Content[i+1].Content {
+			if step.Kind != yaml.ScalarNode || step.Tag != "!!str" {
+				return fmt.Errorf("line %d: steps[%d]: step must be a string (quote it)", step.Line, j)
+			}
+		}
+	}
 	type plain Task
 	var raw plain
 	if err := value.Decode(&raw); err != nil {

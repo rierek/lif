@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -363,13 +364,46 @@ func (c *Core) loadFromDisk() error {
 	// Detect and repair .lif.bak-* / .beans.bak-* orphans left by interrupted stageAndSwap
 	_ = c.detectOrphanBackup() // best-effort; continue loading even if repair failed
 
-	// Clear existing items and dirty state
+	// A concurrent rename can remove a file between directory read and open.
+	// The renamed file may be missed by the walk, so rescan from scratch
+	// instead of skipping the vanished one.
+	var err error
+	for range loadWalkAttempts {
+		err = c.walkStoreLocked()
+		if !errors.Is(err, fs.ErrNotExist) {
+			break
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	// Resync the search index if it was active: diff against the freshly
+	// reloaded items instead of closing and rebuilding from scratch, so a
+	// reload only reindexes what actually changed (AC-02).
+	if c.searchIndex != nil {
+		if err := c.searchIndex.Sync(c.allItemsLocked()); err != nil {
+			c.logWarn("failed to resync search index after reload: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// loadWalkAttempts bounds how often loadFromDisk rescans after a file vanished mid-walk.
+const loadWalkAttempts = 5
+
+// beforeLoadItemHook, when set by a test, runs before each item file is opened.
+var beforeLoadItemHook func(path string)
+
+// walkStoreLocked clears in-memory state and loads every item file under root.
+func (c *Core) walkStoreLocked() error {
 	c.items = make(map[string]*item.Item)
 	c.dirty = make(map[string]bool)
 	c.mainPaths = make(map[string]string)
 	c.duplicates = make(map[string][]string)
 	c.invalidateIncomingLocked()
-	err := filepath.WalkDir(c.root, func(path string, d os.DirEntry, err error) error {
+	return filepath.WalkDir(c.root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -396,6 +430,9 @@ func (c *Core) loadFromDisk() error {
 			return nil
 		}
 
+		if beforeLoadItemHook != nil {
+			beforeLoadItemHook(path)
+		}
 		b, loadErr := c.loadItem(path)
 		if loadErr != nil {
 			return fmt.Errorf("loading %s: %w", path, loadErr)
@@ -411,20 +448,6 @@ func (c *Core) loadFromDisk() error {
 		c.mainPaths[b.ID] = b.Path
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	// Resync the search index if it was active: diff against the freshly
-	// reloaded items instead of closing and rebuilding from scratch, so a
-	// reload only reindexes what actually changed (AC-02).
-	if c.searchIndex != nil {
-		if err := c.searchIndex.Sync(c.allItemsLocked()); err != nil {
-			c.logWarn("failed to resync search index after reload: %v", err)
-		}
-	}
-
-	return nil
 }
 
 // Refresh reads the main-store file of id again and returns a copy of the

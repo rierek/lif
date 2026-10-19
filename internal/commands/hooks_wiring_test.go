@@ -105,7 +105,7 @@ func TestHooksAllowAndDenyChangeTheListedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "Allowed hooks of " + path + " (1 hooks). These steps may now run:\n"; !strings.HasPrefix(out, want) {
+	if want := "Allowed hooks of " + path + " (1 hook). These steps may now run:\n"; !strings.HasPrefix(out, want) {
 		t.Errorf("allow printed %q, want the prefix %q", out, want)
 	}
 	if !strings.Contains(out, "step 1: \"true\"") {
@@ -386,5 +386,90 @@ hooks:
 	}
 	if !strings.Contains(stdout, `(warning: status "complted" unknown in this project)`) {
 		t.Errorf("listing = %q, want the warning", stdout)
+	}
+}
+
+// A global gate is never replaced (beans-bik1): the listing keeps it as the
+// enforced row and marks the ignored project hook of the same name.
+func TestHooksListKeepsTheEnforcedGlobalGateAndMarksTheIgnoredProjectHook(t *testing.T) {
+	home := hookEnv(t)
+	writeFixtureFile(t, filepath.Join(home, ".lif", "tasks.yml"), `tasks:
+  t:
+    steps: ['true']
+hooks:
+  x:
+    stage: before
+    event: [updated]
+    run: t
+`)
+	dir := hookProject(t, `tasks:
+  t:
+    steps: ['true']
+hooks:
+  x:
+    event: [updated]
+    run: t
+`)
+	allowHooks(t, dir)
+
+	stdout, _, err := runInProject(t, dir, "hooks")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("listing = %q, want the state line and two rows", stdout)
+	}
+	if got, want := listFields(lines[1]), []string{"x", "[global]", "before", "updated", "t"}; !slices.Equal(got, want) {
+		t.Errorf("row 1 = %q, want %q", got, want)
+	}
+	if got := lines[2]; !strings.Contains(got, "[project, ignored: global gate of that name]") {
+		t.Errorf("row 2 = %q, want the project hook marked ignored", got)
+	}
+}
+
+// A gate or etag error from lif graphql is no usage error: no "--help" hint.
+func TestGraphQLGateBlockEndsWithoutUsageHint(t *testing.T) {
+	hookEnv(t)
+	dir := hookProject(t, blockingGate)
+	todoItems(t, dir, "ex-aaaa")
+	allowHooks(t, dir)
+
+	_, stderr, err := runInProject(t, dir, "graphql", "--json",
+		`mutation { updateItem(id: "ex-aaaa", input: {status: "completed"}) { id } }`)
+
+	if err == nil {
+		t.Fatal("gate did not block")
+	}
+	if strings.Contains(stderr, "for usage") {
+		t.Errorf("stderr = %q, want no usage hint", stderr)
+	}
+}
+
+// lif start shows the item as the after hook left it, tag included (P03).
+func TestStartShowsTheTagThatTheAfterHookSet(t *testing.T) {
+	hookEnv(t)
+	dir := hookProject(t, `tasks:
+  tag:
+    args: [id]
+    steps: ['"$LIF" update "$id" --tag hooked']
+hooks:
+  h:
+    event: [updated]
+    to: [in-progress]
+    run: tag
+    args: [id]
+`)
+	todoItems(t, dir, "ex-aaaa")
+	allowHooks(t, dir)
+
+	stdout, _, err := runInProject(t, dir, "start", "ex-aaaa")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "hooked") {
+		t.Errorf("start printed %q, want the tag \"hooked\"", stdout)
 	}
 }

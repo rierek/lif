@@ -14,7 +14,7 @@ import (
 )
 
 // notAllowed is the not-allowed warning for cfg; gates is its parenthesis
-// (" (1 gates not enforced)") or empty.
+// (" (1 gate not enforced)") or empty.
 func notAllowed(cfg *config.Config, gates string) string {
 	return "warning: hooks in " + cfg.ConfigFile() + " are not allowed" + gates + "; run 'lif hooks allow' to enable them\n"
 }
@@ -42,7 +42,7 @@ func TestT01_NotAllowedProjectHooksDoNotRunAndWarnOnce(t *testing.T) {
 	if !p.exists("global-after") {
 		t.Error("the global hook did not run")
 	}
-	if got, want := p.warn.String(), notAllowed(p.cfg, " (1 gates not enforced)"); got != want {
+	if got, want := p.warn.String(), notAllowed(p.cfg, " (1 gate not enforced)"); got != want {
 		t.Errorf("warn = %q, want exactly %q", got, want)
 	}
 }

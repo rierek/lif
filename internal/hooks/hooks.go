@@ -376,7 +376,9 @@ func (d *Dispatcher) warnNotAllowed() {
 		}
 	}
 	note := ""
-	if gates > 0 {
+	if gates == 1 {
+		note = " (1 gate not enforced)"
+	} else if gates > 1 {
 		note = fmt.Sprintf(" (%d gates not enforced)", gates)
 	}
 	fmt.Fprintf(d.warn, "warning: hooks in %s are not allowed%s; run 'lif hooks allow' to enable them\n", d.configPath(), note)

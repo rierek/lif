@@ -126,7 +126,7 @@ func TestUnsetHomeIsNoError(t *testing.T) {
 	if p.d.Fire(toProgress()) {
 		t.Error("Fire reported a run")
 	}
-	if got, want := p.warn.String(), notAllowed(p.cfg, " (1 gates not enforced)"); got != want {
+	if got, want := p.warn.String(), notAllowed(p.cfg, " (1 gate not enforced)"); got != want {
 		t.Errorf("warn = %q, want only %q", got, want)
 	}
 	if p.exists("ran") {

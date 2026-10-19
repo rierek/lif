@@ -353,9 +353,11 @@ func reportExecutionError(cmd *cobra.Command, err error) {
 	}
 	var se *tasks.StepError
 	var blocked *hooks.BlockedError
-	if errors.As(err, &se) || errors.As(err, &blocked) {
-		// A failed task step or a gate that blocked the change is not a
-		// usage error: no pointer to the manual.
+	var mismatch *itemcore.ETagMismatchError
+	var required *itemcore.ETagRequiredError
+	if errors.As(err, &se) || errors.As(err, &blocked) || errors.As(err, &mismatch) || errors.As(err, &required) {
+		// A failed task step, a gate that blocked the change or an etag
+		// error is not a usage error: no pointer to the manual.
 		cmd.PrintErrln(cmd.ErrPrefix(), err.Error())
 		return
 	}

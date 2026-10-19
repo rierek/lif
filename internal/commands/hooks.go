@@ -89,7 +89,7 @@ run 'lif hooks allow' again after you have read the change.`,
 			return err
 		}
 		out := cmd.OutOrStdout()
-		fmt.Fprintf(out, "Allowed hooks of %s (%d hooks). These steps may now run:\n", c.ConfigFile(), len(c.Hooks))
+		fmt.Fprintf(out, "Allowed hooks of %s (%d %s). These steps may now run:\n", c.ConfigFile(), len(c.Hooks), plural(len(c.Hooks), "hook", "hooks"))
 		global, err := config.LoadGlobal()
 		if err != nil {
 			return err
@@ -155,23 +155,27 @@ type listedHook struct {
 }
 
 // listHooks prints one row per hook, sorted by name. An allowed project hook
-// replaces a global hook of the same name. While the project is not allowed
+// replaces a global hook of the same name, except a global gate: that one stays
+// listed as enforced and the project hook is marked ignored. While the project is not allowed
 // its hooks do not run and replace nothing: both rows show, the project row
 // marked "not allowed" (the header line says that for the others).
 func listHooks(out io.Writer, c *config.Config, global config.Global, allowed bool) error {
 	var rows []listedHook
 	for name, h := range global.Hooks {
-		if _, replaced := c.Hooks[name]; replaced && allowed {
+		if _, replaced := c.Hooks[name]; replaced && allowed && !h.IsGate() {
 			continue
 		}
 		rows = append(rows, listedHook{name: name, hook: h, origin: "global"})
 	}
 	for name, h := range c.Hooks {
 		origin := "project"
-		_, overrides := global.Hooks[name]
+		g, overrides := global.Hooks[name]
 		switch {
 		case overrides && !allowed:
 			origin = "project, not allowed"
+		case overrides && g.IsGate():
+			// The dispatcher never lets a project hook replace a global gate.
+			origin = "project, ignored: global gate of that name"
 		case overrides:
 			origin = "project, overrides global"
 		}

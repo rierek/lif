@@ -1853,25 +1853,9 @@ func TestSaveOmitsEmptyProjectSection(t *testing.T) {
 }
 
 func TestGetCORSOrigins(t *testing.T) {
-	t.Run("returns defaults when not configured", func(t *testing.T) {
-		cfg := Default()
-		origins := cfg.GetCORSOrigins()
-		if len(origins) != 2 {
-			t.Fatalf("GetCORSOrigins() returned %d origins, want 2", len(origins))
-		}
-		if origins[0] != "http://localhost:*" {
-			t.Errorf("origins[0] = %q, want %q", origins[0], "http://localhost:*")
-		}
-		if origins[1] != "http://127.0.0.1:*" {
-			t.Errorf("origins[1] = %q, want %q", origins[1], "http://127.0.0.1:*")
-		}
-	})
-
-	t.Run("hands out a copy of the defaults", func(t *testing.T) {
-		origins := Default().GetCORSOrigins()
-		origins[0] = "http://changed.example:*"
-		if DefaultCORSOrigins[0] != "http://localhost:*" {
-			t.Errorf("a caller changed the shared default list: %v", DefaultCORSOrigins)
+	t.Run("returns no origin when not configured", func(t *testing.T) {
+		if origins := Default().GetCORSOrigins(); len(origins) != 0 {
+			t.Fatalf("GetCORSOrigins() = %v, want none: the default is the server's own origin only", origins)
 		}
 	})
 
@@ -2328,8 +2312,8 @@ func TestValueGettersToleratesANilConfig(t *testing.T) {
 	if got := c.GetServerPort(); got != DefaultServerPort {
 		t.Errorf("GetServerPort() = %d, want %d", got, DefaultServerPort)
 	}
-	if got := c.GetCORSOrigins(); len(got) != 2 {
-		t.Errorf("GetCORSOrigins() = %v, want the two localhost defaults", got)
+	if got := c.GetCORSOrigins(); len(got) != 0 {
+		t.Errorf("GetCORSOrigins() = %v, want none (the server's own origin only)", got)
 	}
 	if got := c.GetTheme(); got != "mocha" {
 		t.Errorf("GetTheme() = %q, want \"mocha\"", got)

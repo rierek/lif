@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/rierek/lif/pkg/config"
 )
 
 func TestResolveTailscaleHost(t *testing.T) {
@@ -70,7 +68,7 @@ func TestStartupLinesNameTheTailnetHost(t *testing.T) {
 	opts := serveOptions{tailnetName: "macm.banteng-cardassian.ts.net"}
 
 	a := mustAccessOpts(t, "100.85.223.39", opts)
-	log := strings.Join(a.startupLines(config.DefaultCORSOrigins, machine), "\n")
+	log := strings.Join(a.startupLines(nil, machine), "\n")
 	for _, want := range []string{
 		"[lif] Listening on 100.85.223.39:8080 (non-loopback address",
 		"[lif] Open the UI: http://macm.banteng-cardassian.ts.net:8080/?token=" + a.token,
@@ -85,7 +83,7 @@ func TestStartupLinesNameTheTailnetHost(t *testing.T) {
 
 	opts.publicURL = mustPublicURL(t, "https://box.example.ts.net/lif")
 	a = mustAccessOpts(t, "100.85.223.39", opts)
-	if log := strings.Join(a.startupLines(config.DefaultCORSOrigins, machine), "\n"); !strings.Contains(log, "[lif] Open the UI: https://box.example.ts.net/lif/?token="+a.token) || strings.Contains(log, "macm.banteng") {
+	if log := strings.Join(a.startupLines(nil, machine), "\n"); !strings.Contains(log, "[lif] Open the UI: https://box.example.ts.net/lif/?token="+a.token) || strings.Contains(log, "macm.banteng") {
 		t.Errorf("a public URL wins over the tailnet name:\n%s", log)
 	}
 }

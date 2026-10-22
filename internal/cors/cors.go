@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/rierek/lif/pkg/config"
 )
 
 // Checker validates HTTP origins against an allowlist.
@@ -17,8 +15,7 @@ import (
 // The entry "*" serves the CORS response header only: CORSOrigin answers "*"
 // for every origin, so any page may read what the server answers. Nothing else
 // follows from it. IsAllowed, IsHostAllowed and CheckOriginFunc look at the
-// named entries, and "*" adds the default local origins to them, because
-// "every origin" includes those.
+// named entries; the server adds its own origins to the list.
 type Checker struct {
 	allowAll bool
 	patterns []pattern
@@ -48,11 +45,6 @@ func NewChecker(origins []string) *Checker {
 			continue
 		}
 		c.add(o)
-	}
-	if c.allowAll {
-		for _, o := range config.DefaultCORSOrigins {
-			c.add(o)
-		}
 	}
 	return c
 }

@@ -19,8 +19,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/rierek/lif/pkg/config"
 )
 
 // writeSelfSignedCert writes a self-signed ECDSA certificate for localhost and
@@ -128,7 +126,7 @@ func TestTokenCookieIsSecureWhenTheTokenTravelsEncrypted(t *testing.T) {
 
 func TestStartupLinesNameTheSchemeAndDropTheClearTextWarningUnderTLS(t *testing.T) {
 	lines := func(a serveAccess) string {
-		return strings.Join(a.startupLines(config.DefaultCORSOrigins, nil), "\n")
+		return strings.Join(a.startupLines(nil, nil), "\n")
 	}
 
 	plain := lines(mustAccess(t, "10.0.0.9", false))
@@ -161,7 +159,7 @@ func TestStartupLinesNameTheSchemeAndDropTheClearTextWarningUnderTLS(t *testing.
 func TestWithOwnAddressFollowsTheScheme(t *testing.T) {
 	a := mustAccessOpts(t, "::1", serveOptions{tlsCert: "c.pem", tlsKey: "k.pem"})
 	got := a.withOwnAddress([]string{"http://localhost:*"})
-	if want := []string{"http://localhost:*", "https://[::1]:*"}; !slices.Equal(got, want) {
+	if want := []string{"http://localhost:*", "https://localhost:8080", "https://127.0.0.1:8080", "https://[::1]:8080"}; !slices.Equal(got, want) {
 		t.Errorf("withOwnAddress = %v, want %v", got, want)
 	}
 }

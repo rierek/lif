@@ -292,6 +292,22 @@ func TestTP17_SignalIsStepErrorWithoutCode(t *testing.T) {
 	}
 }
 
+func TestTP17b_FailingNonLastCommandStopsStep(t *testing.T) {
+	set := Set{Root: t.TempDir(), Project: map[string]config.Task{
+		"x": steps("false\necho after"),
+		"y": steps("false || true\necho after"),
+	}}
+	out, _, err := runTask(t, set, "x", false, nil, "", nil)
+	var se *StepError
+	if !errors.As(err, &se) || se.Code != 1 || strings.Contains(out, "after") {
+		t.Fatalf("out = %q, err = %#v", out, err)
+	}
+	out, _, err = runTask(t, set, "y", false, nil, "", nil)
+	if err != nil || out != "after\n" {
+		t.Fatalf("|| true: out = %q, err = %v", out, err)
+	}
+}
+
 func TestTP18_StepsRunInRoot(t *testing.T) {
 	root := t.TempDir()
 	set := Set{Root: root, Project: map[string]config.Task{"x": steps("pwd")}}

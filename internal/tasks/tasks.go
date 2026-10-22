@@ -210,7 +210,7 @@ func RunContext(ctx context.Context, root string, plan []Planned, args []string,
 			}
 		}
 		for j, step := range p.Task.Steps {
-			cmd := exec.CommandContext(ctx, shell(), append([]string{"-c", step, p.Name}, taskArgs...)...)
+			cmd := exec.CommandContext(ctx, shell(), append([]string{"-ec", step, p.Name}, taskArgs...)...)
 			cmd.Dir = root
 			cmd.Env = env
 			cmd.Stdin, cmd.Stdout, cmd.Stderr = streams.Stdin, streams.Stdout, streams.Stderr

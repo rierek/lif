@@ -30,7 +30,7 @@ and resolves its dependencies in the global file only.
       desc: Accept an item         # shown by 'lif run'
       args: [id]                   # required positional args, exported as $id
       deps: [test]                 # tasks that run first, without args
-      steps:                       # each step is one 'sh -c' script
+      steps:                       # each step is one 'sh -ec' script
         - lif update "$id" -s completed
 
 Steps run in the project root (the directory of .lif.yml; the current
@@ -46,8 +46,9 @@ Environment of every step:
   LIF_PATH         absolute store path, when --lif-path or LIF_PATH is set
 
 A failing step stops the run. lif then exits with the exit code of that step.
-Other failures (signal, unknown task, bad config) exit 1. A multi-line step
-runs without 'set -e': start it with 'set -e' to stop at the first failure.`,
+Other failures (signal, unknown task, bad config) exit 1. Steps run with
+'sh -ec': a failing command in a multi-line step stops the step; end a
+command with '|| true' to ignore its failure.`,
 	Example: `  lif run
   lif run test
   lif run po-accept lif-ab12

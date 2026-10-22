@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 )
 
 // depthFixture builds a roadmap that exercises every branch the pruner has
@@ -14,7 +15,7 @@ import (
 // direct feature and a direct leaf, plus an unscheduled branch with the same
 // shape. Every level from 1 to 4 is populated, so a test can pin exactly
 // which of them survives a given --depth.
-func depthFixture() *roadmapData {
+func depthFixture() *roadmap.Data {
 	ms := &item.Item{ID: "beans-ms01", Title: "Milestone", Type: "milestone", Status: "todo"}
 	msEpic := &item.Item{ID: "beans-ep01", Title: "Epic", Type: "epic", Status: "todo", Parent: ms.ID}
 	msEpicItem := &item.Item{ID: "beans-it01", Title: "Epic item", Type: "task", Status: "todo", Parent: msEpic.ID}
@@ -32,46 +33,46 @@ func depthFixture() *roadmapData {
 	unFeatItem := &item.Item{ID: "beans-it07", Title: "Unscheduled feature item", Type: "task", Status: "todo", Parent: unFeat.ID}
 	unOther := &item.Item{ID: "beans-it08", Title: "Orphan leaf", Type: "task", Status: "todo"}
 
-	return &roadmapData{
-		Milestones: []milestoneGroup{
+	return &roadmap.Data{
+		Milestones: []roadmap.MilestoneGroup{
 			{
 				Milestone: ms,
-				Containers: []roadmapContainer{
-					{Epic: &epicGroup{
+				Containers: []roadmap.Container{
+					{Epic: &roadmap.EpicGroup{
 						Epic:     msEpic,
 						Items:    []*item.Item{msEpicItem},
-						Features: []featureGroup{{Feature: msEpicFeat, Items: []*item.Item{msEpicFeatItem}}},
+						Features: []roadmap.FeatureGroup{{Feature: msEpicFeat, Items: []*item.Item{msEpicFeatItem}}},
 					}},
-					{Feature: &featureGroup{Feature: msFeat, Items: []*item.Item{msFeatItem}}},
+					{Feature: &roadmap.FeatureGroup{Feature: msFeat, Items: []*item.Item{msFeatItem}}},
 				},
 				Other: []*item.Item{msOther},
 			},
 		},
-		Unscheduled: &unscheduledGroup{
-			Containers: []roadmapContainer{
-				{Epic: &epicGroup{
+		Unscheduled: &roadmap.UnscheduledGroup{
+			Containers: []roadmap.Container{
+				{Epic: &roadmap.EpicGroup{
 					Epic:     unEpic,
 					Items:    []*item.Item{unEpicItem},
-					Features: []featureGroup{{Feature: unEpicFeat, Items: []*item.Item{unEpicFeatItem}}},
+					Features: []roadmap.FeatureGroup{{Feature: unEpicFeat, Items: []*item.Item{unEpicFeatItem}}},
 				}},
-				{Feature: &featureGroup{Feature: unFeat, Items: []*item.Item{unFeatItem}}},
+				{Feature: &roadmap.FeatureGroup{Feature: unFeat, Items: []*item.Item{unFeatItem}}},
 			},
 			Other: []*item.Item{unOther},
 		},
 	}
 }
 
-// scopedEpicFixture is what buildScopedRoadmap produces for an epic root.
-func scopedEpicFixture() *roadmapData {
+// scopedEpicFixture is what roadmap.BuildScoped produces for an epic root.
+func scopedEpicFixture() *roadmap.Data {
 	epic := &item.Item{ID: "beans-ep01", Title: "Epic", Type: "epic", Status: "todo"}
 	epicTask := &item.Item{ID: "beans-it01", Title: "Epic item", Type: "task", Status: "todo", Parent: epic.ID}
 	feat := &item.Item{ID: "beans-ft01", Title: "Epic feature", Type: "feature", Status: "todo", Parent: epic.ID}
 	featItem := &item.Item{ID: "beans-it02", Title: "Epic feature item", Type: "task", Status: "todo", Parent: feat.ID}
 
-	return &roadmapData{Root: &rootGroup{Epic: &epicGroup{
+	return &roadmap.Data{Root: &roadmap.RootGroup{Epic: &roadmap.EpicGroup{
 		Epic:     epic,
 		Items:    []*item.Item{epicTask},
-		Features: []featureGroup{{Feature: feat, Items: []*item.Item{featItem}}},
+		Features: []roadmap.FeatureGroup{{Feature: feat, Items: []*item.Item{featItem}}},
 	}}}
 }
 
@@ -81,7 +82,7 @@ func scopedEpicFixture() *roadmapData {
 // everything below them is cut.
 func TestPruneRoadmapDepthUnscopedDepth1(t *testing.T) {
 	data := depthFixture()
-	pruneRoadmapDepth(data, 1, false)
+	roadmap.PruneDepth(data, 1, false)
 
 	if len(data.Milestones) != 1 {
 		t.Fatalf("milestones = %d, want 1", len(data.Milestones))
@@ -120,7 +121,7 @@ func TestPruneRoadmapDepthUnscopedDepth1(t *testing.T) {
 // nested feature row.
 func TestPruneRoadmapDepthUnscopedDepth2(t *testing.T) {
 	data := depthFixture()
-	pruneRoadmapDepth(data, 2, false)
+	roadmap.PruneDepth(data, 2, false)
 
 	mg := data.Milestones[0]
 	mgEpics := epicGroupsOf(mg.Containers)
@@ -157,7 +158,7 @@ func TestPruneRoadmapDepthUnscopedDepth2(t *testing.T) {
 // nested feature row are in, that feature's own items are out.
 func TestPruneRoadmapDepthUnscopedDepth3(t *testing.T) {
 	data := depthFixture()
-	pruneRoadmapDepth(data, 3, false)
+	roadmap.PruneDepth(data, 3, false)
 
 	eg := epicGroupsOf(data.Milestones[0].Containers)[0]
 	if len(eg.Items) != 1 || len(eg.Features) != 1 {
@@ -181,7 +182,7 @@ func TestPruneRoadmapDepthUnscopedDepth3(t *testing.T) {
 func TestPruneRoadmapDepthUnscopedDepth4(t *testing.T) {
 	for _, depth := range []int{4, 5, 99} {
 		data := depthFixture()
-		pruneRoadmapDepth(data, depth, false)
+		roadmap.PruneDepth(data, depth, false)
 
 		if got := len(epicGroupsOf(data.Milestones[0].Containers)[0].Features[0].Items); got != 1 {
 			t.Errorf("depth %d: deepest items = %d, want 1", depth, got)
@@ -197,7 +198,7 @@ func TestPruneRoadmapDepthUnscopedDepth4(t *testing.T) {
 func TestPruneRoadmapDepthZeroIsNoOp(t *testing.T) {
 	for _, depth := range []int{0, -1} {
 		data := depthFixture()
-		pruneRoadmapDepth(data, depth, false)
+		roadmap.PruneDepth(data, depth, false)
 
 		if got := len(epicGroupsOf(data.Milestones[0].Containers)[0].Features[0].Items); got != 1 {
 			t.Errorf("depth %d: deepest items = %d, want 1 (no-op)", depth, got)
@@ -210,8 +211,8 @@ func TestPruneRoadmapDepthZeroIsNoOp(t *testing.T) {
 // direct children are level 1.
 func TestPruneRoadmapDepthScopedMilestone(t *testing.T) {
 	data := depthFixture()
-	data.Unscheduled = nil // buildScopedRoadmap returns the milestone alone
-	pruneRoadmapDepth(data, 1, true)
+	data.Unscheduled = nil // roadmap.BuildScoped returns the milestone alone
+	roadmap.PruneDepth(data, 1, true)
 
 	mg := data.Milestones[0]
 	if mg.Milestone.ID != "beans-ms01" {
@@ -236,7 +237,7 @@ func TestPruneRoadmapDepthScopedMilestone(t *testing.T) {
 // the epic row is the root, its items and nested feature rows are level 1.
 func TestPruneRoadmapDepthScopedEpicRoot(t *testing.T) {
 	data := scopedEpicFixture()
-	pruneRoadmapDepth(data, 1, true)
+	roadmap.PruneDepth(data, 1, true)
 
 	eg := data.Root.Epic
 	if eg == nil || eg.Epic.ID != "beans-ep01" {
@@ -255,9 +256,9 @@ func TestPruneRoadmapDepthScopedEpicRoot(t *testing.T) {
 func TestPruneRoadmapDepthScopedFeatureRoot(t *testing.T) {
 	feat := &item.Item{ID: "beans-ft01", Title: "Feature", Type: "feature", Status: "todo"}
 	featTask := &item.Item{ID: "beans-it01", Title: "Item", Type: "task", Status: "todo", Parent: feat.ID}
-	data := &roadmapData{Root: &rootGroup{Feature: &featureGroup{Feature: feat, Items: []*item.Item{featTask}}}}
+	data := &roadmap.Data{Root: &roadmap.RootGroup{Feature: &roadmap.FeatureGroup{Feature: feat, Items: []*item.Item{featTask}}}}
 
-	pruneRoadmapDepth(data, 1, true)
+	roadmap.PruneDepth(data, 1, true)
 
 	if data.Root.Feature == nil || data.Root.Feature.Feature.ID != "beans-ft01" {
 		t.Fatalf("scoped feature root dropped: %+v", data.Root)
@@ -325,7 +326,7 @@ func TestRoadmapCmdJSONRespectsDepth(t *testing.T) {
 		t.Fatalf("roadmapCmd.RunE() error = %v", err)
 	}
 
-	var got roadmapData
+	var got roadmap.Data
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("failed to unmarshal JSON output: %v", err)
 	}
@@ -366,7 +367,7 @@ func TestRoadmapCmdDepthWithScopeCountsFromRoot(t *testing.T) {
 		t.Fatalf("roadmapCmd.RunE() error = %v", err)
 	}
 
-	var got roadmapData
+	var got roadmap.Data
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("failed to unmarshal JSON output: %v", err)
 	}

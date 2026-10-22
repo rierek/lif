@@ -12,10 +12,10 @@ import (
 
 // containerIDsOfRoadmap lists milestones, epics and features in roadmap
 // output order (pre-order, unscheduled containers after the milestones).
-func containerIDsOfRoadmap(data *roadmapData) []string {
+func containerIDsOfRoadmap(data *roadmap.Data) []string {
 	var out []string
-	var walk func(cs []roadmapContainer)
-	walk = func(cs []roadmapContainer) {
+	var walk func(cs []roadmap.Container)
+	walk = func(cs []roadmap.Container) {
 		for _, c := range cs {
 			if c.Epic != nil {
 				out = append(out, c.Epic.Epic.ID)
@@ -81,7 +81,7 @@ func TestRoadmapOrderEqualsSharedTreeOrder(t *testing.T) {
 		{ID: "t11", Type: "task", Title: "t11", Status: "todo", Parent: "e4"},
 	}
 
-	want := containerIDsOfRoadmap(buildRoadmap(items, false, nil, nil))
+	want := containerIDsOfRoadmap(roadmap.Build(cfg, items, false, nil, nil))
 	if len(want) == 0 {
 		t.Fatal("roadmap produced no containers")
 	}

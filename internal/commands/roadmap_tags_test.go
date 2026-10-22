@@ -7,18 +7,19 @@ import (
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 )
 
 // tagsFixture is a one-milestone roadmap where the milestone and one leaf
 // carry tags and a second leaf carries none, so a single render exercises
 // both the tagged and the untagged path.
-func tagsFixture() *roadmapData {
+func tagsFixture() *roadmap.Data {
 	ms := &item.Item{ID: "beans-ms01", Title: "Payments", Type: "milestone", Status: "todo", Tags: []string{"planning", "cli"}}
 	tagged := &item.Item{ID: "beans-it01", Title: "Wire up sheet", Type: "task", Status: "todo", Parent: ms.ID, Tags: []string{"ux"}}
 	untagged := &item.Item{ID: "beans-it02", Title: "Rotate signing key", Type: "task", Status: "todo", Parent: ms.ID}
 
-	return &roadmapData{
-		Milestones: []milestoneGroup{{
+	return &roadmap.Data{
+		Milestones: []roadmap.MilestoneGroup{{
 			Milestone: ms,
 			Other:     []*item.Item{tagged, untagged},
 		}},
@@ -95,7 +96,7 @@ func TestRoadmapOutputTagsOnlyForTaggedItems(t *testing.T) {
 func TestRoadmapOutputTagsStayOnTheItemsOwnLine(t *testing.T) {
 	long := "Refactor payment reconciliation ledger to support multi-currency settlement across regions"
 	ms := &item.Item{ID: "beans-ms01", Title: long, Type: "milestone", Status: "todo", Tags: []string{"ledger"}}
-	data := &roadmapData{Milestones: []milestoneGroup{{Milestone: ms}}}
+	data := &roadmap.Data{Milestones: []roadmap.MilestoneGroup{{Milestone: ms}}}
 
 	out := roadmapOutput(data, true, roadmapFormatTTY, 80, true, "", true, ui.FormTree, config.Default())
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
@@ -122,7 +123,7 @@ func TestRoadmapOutputTagsStayOnTheItemsOwnLine(t *testing.T) {
 func TestRoadmapOutputTagOverflowKeepsFirstTagVisible(t *testing.T) {
 	many := []string{"alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliett", "kilo", "lima"}
 	ms := &item.Item{ID: "beans-ms01", Title: "Payments", Type: "milestone", Status: "todo", Tags: many}
-	data := &roadmapData{Milestones: []milestoneGroup{{Milestone: ms}}}
+	data := &roadmap.Data{Milestones: []roadmap.MilestoneGroup{{Milestone: ms}}}
 
 	out := roadmapOutput(data, true, roadmapFormatTTY, 80, true, "", true, ui.FormTree, config.Default())
 

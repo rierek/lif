@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -95,11 +94,6 @@ const (
 	// packages, one edit away from drifting apart.
 	DefaultMaxWidth = 110
 )
-
-// DefaultCORSOrigins are the allowed origins when neither the server.cors_origins
-// key nor --cors-origin names any: the local origins of the UI and of a dev
-// server. GetCORSOrigins hands out a copy.
-var DefaultCORSOrigins = []string{"http://localhost:*", "http://127.0.0.1:*"}
 
 // DefaultStatuses defines the built-in status table. Config.Statuses can
 // override individual entries; see (*Config).StatusList.
@@ -393,7 +387,9 @@ type ServerConfig struct {
 	// Use "*" to send the CORS header for every origin so any page can read
 	// the answers; it allows nothing else: changes and the terminal need a
 	// listed origin, and the host check stays on.
-	// Default: ["http://localhost:*", "http://127.0.0.1:*"]
+	// Default: none; the server's own origin (its listen address) is always allowed.
+	// A port wildcard such as "http://localhost:*" lets a page on any local
+	// port change items (running project hooks) and use the terminal.
 	CORSOrigins []string `yaml:"cors_origins,omitempty"`
 }
 
@@ -1951,12 +1947,13 @@ func (c *Config) GetServerPort() int {
 	return c.Server.Port
 }
 
-// GetCORSOrigins returns the configured CORS origins, or the defaults if not set.
+// GetCORSOrigins returns the configured CORS origins; none if not set. The
+// server's own origin needs no entry (see lif-serve).
 func (c *Config) GetCORSOrigins() []string {
-	if c != nil && len(c.Server.CORSOrigins) > 0 {
+	if c != nil {
 		return c.Server.CORSOrigins
 	}
-	return slices.Clone(DefaultCORSOrigins)
+	return nil
 }
 
 // GetTheme returns the configured theme name, or "mocha" when unset.

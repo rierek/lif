@@ -187,9 +187,9 @@ func runServer(host string, port int, origins []string, opts serveOptions) error
 	if err != nil {
 		return err
 	}
-	// A loopback listener also answers under its own address (::1, 127.0.0.2),
-	// which the default list does not name. A public URL names the host a proxy
-	// in front of the server is reached under.
+	// A loopback listener answers under localhost, 127.0.0.1 and its own
+	// address (::1, 127.0.0.2), each on its own port only. A public URL names
+	// the host a proxy in front of the server is reached under.
 	origins = access.withPublicOrigin(access.withOwnAddress(origins))
 
 	// Start file watcher for subscriptions
@@ -595,7 +595,7 @@ func newWorktreeManager(c *config.Config, storeRoot, worktreeRoot string) *workt
 func RegisterServeCmd(root *cobra.Command) {
 	serveCmd.Flags().StringVar(&serveHost, "host", "127.0.0.1", "Address to listen on; any address but a loopback one makes the server reachable from the network and requires the access token; \"tailscale\" listens on the Tailscale address of this machine")
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", config.DefaultServerPort, "Port to listen on")
-	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", config.DefaultCORSOrigins, "Origins and hosts of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state); replaces the default list; * adds the CORS header for every origin and allows nothing else")
+	serveCmd.Flags().StringSliceVar(&corsOrigins, "cors-origin", nil, "Origins of web pages that may use the server besides its own UI (CORS, WebSocket, requests that change state). Default: none, only the server's own origin (the address it listens on). Port wildcards such as http://localhost:* let a page on any local port run mutations (project hooks) and open the terminal. * adds the CORS header for every origin and allows nothing else")
 	serveCmd.Flags().BoolVar(&allowRemoteTerminal, "allow-remote-terminal", false, "Serve the terminal even when the server listens beyond loopback")
 	serveCmd.Flags().BoolVar(&allowRemoteAgent, "allow-remote-agent", false, "Allow agent sessions even when the server is reachable beyond this machine")
 	serveCmd.Flags().StringVar(&servePublicURL, "public-url", "", "Public URL of this server behind a proxy, e.g. https://box.tailnet.ts.net/lif (implies --require-token)")

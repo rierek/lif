@@ -394,7 +394,7 @@ func TestServeOnTheNetworkNeedsTheTokenAndHasNoTerminal(t *testing.T) {
 		t.Errorf("the printed address: status %d, Set-Cookie %q; want a 303 that sets the cookie", status, header.Get("Set-Cookie"))
 	}
 
-	status, body, _ := p.do(t, "GET", "/api/terminal", p.token, "http://localhost:5173", "")
+	status, body, _ := p.do(t, "GET", "/api/terminal", p.token, "http://"+p.host, "")
 	if status != http.StatusForbidden || !strings.Contains(body, "terminal is disabled") {
 		t.Errorf("GET /api/terminal: status %d, body %q; want a 403 that says the terminal is disabled", status, body)
 	}
@@ -457,7 +457,7 @@ func TestServeRequireTokenOnLoopback(t *testing.T) {
 	if status, body, _ := p.do(t, "GET", "/playground", p.token, "", ""); status != 200 || !strings.Contains(body, "<title>Lif GraphQL</title>") {
 		t.Errorf("GET /playground with the token: status %d, body %.200q", status, body)
 	}
-	status, body, _ := p.do(t, "GET", "/api/terminal", p.token, "http://localhost:5173", "")
+	status, body, _ := p.do(t, "GET", "/api/terminal", p.token, "http://"+p.host, "")
 	if status != http.StatusForbidden || !strings.Contains(body, "terminal is disabled") {
 		t.Errorf("GET /api/terminal: status %d, body %q; want a 403 that says the terminal is disabled", status, body)
 	}
@@ -612,7 +612,7 @@ func TestServeRemoteTerminalOptIn(t *testing.T) {
 		t.Fatalf("no usable access token in the startup log:\n%s", p.log)
 	}
 
-	conn, resp, err := p.dialWS(t, "/api/terminal", "http://localhost:5173", "")
+	conn, resp, err := p.dialWS(t, "/api/terminal", "http://"+p.host, "")
 	if err == nil {
 		conn.CloseNow()
 		t.Fatal("the terminal upgrade was accepted without the token")
@@ -621,13 +621,15 @@ func TestServeRemoteTerminalOptIn(t *testing.T) {
 		t.Errorf("terminal upgrade without token: %v, want 401", resp)
 	}
 
-	// The UI the server serves, and the dev server of the UI, get the shell.
-	for _, origin := range []string{"http://localhost:5173", "http://" + p.host} {
-		conn, resp, err = p.dialWS(t, "/api/terminal", origin, p.token)
-		if err != nil {
-			t.Fatalf("terminal upgrade with the token from %s: %v (response %v)", origin, err, resp)
-		}
+	// The UI the server serves gets the shell; a dev server on another port does not.
+	origin := "http://" + p.host
+	if conn, resp, err = p.dialWS(t, "/api/terminal", origin, p.token); err != nil {
+		t.Fatalf("terminal upgrade with the token from %s: %v (response %v)", origin, err, resp)
+	}
+	conn.CloseNow()
+	if conn, _, err = p.dialWS(t, "/api/terminal", "http://localhost:5173", p.token); err == nil {
 		conn.CloseNow()
+		t.Error("the terminal upgrade from another local port was accepted")
 	}
 }
 
@@ -666,4 +668,64 @@ func TestServeWildcardOriginAllowsNoShell(t *testing.T) {
 	if status, _, _ := p.doAs(t, fmt.Sprintf("localhost:%d", p.port), "/playground"); status != 200 {
 		t.Errorf("a request under localhost under *: status %d, want 200", status)
 	}
+	if status, body, _ := p.do(t, "POST", "/api/graphql", "", "http://localhost:9999", `{"query":"mutation { __typename }"}`); status != 403 {
+		t.Errorf("a mutation from another local port under *: status %d (%.100s), want 403", status, body)
+	}
+}
+
+// The default list is the server's own origin: GraphQL POST and terminal
+// WebSocket from another local port are refused as a foreign site is, from
+// the own page under either local name they work. An explicit --cors-origin
+// opens exactly what it names.
+func TestServeDefaultOriginIsItsOwnOnly(t *testing.T) {
+	query := `{"query":"mutation { __typename }"}`
+	check := func(t *testing.T, p *serveProcess, origin string, want bool) {
+		t.Helper()
+		status, body, _ := p.do(t, "POST", "/api/graphql", "", origin, query)
+		if (status == 200) != want || (!want && status != 403) {
+			t.Errorf("GraphQL POST from %s: status %d (%.100s), want allowed=%v", origin, status, body, want)
+		}
+		conn, resp, err := p.dialWS(t, "/api/terminal", origin, "")
+		if want {
+			if err != nil {
+				t.Errorf("terminal upgrade from %s: %v (response %v)", origin, err, resp)
+				return
+			}
+			conn.CloseNow()
+			return
+		}
+		if err == nil {
+			conn.CloseNow()
+			t.Errorf("terminal upgrade from %s was accepted", origin)
+		} else if resp == nil || resp.StatusCode != http.StatusForbidden {
+			t.Errorf("terminal upgrade from %s: %v, want 403", origin, resp)
+		}
+	}
+
+	t.Run("default", func(t *testing.T) {
+		p := startServeProcess(t)
+		if !strings.Contains(p.log, "[lif] Allowed origins: http://localhost:") || strings.Contains(p.log, "NOTE: a web page from any port") {
+			t.Errorf("startup log does not show the own origins only:\n%s", p.log)
+		}
+		check(t, p, fmt.Sprintf("http://127.0.0.1:%d", p.port), true)
+		check(t, p, fmt.Sprintf("http://localhost:%d", p.port), true)
+		check(t, p, "http://localhost:9999", false)
+		check(t, p, "http://127.0.0.1:9999", false)
+		check(t, p, "http://evil.example", false)
+	})
+
+	t.Run("explicit origin", func(t *testing.T) {
+		p := startServeProcess(t, "--cors-origin", "http://localhost:9999")
+		check(t, p, "http://localhost:9999", true)
+		check(t, p, "http://localhost:9998", false)
+		check(t, p, fmt.Sprintf("http://127.0.0.1:%d", p.port), true)
+	})
+
+	t.Run("explicit port wildcard", func(t *testing.T) {
+		p := startServeProcess(t, "--cors-origin", "http://localhost:*")
+		check(t, p, "http://localhost:9999", true)
+		if !strings.Contains(p.log, "NOTE: a web page from any port") {
+			t.Errorf("the log does not warn about the port wildcard:\n%s", p.log)
+		}
+	})
 }

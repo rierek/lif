@@ -81,7 +81,7 @@ server:
 | | `default_mode` | `act` (or `plan`). `act` runs autonomously, `plan` is read-only. `yolo` is accepted as an alias for `act`; any other value falls back to `act`. |
 | | `default_effort` | empty = the tool's own default (`low`, `medium`, `high`, `max`) |
 | `server` | `port` | 8080 |
-| | `cors_origins` | `http://localhost:*`, `http://127.0.0.1:*`; `*` adds the CORS header for every origin and allows nothing else (pages can read, not change) |
+| | `cors_origins` | none: only the server's own origin. Entries are added to it. `*` adds the CORS header for every origin and allows nothing else (pages can read, not change). A port wildcard such as `http://localhost:*` lets a page on any local port change items (project hooks) and open the terminal |
 | `display` | `theme` | `mocha` (`latte`, `frappe`, `macchiato`, `mocha`). Colors the CLI output. In the web UI it picks the flavour of the dark scheme (`latte` leaves dark on `mocha`; the light scheme is always `latte`); see [Theme](../web-server/#theme). The TUI uses a fixed dark palette. |
 | | `max_width` | 0 = 110; -1 removes the limit; `--max-width` overrides per command. The width never exceeds the terminal width and never falls below 80. |
 | `tasks` | `<name>` | none; see [Tasks](#tasks) |

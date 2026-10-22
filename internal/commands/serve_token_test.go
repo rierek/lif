@@ -16,7 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/rierek/lif/internal/cors"
-	"github.com/rierek/lif/pkg/config"
 )
 
 // writeTokenFile writes content to a new token file with the given mode,
@@ -112,7 +111,7 @@ func TestLoadToken(t *testing.T) {
 func tokenRouter(a serveAccess) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(a.middleware(cors.NewChecker(config.DefaultCORSOrigins))...)
+	router.Use(a.middleware(cors.NewChecker(a.withOwnAddress(nil)))...)
 	router.GET("/page", func(c *gin.Context) { c.String(http.StatusOK, "page") })
 	return router
 }
@@ -211,7 +210,7 @@ func TestRemoteOptInsDeriveANewTokenFromAPersistentOne(t *testing.T) {
 }
 
 func TestStartupLinesForAPersistentToken(t *testing.T) {
-	lines := func(a serveAccess) []string { return a.startupLines(config.DefaultCORSOrigins, nil) }
+	lines := func(a serveAccess) []string { return a.startupLines(nil, nil) }
 	path := filepath.Join(t.TempDir(), "token")
 
 	t.Run("token file", func(t *testing.T) {

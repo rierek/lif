@@ -253,20 +253,26 @@ func (a serveAccess) secure() bool {
 	return a.scheme == "https" || strings.HasPrefix(a.publicBase, "https://")
 }
 
-// withOwnAddress adds the address a loopback listener is bound to to the
-// origin list. ::1 and 127.0.0.2 are loopback addresses too, but the default
-// list names only localhost and 127.0.0.1: without this the URL the server
-// prints for them would be refused by the host check. The list passed in is
-// not modified.
+// withOwnAddress adds the server's own origins to the origin list: on a
+// loopback listener its page may be opened as localhost, 127.0.0.1 or the
+// address the listener is bound to (::1, 127.0.0.2), always on the port of the
+// listener. Another port, such as a dev server of the UI, is not its own. The
+// list doubles as the list of hosts the server answers to, so these names also
+// pass the host check. Origins already in the list are not added twice, and the
+// list passed in is not modified.
 func (a serveAccess) withOwnAddress(origins []string) []string {
 	if !a.loopback {
 		return origins
 	}
-	own := a.scheme + "://" + net.JoinHostPort(a.addr.IP.String(), "*")
-	if slices.Contains(origins, own) {
-		return origins
+	port := strconv.Itoa(a.addr.Port)
+	out := slices.Clone(origins)
+	for _, host := range []string{"localhost", "127.0.0.1", a.addr.IP.String()} {
+		own := a.scheme + "://" + net.JoinHostPort(host, port)
+		if !slices.Contains(out, own) {
+			out = append(out, own)
+		}
 	}
-	return append(slices.Clone(origins), own)
+	return out
 }
 
 // withPublicOrigin adds the origin of --public-url to the origin list: a page
@@ -502,7 +508,11 @@ func (a serveAccess) startupLines(origins []string, interfaceAddrs []net.Addr) [
 			add("GraphQL Playground: %s/playground?token=%s", serverURL, a.token)
 		}
 	}
-	add("Allowed origins: %s", strings.Join(origins, ", "))
+	if len(origins) == 0 {
+		add("Allowed origins: only this server's own origin")
+	} else {
+		add("Allowed origins: %s", strings.Join(origins, ", "))
+	}
 	if slices.Contains(origins, "*") {
 		add("WARNING: allowed origins include *: every web page can read the answers of this server. Only the UI of this server and the other listed origins can change items or use the terminal, a shell as the user running lif-serve.")
 	}

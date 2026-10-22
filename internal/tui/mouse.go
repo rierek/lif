@@ -33,12 +33,12 @@ package tui
 // (mouse_test.go) is the regression guard for this exact ordering.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // minTreeWidthFloor/maxTreeWidthFloor mirror config.minTreeWidth/
@@ -499,7 +499,7 @@ func gridColAt(widths []int, col int) int {
 // value it hands to renderDetailBox's own boxScroll param; it never
 // mutates model.boxFormScroll itself (adjustBoxFormScroll, below, is the
 // only writer).
-func boxFormEffectiveScroll(m model, b *data.Bean) int {
+func boxFormEffectiveScroll(m model, b *item.Item) int {
 	if b == nil || b.ID != m.boxFormScrollBean {
 		return 0
 	}
@@ -530,7 +530,7 @@ func boxFormEffectiveScroll(m model, b *data.Bean) int {
 // right half, so accW comes from paneW (innerW-2, view_browse_repo.go's own
 // border-accounting comment) minus renderDetailBox's own w-2, i.e.
 // innerW-4 -- NOT rw-2.
-func boxFormScrollBounds(m model, b *data.Bean) (total, height int) {
+func boxFormScrollBounds(m model, b *item.Item) (total, height int) {
 	if b == nil {
 		return 0, 0
 	}
@@ -546,7 +546,7 @@ func boxFormScrollBounds(m model, b *data.Bean) (total, height int) {
 // arithmetic and the wheel/keyboard clamp arithmetic on one geometry -- a
 // cursor computed against a different height than the one the offset is
 // clamped to would let a focused field land just outside the viewport.
-func boxFormPaneMetrics(m model, b *data.Bean) (accW, height int) {
+func boxFormPaneMetrics(m model, b *item.Item) (accW, height int) {
 	if b == nil {
 		return 1, 0
 	}
@@ -597,7 +597,7 @@ func boxFormPaneMetrics(m model, b *data.Bean) (accW, height int) {
 // (returns m unchanged) when b is nil (defensive -- callers already guard
 // this in practice: keyDetailFocus's own b==nil early-return, wheelMove's
 // boxFormWheelHit implying a resolved Detail pane).
-func (m model) adjustBoxFormScroll(b *data.Bean, delta int) model {
+func (m model) adjustBoxFormScroll(b *item.Item, delta int) model {
 	if b == nil {
 		return m
 	}
@@ -745,7 +745,7 @@ func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 // mouseBacklogClick's own "flat list, kein Doppelklick-Bedarf" precedent
 // (this file). Matches the S6 task spec verbatim ("Trigger the SAME action
 // those keys fire").
-func (m model) mouseBoxFormDetailClick(b *data.Bean, msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+func (m model) mouseBoxFormDetailClick(b *item.Item, msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	target, ok := detailBoxFormClickRow(m, msg)
 	if !ok {
 		return m, nil
@@ -759,7 +759,7 @@ func (m model) mouseBoxFormDetailClick(b *data.Bean, msg tea.MouseMsg) (tea.Mode
 // bean bt-1o4g). Extracted verbatim from the click dispatch's former inline
 // switch -- keyboard and
 // mouse open the same thing for the same box, by construction.
-func (m model) activateBoxFormTarget(b *data.Bean, target string) (tea.Model, tea.Cmd) {
+func (m model) activateBoxFormTarget(b *item.Item, target string) (tea.Model, tea.Cmd) {
 	switch target {
 	case boxFormTargetStatus:
 		return m.openValueMenu("status"), nil

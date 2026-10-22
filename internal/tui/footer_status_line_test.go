@@ -13,10 +13,9 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
-
-	"github.com/rierek/lif/internal/tui/data"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -34,9 +33,9 @@ func frameLines(m model) []string {
 // deep in the list so the window is scrolled, not pinned at the top.
 func longTreeModel(t *testing.T) model {
 	t.Helper()
-	beans := make([]data.Bean, 60)
+	beans := make([]*item.Item, 60)
 	for i := range beans {
-		beans[i] = data.Bean{ID: fmt.Sprintf("gld-r%03d", i), Title: fmt.Sprintf("Row %03d", i), Status: "todo", Type: "task"}
+		beans[i] = &item.Item{ID: fmt.Sprintf("gld-r%03d", i), Title: fmt.Sprintf("Row %03d", i), Status: "todo", Type: "task"}
 	}
 	m := newModel(nil, "/tmp/bt-golden-repo")
 	m = step(t, m, beansLoadedMsg{beans: beans})

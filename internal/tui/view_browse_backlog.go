@@ -37,6 +37,7 @@ package tui
 // observe while typing, not merely a latent move()-bound hazard.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"sort"
 	"strings"
 	"time"
@@ -101,11 +102,11 @@ func backlogSortDisplayLabel(mode string) string {
 // backlogVisible returns idx.Backlog() (E1 Task 3, unchanged) narrowed by
 // the SAME shared search+facet predicate the Tree uses (m.beanMatches, Task
 // 3/4), then ordered per the active Sort-Toggle mode (sortBacklog).
-func (m model) backlogVisible() []*data.Bean {
+func (m model) backlogVisible() []*item.Item {
 	if m.idx == nil {
 		return nil
 	}
-	var out []*data.Bean
+	var out []*item.Item
 	for _, b := range m.idx.Backlog() {
 		if m.beanMatches(b) {
 			out = append(out, b)
@@ -119,7 +120,7 @@ func (m model) backlogVisible() []*data.Bean {
 // own canonical (Status -> Priority -> Type -> Title) order untouched.
 // data.StatusRank/PriorityRank (E2 Task 1) back the status/priority modes;
 // created/updated compare CreatedAt/UpdatedAt via afterOrLast (nil-safe).
-func sortBacklog(beans []*data.Bean, mode string) {
+func sortBacklog(beans []*item.Item, mode string) {
 	switch mode {
 	case "priority":
 		sort.SliceStable(beans, func(i, j int) bool {
@@ -149,7 +150,7 @@ func afterOrLast(a, b *time.Time) bool {
 
 // backlogSelected returns the bean under backlogList's cursor, or nil for an
 // empty/out-of-range list (pre-load, or every backlog row filtered out).
-func (m model) backlogSelected() *data.Bean {
+func (m model) backlogSelected() *item.Item {
 	vis := m.backlogVisible()
 	if m.backlogList.cursor < 0 || m.backlogList.cursor >= len(vis) {
 		return nil
@@ -168,7 +169,7 @@ func (m model) backlogSelected() *data.Bean {
 // shortened by shortBeanID exactly like treeRowText does it (bean bt-pl5p):
 // Tree and Backlog/Flat are TWO separate render paths, and only changing one
 // would let them drift apart visually.
-func backlogRowText(b *data.Bean, slug string) string {
+func backlogRowText(b *item.Item, slug string) string {
 	head, title := backlogRowParts(b, slug)
 	return head + title
 }
@@ -178,13 +179,13 @@ func backlogRowText(b *data.Bean, slug string) string {
 // same hanging-indent wrapping reason (bean bt-f68z, PO-Befund #13). The
 // doc-comment claim above that "a beans title is short enough for the existing
 // single-line windowAround" is what the PO's live test disproved.
-func backlogRowParts(b *data.Bean, slug string) (head, title string) {
+func backlogRowParts(b *item.Item, slug string) (head, title string) {
 	return theme.StatusIcon(b.Status) + " " + theme.TypeIcon(b.Type) + " " + theme.Key.Render(shortBeanID(b.ID, slug)) + " ", b.Title
 }
 
 // backlogRowLines renders one Backlog/flat row as one or more terminal lines,
 // hanging-indented to the title column (treeRowLines' counterpart).
-func backlogRowLines(b *data.Bean, slug string, width int) []string {
+func backlogRowLines(b *item.Item, slug string, width int) []string {
 	head, title := backlogRowParts(b, slug)
 	return hangingWrap(head, lipgloss.Width(head), title, width)
 }
@@ -194,7 +195,7 @@ func backlogRowLines(b *data.Bean, slug string, width int) []string {
 // the whole row accent-tinted when focused, muted when the Detail pane has
 // focus instead. Windowed around the cursor via the EXISTING windowAround
 // (E1 Task 8) -- no new fenestration mechanism (plan Port-Referenzen).
-func (m model) backlogRows(vis []*data.Bean, focused bool, bodyH, width int) []string {
+func (m model) backlogRows(vis []*item.Item, focused bool, bodyH, width int) []string {
 	rows, _ := blockWindow(m.backlogBlocks(vis, focused, width), bodyH, m.backlogList.cursor)
 	return rows
 }
@@ -202,7 +203,7 @@ func (m model) backlogRows(vis []*data.Bean, focused bool, bodyH, width int) []s
 // backlogBlocks is the Backlog's treeBlocks (view_browse_repo.go): one
 // variable-height line block per bean, shared by backlogRows above and
 // backlogClickRow below (bean bt-f68z -- rows are no longer 1:1 with beans).
-func (m model) backlogBlocks(vis []*data.Bean, focused bool, width int) [][]string {
+func (m model) backlogBlocks(vis []*item.Item, focused bool, width int) [][]string {
 	pos := m.backlogList.cursor
 	slug := m.beanIDPrefix()
 	blocks := make([][]string, len(vis))
@@ -216,9 +217,9 @@ func (m model) backlogBlocks(vis []*data.Bean, focused bool, width int) [][]stri
 // selected bean -- keys off backlogList's index cursor into vis instead of a
 // treeNode slice, then hands off to the shared renderBeanDetailBox
 // (view_browse_repo.go), so Tree and Backlog can never drift out of sync on it.
-func (m model) renderBacklogDetailPane(vis []*data.Bean, w, h int, focused bool) string {
+func (m model) renderBacklogDetailPane(vis []*item.Item, w, h int, focused bool) string {
 	pos := m.backlogList.cursor
-	var b *data.Bean
+	var b *item.Item
 	if pos >= 0 && pos < len(vis) {
 		b = vis[pos]
 	}
@@ -315,7 +316,7 @@ func (m model) viewBacklog() string {
 			searchLine := m.treeSearchLine(paneW-2, "sort "+backlogSortDisplayLabel(m.backlogSort))
 			listRows = append([]string{searchLine}, m.backlogRows(vis, true, bodyH-1, paneW-2)...)
 		}
-		var detailBean *data.Bean
+		var detailBean *item.Item
 		if m.fullscreen == fullscreenDetail {
 			detailBean = m.focusedBean()
 		}
@@ -416,7 +417,7 @@ func (m model) keyBacklog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // idempotent when the caller already resynced (keyBacklog does, at its own
 // top) -- it is NOT redundant for the wheel dispatch, which has no prior
 // resync point of its own.
-func (m model) backlogCursorMove(vis []*data.Bean, delta int) model {
+func (m model) backlogCursorMove(vis []*item.Item, delta int) model {
 	m.backlogList.setLen(len(vis))
 	m.backlogList.move(delta)
 	return m
@@ -433,7 +434,7 @@ func (m model) backlogCursorMove(vis []*data.Bean, delta int) model {
 // (bean bt-uyzf) widened this from bodyH-3 now that renderPane no longer
 // reserves title+separator lines -- flat list, no Doppelklick concept (plan
 // epic-E5-plan.md »Task 4« Step 6).
-func backlogClickRow(m model, vis []*data.Bean, msg tea.MouseMsg) (idx int, ok bool) {
+func backlogClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool) {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80

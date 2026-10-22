@@ -9,13 +9,13 @@ package tui
 // bean has exactly one parent, nothing to diff.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // fixtureBeansForParentPicker is a deliberately deeper/wider hierarchy than
@@ -28,8 +28,8 @@ import (
 // it. Beans-legal per this app's own philosophy (hand-editable frontmatter,
 // tolerated the same way collectCycleOrphans/appendBeanNode's cycle guards
 // already tolerate structurally odd hierarchies, view_browse_repo.go).
-func fixtureBeansForParentPicker() []data.Bean {
-	return []data.Bean{
+func fixtureBeansForParentPicker() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
 		{ID: "ms-2", Title: "Milestone Two", Status: "todo", Type: "milestone", Priority: "normal", Parent: "ep-1"},
@@ -151,14 +151,15 @@ func TestParentPickerClearRowFirstAndCursorOnCurrentParent(t *testing.T) {
 // of the immediate-apply Enter (design decision a3 parity): cursoring onto a
 // real bean row fires SetParent, cursoring onto the clear row fires
 // RemoveParent. Verified the same way box_picker_tag.go's
-// TestTagPickerEnterDiffsFireOneSetTagsCall is: a real data.Client pointed
+// TestTagPickerEnterDiffsFireOneSetTagsCall is: a real data.Store pointed
 // at a nonexistent repo dir, no beans binary required -- cmd() resolves
 // DIRECTLY to a mutationDoneMsg whose error text names the dispatched CLI
 // subcommand.
 func TestParentPickerEnterAppliesSetParentOrRemoveParent(t *testing.T) {
 	t.Run("SetParent", func(t *testing.T) {
 		m := fixtureModel(t, fixtureBeansForParentPicker())
-		m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t3-scratch-dir"}
+		store := newTestStore(t, fixtureBeansForParentPicker()...)
+		m.store = store
 		m = focusBeanFull(m, "ep-1")
 		m = step(t, m, runeMsg('a'))
 
@@ -184,14 +185,18 @@ func TestParentPickerEnterAppliesSetParentOrRemoveParent(t *testing.T) {
 		if !ok {
 			t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 		}
-		if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-			t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetParent dispatched)", mdm.err, "lif update")
+		if mdm.err != nil {
+			t.Fatalf("mutationDoneMsg.err = %v, want nil (SetParent applied)", mdm.err)
+		}
+		if got := storeItem(t, store, "ep-1").Parent; got != "ms-1" {
+			t.Fatalf("ep-1 Parent on disk = %q, want ms-1", got)
 		}
 	})
 
 	t.Run("RemoveParent", func(t *testing.T) {
 		m := fixtureModel(t, fixtureBeansForParentPicker())
-		m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t3-scratch-dir"}
+		store := newTestStore(t, fixtureBeansForParentPicker()...)
+		m.store = store
 		m = focusBeanFull(m, "ep-1")
 		m = step(t, m, runeMsg('a'))
 		m.menu.cursor = 0 // the clear row
@@ -209,8 +214,11 @@ func TestParentPickerEnterAppliesSetParentOrRemoveParent(t *testing.T) {
 		if !ok {
 			t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 		}
-		if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-			t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves RemoveParent dispatched)", mdm.err, "lif update")
+		if mdm.err != nil {
+			t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+		}
+		if got := storeItem(t, store, "ep-1").Parent; got != "" {
+			t.Fatalf("ep-1 Parent on disk = %q, want cleared (proves RemoveParent dispatched)", got)
 		}
 	})
 }
@@ -253,7 +261,7 @@ func TestParentPickerEnterTargetVanishedClosesGracefully(t *testing.T) {
 
 	// ep-1 vanishes externally; a reload lands while the picker is still open
 	// (m.overlay survives a reload untouched, applyLoaded never touches it).
-	var remaining []data.Bean
+	var remaining []*item.Item
 	for _, b := range beans {
 		if b.ID != "ep-1" {
 			remaining = append(remaining, b)
@@ -303,7 +311,7 @@ func TestParentPickerEnterTargetVanishedClosesGracefully(t *testing.T) {
 // regression.
 func TestParentPickerCurrentParentOutOfEligibilityCursorFallsBackToZero(t *testing.T) {
 	beans := append(fixtureBeansForParentPicker(),
-		data.Bean{ID: "tk-9", Title: "Task Nine", Status: "todo", Type: "task", Priority: "normal", Parent: "ft-1"},
+		&item.Item{ID: "tk-9", Title: "Task Nine", Status: "todo", Type: "task", Priority: "normal", Parent: "ft-1"},
 	)
 	for i := range beans {
 		if beans[i].ID == "tk-1" {
@@ -374,7 +382,7 @@ func TestParentPickerBoxUsesWideModalWidth(t *testing.T) {
 // line must hang-indent under the title's own start column, never column 0.
 func TestParentPickerBoxLongTitleWrapsWithHangingIndent(t *testing.T) {
 	longID := "ms-averylongidentifier99"
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: longID, Title: "Hier steht ein langer Titel eines beans der so umbricht dass die Uebersicht gewahrt ist", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Focus", Status: "todo", Type: "epic", Priority: "normal"},
 	}
@@ -430,7 +438,7 @@ func TestParentPickerBoxLongTitleWrapsWithHangingIndent(t *testing.T) {
 // setup, and adds the cursor-on-the-row state explicitly.
 func TestParentPickerRowIndentJitterParityCursorVsNonCursor(t *testing.T) {
 	longID := "ms-averylongidentifier99"
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: longID, Title: "Hier steht ein langer Titel eines beans der so umbricht dass die Uebersicht gewahrt ist", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Focus", Status: "todo", Type: "epic", Priority: "normal"},
 	}

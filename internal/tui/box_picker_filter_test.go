@@ -17,6 +17,7 @@ package tui
 // textinput can never consume as literal characters.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -41,8 +42,8 @@ func typeString(t *testing.T, m model, s string) model {
 // filterBeansFixture is a deliberately heterogeneous set: distinct titles,
 // types, statuses, priorities and tags, so every facet has something to
 // narrow on and no two criteria are accidentally coextensive.
-func filterBeansFixture() []data.Bean {
-	return []data.Bean{
+func filterBeansFixture() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Alpha Milestone", Status: "todo", Type: "milestone", Priority: "normal", Tags: []string{"infra"}},
 		{ID: "ep-1", Title: "Beta Epic", Status: "todo", Type: "epic", Priority: "high", Parent: "ms-1", Tags: []string{"ui"}},
 		{ID: "tk-1", Title: "Gamma Task", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1", Tags: []string{"ui", "infra"}},
@@ -583,10 +584,10 @@ func TestPickerBoxesRenderFilterChrome(t *testing.T) {
 // manyBeansFixture is big enough that both pickers must actually window
 // their row list -- the short fixture above never exceeds any budget, so it
 // cannot catch a vertical overflow.
-func manyBeansFixture() []data.Bean {
-	out := []data.Bean{{ID: "ms-1", Title: "Alpha Milestone", Status: "todo", Type: "milestone", Priority: "normal"}}
+func manyBeansFixture() []*item.Item {
+	out := []*item.Item{{ID: "ms-1", Title: "Alpha Milestone", Status: "todo", Type: "milestone", Priority: "normal"}}
 	for i := 0; i < 60; i++ {
-		out = append(out, data.Bean{
+		out = append(out, &item.Item{
 			ID:     "tk-" + string(rune('a'+i%26)) + string(rune('a'+i/26)),
 			Title:  "A deliberately long candidate title that will wrap at any sane picker width, number " + string(rune('a'+i%26)),
 			Status: "todo", Type: "task", Priority: "normal", Parent: "ms-1",
@@ -654,7 +655,7 @@ func TestPickerBoxesFitIn80Columns(t *testing.T) {
 // which shows closed items again.
 func TestPickersDefaultToOpenStatuses(t *testing.T) {
 	beans := append(filterBeansFixture(),
-		data.Bean{ID: "done-1", Title: "Old Task", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-1"})
+		&item.Item{ID: "done-1", Title: "Old Task", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-1"})
 
 	m := fixtureModel(t, beans)
 	m = focusBeanFull(m, "ms-1")

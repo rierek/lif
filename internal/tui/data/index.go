@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -9,7 +10,7 @@ import (
 )
 
 // Index is an in-memory snapshot over a set of beans, built once per
-// load/reload from Client.List() output -- there is no incremental update
+// load/reload from Store.Items() output -- there is no incremental update
 // path (YAGNI): a reload just builds a fresh Index.
 //
 // ByID and Children are exported for cheap read access. Consumers MUST NOT
@@ -18,25 +19,24 @@ import (
 // through sortBeans; do not re-sort or append to Children entries directly.
 type Index struct {
 	// ByID looks up a bean by its short ID.
-	ByID map[string]*Bean
+	ByID map[string]*item.Item
 	// Children maps a parent ID to its direct children, sorted
 	// Status -> Priority -> Type -> Title (see sortBeans).
-	Children map[string][]*Bean
+	Children map[string][]*item.Item
 
-	beans []*Bean
+	beans []*item.Item
 }
 
 // NewIndex builds an Index over beans. Callers must not mutate the slice
 // (or its elements) afterward -- Index holds pointers into it.
-func NewIndex(beans []Bean) *Index {
+func NewIndex(beans []*item.Item) *Index {
 	idx := &Index{
-		ByID:     make(map[string]*Bean, len(beans)),
-		Children: make(map[string][]*Bean),
-		beans:    make([]*Bean, 0, len(beans)),
+		ByID:     make(map[string]*item.Item, len(beans)),
+		Children: make(map[string][]*item.Item),
+		beans:    make([]*item.Item, 0, len(beans)),
 	}
 
-	for i := range beans {
-		b := &beans[i]
+	for _, b := range beans {
 		idx.ByID[b.ID] = b
 		idx.beans = append(idx.beans, b)
 
@@ -55,7 +55,7 @@ func NewIndex(beans []Bean) *Index {
 // Roots returns top-level beans (no parent), optionally restricted to the
 // given types, sorted Status -> Priority -> Type -> Title. Used by the tree
 // view to seed milestones plus parentless epics/rest.
-func (idx *Index) Roots(types ...string) []*Bean {
+func (idx *Index) Roots(types ...string) []*item.Item {
 	var allowed map[string]bool
 	if len(types) > 0 {
 		allowed = make(map[string]bool, len(types))
@@ -64,7 +64,7 @@ func (idx *Index) Roots(types ...string) []*Bean {
 		}
 	}
 
-	var roots []*Bean
+	var roots []*item.Item
 	for _, b := range idx.beans {
 		if b.Parent != "" {
 			continue
@@ -81,8 +81,8 @@ func (idx *Index) Roots(types ...string) []*Bean {
 
 // Backlog returns parentless beans that are neither milestone nor epic,
 // with status todo or draft -- the "unscheduled work" view.
-func (idx *Index) Backlog() []*Bean {
-	var backlog []*Bean
+func (idx *Index) Backlog() []*item.Item {
+	var backlog []*item.Item
 	for _, b := range idx.beans {
 		if b.Parent != "" {
 			continue
@@ -102,8 +102,8 @@ func (idx *Index) Backlog() []*Bean {
 
 // WithTag returns all beans carrying tag, sorted Status -> Priority -> Type
 // -> Title.
-func (idx *Index) WithTag(tag string) []*Bean {
-	var tagged []*Bean
+func (idx *Index) WithTag(tag string) []*item.Item {
+	var tagged []*item.Item
 	for _, b := range idx.beans {
 		for _, t := range b.Tags {
 			if t == tag {
@@ -255,7 +255,7 @@ func PriorityValues() []string { return append([]string(nil), cur.Load().priorit
 // on full ties (same status/priority/type/title), rather than sort.Slice.
 // Upstream beans sorts with a non-stable sort -- this is not guaranteed to
 // produce byte-for-byte parity with upstream ordering on ties.
-func sortBeans(beans []*Bean) {
+func sortBeans(beans []*item.Item) {
 	e := cur.Load()
 	sort.SliceStable(beans, func(i, j int) bool {
 		a, b := beans[i], beans[j]
@@ -298,7 +298,7 @@ func rank(order map[string]int, val string) int {
 // bt-7jr8 T8-review): a second, ad-hoc tie-break in the tui package would
 // violate the "single place sort order is defined" contract this file
 // already asserts for its own callers.
-func SortBeans(beans []*Bean) { sortBeans(beans) }
+func SortBeans(beans []*item.Item) { sortBeans(beans) }
 
 // StatusRank exposes the status tier position (see statusOrder) for callers
 // that need to compare two beans' status without a full SortBeans call

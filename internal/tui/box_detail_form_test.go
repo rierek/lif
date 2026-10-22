@@ -8,6 +8,7 @@ package tui
 // package-level `update` flag).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,8 +26,8 @@ import (
 // stays apples-to-apples, but Tags nil here (Parent test coverage already
 // exercises tags via the tree golden; this fixture instead covers the "no
 // tags" Dim-placeholder path of detailBoxForm's own Tags box).
-func detailBoxFormFixture() *data.Bean {
-	return &data.Bean{
+func detailBoxFormFixture() *item.Item {
+	return &item.Item{
 		ID:       "gld-tsk1",
 		Title:    "First golden task",
 		Status:   "todo",
@@ -42,7 +43,7 @@ func detailBoxFormFixture() *data.Bean {
 // bean's own ID/Parent ("gld-tsk1" parented under "gld-epic"), mirroring
 // view_detail_bean_test.go's own data.NewIndex(beans) construction pattern.
 func detailBoxFormIndex() *data.Index {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gld-epic", Title: "Golden epic", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "gld-tsk1", Title: "First golden task", Status: "todo", Type: "task", Priority: "", Parent: "gld-epic"},
 	}
@@ -175,7 +176,7 @@ func TestDetailBoxFormGolden(t *testing.T) {
 // shows exactly one bean, so the slug costs nothing here and the ID stays
 // copy-paste-able. Do not "unify" this with the list shortening.
 func TestDetailBoxFormShowsBeanIDNextToTitle(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "sproutling-eq67", Title: "A Bean With A Title", Status: "todo", Type: "task"},
 	})
 	b := idx.ByID["sproutling-eq67"]
@@ -197,7 +198,7 @@ func TestDetailBoxFormShowsBeanIDNextToTitle(t *testing.T) {
 // label, which boxTopBorder clamps -- a narrow pane must still produce an
 // exactly-width frame rather than an overflowing one.
 func TestDetailBoxFormIDClampsGracefullyWhenNarrow(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "a-very-long-repo-slug-indeed-eq67", Title: "T", Status: "todo", Type: "task"},
 	})
 	b := idx.ByID["a-very-long-repo-slug-indeed-eq67"]

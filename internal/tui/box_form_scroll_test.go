@@ -12,12 +12,12 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // boxFormLongBodyBeans is fixtureBeans() (update_test.go) with tk-1 AND tk-2
@@ -29,7 +29,7 @@ import (
 // changed" reset -- if only tk-2 overflowed, adjustBoxFormScroll(tk-1, ...)
 // would itself clamp to 0 regardless of the reset logic under test, a false
 // negative).
-func boxFormLongBodyBeans() []data.Bean {
+func boxFormLongBodyBeans() []*item.Item {
 	var body strings.Builder
 	for i := 1; i <= 80; i++ {
 		fmt.Fprintf(&body, "- BODYLINE%02d\n", i)
@@ -62,7 +62,7 @@ func boxFormScrollModel(t *testing.T) model {
 // (Akzeptanz "Langer Body: Detail-Pane scrollt"), so a fixture/geometry
 // regression that accidentally makes the form fit must fail LOUDLY here,
 // not silently pass a scroll test that no longer exercises any scrolling.
-func requireOverflow(t *testing.T, m model, b *data.Bean) (total, height int) {
+func requireOverflow(t *testing.T, m model, b *item.Item) (total, height int) {
 	t.Helper()
 	total, height = boxFormScrollBounds(m, b)
 	if total <= height {

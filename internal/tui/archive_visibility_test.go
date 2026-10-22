@@ -7,17 +7,17 @@ package tui
 // (update_test.go, same package).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // archiveFixtureBeans is a small tree with one completed leaf so tests below
 // can assert it is hidden/shown without disturbing fixtureBeans()'s own
 // (unaffected) shape.
-func archiveFixtureBeans() []data.Bean {
-	return []data.Bean{
+func archiveFixtureBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
 		{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1"},
@@ -126,7 +126,7 @@ func TestBuildFilterItemsIncludesArchiveRow(t *testing.T) {
 // ONLY child is also completed must vanish from the tree entirely, root and
 // all, when showArchived is false.
 func TestArchivedOnlyMilestoneDisappearsWithNoOpenDescendant(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "ms-done", Title: "Done Milestone", Status: "completed", Type: "milestone", Priority: "normal"},
 		{ID: "tk-done", Title: "Done Task", Status: "completed", Type: "task", Priority: "normal", Parent: "ms-done"},
 		{ID: "ms-open", Title: "Open Milestone", Status: "todo", Type: "milestone", Priority: "normal"},
@@ -179,7 +179,7 @@ func TestFilterClearXDoesNotResetArchiveToggle(t *testing.T) {
 // casing was needed in applyBleveResult, this is purely beanMatches picking
 // up the new beanMatchesArchive term.
 func TestArchivedBeanExcludedFromBleveHitByDefault(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "tk-done", Title: "Refactor the done task", Status: "completed", Type: "task", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)
@@ -208,7 +208,7 @@ func TestArchivedBeanExcludedFromBleveHitByDefault(t *testing.T) {
 // must not add them back, since backlogVisible() only narrows the
 // PRE-filtered idx.Backlog() set, never widens it.
 func TestBacklogUnaffectedByArchiveToggle(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "tk-todo", Title: "Open Task", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "tk-done", Title: "Done Task", Status: "completed", Type: "task", Priority: "normal"},
 	}
@@ -239,9 +239,9 @@ func TestRepoSwitchResetsShowArchived(t *testing.T) {
 
 	newRepo := t.TempDir()
 	tm, _ := m.applyRepoSwitched(repoSwitchedMsg{
-		client:  &data.Client{RepoDir: newRepo},
+		store:   newTestStore(t),
 		repoDir: newRepo,
-		beans:   []data.Bean{},
+		beans:   []*item.Item{},
 	})
 	m2, ok := tm.(model)
 	if !ok {

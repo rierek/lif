@@ -8,6 +8,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"strings"
 	"time"
@@ -48,17 +49,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case beansLoadedMsg:
 		return m.applyLoaded(msg)
 
-	case watchMsg:
-		// data.Watch's onChange fired -- always a full reload, never partial
-		// (design decision D02).
-		return m, loadCmd(m.client)
-
-	case watchUnavailableMsg:
-		// I04: data.Watch failed to start -- surface once in the status line
-		// (view_browse_repo.go) instead of silently never reacting to
-		// on-disk changes; ctrl+r still reloads manually.
-		m.watchUnavailable = true
-		return m, nil
+	case storeEventsMsg:
+		// The store's watcher reported a change batch -- always a full
+		// reload, never partial (design decision D02), then wait for the
+		// next batch.
+		return m, tea.Batch(loadCmd(m.store), waitForStoreEvents(m.storeEvents))
 
 	case searchBleveResultMsg:
 		return m.applyBleveResult(msg)
@@ -67,7 +62,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// E3 (bean bt-dlgk): every Set*/Add*/Remove*/Delete mutation goes
 		// through this ONE case -- applyMutationResult below is the shared
 		// status-line + unconditional-reload tail (design decision d).
-		return m.applyMutationResult(msg.err)
+		return m.applyMutationResult(msg.err, msg.warn)
 
 	case createDoneMsg:
 		// E3 Task 4 (bean bt-y4ly): the ONE exception to mutationDoneMsg --
@@ -116,13 +111,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// clears m.toast if seq still matches the CURRENT generation (a
 		// newer showToast call may have already replaced it).
 		return m.handleToastExpired(msg)
-
-	case initialWatchMsg:
-		// E5 Task 6 (bean bt-zhwl): app.go Run()'s VERY FIRST watcher stop
-		// func, handed to the model asynchronously (see that type's own
-		// doc-stamp, messages.go) so the FIRST repo switch can retire it.
-		m.watchStop = msg.stop
-		return m, nil
 
 	case repoSwitchedMsg:
 		// E5 Task 6 (bean bt-zhwl): switchRepoCmd's outcome (Lobby enter,
@@ -185,7 +173,7 @@ func (m model) handleToastExpired(msg toastExpiredMsg) (tea.Model, tea.Cmd) {
 }
 
 // applyRepoSwitched is switchRepoCmd's (messages.go) shared success/failure
-// tail (E5 Task 6, bean bt-zhwl). Failure: the CURRENT session (m.client/
+// tail (E5 Task 6, bean bt-zhwl). Failure: the CURRENT session (m.store/
 // m.idx/m.watchStop) is left COMPLETELY untouched -- switchRepoCmd already
 // validated the target repo BEFORE ever touching the old watcher (design
 // note, messages.go), so there is nothing stale to clean up here, only a
@@ -211,11 +199,11 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 		return m, toastCmd
 	}
 
-	m.client = msg.client
+	m.store = msg.store
 	m.repoDir = msg.repoDir
-	m.watchStop = msg.watchStop
-	m.watchUnavailable = msg.watchStop == nil // I04 precedent: degrade visibly, never silently
-	applyRepoConfig(msg.repoDir)              // the new repo's value lists, BEFORE its index is sorted
+	m.storeEvents = msg.events
+	m.watchUnavailable = msg.events == nil // I04 precedent: degrade visibly, never silently
+	applyRepoConfig(msg.store.Config())    // the new repo's value lists, BEFORE its index is sorted
 	m.idx = data.NewIndex(msg.beans)
 	m.view = viewBrowseRepo
 	m.err = ""
@@ -252,7 +240,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.flatList = listState{} // S5: same stale-cursor hygiene as backlogList just above -- flatView itself (a display-mode preference, not per-repo state) deliberately survives the switch
 
 	_ = config.SetLastRepo(msg.repoDir) // best-effort persistence (Port devd DD2-273 RMW pattern, state.go) -- a failed write must not block the switch itself
-	return m, nil
+	return m, waitForStoreEvents(m.storeEvents)
 }
 
 // applyRepoMetrics applies ONE repoMetricsMsg (E5 Task 6, bean bt-zhwl) --
@@ -276,7 +264,7 @@ func (m model) applyRepoMetrics(msg repoMetricsMsg) (tea.Model, tea.Cmd) {
 // apply. errors.Is(err, data.ErrConflict) gets its own status-line wording;
 // Toast is E5 scope, m.err/the status line's Red slot (view.go statusBar)
 // is the interim feedback channel.
-func (m model) applyMutationResult(err error) (tea.Model, tea.Cmd) {
+func (m model) applyMutationResult(err error, warn string) (tea.Model, tea.Cmd) {
 	m.err = ""
 	var toastCmd tea.Cmd
 	if err != nil {
@@ -332,10 +320,25 @@ func (m model) applyMutationResult(err error) (tea.Model, tea.Cmd) {
 				m.err += " — your version: " + cr.path
 				toastCtx = "Version saved: " + cr.path
 			}
-			m, toastCmd = m.showToast(toastError, err.Error(), toastCtx, nil, false)
+			// A gate block carries the hook name and its output: keep it
+			// readable until dismissed, like a conflict.
+			m, toastCmd = m.showToast(toastError, err.Error(), toastCtx, nil, strings.Contains(err.Error(), `hook "`))
 		}
+	} else {
+		m, toastCmd = m.showWarn(warn)
 	}
-	return m, tea.Batch(toastCmd, loadCmd(m.client))
+	return m, tea.Batch(toastCmd, loadCmd(m.store))
+}
+
+// showWarn shows the core warnings and hook output of a load or mutation as a
+// sticky warning toast; empty warn shows nothing. Stdout/stderr of the core
+// never reach the terminal (the alt screen would break), so this is the one
+// place they surface.
+func (m model) showWarn(warn string) (model, tea.Cmd) {
+	if warn == "" {
+		return m, nil
+	}
+	return m.showToast(toastWarn, "Warning", warn, nil, true)
 }
 
 // conflictWithRecovery wraps a mutation error with the path of a KEPT
@@ -440,7 +443,7 @@ func (m model) applyCreateDone(msg createDoneMsg) (tea.Model, tea.Cmd) {
 			return formModel, tea.Batch(toastCmd, formCmd)
 		}
 		m.createDraft = nil // busy (F1) or no draft to reopen from -- drop it either way
-		return m.applyMutationResult(msg.err)
+		return m.applyMutationResult(msg.err, msg.warn)
 	}
 	m.createDraft = nil   // success: draft consumed, no reopen needed (B01's other half)
 	m.pendingCreate = nil // in-flight window over (F1)
@@ -452,7 +455,7 @@ func (m model) applyCreateDone(msg createDoneMsg) (tea.Model, tea.Cmd) {
 	}
 	m.cursorID = msg.bean.ID
 	m.err = ""
-	return m, loadCmd(m.client)
+	return m, loadCmd(m.store)
 }
 
 // applyTagDefsSaved handles a completed Tag-Registry write (E10 Task 3, bean
@@ -494,8 +497,8 @@ func (m model) applyTagDefsSaved(msg tagDefsSavedMsg) (tea.Model, tea.Cmd) {
 	m.tagMgmtInputTarget = ""
 
 	var defs []string
-	if m.client != nil {
-		defs, _ = m.client.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
+	if m.store != nil {
+		defs, _ = m.store.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
 	}
 	m.tagMgmtRows = tagRegistryRows(m.idx, defs)
 	m.tagMgmtCursor.setLen(len(m.tagMgmtRows))
@@ -536,7 +539,7 @@ func (m model) applyTagRenameDone(msg tagRenameDoneMsg) (tea.Model, tea.Cmd) {
 	}
 	var toastCmd tea.Cmd
 	m, toastCmd = m.showToast(kind, title, "", nil, false)
-	return m, tea.Batch(toastCmd, loadCmd(m.client))
+	return m, tea.Batch(toastCmd, loadCmd(m.store))
 }
 
 // applyBeanRawLoaded handles openBeanEditor's FIRST Cmd-hop result (D01,
@@ -573,7 +576,7 @@ func (m model) applyBeanRawLoaded(msg beanRawLoadedMsg) (tea.Model, tea.Cmd) {
 // call for a no-op edit, mirrors the plan's own Akzeptanz wording);
 // otherwise the content is PARSED (parseRawBean, editor.go), DIFFED against
 // the snapshot frozen at $EDITOR-open time (buildWholeEditDiff), and
-// dispatched as ONE combined data.Client.UpdateWhole call against the etag
+// dispatched as ONE combined data.Store.UpdateWhole call against the etag
 // CAPTURED AT $EDITOR-OPEN TIME (m.editorETag, F2 Review-Runde 2 fix) --
 // NOT a fresh m.beanETag(id) read here. Design decision d's "always read
 // fresh at submit" is correct for every OTHER E3 overlay, whose
@@ -666,9 +669,9 @@ func (m model) applyEditorFinished(msg editorFinishedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	diff := buildWholeEditDiff(snapshot, fm, body)
-	client := m.client
-	return m, mutateCmd(func() error {
-		err := client.UpdateWhole(id, diff, etag)
+	store := m.store
+	return m, mutateCmd(store, func() error {
+		err := store.UpdateWhole(id, diff, etag)
 		if err != nil {
 			// F01 (bt-z4b1 Review-Runde 1, critical, live reproduced):
 			// EVERY UpdateWhole failure -- not just errors.Is(_,
@@ -705,7 +708,7 @@ func (m model) beanETag(id string) (etag string, ok bool) {
 	if !ok {
 		return "", false
 	}
-	return b.ETag, true
+	return b.ETag(), true
 }
 
 // createInFlightNote is the brief status-line note shown when the PO tries
@@ -946,7 +949,7 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	return m.showWarn(msg.warn)
 }
 
 // handleKey is the top-level key dispatch (devd keys.go port pattern):
@@ -1133,7 +1136,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if keybind.Matches(msg, keys.Refresh) {
-		return m, loadCmd(m.client)
+		return m, loadCmd(m.store)
 	}
 
 	// bean bt-adkn Rework (B1, PO-Reject 2026-07-21 "PageDown/PageUp scrollt das
@@ -1198,7 +1201,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // independent of which view is active (devd port focusedIssue,
 // view_detail_issue.go:20-35) -- view-agnostic so Task 5's Backlog view
 // (viewBacklog case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
-func (m model) focusedBean() *data.Bean {
+func (m model) focusedBean() *item.Item {
 	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): fullscreenDetail's
 	// target is a VOLLBREITE, view-agnostic single bean (m.fullscreenBeanID),
 	// UNABHÄNGIG vom Tree-/Backlog-Cursor -- checked BEFORE the m.view switch
@@ -1616,7 +1619,7 @@ func (m model) maybeBleveCmd() tea.Cmd {
 	if len(q) < 3 || q == m.searchBleveFor {
 		return nil
 	}
-	return searchCmd(m.client, q)
+	return searchCmd(m.store, q)
 }
 
 // setExpanded sets n's expand state in m.expanded; a no-op for leaves. I01

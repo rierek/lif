@@ -26,7 +26,7 @@ package tui
 import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // boxFormPageUp/boxFormPageDown page the focused Detail pane by one FULL
@@ -202,7 +202,7 @@ func boxFormMoveField(cur int, dir string) int {
 // (mouse.go): one lazy check where the value is READ beats N reset call sites
 // at every cursor-move/click/jump that can change the selection. Also the
 // defensive clamp point -- boxFormCursor survives watch-reloads untouched.
-func boxFormEffectiveCursor(m model, b *data.Bean) int {
+func boxFormEffectiveCursor(m model, b *item.Item) int {
 	if b == nil || b.ID != m.boxFormCursorBean {
 		return 0
 	}
@@ -279,7 +279,7 @@ func boxFormScrollIntoView(off, start, h, height int) int {
 //
 // Writes both cursor and scroll ownership (boxFormCursorBean/
 // boxFormScrollBean) so the derived per-bean resets stay consistent.
-func (m model) boxFormNav(b *data.Bean, dir string) model {
+func (m model) boxFormNav(b *item.Item, dir string) model {
 	if b == nil {
 		return m
 	}
@@ -463,7 +463,7 @@ func boxFormPopupChromeFloor(m model) int {
 	return originY - 1
 }
 
-func boxFormFieldRect(m model, b *data.Bean, field int) (x, y, w, h int, ok bool) {
+func boxFormFieldRect(m model, b *item.Item, field int) (x, y, w, h int, ok bool) {
 	if b == nil || field < 0 || field >= len(boxFormFieldOrder) {
 		return 0, 0, 0, 0, false
 	}
@@ -513,7 +513,7 @@ func boxFormFieldRect(m model, b *data.Bean, field int) (x, y, w, h int, ok bool
 // half of Ziel 4, dispatched through the SAME activateBoxFormTarget
 // (mouse.go) a click on that box takes, so keyboard and mouse can never open
 // different things for the same field.
-func (m model) boxFormActivateCursor(b *data.Bean) (tea.Model, tea.Cmd) {
+func (m model) boxFormActivateCursor(b *item.Item) (tea.Model, tea.Cmd) {
 	if b == nil {
 		return m, nil
 	}

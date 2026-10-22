@@ -13,6 +13,7 @@ import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // keyFullscreen dispatches every F01 key: `v` (entry, no-op when already
@@ -93,7 +94,7 @@ func (m model) keyFullscreen(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 // boxScroll is the Vollbild-Detail's box-form scroll offset,
 // boxFormEffectiveScroll(m, detailBean) -- the SAME value the split's own
 // renderBeanDetailBox passes. Ignored in the fullscreenList case.
-func renderFullscreenBody(fs fullscreenMode, innerW, bodyH int, listRows []string, focused bool, idx *data.Index, detailBean *data.Bean, boxScroll int) string {
+func renderFullscreenBody(fs fullscreenMode, innerW, bodyH int, listRows []string, focused bool, idx *data.Index, detailBean *item.Item, boxScroll int) string {
 	if fs == fullscreenList {
 		return renderPane(pane{rows: listRows}, innerW, bodyH, focused)
 	}

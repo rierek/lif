@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -28,141 +30,77 @@ func toastTimeout(seq int, kind toastKind) tea.Cmd {
 	})
 }
 
-// beansLoadedMsg carries the result of an (initial or reload) data.Client.List
-// call. err is non-nil on failure -- Update renders it into the status line
-// rather than treating it as fatal: the App-Shell must survive a transient
-// beans-CLI failure (e.g. a mid-edit malformed frontmatter file) without
-// crashing, per the load error handling called out in the task brief.
+// beansLoadedMsg carries the result of an (initial or reload) Store.Items
+// read. err is non-nil on failure -- Update renders it into the status line
+// rather than treating it as fatal. warn is the core's and the hooks' output
+// collected during the load; a non-empty warn shows as a sticky warning toast.
 type beansLoadedMsg struct {
-	beans []data.Bean
+	beans []*item.Item
+	warn  string
 	err   error
 }
 
-// watchMsg signals that data.Watch's debounced onChange fired. Update reacts
-// with a full async reload (loadCmd), never a partial/incremental update
-// (design decision D02, mirrored in data.Watch's doc comment) -- and NEVER
-// synchronously, since onChange itself must not block (see app.go/watcher.go
-// B05 doc contract).
-type watchMsg struct{}
+// storeEventsMsg signals that the store's watcher reported a change batch.
+// Update reacts with a full async reload (loadCmd), never a partial update,
+// and re-arms waitForStoreEvents.
+type storeEventsMsg struct{}
 
-// initialWatchMsg hands app.go Run()'s VERY FIRST data.Watch stop func to
-// the model (E5 Task 6, bean bt-zhwl) -- without this, m.watchStop would
-// start (and stay) nil until the PO's first repo switch, so THAT switch's
-// switchRepoCmd(oldStop=nil, ...) would never retire this initial watcher: a
-// live fsnotify goroutine on the abandoned first repo, leaking for the rest
-// of the process (every one of ITS file changes would still fire a reload
-// of whatever repo is CURRENT by then, via m.client -- not wrong-repo data,
-// but a real resource leak and a spurious extra reload on every old-repo
-// change). Sent ASYNCHRONOUSLY via a goroutine (go p.Send(...), never an
-// inline p.Send) for the exact reason watchUnavailableMsg below already
-// documents: p.Send blocks until p.Run()'s event loop starts reading, which
-// only happens once Run() reaches its own p.Run() call -- an inline send
-// here would deadlock Run() before it ever gets there. Delivered well before
-// any keypress can plausibly race it (human reaction time vastly exceeds an
-// in-process goroutine send), same practical-safety argument this codebase
-// already relies on elsewhere (e.g. searchBleveResultMsg's staleness guard
-// tolerates async arrival order without a hard ordering guarantee).
-type initialWatchMsg struct{ stop func() }
-
-// watchUnavailableMsg signals that data.Watch failed to start at all (app.go
-// Run) -- distinct from watchMsg (a live watcher firing). Sent exactly once,
-// asynchronously (app.go: a goroutine, since the unbuffered tea.Program.msgs
-// channel would otherwise deadlock the caller if sent before p.Run() starts
-// consuming it -- same B05-style constraint as watchMsg, just for the
-// startup-failure path instead of the steady-state one). I04 (T8 Opus
-// quality review): must surface in the status line, never a silent degrade.
-type watchUnavailableMsg struct{}
-
-// loadCmd (re)loads all beans via the CLI client, async -- the sole read path
-// for both the initial Init() load and every subsequent reload (ctrl+r,
-// watchMsg).
-func loadCmd(c *data.Client) tea.Cmd {
+// waitForStoreEvents blocks on ch (as a tea.Cmd, i.e. on bubbletea's own
+// goroutine, never inside Update) until the store reports a change batch. A
+// closed channel (Store.Close) or a nil ch ends the wait: it returns nil.
+func waitForStoreEvents(ch <-chan []itemcore.ItemEvent) tea.Cmd {
+	if ch == nil {
+		return nil
+	}
 	return func() tea.Msg {
-		beans, err := c.List()
-		return beansLoadedMsg{beans: beans, err: err}
+		if _, ok := <-ch; !ok {
+			return nil
+		}
+		return storeEventsMsg{}
 	}
 }
 
-// repoSwitchedMsg carries the outcome of switchRepoCmd below (E5 Task 6,
-// bean bt-zhwl): a repo switch triggered from the Lobby (keyLobby,
-// view_lobby.go). err != nil means the TARGET repo failed to validate
-// (client/repoDir/beans/watchStop are then zero values and must NOT be
-// applied -- applyRepoSwitched, update.go, leaves the CURRENT session
-// untouched on this path, the core "Fehlerpfad darf die laufende Session
-// NICHT zerstören" constraint, bean bt-zhwl).
-type repoSwitchedMsg struct {
-	client    *data.Client
-	repoDir   string
-	beans     []data.Bean
-	watchStop func()
-	err       error
+// loadCmd (re)loads all items from the in-memory store, async -- the sole
+// read path for both the initial Init() load and every subsequent reload
+// (ctrl+r, storeEventsMsg, after each mutation).
+func loadCmd(s *data.Store) tea.Cmd {
+	return func() tea.Msg {
+		return beansLoadedMsg{beans: s.Items(), warn: s.DrainWarnings()}
+	}
 }
 
-// switchRepoCmd is the Kernschwierigkeit of E5 Task 6 (bean bt-zhwl): a
-// tea.Program-DECOUPLED repo switch -- oldStop/notify are both injected
-// (never a package-level activeProgram reference INSIDE this function
-// itself), so this is fully testable with two plain temp directories and a
-// fake notify func(), no real tea.Program required
-// (switch_repo_test.go's TestSwitchRepoCmdStopsOldWatcherStartsNew).
-// Production wires notify as func(){ activeProgram.Send(watchMsg{}) }
-// (app.go/view_lobby.go's keyLobby) -- this function never imports or
-// touches activeProgram.
-//
-// Ordering decision (design note, bean bt-zhwl's own "Fehlerpfad"
-// constraint): the NEW repo is validated FIRST (client.List() must
-// succeed) -- oldStop is only ever called AFTER that validation passes.
-// This is a DELIBERATE deviation from epic-E5-plan.md's own Task 6 Step 3
-// pseudocode sketch (which calls oldStop() unconditionally, first thing) --
-// that ordering would retire a perfectly healthy OLD watcher for a switch
-// attempt that then turns out to target a broken/empty directory, leaving
-// the PO's live session without ANY watcher at all (an unnecessary,
-// avoidable degradation the bean's own "ACHTUNG" callout asks to decide
-// consciously). Validating first means a failed switch leaves the OLD
-// watcher completely untouched -- still running, still live -- exactly the
-// "session must not be destroyed" guarantee the bean demands.
-// TestSwitchRepoCmdKeepsOldWatcherAliveOnValidationFailure is the regression
-// guard for this exact ordering.
-//
-// B05 (data/watcher.go's own MANDATORY doc-stamp): calling oldStop()
-// synchronously HERE is safe -- this whole function runs as a tea.Cmd, i.e.
-// on a goroutine the bubbletea runtime spawns to evaluate the returned
-// func() tea.Msg, which is NOT the watcher's own onChange goroutine B05
-// forbids a synchronous stop from. oldStop()'s "blocks until the watcher
-// goroutine has fully exited" contract (Watch's own doc comment) is exactly
-// what guarantees NO event from the old repo can leak into the new watch
-// (data.StartWatch below) that starts syncronously right after it on this
-// same goroutine -- the whole point of doing this INSIDE a tea.Cmd (its own
-// goroutine, decoupled from Update()'s single-threaded dispatch) rather than
-// inline in a key handler, where a blocking oldStop() would freeze the
-// entire UI for however long the watcher goroutine takes to unwind.
-func switchRepoCmd(oldStop func(), newRepoDir string, storePath string, notify func()) tea.Cmd {
+// repoSwitchedMsg carries the outcome of switchRepoCmd below: a repo switch
+// triggered from the Lobby (keyLobby, view_lobby.go). err != nil means the
+// TARGET repo failed to open (store/repoDir/beans/events are then zero values
+// and must NOT be applied -- applyRepoSwitched leaves the CURRENT session
+// untouched on this path). events == nil on success means the new store's
+// watcher could not start.
+type repoSwitchedMsg struct {
+	store   *data.Store
+	repoDir string
+	beans   []*item.Item
+	events  <-chan []itemcore.ItemEvent
+	err     error
+}
+
+// switchRepoCmd opens newRepoDir's store. Ordering: the NEW repo is opened
+// FIRST -- oldStore is only closed AFTER that succeeded, so a switch to a
+// broken or empty directory leaves the live session (its store and watcher)
+// completely untouched. Closing oldStore ends its event channel, which retires
+// the pending waitForStoreEvents of the old session.
+func switchRepoCmd(oldStore *data.Store, newRepoDir string, storePath string) tea.Cmd {
 	return func() tea.Msg {
-		client := &data.Client{RepoDir: newRepoDir, StorePath: storePath}
-		beans, err := client.List()
+		store, err := data.Open(newRepoDir, storePath, "")
 		if err != nil {
 			return repoSwitchedMsg{repoDir: newRepoDir, err: err}
 		}
-
-		// Validated -- safe to retire the old watcher now (design note
-		// above).
-		if oldStop != nil {
-			oldStop()
+		if oldStore != nil {
+			oldStore.Close()
 		}
-
-		var stop func()
-		storeDir, watchErr := client.StoreDir()
-		if watchErr == nil {
-			stop, watchErr = data.StartWatch(storeDir, notify)
-		}
-		if watchErr != nil {
-			// The switch itself still SUCCEEDED (client+beans are valid) --
-			// degrade like app.go's own watchUnavailableMsg path instead of
-			// failing the whole switch over a live-reload nicety.
-			// applyRepoSwitched (update.go) surfaces this via the existing
-			// m.watchUnavailable flag (I04 precedent), watchStop stays nil.
-			stop = nil
-		}
-		return repoSwitchedMsg{client: client, repoDir: newRepoDir, beans: beans, watchStop: stop}
+		// A watcher failure does not fail the switch: events stays nil and
+		// applyRepoSwitched degrades via m.watchUnavailable (I04 precedent).
+		events, _ := store.Watch()
+		return repoSwitchedMsg{store: store, repoDir: newRepoDir, beans: store.Items(), events: events}
 	}
 }
 
@@ -200,19 +138,19 @@ type repoMetricsMsg struct {
 // batched via repoMetricsBatchCmd below.
 func repoMetricsCmd(repo string, storePath string) tea.Cmd {
 	return func() tea.Msg {
-		c := &data.Client{RepoDir: repo, StorePath: storePath}
-		beans, err := c.List()
+		store, err := data.Open(repo, storePath, "")
 		if err != nil {
 			return repoMetricsMsg{repo: repo, err: err}
 		}
+		defer store.Close()
+		items := store.Items()
 		open := 0
-		isOpen := data.OpenStatusFunc(repo)
-		for _, b := range beans {
-			if isOpen(b.Status) {
+		for _, b := range items {
+			if !store.Config().IsArchiveStatus(b.Status) {
 				open++
 			}
 		}
-		return repoMetricsMsg{repo: repo, open: open, total: len(beans)}
+		return repoMetricsMsg{repo: repo, open: open, total: len(items)}
 	}
 }
 
@@ -232,7 +170,7 @@ func repoMetricsBatchCmd(repos []string, storePaths map[string]string) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// beanRawLoadedMsg carries data.Client.ShowRaw's async result (D01, design-
+// beanRawLoadedMsg carries data.Store.ShowRaw's async result (D01, design-
 // spec.md §15 PF-17, bean bt-z4b1) -- openBeanEditor's FIRST Cmd-hop
 // (editor.go): the raw markdown read must run as its own tea.Cmd BEFORE the
 // tea.ExecProcess suspend can fire (a subprocess call, ~20-50ms, must never
@@ -247,16 +185,16 @@ type beanRawLoadedMsg struct {
 	err error
 }
 
-// showRawCmd runs data.Client.ShowRaw async, tagging the result as
+// showRawCmd runs data.Store.ShowRaw async, tagging the result as
 // beanRawLoadedMsg (D01) -- id rides along so applyBeanRawLoaded can confirm
 // it still matches m.editorTarget before suspending (defensive: nothing
 // else can legitimately touch editorTarget between openBeanEditor and this
 // Cmd resolving, since Update() only ever processes one Msg at a time, but
 // the check costs nothing and guards against a stale load ever suspending
 // into the WRONG bean's editor).
-func showRawCmd(c *data.Client, id string) tea.Cmd {
+func showRawCmd(c *data.Store, id string) tea.Cmd {
 	return func() tea.Msg {
-		raw, err := c.ShowRaw(id)
+		raw, err := c.Raw(id)
 		return beanRawLoadedMsg{id: id, raw: raw, err: err}
 	}
 }
@@ -266,14 +204,20 @@ func showRawCmd(c *data.Client, id string) tea.Cmd {
 // per-mutation Msg types). Success and failure BOTH trigger an unconditional
 // reload (applyMutationResult, update.go): success must show the new state,
 // an ErrConflict must resolve the now-stale index (design decision d).
-type mutationDoneMsg struct{ err error }
+type mutationDoneMsg struct {
+	err  error
+	warn string // core warnings and hook output collected during the mutation
+}
 
-// mutateCmd wraps a single mutation call (a data.Client Set*/Add*/Remove*/
+// mutateCmd wraps a single mutation call (a data.Store Set*/Add*/Remove*/
 // Delete method, already bound to its args via a closure) into the shared
 // mutationDoneMsg Cmd -- every E3 overlay (Value-Menü T1, Tag-/Parent-/
 // Blocking-Picker T2/T3, Delete T6) dispatches through this ONE producer.
-func mutateCmd(fn func() error) tea.Cmd {
-	return func() tea.Msg { return mutationDoneMsg{err: fn()} }
+func mutateCmd(s *data.Store, fn func() error) tea.Cmd {
+	return func() tea.Msg {
+		err := fn()
+		return mutationDoneMsg{err: err, warn: s.DrainWarnings()}
+	}
 }
 
 // createDoneMsg is the ONE exception to mutationDoneMsg (E3 Task 4, bean
@@ -283,20 +227,21 @@ func mutateCmd(fn func() error) tea.Cmd {
 // wires the Update-dispatch case and the cursor-jump behavior once the
 // Create form exists.
 type createDoneMsg struct {
-	bean data.Bean
+	bean *item.Item
+	warn string
 	err  error
 }
 
-// createCmd runs data.Client.Create async, tagging the result as
+// createCmd runs data.Store.Create async, tagging the result as
 // createDoneMsg.
-func createCmd(c *data.Client, opts data.CreateOpts) tea.Cmd {
+func createCmd(c *data.Store, opts data.CreateOpts) tea.Cmd {
 	return func() tea.Msg {
 		b, err := c.Create(opts)
-		return createDoneMsg{bean: b, err: err}
+		return createDoneMsg{bean: b, warn: c.DrainWarnings(), err: err}
 	}
 }
 
-// searchBleveResultMsg carries the result of an async data.Client.Search
+// searchBleveResultMsg carries the result of an async data.Store.Search
 // call (E2 Task 3, bean bt-4ep2), tagged with the query it answers. Update
 // (applyBleveResult, update.go) discards it if m.searchPrefixRest (bt-2kfl
 // D03: the query MINUS any typed `st:`/`ty:`/`pr:`/`tag:` prefix tokens,
@@ -311,11 +256,11 @@ type searchBleveResultMsg struct {
 	err   error
 }
 
-// searchCmd runs an async Bleve full-text search via data.Client.Search,
+// searchCmd runs an async Bleve full-text search via data.Store.Search,
 // tagging the result with query (design-spec.md §6 V2: "-S-Bleve-Modus ab 3
 // Zeichen"). Only the resolved bean IDs are kept -- beanMatchesSearch
 // (view_browse_repo.go) only ever needs ID membership, not the full Bean.
-func searchCmd(c *data.Client, query string) tea.Cmd {
+func searchCmd(c *data.Store, query string) tea.Cmd {
 	return func() tea.Msg {
 		beans, err := c.Search(query)
 		if err != nil {
@@ -384,7 +329,7 @@ type tagDefsSavedMsg struct {
 // tagDefsSavedMsg (B01, doc-stamp there); successToast likewise (E11 Item 6,
 // doc-stamp on the struct above) -- every call site names its own, most
 // callers passing "" (unchanged silent-success contract).
-func saveTagDefsCmd(c *data.Client, defs []string, refindName, successToast string) tea.Cmd {
+func saveTagDefsCmd(c *data.Store, defs []string, refindName, successToast string) tea.Cmd {
 	return func() tea.Msg {
 		return tagDefsSavedMsg{err: c.SaveTagDefs(defs), refindName: refindName, successToast: successToast}
 	}
@@ -425,7 +370,7 @@ type tagRenameDoneMsg struct {
 // index.go -- an IN-MEMORY snapshot, so each bean's etag is read directly
 // off idx's own Bean pointers, no m.beanETag redirect needed: this sweep
 // operates on the exact idx handed to it at dispatch time) and fires ONE
-// combined data.Client.SetTags(id, add=[newTag], remove=[oldTag], etag) call
+// combined data.Store.SetTags(id, add=[newTag], remove=[oldTag], etag) call
 // per bean (mutations.go's existing single-etag-no-cascade convention,
 // reused verbatim -- no new Client method). CONTINUE-ON-ERROR (D13): a
 // failure on one bean is collected into failed and the loop moves on to the
@@ -447,7 +392,7 @@ type tagRenameDoneMsg struct {
 // silently STRIP the tag from every one of these beans on a harmless
 // re-confirm keystroke, a real, avoidable data-loss bug for this chain's
 // riskiest (real-bean-mutating) task.
-func renameTagCmd(c *data.Client, idx *data.Index, oldTag, newTag string) tea.Cmd {
+func renameTagCmd(c *data.Store, idx *data.Index, oldTag, newTag string) tea.Cmd {
 	return func() tea.Msg {
 		msg := tagRenameDoneMsg{oldTag: oldTag, newTag: newTag}
 		if idx == nil {
@@ -459,7 +404,7 @@ func renameTagCmd(c *data.Client, idx *data.Index, oldTag, newTag string) tea.Cm
 			return msg
 		}
 		for _, b := range tagged {
-			if err := c.SetTags(b.ID, []string{newTag}, []string{oldTag}, b.ETag); err != nil {
+			if err := c.SetTags(b.ID, []string{newTag}, []string{oldTag}, b.ETag()); err != nil {
 				msg.failed = append(msg.failed, tagRenameFailure{id: b.ID, err: err})
 				continue
 			}

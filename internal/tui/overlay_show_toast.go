@@ -12,7 +12,7 @@ package tui
 //
 // Deviation vs. devd (design decision a): toastTarget carries ONLY `view
 // viewID` -- devd's milestoneID/sprintID/issueID triad has no beans-tui
-// equivalent (ONE entity, data.Bean, design-spec §4); a future
+// equivalent (ONE entity, item.Item, design-spec §4); a future
 // deeper-focus-restore producer can extend this struct when it needs to, no
 // producer currently does.
 //

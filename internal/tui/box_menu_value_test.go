@@ -8,6 +8,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -122,7 +123,7 @@ func TestOpenValueMenuStatusShowsOnlyStatusItems(t *testing.T) {
 // against a bean with Type "bug" seeds the cursor onto the type/bug row, not
 // status.
 func TestOpenValueMenuSeedsOnGivenGroup(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "bug-1", Title: "A Bug", Status: "todo", Type: "bug", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)
@@ -148,12 +149,13 @@ func TestOpenValueMenuSeedsOnGivenGroup(t *testing.T) {
 // Enter semantics (design decision a3): moving the cursor onto "in-progress"
 // (status group) and pressing enter closes the overlay and dispatches
 // SetStatus via a mutateCmd. The dispatch itself is verified through the
-// REAL data.Client's error message (pointed at a non-existent repo dir, no
+// REAL data.Store's error message (pointed at a non-existent repo dir, no
 // beans binary required) rather than a mock -- the error text starting with
 // "lif update" proves SetStatus (not SetType/SetPriority) actually ran.
 func TestValueMenuEnterAppliesCursoredValueAndCloses(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t1-scratch-dir"}
+	store := fixtureStore(t)
+	m.store = store
 	m = focusBean(m, "tk-2") // status=todo, type=task, priority=normal (fixtureBeans, ms-1 -> ep-1 -> tk-2)
 
 	m = step(t, m, runeMsg('s'))
@@ -179,8 +181,11 @@ func TestValueMenuEnterAppliesCursoredValueAndCloses(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetStatus dispatched)", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "tk-2").Status; got != "in-progress" {
+		t.Fatalf("status on disk = %q, want in-progress (proves SetStatus dispatched)", got)
 	}
 }
 
@@ -194,21 +199,26 @@ func TestValueMenuEnterAppliesCursoredValueAndCloses(t *testing.T) {
 // cascade (keyDetailFocus) and the Palette's new "set type" action use.
 func TestValueMenuEnterOnTypeGroupDispatchesSetType(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t1-scratch-dir"}
+	store := fixtureStore(t)
+	m.store = store
 	m = focusBean(m, "tk-2") // status=todo, type=task, priority=normal (fixtureBeans, ms-1 -> ep-1 -> tk-2)
 
 	m = m.openValueMenu("type")
 	if m.menuItems[m.menu.cursor].group != "type" {
 		t.Fatalf("setup: cursored group = %q, want type", m.menuItems[m.menu.cursor].group)
 	}
+	m.menu.cursor = valueMenuCursorFor(m.menuItems, "type", "bug")
 
 	_, cmd := m.Update(keyMsg(tea.KeyEnter))
 	if cmd == nil {
 		t.Fatal("enter must return a Cmd")
 	}
 	mdm := cmd().(mutationDoneMsg)
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "tk-2").Type; got != "bug" {
+		t.Fatalf("type on disk = %q, want bug (proves SetType dispatched)", got)
 	}
 }
 
@@ -217,21 +227,26 @@ func TestValueMenuEnterOnTypeGroupDispatchesSetType(t *testing.T) {
 // m.openValueMenu("priority"), not via `s` + KeyDown).
 func TestValueMenuEnterOnPriorityGroupDispatchesSetPriority(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t1-scratch-dir"}
+	store := fixtureStore(t)
+	m.store = store
 	m = focusBean(m, "tk-2") // status=todo, type=task, priority=normal (fixtureBeans, ms-1 -> ep-1 -> tk-2)
 
 	m = m.openValueMenu("priority")
 	if m.menuItems[m.menu.cursor].group != "priority" {
 		t.Fatalf("setup: cursored group = %q, want priority", m.menuItems[m.menu.cursor].group)
 	}
+	m.menu.cursor = valueMenuCursorFor(m.menuItems, "priority", "high")
 
 	_, cmd := m.Update(keyMsg(tea.KeyEnter))
 	if cmd == nil {
 		t.Fatal("enter must return a Cmd")
 	}
 	mdm := cmd().(mutationDoneMsg)
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "tk-2").Priority; got != "high" {
+		t.Fatalf("priority on disk = %q, want high (proves SetPriority dispatched)", got)
 	}
 }
 
@@ -473,7 +488,7 @@ func TestApplyMutationResultConflictSetsStatusLineAndReloads(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	err := fmt.Errorf("%w: bean x: boom", data.ErrConflict)
 
-	tm, cmd := m.applyMutationResult(err)
+	tm, cmd := m.applyMutationResult(err, "")
 	nm := tm.(model)
 	if !strings.Contains(nm.err, "Conflict") {
 		t.Fatalf("m.err = %q, want it to contain %q", nm.err, "Conflict")
@@ -490,7 +505,7 @@ func TestApplyMutationResultSuccessClearsErrAndReloads(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.err = "stale error from a previous mutation"
 
-	tm, cmd := m.applyMutationResult(nil)
+	tm, cmd := m.applyMutationResult(nil, "")
 	nm := tm.(model)
 	if nm.err != "" {
 		t.Fatalf("m.err = %q, want empty (cleared on success)", nm.err)
@@ -505,7 +520,7 @@ func TestApplyMutationResultSuccessClearsErrAndReloads(t *testing.T) {
 // surfaces verbatim, not the "Conflict" wording.
 func TestApplyMutationResultNonConflictErrorSurfacesRawMessage(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	tm, cmd := m.applyMutationResult(errors.New("lif update: VALIDATION_ERROR: bad status"))
+	tm, cmd := m.applyMutationResult(errors.New("lif update: VALIDATION_ERROR: bad status"), "")
 	nm := tm.(model)
 	if strings.Contains(nm.err, "Conflict") {
 		t.Fatalf("m.err = %q, must not use the Conflict wording for a non-ErrConflict failure", nm.err)
@@ -531,21 +546,32 @@ func TestBeanETagReadsLiveIndex(t *testing.T) {
 	if !ok {
 		t.Fatal("beanETag(tk-1) ok = false, want true")
 	}
-	if etag1 != m.idx.ByID["tk-1"].ETag {
-		t.Fatalf("beanETag(tk-1) = %q, want %q (live index value)", etag1, m.idx.ByID["tk-1"].ETag)
+	if etag1 != m.idx.ByID["tk-1"].ETag() {
+		t.Fatalf("beanETag(tk-1) = %q, want %q (live index value)", etag1, m.idx.ByID["tk-1"].ETag())
 	}
 
-	changed := append([]data.Bean(nil), beans...)
+	changed := append([]*item.Item(nil), beans...)
 	for i := range changed {
 		if changed[i].ID == "tk-1" {
-			changed[i].ETag = "rotated-etag-after-reload"
+			c := changed[i].Clone()
+			c.Title += " (rotated)"
+			changed[i] = c
 		}
+	}
+	wantETag := changed[0].ETag()
+	for _, b := range changed {
+		if b.ID == "tk-1" {
+			wantETag = b.ETag()
+		}
+	}
+	if wantETag == etag1 {
+		t.Fatal("setup: the rotated item must carry a different etag")
 	}
 	m = step(t, m, beansLoadedMsg{beans: changed})
 
 	etag2, ok := m.beanETag("tk-1")
-	if !ok || etag2 != "rotated-etag-after-reload" {
-		t.Fatalf("beanETag(tk-1) after reload = %q, ok=%v, want %q/true", etag2, ok, "rotated-etag-after-reload")
+	if !ok || etag2 != wantETag {
+		t.Fatalf("beanETag(tk-1) after reload = %q, ok=%v, want %q/true", etag2, ok, wantETag)
 	}
 }
 
@@ -581,7 +607,7 @@ func TestValueMenuTargetVanishedClosesGracefully(t *testing.T) {
 
 	// tk-2 vanishes externally; a reload lands while the menu is still open
 	// (m.overlay survives a reload untouched, applyLoaded never touches it).
-	remaining := []data.Bean{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
+	remaining := []*item.Item{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
 	m = step(t, m, beansLoadedMsg{beans: remaining})
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))

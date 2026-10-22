@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ import (
 // Body field set -> a placeholder, not an empty string (digit-jump 2 must
 // always show something).
 func TestBeanSectionsBodyEmptyShowsPlaceholder(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "nobody-1", Title: "No Body", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	idx := data.NewIndex(beans)
@@ -32,7 +33,7 @@ func TestBeanSectionsBodyRendersMarkdown(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "body-1", Title: "Has Body", Status: "todo", Type: "task", Priority: "normal", Body: "# Heading\n\nSome **bold** text."},
 	}
 	idx := data.NewIndex(beans)
@@ -54,7 +55,7 @@ func TestBeanSectionsBodyRendersMarkdown(t *testing.T) {
 // in the raw slice, must still render first). Renamed from ...Beziehungen...
 // (PF-7, section title RELATIONS).
 func TestBeanSectionsRelationsListsParentChildrenBlockingBlockedByInCanonicalOrder(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "rel-parent", Title: "Parent Bean", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "rel-main", Title: "Main Bean", Status: "todo", Type: "task", Priority: "normal", Parent: "rel-parent",
 			Blocking: []string{"rel-block-todo", "rel-block-inprog"}},
@@ -99,7 +100,7 @@ func TestBeanSectionsRelationsListsParentChildrenBlockingBlockedByInCanonicalOrd
 // as a muted "(unresolved: <id>)" row with relationField.beanID == "" (Task
 // 2's jump-guard checks this). Renamed from ...Beziehungen... (PF-7).
 func TestBeanSectionsRelationsDanglingReferenceShowsUnresolvedNotJumpable(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "dangling-1", Title: "Dangling Bean", Status: "todo", Type: "task", Priority: "normal",
 			BlockedBy: []string{"does-not-exist"}},
 	}
@@ -129,7 +130,7 @@ func TestBeanSectionsRelationsDanglingReferenceShowsUnresolvedNotJumpable(t *tes
 // string ("0001-01-01..."). Section title assertion updated to HISTORY
 // (PF-7).
 func TestBeanSectionsHistorieShowsCreatedUpdatedETag(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "hist-nil", Title: "No Timestamps", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	idx := data.NewIndex(beans)
@@ -146,9 +147,9 @@ func TestBeanSectionsHistorieShowsCreatedUpdatedETag(t *testing.T) {
 
 	created := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
 	updated := time.Date(2026, 1, 3, 11, 0, 0, 0, time.UTC)
-	beansSet := []data.Bean{
+	beansSet := []*item.Item{
 		{ID: "hist-set", Title: "With Timestamps", Status: "todo", Type: "task", Priority: "normal",
-			CreatedAt: &created, UpdatedAt: &updated, ETag: "abc123"},
+			CreatedAt: &created, UpdatedAt: &updated},
 	}
 	idx2 := data.NewIndex(beansSet)
 	secs2 := panelSections(idx2, idx2.ByID["hist-set"], 60)
@@ -159,7 +160,7 @@ func TestBeanSectionsHistorieShowsCreatedUpdatedETag(t *testing.T) {
 	if !strings.Contains(hist, "2026-01-03") {
 		t.Errorf("Historie missing UpdatedAt: %q", hist)
 	}
-	if !strings.Contains(hist, "abc123") {
+	if !strings.Contains(hist, beansSet[0].ETag()) {
 		t.Errorf("Historie missing ETag: %q", hist)
 	}
 }
@@ -169,12 +170,11 @@ func TestBeanSectionsHistorieShowsCreatedUpdatedETag(t *testing.T) {
 // wrap via wrapText -- otherwise a long ETag overflows the Detail pane's
 // bordered width.
 func TestBeanSectionsHistorieWrapsLongETagToBodyWidth(t *testing.T) {
-	beans := []data.Bean{
-		{ID: "wrap-hist", Title: "Wrap Hist", Status: "todo", Type: "task", Priority: "normal",
-			ETag: strings.Repeat("etagchunk-", 5)},
+	beans := []*item.Item{
+		{ID: "wrap-hist", Title: "Wrap Hist", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	idx := data.NewIndex(beans)
-	const bodyW = 20
+	const bodyW = 12
 	secs := panelSections(idx, idx.ByID["wrap-hist"], bodyW)
 
 	for _, line := range strings.Split(ansi.Strip(secs[3].body), "\n") {
@@ -353,7 +353,7 @@ func TestHangingIndentWrapIndentMatchesStyledPrefixUnderTrueColor(t *testing.T) 
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
-	rel := &data.Bean{ID: "tc-1", Title: "Hier steht ein langer Titel eines beans der so umbricht dass die Uebersicht gewahrt ist", Status: "todo", Type: "task", Priority: "normal"}
+	rel := &item.Item{ID: "tc-1", Title: "Hier steht ein langer Titel eines beans der so umbricht dass die Uebersicht gewahrt ist", Status: "todo", Type: "task", Priority: "normal"}
 	out := relationRow(rel, relationRowMarker(false, 0, 1), 40)
 
 	if !strings.Contains(out, "\x1b[") {
@@ -382,7 +382,7 @@ func TestHangingIndentWrapIndentMatchesStyledPrefixUnderTrueColor(t *testing.T) 
 // Mirrors TestMetaSectionBodyShowsSelectedFieldMarker's own contract for
 // Meta (PF-4).
 func TestRelationsSectionBodyShowsCursorMarkerOnActiveRow(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "rsb-parent", Title: "Parent Bean", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "rsb-main", Title: "Main Bean", Status: "todo", Type: "task", Priority: "normal", Parent: "rsb-parent"},
 		{ID: "rsb-child", Title: "Child Bean", Status: "todo", Type: "task", Priority: "normal", Parent: "rsb-main"},
@@ -421,7 +421,7 @@ func TestRelationsSectionBodyShowsCursorMarkerOnActiveRow(t *testing.T) {
 // regression pin: the separate "Fields:" strip line is gone -- neither the
 // active nor the inactive render path may ever emit that substring again.
 func TestRelationsSectionBodyNoLongerRendersFieldsStripLine(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "nofs-parent", Title: "Parent Bean", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "nofs-main", Title: "Main Bean", Status: "todo", Type: "task", Priority: "normal", Parent: "nofs-parent"},
 	}
@@ -444,7 +444,7 @@ func TestRelationsSectionBodyNoLongerRendersFieldsStripLine(t *testing.T) {
 // so umbricht, dass die Uebersicht gewahrt ist").
 func TestRelationsSectionBodyLongTitleAlignsContinuationUnderTitleStartNotColumnZero(t *testing.T) {
 	longTitle := "Hier steht ein langer Titel eines beans der so umbricht dass die Uebersicht gewahrt ist"
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "wrp-parent", Title: "Parent Bean", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "wrp-main", Title: "Main Bean", Status: "todo", Type: "task", Priority: "normal", Parent: "wrp-parent"},
 		{ID: "wrp-child", Title: longTitle, Status: "todo", Type: "task", Priority: "normal", Parent: "wrp-main"},
@@ -491,7 +491,7 @@ func TestRelationsSectionBodyLongTitleAlignsContinuationUnderTitleStartNotColumn
 // rediscovered by scanning rendered text), so a glyph anywhere inside a
 // title can never be mistaken for the marker.
 func TestRelationsSectionBodyActiveLineIgnoresGlyphEmbeddedInTitle(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gl-parent", Title: "Parent Bean", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "gl-main", Title: "Main Bean", Status: "todo", Type: "task", Priority: "normal", Parent: "gl-parent"},
 		// Sorts BEFORE gl-child-b (Title ascending, data.SortBeans) -- its
@@ -558,7 +558,7 @@ type panelSection struct {
 // panelSections builds the Body/Relations/History panel bodies for b the way
 // detailBoxForm does; index 0 is unused, so the indices stay 1/2/3 for
 // Body/Relations/History.
-func panelSections(idx *data.Index, b *data.Bean, bodyW int) []panelSection {
+func panelSections(idx *data.Index, b *item.Item, bodyW int) []panelSection {
 	rel, fields, _ := relationsSectionBody(idx, b, bodyW, false, 0)
 	return []panelSection{
 		{title: "META"},

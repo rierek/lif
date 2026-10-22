@@ -20,6 +20,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	"github.com/rierek/lif/internal/tui/data"
@@ -30,7 +31,7 @@ import (
 // "## Children" table when idx.Children[b.ID] is non-empty. nil b returns
 // an empty string (defensive -- callers already guard the orphan-root
 // cursor before reaching here, update.go keyNodeAction Plan Step 6).
-func beanContext(idx *data.Index, b *data.Bean) string {
+func beanContext(idx *data.Index, b *item.Item) string {
 	if b == nil {
 		return ""
 	}
@@ -93,7 +94,7 @@ func contextRelLabel(idx *data.Index, id string) string {
 // (data.SortBeans, mirrors resolveSorted), unresolved IDs appended last in
 // their input order.
 func contextRelLabels(idx *data.Index, ids []string) string {
-	var resolved []*data.Bean
+	var resolved []*item.Item
 	var unresolved []string
 	for _, id := range ids {
 		if idx != nil {
@@ -122,7 +123,7 @@ func contextRelLabels(idx *data.Index, ids []string) string {
 // Used by beanContext's Children table (the former Review-Cockpit's
 // reviewStandMarkdown per-group/Rework tables shared this too, removed by
 // E7 T1, PF-14, bean bt-wmtb, 2026-07-15).
-func contextBeanTable(beans []*data.Bean) string {
+func contextBeanTable(beans []*item.Item) string {
 	var out strings.Builder
 	out.WriteString("| ID | Type | Status | Prio | Title |\n|---|---|---|---|---|\n")
 	for _, b := range beans {

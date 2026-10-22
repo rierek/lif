@@ -7,9 +7,8 @@ package tui
 // and the D03 Bleve-dispatch guard (only rest ever reaches Bleve).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"testing"
-
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- parseSearchPrefixes (pure tokenizer) ---
@@ -120,7 +119,7 @@ func TestParseSearchPrefixes(t *testing.T) {
 // --- Matching (beanMatchesSearch's prefix-facet half, AND/OR semantics) ---
 
 func TestSearchPrefixMatchingAndsAcrossFacetsOrsWithinFacet(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "a", Title: "Alpha", Status: "completed", Type: "epic", Priority: "normal"},
 		{ID: "b", Title: "Beta", Status: "completed", Type: "task", Priority: "normal"},
 		{ID: "c", Title: "Gamma", Status: "todo", Type: "epic", Priority: "normal"},
@@ -140,7 +139,7 @@ func TestSearchPrefixMatchingAndsAcrossFacetsOrsWithinFacet(t *testing.T) {
 }
 
 func TestSearchPrefixCombinesWithTextRest(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "a", Title: "Alpha foo", Status: "completed", Type: "epic", Priority: "normal"},
 		{ID: "b", Title: "Beta foo", Status: "completed", Type: "task", Priority: "normal"},
 	}
@@ -161,7 +160,7 @@ func TestSearchPrefixCombinesWithTextRest(t *testing.T) {
 }
 
 func TestSearchPrefixInvalidTokenTreatedAsPlainText(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "a", Title: "xx:foo bean", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)

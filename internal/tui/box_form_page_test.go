@@ -18,13 +18,13 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"regexp"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // dotRun extracts the first contiguous run of page-indicator glyphs
@@ -202,7 +202,7 @@ func TestBoxFormPageIndicatorTracksPage(t *testing.T) {
 // the given scroll offset, using the SAME accW/height the live pipeline hands
 // renderDetailBox, and returns its lines ANSI-stripped. Line 0 is the
 // outer ╭ top border, line len-1 the outer ╰ bottom border, the rest content.
-func paneLines(t *testing.T, m model, b *data.Bean, boxScroll int) []string {
+func paneLines(t *testing.T, m model, b *item.Item, boxScroll int) []string {
 	t.Helper()
 	accW, height := boxFormPaneMetrics(m, b)
 	pane := renderDetailBox(m.idx, b, accW+2, height, true, boxScroll, -1)

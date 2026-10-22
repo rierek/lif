@@ -7,20 +7,20 @@ package tui
 // pattern mouse_test.go's own doc comment establishes).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // longTitleBeans is a fixture whose titles are guaranteed to wrap in the
 // ~30-cell left pane of a 100-column split -- the condition PO-Befund #13
 // describes and every pre-existing fixture (all titles < 15 cells) avoids.
-func longTitleBeans() []data.Bean {
-	return []data.Bean{
+func longTitleBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
 		{ID: "tk-1", Title: "God Delete Purge crasht ORM nullt child FK statt Cascade", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1"},

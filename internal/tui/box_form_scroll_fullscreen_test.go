@@ -19,12 +19,12 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // boxFormWrapSensitiveBeans is boxFormLongBodyBeans (box_form_scroll_test.go)
@@ -36,7 +36,7 @@ import (
 // count at the split's accW (~54 cols at a 100-wide frame) than at the
 // Vollbild's (96 cols), so the two geometries provably disagree and the test
 // actually exercises the branch under test.
-func boxFormWrapSensitiveBeans() []data.Bean {
+func boxFormWrapSensitiveBeans() []*item.Item {
 	var body strings.Builder
 	body.WriteString(strings.TrimSpace(strings.Repeat("wrapword ", 60)) + "\n\n")
 	for i := 1; i <= 80; i++ {
@@ -57,7 +57,7 @@ func boxFormWrapSensitiveBeans() []data.Bean {
 // detailFocus branch, view_fullscreen.go) rather than by setting m.fullscreen
 // by hand -- same round-trip discipline the rest of this package's update
 // tests use.
-func fullscreenBoxFormModel(t *testing.T, beans []data.Bean) model {
+func fullscreenBoxFormModel(t *testing.T, beans []*item.Item) model {
 	t.Helper()
 	m := fixtureModel(t, beans)
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})

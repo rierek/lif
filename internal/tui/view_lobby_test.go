@@ -155,7 +155,6 @@ func TestLobbyArrowKeysStillNavigateRepoList(t *testing.T) {
 }
 
 func TestLobbySelectSwitchesRepoAndView(t *testing.T) {
-	fakeLifEmptyList(t)
 	repoA := newTestRepoTUI(t)
 	repoB := newTestRepoTUI(t)
 
@@ -179,18 +178,14 @@ func TestLobbySelectSwitchesRepoAndView(t *testing.T) {
 	if rs.repoDir != repoB {
 		t.Fatalf("repoSwitchedMsg.repoDir = %q, want %q (repoB, cursor 1)", rs.repoDir, repoB)
 	}
-	t.Cleanup(func() {
-		if rs.watchStop != nil {
-			rs.watchStop()
-		}
-	})
+	t.Cleanup(func() { rs.store.Close() })
 
 	final := step(t, m, msg)
 	if final.view != viewBrowseRepo {
 		t.Fatalf("view after repoSwitchedMsg = %v, want viewBrowseRepo", final.view)
 	}
-	if final.client == nil {
-		t.Fatal("client is nil after a successful repo switch")
+	if final.store == nil {
+		t.Fatal("store is nil after a successful repo switch")
 	}
 	if final.repoDir != repoB {
 		t.Fatalf("repoDir = %q, want %q", final.repoDir, repoB)
@@ -198,10 +193,9 @@ func TestLobbySelectSwitchesRepoAndView(t *testing.T) {
 	if final.idx == nil {
 		t.Fatal("idx is nil after a successful repo switch")
 	}
-	if final.watchStop == nil {
-		t.Fatal("watchStop is nil after a successful repo switch with a working watcher")
+	if final.storeEvents == nil {
+		t.Fatal("storeEvents is nil after a successful repo switch with a working watcher")
 	}
-	t.Cleanup(final.watchStop)
 }
 
 func TestPickerKeyOpensLobbyFromAnyView(t *testing.T) {
@@ -266,7 +260,7 @@ func TestViewLobbyFrameMatchesWidthHeight(t *testing.T) {
 // shape, regardless of how many repos Settings.Repos lists -- must stay on
 // viewBrowseRepo, exactly like every pre-Task-6 session.
 func TestNoLobbyOnSingleRepoCwdMatch(t *testing.T) {
-	m := newModel(&data.Client{RepoDir: "/tmp/bt-fixture-repo"}, "/tmp/bt-fixture-repo")
+	m := newModel(fixtureStore(t), "/tmp/bt-fixture-repo")
 	m.settings.Repos = []string{"/tmp/repo-a", "/tmp/repo-b", "/tmp/repo-c"} // >=2, would trigger Lobby at the cmd/tui.go layer if cwd had failed to resolve
 	if m.view != viewBrowseRepo {
 		t.Fatalf("newModel with a non-nil client started in view %v, want viewBrowseRepo -- newModel must never auto-derive the Lobby from Settings.Repos", m.view)
@@ -290,7 +284,7 @@ func TestNoLobbyOnSingleRepoCwdMatch(t *testing.T) {
 func lobbyFixtureModelWithClient(t *testing.T, repos []string) model {
 	t.Helper()
 	m := lobbyFixtureModel(t, repos)
-	m.client = &data.Client{RepoDir: "/tmp/bt-fixture-repo"}
+	m.store = fixtureStore(t)
 	return m
 }
 
@@ -409,7 +403,7 @@ func TestLobbyHintReflectsSplitEscQBehavior(t *testing.T) {
 // lobbyExitHint() (not just through the full viewLobby() render): neither
 // branch's rendered (ANSI-stripped) text may contain ':' anymore.
 func TestLobbyExitHintNoColon(t *testing.T) {
-	withClient := model{client: &data.Client{}}
+	withClient := model{store: &data.Store{}}
 	if plain := ansi.Strip(lobbyExitHint(withClient)); strings.Contains(plain, ":") {
 		t.Errorf("lobbyExitHint(with client) = %q, must not contain ':' (D06)", plain)
 	}

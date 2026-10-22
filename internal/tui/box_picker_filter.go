@@ -57,6 +57,7 @@ package tui
 // staleness guard for no gain.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	keybind "github.com/charmbracelet/bubbles/key"
@@ -199,7 +200,7 @@ func statusFacetOptions() []string { return append([]string{statusOpen}, data.St
 // the typed query must substring-match the title or the ID (D4). An unset
 // chip and an empty query each impose no constraint, mirroring
 // beanMatchesFacets' own "empty facet map matches everything" contract.
-func (f pickerFilter) matchesBean(b *data.Bean) bool {
+func (f pickerFilter) matchesBean(b *item.Item) bool {
 	if b == nil {
 		return false
 	}

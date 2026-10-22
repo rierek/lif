@@ -13,21 +13,21 @@ package tui
 // covers keyFullscreen itself + renderFullscreenBody.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // fullscreenBacklogBeans is a small parentless, Backlog-eligible fixture
 // carrying a Blocking relation between its two members -- used to exercise
 // F01's Backlog symmetry (a Relations-Sprung inside fullscreenDetail while
 // m.view == viewBacklog, and the esc-exit's backlogList cursor sync).
-func fullscreenBacklogBeans() []data.Bean {
-	return []data.Bean{
+func fullscreenBacklogBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "fb-a", Title: "Backlog A", Status: "todo", Type: "task", Priority: "normal", Blocking: []string{"fb-b"}},
 		{ID: "fb-b", Title: "Backlog B", Status: "todo", Type: "task", Priority: "normal"},
 	}
@@ -185,7 +185,7 @@ func TestKeyFullscreenEnterOnListEntersDetailModeBacklog(t *testing.T) {
 // node at all, and m.cursorID=orphanRootID would silently resolve to
 // cursorPos's no-match fallback (index 0, a REAL bean) instead.
 func TestKeyFullscreenEnterOnEmptyListIsNoOp(t *testing.T) {
-	beans := append(fixtureBeans(), data.Bean{
+	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)

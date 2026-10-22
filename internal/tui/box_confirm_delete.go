@@ -108,7 +108,7 @@ func countLinkedBeans(idx *data.Index, id string) int {
 }
 
 // keyDeleteConfirm drives the open Delete-Confirm: enter fires
-// data.Client.Delete (NO --if-match -- the beans CLI's `delete` subcommand
+// data.Store.Delete (NO --if-match -- the beans CLI's `delete` subcommand
 // takes no etag at all, mutations.go Delete's own doc-stamp; m.beanETag(id)
 // is still consulted here, but ONLY for its ok bool, the same vanished-
 // target guard shape as every other overlay's applyXSelection/
@@ -136,8 +136,8 @@ func (m model) keyDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 			return m, toastCmd
 		}
-		client := m.client
-		return m, mutateCmd(func() error { return client.Delete(id) })
+		store := m.store
+		return m, mutateCmd(store, func() error { return store.Delete(id) })
 	}
 	return m, nil
 }

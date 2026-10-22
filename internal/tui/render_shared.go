@@ -80,7 +80,7 @@ func borderedPane(lines []string, w, h int, border lipgloss.Color) string {
 
 // tagChipPalette is a small fixed accent palette (design-spec.md §8: "Tag-
 // Picker mit Nutzungszählern; Farbe per Hash aus fester Palette") — beans
-// tags carry no color of their own (internal/data.Bean.Tags is []string,
+// tags carry no color of their own (internal/item.Item.Tags is []string,
 // unlike devd's api.Tag{Color}), so the color is derived deterministically
 // from the tag name instead of being stored.
 var tagChipPalette = []lipgloss.Color{

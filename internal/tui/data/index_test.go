@@ -1,12 +1,13 @@
 package data
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"reflect"
 	"testing"
 )
 
 // idsOf extracts IDs in order, for compact order assertions.
-func idsOf(beans []*Bean) []string {
+func idsOf(beans []*item.Item) []string {
 	ids := make([]string, len(beans))
 	for i, b := range beans {
 		ids[i] = b.ID
@@ -14,7 +15,7 @@ func idsOf(beans []*Bean) []string {
 	return ids
 }
 
-func assertIDOrder(t *testing.T, got []*Bean, want []string) {
+func assertIDOrder(t *testing.T, got []*item.Item, want []string) {
 	t.Helper()
 
 	gotIDs := idsOf(got)
@@ -29,7 +30,7 @@ func assertIDOrder(t *testing.T, got []*Bean, want []string) {
 }
 
 func TestIndexChildrenSorted(t *testing.T) {
-	beans := []Bean{
+	beans := []*item.Item{
 		// status=scrapped -> last overall regardless of anything else.
 		{ID: "b-task-zeta", Parent: "par1", Status: "scrapped", Priority: "normal", Type: "task", Title: "Zeta"},
 		// status=in-progress -> first overall.
@@ -61,7 +62,7 @@ func TestIndexChildrenSorted(t *testing.T) {
 }
 
 func TestRootsMilestonesFirst(t *testing.T) {
-	beans := []Bean{
+	beans := []*item.Item{
 		{ID: "r-task", Status: "todo", Priority: "normal", Type: "task", Title: "Alpha"},
 		{ID: "r-milestone", Status: "todo", Priority: "normal", Type: "milestone", Title: "Zulu"},
 		{ID: "r-epic", Status: "todo", Priority: "normal", Type: "epic", Title: "Mid"},
@@ -85,7 +86,7 @@ func TestRootsMilestonesFirst(t *testing.T) {
 }
 
 func TestBacklogExcludesParented(t *testing.T) {
-	beans := []Bean{
+	beans := []*item.Item{
 		// parented task -> excluded even though status=todo.
 		{ID: "bl-parented-task", Parent: "par-x", Status: "todo", Priority: "normal", Type: "task", Title: "Parented"},
 		// parentless todo task -> included.
@@ -107,7 +108,7 @@ func TestBacklogExcludesParented(t *testing.T) {
 }
 
 func TestUnknownEnumValuesSortLast(t *testing.T) {
-	beans := []Bean{
+	beans := []*item.Item{
 		// unrecognized status ("blocked") -> falls back to sort-last (rank
 		// len(statusOrder)), so it must sort after "scrapped" (rank 4), the
 		// last recognized status value.
@@ -127,7 +128,7 @@ func TestUnknownEnumValuesSortLast(t *testing.T) {
 // Beziehungen section resolves Blocking/BlockedBy IDs into []*Bean itself
 // and must not invent a second, parallel tie-break).
 func TestSortBeansExportedMatchesCanonicalTierOrder(t *testing.T) {
-	beans := []*Bean{
+	beans := []*item.Item{
 		{ID: "b", Status: "todo", Priority: "normal", Type: "task", Title: "B"},
 		{ID: "a", Status: "in-progress", Priority: "high", Type: "bug", Title: "A"},
 	}
@@ -231,7 +232,7 @@ func TestOrderMapsDerivedFromValueSlices(t *testing.T) {
 }
 
 func TestWithTagToReview(t *testing.T) {
-	beans := []Bean{
+	beans := []*item.Item{
 		{ID: "tag-a", Status: "todo", Priority: "normal", Type: "task", Title: "Alpha", Tags: []string{"to-review", "misc"}},
 		{ID: "tag-b", Status: "todo", Priority: "normal", Type: "task", Title: "Bravo", Tags: []string{"misc"}},
 		{ID: "tag-c", Status: "in-progress", Priority: "normal", Type: "task", Title: "Charlie", Tags: []string{"to-review"}},

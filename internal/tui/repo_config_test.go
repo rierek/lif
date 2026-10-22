@@ -13,7 +13,19 @@ import (
 	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
 	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
 )
+
+// applyDirConfig makes the config found at dir the active one, the way the TUI
+// does for an opened store.
+func applyDirConfig(t *testing.T, dir string) {
+	t.Helper()
+	cfg, err := config.LoadFromDirectory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyRepoConfig(cfg)
+}
 
 func useCustomRepoConfig(t *testing.T) {
 	t.Helper()
@@ -22,8 +34,8 @@ func useCustomRepoConfig(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".lif.yml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	applyRepoConfig(dir)
-	t.Cleanup(func() { applyRepoConfig(t.TempDir()) })
+	applyDirConfig(t, dir)
+	t.Cleanup(func() { applyRepoConfig(nil) })
 }
 
 func TestStatusMenuOffersConfiguredStatuses(t *testing.T) {
@@ -66,7 +78,7 @@ func TestConfiguredColoursOverrideBuiltinPalette(t *testing.T) {
 		t.Errorf("StatusColor(todo) = %v, want built-in %v", got, theme.Green)
 	}
 	// A repo switch to a repo without config drops the overrides.
-	applyRepoConfig(t.TempDir())
+	applyDirConfig(t, t.TempDir())
 	if got := theme.StatusColor("review"); got != theme.Subtext {
 		t.Errorf("StatusColor(review) after switch = %v, want fallback %v", got, theme.Subtext)
 	}

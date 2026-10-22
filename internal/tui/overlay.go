@@ -18,7 +18,7 @@ import (
 // uses theme.Base as background — the padding carries the same color so no
 // terminal-default stripe appears (otherwise a form footer would look
 // perforated).
-var overlayPad = lipgloss.NewStyle().Background(theme.Base)
+func overlayPad() lipgloss.Style { return lipgloss.NewStyle().Background(theme.Base) }
 
 // canvasLines normalizes bg into a gapless tw×th rectangle with theme.Base
 // background (devd DD2-216): every cell the overlay doesn't cover itself —
@@ -42,7 +42,7 @@ func canvasLines(bg string, tw, th int) []string {
 			l = lines[i]
 		}
 		if pad := tw - ansi.StringWidth(l); pad > 0 {
-			l += overlayPad.Render(strings.Repeat(" ", pad))
+			l += overlayPad().Render(strings.Repeat(" ", pad))
 		}
 		out = append(out, l)
 	}
@@ -141,7 +141,7 @@ func placeCompose(bgLines, fgLines []string, x, y int) string {
 			continue
 		}
 		if pad := fgW - ansi.StringWidth(fl); pad > 0 {
-			fl += overlayPad.Render(strings.Repeat(" ", pad))
+			fl += overlayPad().Render(strings.Repeat(" ", pad))
 		}
 		bgLines[row] = spliceLine(bgLines[row], fl, x, fgW)
 	}

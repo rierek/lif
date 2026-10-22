@@ -430,6 +430,10 @@ func TestTabTogglesDetailFocusAndPaneAccent(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 	mauve := fgEscape(theme.Mauve)
+	// Configured type colours (milestone = mauve) would put Mauve into the
+	// detail pane too; only the border accent may carry it here.
+	theme.SetConfiguredColors(nil, nil, nil)
+	t.Cleanup(func() { applyRepoConfig(nil) })
 
 	m := fixtureModel(t, fixtureBeans())
 	m.width, m.height = 80, 24

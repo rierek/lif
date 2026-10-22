@@ -268,7 +268,7 @@ func filterChipValue(v string) string {
 	if v == "" {
 		return theme.Muted.Render("(any)")
 	}
-	return filterBarActive.Render(v)
+	return filterBarActive().Render(v)
 }
 
 // pickerFilterStrip renders the four-chip Type/Status/Priority/Tags row at

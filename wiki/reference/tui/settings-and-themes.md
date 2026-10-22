@@ -48,7 +48,7 @@ Quote the accent. Without quotes `#f5a97f` is a YAML comment and the value is em
 
 ## Themes
 
-`display.theme` in `.lif.yml` (`latte`, `frappe`, `macchiato`, `mocha`; default `mocha`) colors the CLI output. It has **no effect in the TUI**: the TUI uses a fixed dark palette (Catppuccin Macchiato) and assumes a dark background, so a light theme is not supported. The `color` of a status, type or priority in `.lif.yml` does apply, and so does the TUI setting `theme.accent`. `lif check` still reports an unknown `display.theme`.
+`display.theme` in `.lif.yml` (`latte`, `frappe`, `macchiato`, `mocha`; default `mocha`) sets the palette of the CLI output and of the TUI. The TUI follows the flavour, including the light `latte`. The `color` and the short letter of a status, type or priority in `.lif.yml` apply as well, and so does the TUI setting `theme.accent`. `display.max_width` has no effect in the TUI, which fills the terminal. `lif check` still reports an unknown `display.theme`.
 
 Custom themes do not exist.
 

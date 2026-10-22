@@ -118,38 +118,22 @@ func ActiveConfig() *config.Config {
 	return config.Default()
 }
 
-// ConfiguredColors returns the colour specs (tone name or hex) the project
-// config sets explicitly, keyed by status/type/priority name: an entry counts
-// when its colour differs from the built-in one. Nothing is returned for a
-// repo without a config.
+// ConfiguredColors returns the colour specs (tone name or hex) the active
+// config sets, keyed by status/type/priority name: every entry of the merged
+// lists with a non-empty colour. Without a config the built-in defaults apply.
 func ConfiguredColors() (status, typ, priority map[string]string) {
-	cfg := cur.Load().cfg
-	if cfg == nil {
-		return nil, nil, nil
-	}
+	cfg := ActiveConfig()
 	status, typ, priority = map[string]string{}, map[string]string{}, map[string]string{}
-	builtin := map[string]string{}
 	set := func(dst map[string]string, name, color string) {
-		if color != "" && color != builtin[name] {
+		if color != "" {
 			dst[name] = color
 		}
-	}
-	for _, v := range config.DefaultStatuses {
-		builtin[v.Name] = v.Color
 	}
 	for _, v := range cfg.StatusList() {
 		set(status, v.Name, v.Color)
 	}
-	clear(builtin)
-	for _, v := range config.DefaultTypes {
-		builtin[v.Name] = v.Color
-	}
 	for _, v := range cfg.TypeList() {
 		set(typ, v.Name, v.Color)
-	}
-	clear(builtin)
-	for _, v := range config.DefaultPriorities {
-		builtin[v.Name] = v.Color
 	}
 	for _, v := range cfg.PriorityList() {
 		set(priority, v.Name, v.Color)

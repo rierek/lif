@@ -190,7 +190,7 @@ const tagManagementMarkerGlyph = "✓"
 // hue from theme.Accent/theme.Dim, which the cursor-bar treatment below
 // already claims for "this row has the cursor" -- reusing Accent here would
 // conflate "defined" with "selected").
-var tagManagementMarkerStyle = lipgloss.NewStyle().Foreground(theme.Green)
+func tagManagementMarkerStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(theme.Green) }
 
 // tagManagementRowText renders one row's plain content to exactly w cells:
 // the PF-12 marker column + a space + the (truncated if needed) name on the
@@ -202,7 +202,7 @@ var tagManagementMarkerStyle = lipgloss.NewStyle().Foreground(theme.Green)
 func tagManagementRowText(r tagRegistryRow, w int) string {
 	marker := " "
 	if r.defined {
-		marker = tagManagementMarkerStyle.Render(tagManagementMarkerGlyph)
+		marker = tagManagementMarkerStyle().Render(tagManagementMarkerGlyph)
 	}
 	count := theme.Muted.Render(strconv.Itoa(r.count))
 	nameW := w - lipgloss.Width(marker) - 1 - lipgloss.Width(count) - 1

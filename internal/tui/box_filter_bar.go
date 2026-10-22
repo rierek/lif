@@ -22,7 +22,7 @@ import (
 // filterBarActive is the D08 "gesetzter Filter = Peach" salience style —
 // local to this file since no shared theme.PeachStyle exists yet (only
 // theme.Chevron pins Peach to a specific glyph use, box_dropdown.go).
-var filterBarActive = lipgloss.NewStyle().Foreground(theme.Peach)
+func filterBarActive() lipgloss.Style { return lipgloss.NewStyle().Foreground(theme.Peach) }
 
 // filterBarHeight is filterBar's fixed rendered height: gridRow's four
 // dropdownBox cells are always exactly 3 lines tall (top border/value/bottom
@@ -41,7 +41,7 @@ const filterBarHeight = 3
 func (m model) filterBar(width int) string {
 	chip := func(mp map[string]bool) string {
 		if len(mp) > 0 {
-			return filterBarActive.Render(joinFilterKeys(mp))
+			return filterBarActive().Render(joinFilterKeys(mp))
 		}
 		return theme.Muted.Render("(any)")
 	}

@@ -2,9 +2,9 @@ package tui
 
 // app.go — model constructor + program runner (T8 App-Shell keystone), ported
 // architecture-wise from devd (~/dev/DeveloperDashboard/apps/
-// cli-go/internal/tui/app.go): AltScreen + mouse cell-motion, dark-background
-// forced (huh/lipgloss adaptive-color detection over ssh/tmux is unreliable —
-// this app is always dark, see devd DD2-24).
+// cli-go/internal/tui/app.go): AltScreen + mouse cell-motion, background
+// darkness forced from display.theme (huh/lipgloss adaptive-color detection
+// over ssh/tmux is unreliable, see devd DD2-24; applyRepoConfig).
 
 import (
 	"errors"
@@ -13,6 +13,7 @@ import (
 	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
 	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/internal/uiconfig"
 	pkgconfig "github.com/rierek/lif/pkg/config"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,14 +39,14 @@ var errNilStore = errors.New("lif tui: nil store (Run() must open a data.Store b
 //
 // AltScreen + mouse (wheel/click) are enabled from the start.
 func Run(store *data.Store, repoDir string, settings config.Settings) error {
-	lipgloss.SetHasDarkBackground(true)
+	configuredEditor = settings.Editor // design decision c: Settings > $VISUAL > $EDITOR > vi (editor.go)
+	configuredAccent = settings.Theme.Accent
 
-	configuredEditor = settings.Editor     // design decision c: Settings > $VISUAL > $EDITOR > vi (editor.go)
-	theme.SetAccent(settings.Theme.Accent) // No-Op on empty/invalid (theme.go's own guard) -- built-in Mauve stays by default
-
+	var cfg *pkgconfig.Config // nil in the Lobby: built-in defaults
 	if store != nil {
-		applyRepoConfig(store.Config()) // the project's value lists and colours, before the first index is built
+		cfg = store.Config()
 	}
+	applyRepoConfig(cfg) // theme, value lists and colours, before the first index is built
 	m := newModel(store, repoDir)
 	m.settings = settings
 	if store == nil {
@@ -82,11 +83,21 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(loadCmd(m.store), waitForStoreEvents(m.storeEvents))
 }
 
+// configuredAccent is Settings.Theme.Accent; applyRepoConfig re-applies it
+// after every theme change, since theme.Apply resets the accent styles.
+var configuredAccent string
+
 // applyRepoConfig makes cfg the TUI's source for status/type/priority lists,
-// type ranks and explicitly configured colours. display.theme is NOT applied
-// yet: the TUI palette is fixed (dark, Catppuccin Macchiato).
+// type ranks, glyphs, colours and the display.theme palette. cfg == nil means
+// the built-in defaults (Lobby).
 func applyRepoConfig(cfg *pkgconfig.Config) {
 	data.SetConfig(cfg)
+	uiconfig.Apply(cfg)
+	theme.Apply(ui.ActiveTheme())
+	lipgloss.SetHasDarkBackground(ui.ActiveTheme().Name != "latte")
+	if configuredAccent != "" {
+		theme.SetAccent(configuredAccent)
+	}
 	resolve := func(specs map[string]string) map[string]lipgloss.Color {
 		out := make(map[string]lipgloss.Color, len(specs))
 		for name, spec := range specs {

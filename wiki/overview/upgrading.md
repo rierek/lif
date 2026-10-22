@@ -36,6 +36,7 @@ Each entry lists the old form, the new form and the migration step. Work through
 | --- | --- | --- |
 | a page on any local port (`http://localhost:*`, `http://127.0.0.1:*`) could change items and open the terminal | only the server's own origin may; another local port gets 403 | Name the dev server of the UI: `--cors-origin http://localhost:5173` (or `server.cors_origins`). A port wildcard brings the old behaviour back and the risk with it: any local page can run project hooks and open a shell. |
 | `--cors-origin` replaced the default list | `--cors-origin` adds to the server's own origins | Nothing to repeat: `localhost` and `127.0.0.1` on the server's port always work. |
+| `--cors-origin '*'` let a page on any local port send changes and open the terminal | `*` only sets the CORS header `Access-Control-Allow-Origin: *`, so any page can read answers; only the server's own origin may change items or open the terminal | Name the origins that may change data, for example `--cors-origin http://localhost:5173`. |
 
 ### JSON output and CLI behaviour (0.15)
 

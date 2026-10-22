@@ -622,13 +622,11 @@ func TestServeRemoteTerminalOptIn(t *testing.T) {
 	}
 
 	// The UI the server serves gets the shell; a dev server on another port does not.
-	for _, origin := range []string{"http://" + p.host} {
-		conn, resp, err = p.dialWS(t, "/api/terminal", origin, p.token)
-		if err != nil {
-			t.Fatalf("terminal upgrade with the token from %s: %v (response %v)", origin, err, resp)
-		}
-		conn.CloseNow()
+	origin := "http://" + p.host
+	if conn, resp, err = p.dialWS(t, "/api/terminal", origin, p.token); err != nil {
+		t.Fatalf("terminal upgrade with the token from %s: %v (response %v)", origin, err, resp)
 	}
+	conn.CloseNow()
 	if conn, _, err = p.dialWS(t, "/api/terminal", "http://localhost:5173", p.token); err == nil {
 		conn.CloseNow()
 		t.Error("the terminal upgrade from another local port was accepted")

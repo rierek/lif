@@ -214,7 +214,7 @@ func TestToastBoxWidthFloorOnNarrowTerminal(t *testing.T) {
 // set target.view is applied to m.view before the toast is cleared.
 func TestDismissToastJumpsToTarget(t *testing.T) {
 	m := model{width: 90, height: 24, view: viewBrowseRepo}
-	m, _ = m.showToast(toastInfo, "moved", "", &toastTarget{view: viewBacklog}, false)
+	m, _ = m.showToast(toastInfo, "moved", "", &toastTarget{view: viewReady}, false)
 
 	tm, _ := m.dismissToast()
 	nm, ok := tm.(model)
@@ -224,8 +224,8 @@ func TestDismissToastJumpsToTarget(t *testing.T) {
 	if nm.toast != nil {
 		t.Error("dismissToast must clear the toast")
 	}
-	if nm.view != viewBacklog {
-		t.Errorf("view = %v, want viewBacklog (target adopted)", nm.view)
+	if nm.view != viewReady {
+		t.Errorf("view = %v, want viewReady (target adopted)", nm.view)
 	}
 }
 

@@ -456,12 +456,13 @@ func TestTreeCombinesSearchAndFacetsWithAnd(t *testing.T) {
 		{ID: "b", Title: "Alpha Bug", Status: "todo", Type: "bug", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)
+	m.expanded[unscheduledRootID] = true        // parentless items sit under the Unscheduled root
 	m = setSearchQuery(m, "alpha")              // matches both by title
 	m.filterType = map[string]bool{"bug": true} // excludes "a"
 
 	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{"b"}) {
-		t.Fatalf("combined search+facet nodes = %v, want [b] (AND-combined)", got)
+	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "b"}) {
+		t.Fatalf("combined search+facet nodes = %v, want [unscheduled b] (AND-combined)", got)
 	}
 }
 

@@ -44,7 +44,7 @@ type keyMap struct {
 	Help         keybind.Binding // ? — help overlay
 	Palette      keybind.Binding // K — Command-Center
 	Picker       keybind.Binding // p — repo-picker
-	Backlog      keybind.Binding // b — Backlog
+	Ready        keybind.Binding // b — Ready
 	Search       keybind.Binding // / — search
 	Filter       keybind.Binding // f — facet filter
 	Yank         keybind.Binding // y — copy context (OSC52 + native)
@@ -53,7 +53,7 @@ type keyMap struct {
 
 	FilterClear keybind.Binding // X — reset filters
 	Toggle      keybind.Binding // space/x — toggle facet checkbox (E2 Task 4, bean bt-9ldr)
-	Sort        keybind.Binding // S — cycle Backlog sort mode (E2 Task 5, bean bt-gzu6)
+	Sort        keybind.Binding // S — cycle Ready sort mode (E2 Task 5, bean bt-gzu6)
 	FlatView    keybind.Binding // G — Nested/Flat Browse toggle (jira-style-ui experiment S5, D07 uppercase = view/global)
 
 	// Node-focused (act on the focused tree/list node).
@@ -121,7 +121,7 @@ type keyMap struct {
 	// exclusive display/dispatch context: viewTagManagement is a
 	// FULL-CAPTURE page (D06, view_tag_management.go), so keyNodeAction's
 	// own "e" case (which fires Editor) is structurally unreachable while
-	// this page is open -- mirrors the established Backlog "S" precedent
+	// this page is open -- mirrors the established Ready "S" precedent
 	// (same physical key, different view-local meaning, no functional
 	// collision). A SEPARATE keybind.Binding (not a reuse of Editor)
 	// because TestHelpGroupsCoverEveryBindingExactlyOnce identifies
@@ -164,7 +164,7 @@ func newKeyMap() keyMap {
 		// 80 columns.
 		Palette: keybind.NewBinding(keybind.WithKeys("K"), keybind.WithHelp("K", "commands")),
 		Picker:  keybind.NewBinding(keybind.WithKeys("p"), keybind.WithHelp("p", "repos")),
-		Backlog: keybind.NewBinding(keybind.WithKeys("b"), keybind.WithHelp("b", "Backlog")),
+		Ready:   keybind.NewBinding(keybind.WithKeys("b"), keybind.WithHelp("b", "Ready")),
 		Search:  keybind.NewBinding(keybind.WithKeys("/"), keybind.WithHelp("/", "search")),
 		Filter:  keybind.NewBinding(keybind.WithKeys("f"), keybind.WithHelp("f", "Filter")),
 		Yank:    keybind.NewBinding(keybind.WithKeys("y"), keybind.WithHelp("y", "Yank")),
@@ -223,7 +223,7 @@ type helpGroup struct {
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
 		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.FocusIn, k.FocusOut, k.Fullscreen}},
-		{"Views & Global", []keybind.Binding{k.Backlog, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView, k.DetailToggle}},
+		{"Views & Global", []keybind.Binding{k.Ready, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView, k.DetailToggle}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are
@@ -252,9 +252,9 @@ func (k keyMap) helpGroups() []helpGroup {
 // dispatched at the same global handleKey checkpoint as Palette/Picker/
 // Quit -- dispatch POSITION and display BUCKET are two different axes (see
 // bt-t1uy's own T7 notes): FocusIn/FocusOut stay footer/view-local
-// (browseRepoLocalBindings/backlogLocalBindings, now FIRST per Q06's
+// (browseRepoLocalBindings/readyLocalBindings, now FIRST per Q06's
 // ordering). Every other global-checkpoint key (Create/Status/TagAssign/
-// Assign/Blocking/Delete/Editor/Yank/Backlog/Search/Filter/FilterClear/
+// Assign/Blocking/Delete/Editor/Yank/Ready/Search/Filter/FilterClear/
 // Section) is the same -- reachable from anywhere, but shown per-view in
 // the footer, not here (TestNoDuplicateBindingBetweenGlobalAndAnyLocalHint
 // List guards the two footer lists against ever re-adding one of THESE 4).

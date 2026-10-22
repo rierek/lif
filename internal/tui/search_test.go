@@ -63,8 +63,8 @@ func TestLocalSearchPreservesAncestorPathOfMatch(t *testing.T) {
 	m = setSearchQuery(m, "findme")
 
 	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{"root-1", "leaf-1"}) {
-		t.Fatalf("filtered nodes = %v, want [root-1 leaf-1] (root-1 must stay visible as leaf-1's expanded ancestor even though root-1's own title doesn't match)", got)
+	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "root-1", "leaf-1"}) {
+		t.Fatalf("filtered nodes = %v, want [unscheduled root-1 leaf-1] (root-1 must stay visible as leaf-1's expanded ancestor even though root-1's own title doesn't match)", got)
 	}
 }
 
@@ -83,13 +83,13 @@ func TestLocalSearchCollapsedAncestorHidesMatchingDescendant(t *testing.T) {
 	m = setSearchQuery(m, "findme")
 
 	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{"root-1"}) {
-		t.Fatalf("filtered nodes = %v, want [root-1] only -- collapsed ancestor must hide the matching descendant, never auto-expand", got)
+	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "root-1"}) {
+		t.Fatalf("filtered nodes = %v, want [unscheduled root-1] only -- collapsed ancestor must hide the matching descendant, never auto-expand", got)
 	}
 }
 
 // TestLocalSearchOrphanBucketOmittedWhenNoMatch guards that the synthetic
-// "(orphaned)" root goes through the SAME predicate as the real tree: with
+// "Not on roadmap" root goes through the SAME predicate as the real tree: with
 // zero matching orphans/cycle-beans, it must be omitted entirely (not shown
 // as an empty collapsed bucket).
 func TestLocalSearchOrphanBucketOmittedWhenNoMatch(t *testing.T) {
@@ -97,25 +97,25 @@ func TestLocalSearchOrphanBucketOmittedWhenNoMatch(t *testing.T) {
 		ID: "orph-1", Title: "Orphaned Task", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	m = setSearchQuery(m, "zzz-no-match-anywhere")
 
 	for _, n := range m.visibleNodes() {
-		if n.orphan {
-			t.Fatal("orphan root must be omitted entirely when no orphan/cycle bean matches the query")
+		if n.section != "" {
+			t.Fatal("Not-on-roadmap root must be omitted entirely when no orphan/cycle bean matches the query")
 		}
 	}
 }
 
 // TestLocalSearchOrphanBucketShowsMatchingOrphan is the positive
 // counterpart: a matching orphan renders exactly like today, under the
-// (still expanded) orphan root.
+// (still expanded) Not-on-roadmap root.
 func TestLocalSearchOrphanBucketShowsMatchingOrphan(t *testing.T) {
 	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Findable Orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	m = setSearchQuery(m, "findable")
 
 	found := false
@@ -125,7 +125,7 @@ func TestLocalSearchOrphanBucketShowsMatchingOrphan(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("matching orphan must remain visible under the (still expanded) orphan root")
+		t.Fatal("matching orphan must remain visible under the (still expanded) Not-on-roadmap root")
 	}
 }
 

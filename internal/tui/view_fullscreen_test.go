@@ -4,7 +4,7 @@ package tui
 // `v` (design-spec.md §15 "F01 — Vollbild-Navigation", bean bt-13l7, E9 Task
 // 7). OHNE den History-Stack (Task 8, bean bt-1vbp). Reuses fixtureBeans/
 // fixtureBeansWithBlocking/fixtureModel/step/keyMsg/runeMsg (update_test.go)
-// and backlogBeans (view_browse_backlog_test.go) -- same package.
+// and readyBeans (view_browse_ready_test.go) -- same package.
 //
 // focusedBean()/activateDetailField()/keyDetailFocus()'s own fullscreenDetail
 // integration is covered in update_test.go instead (co-located with those
@@ -22,14 +22,14 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// fullscreenBacklogBeans is a small parentless, Backlog-eligible fixture
+// fullscreenReadyBeans is a small parentless, Ready-eligible fixture
 // carrying a Blocking relation between its two members -- used to exercise
-// F01's Backlog symmetry (a Relations-Sprung inside fullscreenDetail while
-// m.view == viewBacklog, and the esc-exit's backlogList cursor sync).
-func fullscreenBacklogBeans() []*item.Item {
+// F01's Ready symmetry (a Relations-Sprung inside fullscreenDetail while
+// m.view == viewReady, and the esc-exit's readyList cursor sync).
+func fullscreenReadyBeans() []*item.Item {
 	return []*item.Item{
-		{ID: "fb-a", Title: "Backlog A", Status: "todo", Type: "task", Priority: "normal", Blocking: []string{"fb-b"}},
-		{ID: "fb-b", Title: "Backlog B", Status: "todo", Type: "task", Priority: "normal"},
+		{ID: "fb-a", Title: "Ready A", Status: "todo", Type: "task", Priority: "normal", Blocking: []string{"fb-b"}},
+		{ID: "fb-b", Title: "Ready B", Status: "todo", Type: "task", Priority: "normal"},
 	}
 }
 
@@ -85,7 +85,7 @@ func TestKeyFullscreenNoOpWhenAlreadyFullscreenList(t *testing.T) {
 
 // TestKeyFullscreenNoOpWhenAlreadyFullscreenDetail mirrors the List case for
 // fullscreenDetail -- v must not re-target a DIFFERENT bean even if the
-// Tree/Backlog cursor has since moved.
+// Tree/Ready cursor has since moved.
 func TestKeyFullscreenNoOpWhenAlreadyFullscreenDetail(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.fullscreen = fullscreenDetail
@@ -149,18 +149,18 @@ func TestKeyFullscreenEnterOnListEntersDetailMode(t *testing.T) {
 	}
 }
 
-// TestKeyFullscreenEnterOnListEntersDetailModeBacklog is
-// TestKeyFullscreenEnterOnListEntersDetailMode's Backlog mirror (Akzeptanz:
-// "Symmetrisch für Browse (Tree) UND Backlog").
-func TestKeyFullscreenEnterOnListEntersDetailModeBacklog(t *testing.T) {
-	m := fixtureModel(t, fullscreenBacklogBeans())
-	m.view = viewBacklog
-	vis := m.backlogVisible()
+// TestKeyFullscreenEnterOnListEntersDetailModeReady is
+// TestKeyFullscreenEnterOnListEntersDetailMode's Ready mirror (Akzeptanz:
+// "Symmetrisch für Browse (Tree) UND Ready").
+func TestKeyFullscreenEnterOnListEntersDetailModeReady(t *testing.T) {
+	m := readyAllModel(t, fullscreenReadyBeans())
+	m.view = viewReady
+	vis := m.readyVisible()
 	if len(vis) == 0 {
-		t.Fatal("setup: need at least 1 backlog-visible bean")
+		t.Fatal("setup: need at least 1 ready-visible bean")
 	}
-	m.backlogList.setLen(len(vis))
-	m.backlogList.cursor = 0
+	m.readyList.setLen(len(vis))
+	m.readyList.cursor = 0
 	want := vis[0].ID
 	m.fullscreen = fullscreenList
 
@@ -172,8 +172,8 @@ func TestKeyFullscreenEnterOnListEntersDetailModeBacklog(t *testing.T) {
 	if m.fullscreenBeanID != want {
 		t.Fatalf("fullscreenBeanID = %q, want %q", m.fullscreenBeanID, want)
 	}
-	if m.view != viewBacklog {
-		t.Fatalf("view = %v, want unchanged viewBacklog (F01 never changes m.view)", m.view)
+	if m.view != viewReady {
+		t.Fatalf("view = %v, want unchanged viewReady (F01 never changes m.view)", m.view)
 	}
 }
 
@@ -182,14 +182,14 @@ func TestKeyFullscreenEnterOnListEntersDetailModeBacklog(t *testing.T) {
 // enter fullscreenDetail with an empty target. Needs a REAL dangling-parent
 // bean in the fixture (mirrors TestKeyDetailFocusOnOrphanRootExitsGracefully,
 // above) -- otherwise flattenTree never emits the synthetic "(orphaned)" root
-// node at all, and m.cursorID=orphanRootID would silently resolve to
+// node at all, and m.cursorID=notOnRoadmapRootID would silently resolve to
 // cursorPos's no-match fallback (index 0, a REAL bean) instead.
 func TestKeyFullscreenEnterOnEmptyListIsNoOp(t *testing.T) {
 	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 	m.fullscreen = fullscreenList
 
 	m = step(t, m, keyMsg(tea.KeyEnter))
@@ -222,23 +222,23 @@ func TestKeyFullscreenEscExitsListModeToSplitView(t *testing.T) {
 	}
 }
 
-// TestKeyFullscreenEscExitsListModeToSplitViewBacklog is the Backlog mirror.
-func TestKeyFullscreenEscExitsListModeToSplitViewBacklog(t *testing.T) {
-	m := fixtureModel(t, backlogBeans())
-	m.view = viewBacklog
+// TestKeyFullscreenEscExitsListModeToSplitViewReady is the Ready mirror.
+func TestKeyFullscreenEscExitsListModeToSplitViewReady(t *testing.T) {
+	m := readyBeansModel(t)
+	m.view = viewReady
 	m.fullscreen = fullscreenList
-	m.backlogList.cursor = 1
+	m.readyList.cursor = 1
 
 	m = step(t, m, keyMsg(tea.KeyEsc))
 
 	if m.fullscreen != fullscreenNone {
 		t.Fatalf("fullscreen = %v, want fullscreenNone", m.fullscreen)
 	}
-	if m.view != viewBacklog {
-		t.Fatalf("view = %v, want unchanged viewBacklog", m.view)
+	if m.view != viewReady {
+		t.Fatalf("view = %v, want unchanged viewReady", m.view)
 	}
-	if m.backlogList.cursor != 1 {
-		t.Fatalf("backlogList.cursor = %d, want unchanged 1", m.backlogList.cursor)
+	if m.readyList.cursor != 1 {
+		t.Fatalf("readyList.cursor = %d, want unchanged 1", m.readyList.cursor)
 	}
 }
 
@@ -305,7 +305,7 @@ func TestRenderFullscreenBodyDetailUsesFullPaneWidth(t *testing.T) {
 // broke the outer frame in a real terminal (the bottom border wrapped onto
 // its own line). Render-grounded at the FULL m.View() level, both
 // fullscreen flavors, so a future regression at either call site (Tree OR
-// Backlog) is caught the same way this one was.
+// Ready) is caught the same way this one was.
 func TestViewBrowseRepoFullscreenFitsOuterFrame(t *testing.T) {
 	for _, fs := range []fullscreenMode{fullscreenList, fullscreenDetail} {
 		m := fixtureModel(t, fixtureBeans())
@@ -416,18 +416,18 @@ func TestFullscreenRecomputesGeometryOnResize(t *testing.T) {
 	}
 }
 
-// TestViewBacklogFullscreenFitsOuterFrame is the Backlog mirror.
-func TestViewBacklogFullscreenFitsOuterFrame(t *testing.T) {
+// TestViewReadyFullscreenFitsOuterFrame is the Ready mirror.
+func TestViewReadyFullscreenFitsOuterFrame(t *testing.T) {
 	for _, fs := range []fullscreenMode{fullscreenList, fullscreenDetail} {
-		m := fixtureModel(t, backlogBeans())
-		m.view = viewBacklog
+		m := readyBeansModel(t)
+		m.view = viewReady
 		m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 24})
-		vis := m.backlogVisible()
+		vis := m.readyVisible()
 		if len(vis) == 0 {
-			t.Fatal("setup: need at least 1 backlog-visible bean")
+			t.Fatal("setup: need at least 1 ready-visible bean")
 		}
-		m.backlogList.setLen(len(vis))
-		m.backlogList.cursor = 0
+		m.readyList.setLen(len(vis))
+		m.readyList.cursor = 0
 		m.fullscreen = fs
 		m.fullscreenBeanID = vis[0].ID
 

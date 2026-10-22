@@ -68,14 +68,14 @@ func TestBrowseRepoChromeFooterShowsFocusInFocusOut(t *testing.T) {
 // TestBrowseRepoChromeFooterMatchesQ06List guards Q06's finale, PO-verbatim
 // Footer-Liste (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc): browseRepoLocalBindings()
 // renders EXACTLY "tab focus in · shift+tab focus out · / search · f Filter
-// · s Status · c Create · d Delete · e Edit · b Backlog · t Tags · y Yank ·
+// · s Status · c Create · d Delete · e Edit · b Ready · t Tags · y Yank ·
 // a Parent · r Relations" -- Navigation-Keys (Up/Down/Left/Right) are
 // entirely gone.
 func TestBrowseRepoChromeFooterMatchesQ06List(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	_, localKeys := m.browseRepoChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · b Backlog · y Yank · r Relations · v fullscreen · D toggle detail"
+	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · b Ready · y Yank · r Relations · v fullscreen · D toggle detail"
 	if plain != want {
 		t.Errorf("browseRepoChrome footer = %q, want exactly %q", plain, want)
 	}
@@ -107,10 +107,10 @@ func TestBrowseRepoChromeFooterIsContextSensitiveOnFilterOpen(t *testing.T) {
 }
 
 // --- treeSearchLine sortSuffix (D02, design-spec.md §15 PF-16, bean
-// bt-ntoz/bt-d8kc): the Backlog-Sort-Indicator. treeSearchLine gained a
+// bt-ntoz/bt-d8kc): the Ready-Sort-Indicator. treeSearchLine gained a
 // second `sortSuffix string` parameter -- Tree's own call site
-// (viewBrowseRepo) always passes "" (No-Op guarantee below), Backlog's call
-// site (viewBacklog) passes "sort "+backlogSortDisplayLabel(m.backlogSort).
+// (viewBrowseRepo) always passes "" (No-Op guarantee below), Ready's call
+// site (viewReady) passes "sort "+readySortDisplayLabel(m.readySort).
 
 // TestTreeSearchLineEmptySuffixUnchanged is the Tree-side No-Op guarantee:
 // an empty sortSuffix must render BYTE-IDENTICAL to the pre-D02 idle hint
@@ -124,12 +124,12 @@ func TestTreeSearchLineEmptySuffixUnchanged(t *testing.T) {
 	}
 }
 
-// TestBacklogSortSuffixShowsAbbreviatedPriority guards the PO's own literal
-// example (bean bt-ntoz Grilling-Nachtrag): idle Backlog search line with a
+// TestReadySortSuffixShowsAbbreviatedPriority guards the PO's own literal
+// example (bean bt-ntoz Grilling-Nachtrag): idle Ready search line with a
 // non-empty sortSuffix renders "⌕ / search · sort prio" (ANSI-stripped).
-func TestBacklogSortSuffixShowsAbbreviatedPriority(t *testing.T) {
+func TestReadySortSuffixShowsAbbreviatedPriority(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	got := m.treeSearchLine(40, "sort "+backlogSortDisplayLabel("priority"))
+	got := m.treeSearchLine(40, "sort "+readySortDisplayLabel("priority"))
 	plain := ansi.Strip(got)
 	want := "⌕ / search · sort prio"
 	if plain != want {

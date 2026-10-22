@@ -10,7 +10,7 @@ package tui
 // rework). This file pins the render-side half of the Akzeptanz ("untere
 // reservierte Zeile entfernt [Fehler-Anbindung], Toast ist der einzige
 // sichtbare Kanal") across all three top-level views that call statusBar
-// directly (viewBrowseRepo/viewBacklog/viewTagManagement) plus Chrome
+// directly (viewBrowseRepo/viewReady/viewTagManagement) plus Chrome
 // itself. The Update-side half (the seven ex-silent m.err-only sites now
 // also firing a Toast) is covered per-site in each of their own owning
 // _test.go files (box_confirm_delete_test.go et al.), not duplicated here.
@@ -66,24 +66,24 @@ func TestViewBrowseRepoNeverRendersMErr(t *testing.T) {
 	}
 }
 
-// TestViewBacklogNeverRendersMErr mirrors TestViewBrowseRepoNeverRendersMErr
-// for view_browse_backlog.go's own statusBar call.
-func TestViewBacklogNeverRendersMErr(t *testing.T) {
+// TestViewReadyNeverRendersMErr mirrors TestViewBrowseRepoNeverRendersMErr
+// for view_browse_ready.go's own statusBar call.
+func TestViewReadyNeverRendersMErr(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
 	beans := []*item.Item{
-		{ID: "gld-tsk1", Title: "Backlog-eligible task", Status: "todo", Type: "task", Priority: "normal"},
+		{ID: "gld-tsk1", Title: "Ready-eligible task", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	m := newModel(nil, "/tmp/bt-81f0-scratch-repo")
 	m = step(t, m, beansLoadedMsg{beans: beans})
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.view = viewBacklog
+	m.view = viewReady
 	m.err = errMarker
 
 	out := m.View()
 	if strings.Contains(out, errMarker) {
-		t.Fatalf("viewBacklog's View() output contains m.err (%q), want it never rendered (bt-81f0)", errMarker)
+		t.Fatalf("viewReady's View() output contains m.err (%q), want it never rendered (bt-81f0)", errMarker)
 	}
 }
 

@@ -23,11 +23,12 @@ import (
 // children at all (D01 acceptance box's own "Epic ohne Children" control).
 func placeholderFixtureBeans() []*item.Item {
 	return []*item.Item{
-		{ID: "ep-full", Title: "Epic Full Archive", Status: "in-progress", Type: "epic", Priority: "normal"},
+		{ID: "ms-ph", Title: "Milestone", Status: "in-progress", Type: "milestone", Priority: "normal"},
+		{ID: "ep-full", Title: "Epic Full Archive", Status: "in-progress", Type: "epic", Priority: "normal", Parent: "ms-ph"},
 		{ID: "ch-1", Title: "Child One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
 		{ID: "ch-2", Title: "Child Two", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
 		{ID: "ch-3", Title: "Child Three", Status: "scrapped", Type: "task", Priority: "normal", Parent: "ep-full"},
-		{ID: "ep-empty", Title: "Epic No Children", Status: "in-progress", Type: "epic", Priority: "normal"},
+		{ID: "ep-empty", Title: "Epic No Children", Status: "in-progress", Type: "epic", Priority: "normal", Parent: "ms-ph"},
 	}
 }
 
@@ -36,7 +37,8 @@ func placeholderFixtureBeans() []*item.Item {
 // placeholder (only the Voll-Verdeckungs-Fall gets one).
 func mixFixtureBeans() []*item.Item {
 	return []*item.Item{
-		{ID: "ep-mix", Title: "Epic Mix", Status: "in-progress", Type: "epic", Priority: "normal"},
+		{ID: "ms-ph", Title: "Milestone", Status: "in-progress", Type: "milestone", Priority: "normal"},
+		{ID: "ep-mix", Title: "Epic Mix", Status: "in-progress", Type: "epic", Priority: "normal", Parent: "ms-ph"},
 		{ID: "ch-open", Title: "Child Open", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-mix"},
 		{ID: "ch-done1", Title: "Child Done One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-mix"},
 		{ID: "ch-done2", Title: "Child Done Two", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-mix"},
@@ -72,7 +74,7 @@ func findPlaceholder(nodes []treeNode, parentID string) (treeNode, bool) {
 func TestFilteredBeanNodePlaceholderCases(t *testing.T) {
 	t.Run("full obscuring renders placeholder with correct N", func(t *testing.T) {
 		m := fixtureModel(t, placeholderFixtureBeans())
-		m.expanded["ep-full"] = true
+		m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 
 		nodes := m.visibleNodes()
 		epic, ok := findNode(nodes, "ep-full")
@@ -95,7 +97,7 @@ func TestFilteredBeanNodePlaceholderCases(t *testing.T) {
 
 	t.Run("mix shows open child, no placeholder", func(t *testing.T) {
 		m := fixtureModel(t, mixFixtureBeans())
-		m.expanded["ep-mix"] = true
+		m.expanded["ms-ph"], m.expanded["ep-mix"] = true, true
 
 		nodes := m.visibleNodes()
 		if _, present := findNode(nodes, "ch-open"); !present {
@@ -113,7 +115,7 @@ func TestFilteredBeanNodePlaceholderCases(t *testing.T) {
 
 	t.Run("showArchived=true unchanged, no placeholder", func(t *testing.T) {
 		m := fixtureModel(t, placeholderFixtureBeans())
-		m.expanded["ep-full"] = true
+		m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 		m.showArchived = true
 
 		nodes := m.visibleNodes()
@@ -129,7 +131,8 @@ func TestFilteredBeanNodePlaceholderCases(t *testing.T) {
 
 	t.Run("epic without children unaffected", func(t *testing.T) {
 		m := fixtureModel(t, placeholderFixtureBeans())
-		m.expanded["ep-empty"] = true // expanding a leaf is legal state, must stay a no-op visually
+		// The roadmap places a childless epic under "Not on roadmap", not under its milestone.
+		m.expanded[notOnRoadmapRootID], m.expanded["ep-empty"] = true, true // expanding a leaf is legal state, must stay a no-op visually
 
 		nodes := m.visibleNodes()
 		epic, ok := findNode(nodes, "ep-empty")
@@ -152,7 +155,7 @@ func TestFilteredBeanNodePlaceholderCases(t *testing.T) {
 		// anyway) switches treeActive() true -> archiveOnly=false -> the
 		// pre-existing (placeholder-less) path applies unchanged.
 		m := fixtureModel(t, placeholderFixtureBeans())
-		m.expanded["ep-full"] = true
+		m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 		m = setSearchQuery(m, "Epic Full Archive")
 
 		nodes := m.visibleNodes()
@@ -183,7 +186,7 @@ func TestTreeRowTextPlaceholderPattern(t *testing.T) {
 // real row, never ON the placeholder itself.
 func TestTreeCursorMoveSkipsPlaceholderDownward(t *testing.T) {
 	m := fixtureModel(t, placeholderFixtureBeans())
-	m.expanded["ep-full"] = true
+	m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 	m.cursorID = "ep-full"
 
 	nodes := m.visibleNodes()
@@ -207,17 +210,18 @@ func TestTreeCursorMoveSkipsPlaceholderDownward(t *testing.T) {
 // the tree's final row).
 func TestTreeCursorMoveSkipsPlaceholderUpward(t *testing.T) {
 	beans := []*item.Item{
-		{ID: "ep-full", Title: "Epic Full Archive", Status: "in-progress", Type: "epic", Priority: "normal"},
+		{ID: "ms-ph", Title: "Milestone", Status: "in-progress", Type: "milestone", Priority: "normal"},
+		{ID: "ep-full", Title: "Epic Full Archive", Status: "in-progress", Type: "epic", Priority: "normal", Parent: "ms-ph"},
 		{ID: "ch-1", Title: "Child One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
 	}
 	m := fixtureModel(t, beans)
-	m.expanded["ep-full"] = true
+	m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 
 	nodes := m.visibleNodes()
-	if len(nodes) != 2 || !nodes[1].placeholder {
-		t.Fatalf("setup: nodes = %+v, want exactly [ep-full, placeholder]", nodes)
+	if len(nodes) != 3 || !nodes[2].placeholder {
+		t.Fatalf("setup: nodes = %+v, want exactly [ms-ph, ep-full, placeholder]", nodes)
 	}
-	m.cursorID = nodes[1].id // can't legitimately happen via real navigation, but pins the defensive fallback directly
+	m.cursorID = nodes[2].id // can't legitimately happen via real navigation, but pins the defensive fallback directly
 
 	m2 := m.treeCursorMove(nodes, 1) // delta=+1 (down) runs off the end -> must fall back UPWARD onto ep-full
 	if m2.cursorID != "ep-full" {
@@ -236,7 +240,7 @@ func TestTreeCursorMoveSkipsPlaceholderUpward(t *testing.T) {
 // the non-selectable row, Detail "(no selection)").
 func TestApplyLoadedCursorRestoreSkipsPlaceholderOnEmptyCursorID(t *testing.T) {
 	m := fixtureModel(t, placeholderFixtureBeans())
-	m.expanded["ep-full"] = true
+	m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 
 	m = step(t, m, beansLoadedMsg{beans: []*item.Item{}}) // -> cursorID = ""
 	if m.cursorID != "" {
@@ -262,22 +266,24 @@ func TestApplyLoadedCursorRestoreSkipsPlaceholderOnEmptyCursorID(t *testing.T) {
 // [ep-full, placeholder] -- oldPos 1 hits the placeholder exactly.
 func TestApplyLoadedOldPosFallbackSkipsPlaceholder(t *testing.T) {
 	before := []*item.Item{
-		{ID: "ep-full", Title: "Epic", Status: "in-progress", Type: "epic", Priority: "normal"},
+		{ID: "ms-ph", Title: "Milestone", Status: "in-progress", Type: "milestone", Priority: "normal"},
+		{ID: "ep-full", Title: "Epic", Status: "in-progress", Type: "epic", Priority: "normal", Parent: "ms-ph"},
 		{ID: "tk-open", Title: "Open Task", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-full"},
 	}
 	after := []*item.Item{
-		{ID: "ep-full", Title: "Epic", Status: "in-progress", Type: "epic", Priority: "normal"},
+		{ID: "ms-ph", Title: "Milestone", Status: "in-progress", Type: "milestone", Priority: "normal"},
+		{ID: "ep-full", Title: "Epic", Status: "in-progress", Type: "epic", Priority: "normal", Parent: "ms-ph"},
 		{ID: "ch-1", Title: "Child One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
 	}
 	m := fixtureModel(t, before)
-	m.expanded["ep-full"] = true
+	m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 	m.cursorID = "tk-open"
 
 	m = step(t, m, beansLoadedMsg{beans: after})
 
 	nodes := m.visibleNodes()
-	if len(nodes) != 2 || !nodes[1].placeholder {
-		t.Fatalf("setup: new tree = %+v, want exactly [ep-full, placeholder]", nodes)
+	if len(nodes) != 3 || !nodes[2].placeholder {
+		t.Fatalf("setup: new tree = %+v, want exactly [ms-ph, ep-full, placeholder]", nodes)
 	}
 	if m.cursorID != "ep-full" {
 		t.Fatalf("cursorID = %q, want ep-full (oldPos fallback slid off the placeholder)", m.cursorID)
@@ -291,7 +297,7 @@ func TestApplyLoadedOldPosFallbackSkipsPlaceholder(t *testing.T) {
 // expanded-map mutation.
 func TestKeyTreeExpandKeysNoOpOnPlaceholder(t *testing.T) {
 	m := fixtureModel(t, placeholderFixtureBeans())
-	m.expanded["ep-full"] = true
+	m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 	m.cursorID = "" // cursorPos resolves "" onto the id-less placeholder row
 
 	nodes := m.visibleNodes()
@@ -316,7 +322,7 @@ func TestKeyTreeExpandKeysNoOpOnPlaceholder(t *testing.T) {
 func TestMouseTreeClickOnPlaceholderIsNoOp(t *testing.T) {
 	m := fixtureModel(t, placeholderFixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.expanded["ep-full"] = true
+	m.expanded["ms-ph"], m.expanded["ep-full"] = true, true
 	m.cursorID = "ep-full"
 
 	msg := treeClickAt(t, m, "archiviert")

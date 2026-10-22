@@ -1,7 +1,7 @@
 package tui
 
 // render_shared.go — shared render primitives used by multiple future screens
-// (Tree/Backlog/Detail, T8+). Ported from devd (~/dev/Developer
+// (Tree/Ready/Detail, T8+). Ported from devd (~/dev/Developer
 // Dashboard/apps/cli-go/internal/tui/render_shared.go), stripped to the
 // view-model-free primitives named in the port scope (design-spec.md,
 // implementation-plan »E1 Task 7«): pane/renderPane/borderedPane/tagsInline.

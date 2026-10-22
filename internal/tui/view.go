@@ -77,7 +77,7 @@ func wrapText(s string, w int) string {
 // Anbindung only, no dynamic footer height / layout rework) -- it now
 // carries ONLY the scroll indicator.
 // statusLine is the ONE source for the footer's optional status row across
-// viewBrowseRepo/viewBacklog/viewTagManagement AND their click-geometry
+// viewBrowseRepo/viewReady/viewTagManagement AND their click-geometry
 // reconstructions (clickPaneGeometry, mouse.go) -- bean bt-oqsv: the row is
 // no longer RESERVED, it is rendered only when it carries something, so
 // view and hit-test must agree on "is it there?" from the same expression.
@@ -145,7 +145,7 @@ const nbsp = "\u00a0"
 // replaces the previous plain "key:desc" colon-joined, blanket-Dim-washed
 // rendering. This is the ONE shared render path for BOTH Header Zone 1
 // (globalBindings()) AND Footer Zone 3 (browseRepoLocalBindings/
-// backlogLocalBindings, plus every overlay-local set in footer_context.go)
+// readyLocalBindings, plus every overlay-local set in footer_context.go)
 // -- one function, one optic, "gilt einheitlich" (PO). Bindings without a
 // Help().Key are skipped (devd DD2-175: footer hints are derived from the
 // keymap, single source, can never drift from the real bindings).
@@ -155,7 +155,7 @@ const nbsp = "\u00a0"
 // internal space at all -- footer()'s wordwrap, view.go, could never split
 // them). Replacing ":" with a plain " " reintroduced a real breakable
 // space, so a narrow-terminal wrap could orphan a key alone on one line
-// with its own desc starting the next (observed: Backlog footer at 80
+// with its own desc starting the next (observed: Ready footer at 80
 // columns split "S" from "Sort"). Every space WITHIN one binding's own
 // "key desc..." -- between key and desc, AND between a multi-word desc's
 // own words (e.g. FocusIn's "focus in") -- is therefore nbsp, not " ":

@@ -23,7 +23,7 @@ package tui
 //
 // toastGeometry/renderToast compose directly against m.width/m.height,
 // UNCHANGED vs. devd's own (already B01-fixed) source: beans-tui's View
-// functions (viewBrowseRepo/viewBacklog/viewLobby) each build their own full
+// functions (viewBrowseRepo/viewReady/viewLobby) each build their own full
 // frame (w, h := m.width, m.height, outerBorder(..., true)) exactly like
 // devd's fully-composited View()/viewComposite() split does -- no separate
 // termWidth()-style inner-width helper exists here to mis-target against
@@ -54,7 +54,7 @@ const (
 
 // toastTarget addresses, minimally, where a click on the toast jumps to
 // (devd DD2-272 AC4 parity). Only view -- beans-tui has ONE focus resolver
-// (focusedBean(), view-agnostic across Tree/Backlog), so a view switch alone
+// (focusedBean(), view-agnostic across Tree/Ready), so a view switch alone
 // is enough to land the click near the right context; no producer needs a
 // deeper bean/section jump yet.
 type toastTarget struct {

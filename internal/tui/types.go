@@ -9,6 +9,7 @@ package tui
 import (
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/roadmap"
 	"time"
 
 	"github.com/rierek/lif/internal/tui/config"
@@ -20,14 +21,14 @@ import (
 )
 
 // viewID enumerates the top-level screens. T8 ships exactly one (the Browse
-// Primat-View, design-spec.md §6 V2); later epics add Backlog/Detail/
+// Primat-View, design-spec.md §6 V2); later epics add Ready/Detail/
 // Command-Center/Review/Forms/Overlays as siblings — the switch in View()
 // (view_browse_repo.go) grows one case per view, never a branch here.
 type viewID int
 
 const (
 	viewBrowseRepo viewID = iota
-	viewBacklog           // V3 Backlog (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3)
+	viewReady             // V3 Ready (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3)
 	viewLobby             // V1 Lobby/Repo-Picker (E5 Task 6, bean bt-zhwl, design-spec.md §6 V1)
 	// viewTagManagement (E10 Task 2, bean bt-r92i, epic bt-362n D05): the
 	// Tag-Management page -- ALWAYS appended LAST (never resort the values
@@ -35,14 +36,19 @@ const (
 	viewTagManagement
 )
 
-// orphanRootID is the synthetic node ID for the "(orphaned)" root that
-// collects every bean whose parent field does not resolve to a known bean
-// (MANDATORY orphan rule, bean bt-7jr8 / T3-review Q01: dangling parents are
-// beans-legal — `.md` is freely editable and `beans check` only reports
-// broken_links — so the tree must show them, never silently drop them). The
-// leading NUL byte guarantees this can never collide with a real beans ID
-// (beans IDs are `<prefix>-<n-chars>`, never containing \x00).
-const orphanRootID = "\x00orphans"
+// Synthetic root node IDs below the roadmap tree. "Unscheduled" holds the
+// roadmap's unscheduled containers and leaves; "Not on roadmap" holds every
+// item the roadmap places nowhere (childless milestones, types with
+// `roadmap: false`, invalid parents, parent cycles) as flat rows -- dropped
+// items must never be silently invisible. The leading NUL byte guarantees
+// these can never collide with a real item ID.
+const (
+	unscheduledRootID  = "\x00unscheduled"
+	notOnRoadmapRootID = "\x00notonroadmap"
+
+	sectionUnscheduled  = "Unscheduled"
+	sectionNotOnRoadmap = "Not on roadmap"
+)
 
 // overlayID enumerates E3's node-action overlays (Value-Menü, Tag-/Parent-/
 // Blocking-Picker, Create-/Delete-Confirm) -- mutually exclusive by
@@ -74,7 +80,7 @@ const (
 // (tagPickerBox) use theme.Header.Render plus a leading "▸ " glyph on an
 // otherwise PLAIN value/tag string. box_picker_parent.go (parentPickerBox)
 // and box_picker_blocking.go (blockingPickerBox) instead use the D08 cursor
-// treatment shared with the Tree/Backlog panes (ansi.Strip + a whole-line
+// treatment shared with the Tree/Ready panes (ansi.Strip + a whole-line
 // theme.Accent.Render("▌"+plain) wrap) -- because THEIR rows are
 // relationRow-rendered (already carrying their own status-icon/type-icon
 // colors), so a second Header-wrap would clash with the existing per-cell
@@ -115,7 +121,7 @@ type fullscreenMode int
 
 const (
 	fullscreenNone   fullscreenMode = iota
-	fullscreenList                  // Tree ODER Backlog-Liste (je nach m.view), Vollbreite
+	fullscreenList                  // Tree ODER Ready-Liste (je nach m.view), Vollbreite
 	fullscreenDetail                // Detail-Accordion EINES Beans, Vollbreite
 )
 
@@ -134,8 +140,19 @@ type model struct {
 	idx *data.Index
 	err string // rendered in the status line; "" = no error to show
 
-	expanded map[string]bool // node ID (bean ID or orphanRootID) -> expanded
-	cursorID string          // currently selected node's ID (bean ID or orphanRootID)
+	// The tree is the roadmap (roadmap.Build, rebuilt by applyLoaded on every
+	// load): roadmapScheduled = milestone roots, roadmapUnscheduled = the
+	// "Unscheduled" root's nodes, notOnRoadmap = items placed nowhere (flat
+	// rows under the "Not on roadmap" root). treeParent maps a node ID to its
+	// tree parent's ID (synthetic roots included) for expandAncestorsOf.
+	// readyIDs is the `lif list --ready` set the Ready view shows.
+	roadmapScheduled, roadmapUnscheduled []*roadmap.Node
+	notOnRoadmap                         []*item.Item
+	treeParent                           map[string]string
+	readyIDs                             map[string]bool
+
+	expanded map[string]bool // node ID (item ID or a synthetic root ID) -> expanded
+	cursorID string          // currently selected node's ID (item ID or a synthetic root ID)
 
 	// detailFocus is the Tree<->Detail focus toggle (bean bt-7jr8 Q01):
 	// view-local `tab`/`shift+tab` handling (toggleRegion), deliberately NOT
@@ -182,7 +199,7 @@ type model struct {
 	searchPrefixRest   string
 
 	// Facetten-Filter `f`/`X` (E2 Task 4, bean bt-9ldr, design-spec.md §6
-	// US-05): ONE shared filter state for Tree (this task) AND Backlog (Task
+	// US-05): ONE shared filter state for Tree (this task) AND Ready (Task
 	// 5 reuses it unchanged, same view-agnostic pattern as focusedBean()).
 	// filterStatus/filterType/filterPriority/filterTag are COPY-ON-WRITE
 	// (I01 doc-stamp above) -- every toggle clones via cloneBoolMap before
@@ -214,29 +231,29 @@ type model struct {
 	filterMenu                                          listState
 	filterTab                                           int
 
-	// Backlog `b` (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3): backlogList
-	// is the Backlog master pane's cursor (index-based, listState -- unlike
-	// the Tree's bean-ID cursorID, the Backlog is a flat, non-hierarchical
-	// list, so an index is sufficient and mirrors devd's own backlogCursor
-	// shape). Kept in sync (setLen) by keyBacklog on every keypress it
-	// handles and by the `b`-open case in keyTree, since backlogVisible()'s
+	// Ready `b` (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3): readyList
+	// is the Ready master pane's cursor (index-based, listState -- unlike
+	// the Tree's bean-ID cursorID, the Ready is a flat, non-hierarchical
+	// list, so an index is sufficient and mirrors devd's own readyCursor
+	// shape). Kept in sync (setLen) by keyReady on every keypress it
+	// handles and by the `b`-open case in keyTree, since readyVisible()'s
 	// LENGTH can change out from under it (search/filter routes through the
 	// SHARED keySearchInput/keyFilterMenu handlers, which know nothing about
-	// backlogList -- view_browse_backlog.go's doc comment has the full
-	// rationale). backlogSort is the active Sort-Toggle `S` mode: ""
-	// (default) leaves idx.Backlog()'s own canonical order in place;
+	// readyList -- view_browse_ready.go's doc comment has the full
+	// rationale). readySort is the active Sort-Toggle `S` mode: ""
+	// (default) leaves the canonical order in place;
 	// "status"/"priority"/"created"/"updated" are the four cycle stops
-	// (nextBacklogSort, view_browse_backlog.go).
-	backlogList listState
-	backlogSort string
+	// (nextReadySort, view_browse_ready.go).
+	readyList listState
+	readySort string
 
 	// Nested/Flat Browse toggle `G` (jira-style-ui experiment S5, D07
 	// uppercase = view/global group): flatView switches the Browse view's
 	// LEFT pane between the Tree (nested, default) and a flat, sorted list
 	// (columns) -- the master-detail split and the Detail pane itself are
-	// UNCHANGED (unlike the full-screen Backlog view, view_browse_backlog.go
+	// UNCHANGED (unlike the full-screen Ready view, view_browse_ready.go
 	// -- flat mode here is still Browse, master-detail stays intact). flatList
-	// is a minimal index-based cursor (listState, mirrors backlogList's own
+	// is a minimal index-based cursor (listState, mirrors readyList's own
 	// shape/rationale) over flatVisible()'s bean slice -- kept deliberately
 	// SEPARATE from the Tree's cursorID rather than reconciled into one
 	// shared cursor: the Tree's bean-ID cursor and a flat index cursor are
@@ -669,7 +686,7 @@ type model struct {
 	// Vollbild `v` (F01 Kernmechanik, E9 Task 7, bean bt-13l7, design-spec.md
 	// §15): fullscreen is ORTHOGONAL to m.view (fullscreenMode doc-stamp
 	// above). fullscreenBeanID is the bean shown in fullscreenDetail --
-	// UNABHÄNGIG vom Tree-/Backlog-Cursor (it only syncs back on esc-exit,
+	// UNABHÄNGIG vom Tree-/Ready-Cursor (it only syncs back on esc-exit,
 	// keyDetailFocus's Back-case).
 	fullscreen       fullscreenMode
 	fullscreenBeanID string
@@ -679,9 +696,9 @@ type model struct {
 	// zuerst, dann freie/in-Verwendung-Tags Count-absteigend), built fresh at
 	// EVERY page-open (openTagManagementPage, D03 -- mirrors openLobby's own
 	// "reload from disk on open" convention). tagMgmtCursor is a plain
-	// listState cursor over that SAME row list (reuse, mirrors backlogList's
+	// listState cursor over that SAME row list (reuse, mirrors readyList's
 	// index-based shape -- the page is a flat, non-hierarchical list, same
-	// rationale as Backlog's own doc-stamp above).
+	// rationale as Ready's own doc-stamp above).
 	tagMgmtRows   []tagRegistryRow
 	tagMgmtCursor listState
 

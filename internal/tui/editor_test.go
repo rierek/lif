@@ -12,7 +12,7 @@ package tui
 // submit -- see applyEditorFinished's doc-stamp, update.go).
 //
 // openBeanEditor's own dispatch (keyNodeAction's e/ctrl+e branch, EVERY
-// entry point: Tree/Backlog/Detail, every section/field level) is covered
+// entry point: Tree/Ready/Detail, every section/field level) is covered
 // end-to-end in update_test.go's TestKeyNodeActionEditorAlwaysOpensBeanEditor
 // (Lessons-Learned Forward-Guard #3: cascades need every entry point tested,
 // not just one) -- this file covers the machinery BELOW that dispatch.

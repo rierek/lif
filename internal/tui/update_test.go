@@ -17,7 +17,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
-	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
 )
 
@@ -39,11 +38,15 @@ func fixtureBeans() []*item.Item {
 // Init()+the real beansLoadedMsg round-trip produces, without a live client).
 // The Detail pane is shown (a real model starts with it hidden, see
 // TestDetailHiddenAtStartAndToggle) so the split-layout tests keep their
-// geometry.
+// geometry. The synthetic "Unscheduled" and "Not on roadmap" roots are
+// expanded (a real model starts collapsed, see
+// TestRoadmapTreeStartsCollapsedAtMilestones) so fixture items outside a
+// milestone are reachable without every test expanding them.
 func fixtureModel(t *testing.T, beans []*item.Item) model {
 	t.Helper()
 	m := step(t, newModel(nil, "/tmp/bt-fixture-repo"), beansLoadedMsg{beans: beans})
 	m.detailHidden = false
+	m.expanded = map[string]bool{unscheduledRootID: true, notOnRoadmapRootID: true}
 	return m
 }
 
@@ -310,8 +313,8 @@ func TestBeansLoadedErrorSurfacesInStatusLine(t *testing.T) {
 
 // TestOrphanShownUnderSyntheticRoot guards the MANDATORY orphan rule (bean
 // bt-7jr8 / T3-review Q01): a bean with an unresolvable parent must appear
-// under the synthetic "(orphaned)" root, never silently dropped, and never
-// leak into the real Roots() top level (its Parent is non-empty).
+// under a synthetic root ("Not on roadmap"), never
+// silently dropped, and never at depth 0 among the milestones.
 func TestOrphanShownUnderSyntheticRoot(t *testing.T) {
 	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Orphaned Task", Status: "todo", Type: "task",
@@ -322,25 +325,19 @@ func TestOrphanShownUnderSyntheticRoot(t *testing.T) {
 	nodes := m.visibleNodes()
 	var orphanRoot *treeNode
 	for i := range nodes {
-		if nodes[i].orphan {
+		if nodes[i].section != "" {
 			orphanRoot = &nodes[i]
 		}
 	}
 	if orphanRoot == nil {
 		t.Fatal("orphan root node ('(orphaned)') missing from the tree -- orphan silently dropped")
 	}
-	if orphanRoot.id != orphanRootID {
-		t.Errorf("orphan root id = %q, want the orphanRootID sentinel", orphanRoot.id)
-	}
-
-	for _, b := range m.idx.Roots() {
-		if b.ID == "orph-1" {
-			t.Fatal("orphaned bean leaked into the real Roots() top level")
-		}
+	if orphanRoot.id != notOnRoadmapRootID {
+		t.Errorf("orphan root id = %q, want the notOnRoadmapRootID sentinel", orphanRoot.id)
 	}
 
 	// Expand the orphan root -> the orphaned bean appears nested under it.
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	nodes = m.visibleNodes()
 	found := false
 	for _, n := range nodes {
@@ -359,7 +356,7 @@ func TestOrphanShownUnderSyntheticRoot(t *testing.T) {
 // TestOrphanBucketUsesCanonicalStatusPriorityTypeTitleOrder guards I03
 // closure (bean bt-9ldr, E2 Task 4): the orphan bucket must sort via
 // data.SortBeans (Status -> Priority -> Type -> Title, the single-source
-// order Index.Children/Roots() already use), NOT the tree package's own
+// order Index.Children already uses), NOT the tree package's own
 // title-only sortByTitleThenID -- the fixture titles are picked so
 // alphabetical-title order and canonical-status order DISAGREE, making the
 // assertion a real discriminator.
@@ -370,7 +367,7 @@ func TestOrphanBucketUsesCanonicalStatusPriorityTypeTitleOrder(t *testing.T) {
 		{ID: "orph-a", Title: "A orphan", Status: "in-progress", Type: "task", Priority: "critical", Parent: "missing"},
 	}
 	m := fixtureModel(t, beans)
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	nodes := m.visibleNodes()
 	// canonical order ranks in-progress before todo -> orph-a (in-progress)
 	// must render before orph-z (todo); orph-a also happens to win
@@ -409,7 +406,7 @@ func TestOrphanBucketUsesCanonicalOrderOverTitle(t *testing.T) {
 	}
 	m := fixtureModel(t, beans)
 	m.showArchived = true
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	nodes := m.visibleNodes()
 	var order []string
 	for _, n := range nodes {
@@ -466,45 +463,36 @@ func TestTabTogglesDetailFocusAndPaneAccent(t *testing.T) {
 }
 
 // TestCycleBeansShowUnderOrphanRoot guards B02: beans trapped in a pure
-// parent cycle (A -> B -> A) are unreachable from any root, but their Parent
-// DOES resolve (to each other) -- so collectOrphans alone would never catch
-// them either. Both must still surface under the synthetic "(orphaned)"
-// root, and flattening a pure cycle must return promptly (no hang).
+// parent cycle (A -> B -> A) must still surface under a synthetic root
+// ("Not on roadmap": the roadmap places them nowhere), and flattening a pure
+// cycle must return promptly (no hang).
 func TestCycleBeansShowUnderOrphanRoot(t *testing.T) {
 	beans := []*item.Item{
 		{ID: "cyc-a", Title: "Cycle A", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-b"},
 		{ID: "cyc-b", Title: "Cycle B", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-a"},
 	}
-	m := fixtureModel(t, beans) // must return promptly -- no hang on the cycle
+	m := realModel(t, beans) // must return promptly -- no hang on the cycle
 
 	nodes := m.visibleNodes()
-	foundOrphanRoot := false
-	for _, n := range nodes {
-		if n.orphan {
-			foundOrphanRoot = true
-		}
-	}
-	if !foundOrphanRoot {
-		t.Fatal("orphan root missing even though both beans are unreachable (pure cycle)")
-	}
-	for _, b := range m.idx.Roots() {
-		if b.ID == "cyc-a" || b.ID == "cyc-b" {
-			t.Fatal("cycle bean leaked into the real Roots() top level")
-		}
+	if len(nodes) != 1 || nodes[0].id != notOnRoadmapRootID {
+		t.Fatalf("want exactly the Not-on-roadmap root, got %v", nodeIDs(nodes))
 	}
 
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	nodes = m.visibleNodes()
 	seen := map[string]bool{}
 	for _, n := range nodes {
 		seen[n.id] = true
+		if n.id != notOnRoadmapRootID && (n.depth != 1 || n.hasKids) {
+			t.Errorf("cycle bean %s must be a flat depth-1 row, got depth %d hasKids %v", n.id, n.depth, n.hasKids)
+		}
 	}
 	if !seen["cyc-a"] || !seen["cyc-b"] {
-		t.Fatalf("cycle beans not both visible under (orphaned): nodes=%v", nodeIDs(nodes))
+		t.Fatalf("cycle beans not both visible under Not on roadmap: nodes=%v", nodeIDs(nodes))
 	}
 }
 
-// fiftyFlatBeans returns 50 flat (unparented) tasks wnd-00..wnd-49 -- a tree
+// fiftyFlatBeans returns 50 parentless tasks wnd-00..wnd-49 -- a tree
 // taller than any reasonable pane, used to exercise windowing (B01).
 func fiftyFlatBeans() []*item.Item {
 	beans := make([]*item.Item, 50)
@@ -522,14 +510,15 @@ func fiftyFlatBeans() []*item.Item {
 
 // TestTreeWindowingKeepsCursorVisible guards B01: renderPane alone only
 // clips rows to the pane height starting from row 0 -- it has no idea where
-// the cursor is. With 50 flat root nodes and a pane far shorter than that,
-// the cursored row must still be part of the rendered window (and a row far
-// from the cursor must have scrolled out, or the "window" isn't limiting
-// anything).
+// the cursor is. With 50 rows (the Unscheduled root's tasks) and a pane far
+// shorter than that, the cursored row must still be part of the rendered
+// window (and a row far from the cursor must have scrolled out, or the
+// "window" isn't limiting anything).
 func TestTreeWindowingKeepsCursorVisible(t *testing.T) {
 	beans := fiftyFlatBeans()
 	m := fixtureModel(t, beans)
-	m.width, m.height = 100, 21 // bodyH-2 == 10 visible rows, far less than 50 nodes
+	m.expanded[unscheduledRootID] = true // parentless tasks sit under the Unscheduled root
+	m.width, m.height = 100, 21          // bodyH-2 == 10 visible rows, far less than 50 nodes
 	m.cursorID = "wnd-40"
 
 	out := m.View()
@@ -650,7 +639,7 @@ func TestKeyTabStillTogglesBothDirections(t *testing.T) {
 // TestKeyNodeActionEditorAlwaysOpensBeanEditor is D01's core end-to-end
 // regression test (design-spec.md §15 PF-17, bean bt-z4b1, supersedet E8-
 // B10): e/ctrl+e must open the SAME whole-bean $EDITOR path from EVERY
-// realistic entry point -- Tree (no detail focus), Backlog (no detail
+// realistic entry point -- Tree (no detail focus), Ready (no detail
 // focus), and Detail focus parked on EVERY section/field level (META at
 // section AND field level, BODY, RELATIONS, HISTORY). Testing only one
 // entry point was exactly ../docs/LESSONS-LEARNED.md's Forward-Guard #3 gap
@@ -713,17 +702,17 @@ func TestKeyNodeActionEditorAlwaysOpensBeanEditor(t *testing.T) {
 		}
 	}
 
-	// Backlog entry point -- a separate m.view/focusedBean() path
-	// (focusedBean's viewBacklog case, update.go).
+	// Ready entry point -- a separate m.view/focusedBean() path
+	// (focusedBean's viewReady case, update.go).
 	for _, key := range []tea.KeyMsg{runeMsg('e'), keyMsg(tea.KeyCtrlE)} {
-		t.Run("backlog, no detail focus/"+key.String(), func(t *testing.T) {
-			m := fixtureModel(t, backlogBeans())
-			m.view = viewBacklog
-			m.backlogList.setLen(len(m.backlogVisible()))
-			m.backlogList.cursor = 0
-			b := m.backlogSelected()
+		t.Run("ready, no detail focus/"+key.String(), func(t *testing.T) {
+			m := readyBeansModel(t)
+			m.view = viewReady
+			m.readyList.setLen(len(m.readyVisible()))
+			m.readyList.cursor = 0
+			b := m.readySelected()
 			if b == nil {
-				t.Fatal("setup: backlogSelected() is nil")
+				t.Fatal("setup: readySelected() is nil")
 			}
 
 			tm, cmd := m.Update(key)
@@ -789,7 +778,7 @@ func TestKeyDetailFocusOnOrphanRootExitsGracefully(t *testing.T) {
 		ID: "orph-1", Title: "Orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 
 	m = step(t, m, keyMsg(tea.KeyTab))
 	m = step(t, m, keyMsg(tea.KeyRight)) // must not panic
@@ -833,19 +822,14 @@ func TestWindowAroundStableAtEdges(t *testing.T) {
 // --- E2-T2 Quality-Review, Runde 2 (bean bt-2jve) ---
 
 // TestExpandAncestorsOfHandlesParentCycle guards B01 (Critical, Review-Runde
-// 2): expandAncestorsOf's ancestor walk had no visited-set, so a Parent
-// cycle in the on-disk data (A -> B -> A -- beans-legal, frontmatter is
-// hand-editable) hung it forever on any relation-jump into the cycle,
-// freezing the whole TUI. Run with a bounded `go test -timeout` so a
-// regression fails loudly (timeout) instead of hanging the suite.
+// 2): expandAncestorsOf's ancestor walk had no visited-set, so a cyclic
+// parent map hung it forever on any relation-jump into the cycle, freezing
+// the whole TUI. Run with a bounded `go test -timeout` so a regression fails
+// loudly (timeout) instead of hanging the suite.
 func TestExpandAncestorsOfHandlesParentCycle(t *testing.T) {
-	beans := []*item.Item{
-		{ID: "cyc-a", Title: "Cycle A", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-b"},
-		{ID: "cyc-b", Title: "Cycle B", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-a"},
-	}
-	idx := data.NewIndex(beans)
+	treeParent := map[string]string{"cyc-a": "cyc-b", "cyc-b": "cyc-a"}
 
-	out := expandAncestorsOf(idx, map[string]bool{}, "cyc-a")
+	out := expandAncestorsOf(treeParent, map[string]bool{}, "cyc-a")
 	if !out["cyc-b"] {
 		t.Error("expandAncestorsOf did not mark cyc-a's immediate parent (cyc-b) expanded")
 	}

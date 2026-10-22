@@ -285,19 +285,19 @@ func TestBoxFormTabFromTreeEntersAtTheFirstField(t *testing.T) {
 	}
 }
 
-// TestBoxFormDownWalksFieldsInTheBacklogToo is bt-8d35's "Reichweite" check:
+// TestBoxFormDownWalksFieldsInTheReadyToo is bt-8d35's "Reichweite" check:
 // tab is a GLOBAL binding, so the Fokus-Modell must land identically in every
-// view that renders the box form -- the Backlog shares the very same Detail
+// view that renders the box form -- the Ready shares the very same Detail
 // pane and routes through the same keyDetailFocus (handleKey's detailFocus
 // dispatch), so this pins that it really does, rather than only Browse.
-func TestBoxFormDownWalksFieldsInTheBacklogToo(t *testing.T) {
-	m := fixtureModel(t, backlogBeans())
+func TestBoxFormDownWalksFieldsInTheReadyToo(t *testing.T) {
+	m := readyBeansModel(t)
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.view = viewBacklog
+	m.view = viewReady
 
 	m = step(t, m, keyMsg(tea.KeyTab)) // into the Detail region
 	if !m.detailFocus {
-		t.Fatal("setup: tab did not focus the Backlog's Detail pane")
+		t.Fatal("setup: tab did not focus the Ready's Detail pane")
 	}
 	if got := boxFormEffectiveCursor(m, m.focusedBean()); got != 0 {
 		t.Fatalf("tab-in landed on field %q, want Title", boxFormFieldOrder[got].name)
@@ -305,10 +305,10 @@ func TestBoxFormDownWalksFieldsInTheBacklogToo(t *testing.T) {
 
 	m = step(t, m, keyMsg(tea.KeyDown))
 	if got := boxFormFieldOrder[m.boxFormCursor].name; got != boxFormFieldOrder[1].name {
-		t.Fatalf("second down in the Backlog: cursor on %q, want %q", got, boxFormFieldOrder[1].name)
+		t.Fatalf("second down in the Ready: cursor on %q, want %q", got, boxFormFieldOrder[1].name)
 	}
 	if !m.detailFocus {
-		t.Fatal("tab swapped the Backlog's panes instead of moving within the Detail region")
+		t.Fatal("tab swapped the Ready's panes instead of moving within the Detail region")
 	}
 }
 

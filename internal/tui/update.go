@@ -204,7 +204,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.storeEvents = msg.events
 	m.watchUnavailable = msg.events == nil // I04 precedent: degrade visibly, never silently
 	applyRepoConfig(msg.store.Config())    // the new repo's value lists, BEFORE its index is sorted
-	m.idx = data.NewIndex(msg.beans)
+	m = m.setItems(msg.beans, msg.ready)
 	m.view = viewBrowseRepo
 	m.err = ""
 
@@ -236,8 +236,8 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.filterOpen = false
 	m = m.clearFacets()
 	m.showArchived = false // E5 Task 7 (bean bt-ggt2, T6-Note bug class, bt-zhwl "Notes for T7"): the archive-default toggle must not leak across a repo switch, same reset breadth as every other search/filter field here.
-	m.backlogList = listState{}
-	m.flatList = listState{} // S5: same stale-cursor hygiene as backlogList just above -- flatView itself (a display-mode preference, not per-repo state) deliberately survives the switch
+	m.readyList = listState{}
+	m.flatList = listState{} // S5: same stale-cursor hygiene as readyList just above -- flatView itself (a display-mode preference, not per-repo state) deliberately survives the switch
 
 	_ = config.SetLastRepo(msg.repoDir) // best-effort persistence (Port devd DD2-273 RMW pattern, state.go) -- a failed write must not block the switch itself
 	return m, waitForStoreEvents(m.storeEvents)
@@ -398,7 +398,7 @@ func writeConflictTempFile(body string) (path string, err error) {
 // existing "exact bean still present" cursor-restore path (above) then finds
 // msg.bean.ID unchanged after the beansLoadedMsg arrives (US-10-parity, no
 // new cursor logic). A parentless new bean (msg.bean.Parent == "") needs no
-// expansion at all -- idx.Roots() already surfaces every parentless bean.
+// expansion at all -- a parentless bean sits at the roadmap root, or under a synthetic root.
 //
 // F1 (Review-Runde 2, Async-Gap-Clobbering, Finding 1): between the Confirm-
 // Gate's enter (keyCreateConfirm, box_confirm_create.go: overlay -> None,
@@ -448,7 +448,7 @@ func (m model) applyCreateDone(msg createDoneMsg) (tea.Model, tea.Cmd) {
 	m.createDraft = nil   // success: draft consumed, no reopen needed (B01's other half)
 	m.pendingCreate = nil // in-flight window over (F1)
 	if msg.bean.Parent != "" {
-		m.expanded = expandAncestorsOf(m.idx, m.expanded, msg.bean.Parent)
+		m.expanded = expandAncestorsOf(m.treeParent, m.expanded, msg.bean.Parent)
 		exp := cloneBoolMap(m.expanded) // I01: copy-on-write
 		exp[msg.bean.Parent] = true     // expandAncestorsOf expands ancestors OF id, not id itself
 		m.expanded = exp
@@ -724,8 +724,8 @@ const createInFlightNote = "Creation already in progress — please wait"
 // Placed in handleKey directly after the Refresh check and BEFORE the
 // m.detailFocus dispatch, since node actions must act on m.focusedBean()
 // regardless of which pane currently has focus (focusedBean() already
-// covers Tree, Backlog AND detail focus, the same view-agnostic dispatcher
-// E2 Task 2 built) -- routing through keyDetailFocus/keyTree/keyBacklog
+// covers Tree, Ready AND detail focus, the same view-agnostic dispatcher
+// E2 Task 2 built) -- routing through keyDetailFocus/keyTree/keyReady
 // first would either shadow these keys entirely or require duplicating the
 // dispatch in three places. Create is the ONE key that works without a
 // focused bean (an empty repo can still be seeded); every other key here is
@@ -804,7 +804,7 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 			// B10): "e"/"ctrl+e" share ONE keys.Editor binding (design-spec
 			// §7) and now ALWAYS open the SAME whole-bean $EDITOR path,
 			// unconditionally -- egal welche Sektion/Feld-Ebene, auch ohne
-			// aktiven Detail-Fokus, aus Tree/Backlog/Detail (PO verbatim:
+			// aktiven Detail-Fokus, aus Tree/Ready/Detail (PO verbatim:
 			// "egal an welcher Stelle"). The former msg.String()=="ctrl+e"
 			// vs. section-context-sensitive "e" branching (B10) is GONE --
 			// there is only ONE editor path now, not two convergent ones
@@ -829,7 +829,7 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, m, nil // unreachable: msg matched one of the eight keys in this case's condition above
 	case keybind.Matches(msg, keys.Yank):
 		// E5 Task 3 (bean bt-e4a6, design decision b): `y` always acts on
-		// m.focusedBean() -- Tree/Backlog identical (focusedBean is already
+		// m.focusedBean() -- Tree/Ready identical (focusedBean is already
 		// the view-agnostic dispatcher E2 Task 2 built).
 		b := m.focusedBean()
 		if b == nil {
@@ -917,10 +917,10 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	// a vanished bean can clamp near its old spot instead of resetting to 0.
 	oldPos := 0
 	if m.idx != nil {
-		oldPos = m.cursorPos(flattenTree(m.idx, m.expanded))
+		oldPos = m.cursorPos(flattenTree(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, m.expanded))
 	}
 
-	m.idx = data.NewIndex(msg.beans)
+	m = m.setItems(msg.beans, msg.ready)
 	nodes := m.visibleNodes()
 
 	if len(nodes) == 0 {
@@ -1091,7 +1091,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// regions, Tree and Detail, in either region and in both directions --
 	// the field cursor inside Detail moves with up/down, not with tab.
 	// They sit AT THE SAME dispatch point the former raw `case "tab":` had
-	// (still ahead of keyNodeAction/keyDetailFocus/keyBacklog/keyTree below).
+	// (still ahead of keyNodeAction/keyDetailFocus/keyReady/keyTree below).
 	if keybind.Matches(msg, keys.FocusIn) || keybind.Matches(msg, keys.FocusOut) {
 		return m.toggleRegion(keybind.Matches(msg, keys.FocusOut)), nil
 	}
@@ -1101,8 +1101,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Familie" checkpoint as FocusIn/FocusOut/Fullscreen just above/below
 	// (global reach, view-agnostic dispatch). Only viewBrowseRepo's render
 	// path (viewBrowseRepo, view_browse_repo.go) actually branches on
-	// flatView -- toggling it while e.g. the Backlog view is active is a
-	// harmless no-visible-effect state change (Backlog is already its own
+	// flatView -- toggling it while e.g. the Ready view is active is a
+	// harmless no-visible-effect state change (Ready is already its own
 	// flat, full-screen list), symmetric with how Fullscreen's `v` is also
 	// globally reachable without every view rendering differently for it.
 	if keybind.Matches(msg, keys.FlatView) {
@@ -1172,7 +1172,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// E3 (bean bt-dlgk): node-focused mutation keys (s/t/a/B/c/d/e) --
-	// checked BEFORE the detailFocus/keyBacklog/keyTree dispatch below so
+	// checked BEFORE the detailFocus/keyReady/keyTree dispatch below so
 	// they act on m.focusedBean() regardless of which pane has focus (see
 	// keyNodeAction's own doc comment for the full rationale).
 	if handled, nm, cmd := m.keyNodeAction(msg); handled {
@@ -1191,24 +1191,24 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.detailFocus || m.fullscreen == fullscreenDetail {
 		return m.keyDetailFocus(msg)
 	}
-	if m.view == viewBacklog {
-		return m.keyBacklog(msg)
+	if m.view == viewReady {
+		return m.keyReady(msg)
 	}
 	return m.keyTree(msg)
 }
 
 // focusedBean returns the bean the Detail-Accordion currently targets,
 // independent of which view is active (devd port focusedIssue,
-// view_detail_issue.go:20-35) -- view-agnostic so Task 5's Backlog view
-// (viewBacklog case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
+// view_detail_issue.go:20-35) -- view-agnostic so Task 5's Ready view
+// (viewReady case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
 func (m model) focusedBean() *item.Item {
 	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): fullscreenDetail's
 	// target is a VOLLBREITE, view-agnostic single bean (m.fullscreenBeanID),
-	// UNABHÄNGIG vom Tree-/Backlog-Cursor -- checked BEFORE the m.view switch
+	// UNABHÄNGIG vom Tree-/Ready-Cursor -- checked BEFORE the m.view switch
 	// below so keyDetailFocus (every Feld-Kaskade, PF-5) works VERBATIM in
 	// the Vollbild-Detail without a second, duplicated navigation
 	// implementation (same "one view-agnostic dispatcher" principle the
-	// m.view switch itself already establishes for Tree vs. Backlog).
+	// m.view switch itself already establishes for Tree vs. Ready).
 	if m.fullscreen == fullscreenDetail {
 		if m.idx == nil {
 			return nil
@@ -1220,20 +1220,20 @@ func (m model) focusedBean() *item.Item {
 		return b
 	}
 	switch m.view {
-	case viewBacklog: // E2 Task 5: the Backlog list's own selection, NOT the (possibly stale/irrelevant) tree cursor
-		return m.backlogSelected()
+	case viewReady: // E2 Task 5: the Ready list's own selection, NOT the (possibly stale/irrelevant) tree cursor
+		return m.readySelected()
 	default: // viewBrowseRepo (T8)
 		// S5 (jira-style-ui experiment, Nested/Flat Browse toggle): in flat
 		// mode the flat list's OWN cursor (flatList) is the selection, not
 		// the (frozen, untouched-while-flat) Tree cursorID -- mirrors the
-		// viewBacklog case just above (a view/mode-local cursor overrides
+		// viewReady case just above (a view/mode-local cursor overrides
 		// the Tree's own).
 		if m.flatView {
 			return m.flatSelected()
 		}
 		nodes := m.visibleNodes()
 		pos := m.cursorPos(nodes)
-		if pos < 0 || pos >= len(nodes) || nodes[pos].orphan || nodes[pos].placeholder {
+		if pos < 0 || pos >= len(nodes) || nodes[pos].section != "" || nodes[pos].placeholder {
 			return nil
 		}
 		return nodes[pos].bean
@@ -1322,35 +1322,35 @@ func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): esc inside
 		// fullscreenDetail leaves the Vollbild ENTIRELY. The Split-Detail
 		// stays focused afterward (PO: "mit dem AKTUELLEN Bean selektiert"),
-		// and the Tree-/Backlog-cursor syncs onto m.fullscreenBeanID so
+		// and the Tree-/Ready-cursor syncs onto m.fullscreenBeanID so
 		// Split-Modus shows the SAME bean the PO was just looking at.
 		if m.fullscreen == fullscreenDetail {
 			id := m.fullscreenBeanID
 			m.fullscreen = fullscreenNone
 			m.detailFocus = true
 			m.detailHidden = false
-			if m.view == viewBacklog {
+			if m.view == viewReady {
 				// F02 (Review Fix-Runde 1, bean bt-13l7, SUPERVISOR-
 				// ENTSCHEID "Fallback = View-Wechsel"): the exit target is
-				// not necessarily backlogVisible() any more. Fallback:
+				// not necessarily readyVisible() any more. Fallback:
 				// switch to Browse/Tree, which can show EVERY bean --
 				// cursor on the target + ancestors expanded. Only a
-				// still-backlogVisible target keeps the Backlog sync.
+				// still-readyVisible target keeps the Ready sync.
 				found := false
-				for i, bb := range m.backlogVisible() {
+				for i, bb := range m.readyVisible() {
 					if bb.ID == id {
-						m.backlogList.cursor = i
+						m.readyList.cursor = i
 						found = true
 						break
 					}
 				}
 				if !found {
 					m.view = viewBrowseRepo
-					m.expanded = expandAncestorsOf(m.idx, m.expanded, id)
+					m.expanded = expandAncestorsOf(m.treeParent, m.expanded, id)
 					m.cursorID = id
 				}
 			} else {
-				m.expanded = expandAncestorsOf(m.idx, m.expanded, id)
+				m.expanded = expandAncestorsOf(m.treeParent, m.expanded, id)
 				m.cursorID = id
 			}
 			return m, nil
@@ -1362,20 +1362,16 @@ func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // expandAncestorsOf returns a NEW expanded map (I01 copy-on-write) with every
-// ancestor of id (walking Parent up to a root) marked expanded, so a
-// relation-jump target is guaranteed visible in the next visibleNodes() call.
-// B01 (Review-Runde 2, bean bt-2jve, Critical): visited guards the walk --
-// beans' frontmatter is hand-editable, so a Parent cycle (A -> B -> A) is a
-// data error but must never hang/freeze the TUI; same defensive pattern as
-// appendBeanNode's per-path ancestors map (view_browse_repo.go).
-func expandAncestorsOf(idx *data.Index, expanded map[string]bool, id string) map[string]bool {
+// tree ancestor of id (walking treeParent up to a root, synthetic roots
+// included) marked expanded, so a relation-jump target is guaranteed visible
+// in the next visibleNodes() call. visited guards the walk against a cyclic
+// treeParent map (defensive; the roadmap tree itself is acyclic).
+func expandAncestorsOf(treeParent map[string]string, expanded map[string]bool, id string) map[string]bool {
 	out := cloneBoolMap(expanded)
 	visited := map[string]bool{id: true}
-	b, ok := idx.ByID[id]
-	for ok && b.Parent != "" && !visited[b.Parent] {
-		visited[b.Parent] = true
-		out[b.Parent] = true
-		b, ok = idx.ByID[b.Parent]
+	for p := treeParent[id]; p != "" && !visited[p]; p = treeParent[p] {
+		visited[p] = true
+		out[p] = true
 	}
 	return out
 }
@@ -1383,8 +1379,8 @@ func expandAncestorsOf(idx *data.Index, expanded map[string]bool, id string) map
 // openSearchInput enters the search-input capture state (E2 Task 3, bean
 // bt-4ep2): pre-loads the input with the CURRENT query (re-opening a
 // committed search resumes editing it, mirrors devd's SetValue(m.treeQuery)).
-// Factored out of keyTree (E2 Task 5, bean bt-gzu6): keyBacklog
-// (view_browse_backlog.go) shares this verbatim -- the search head/live
+// Factored out of keyTree (E2 Task 5, bean bt-gzu6): keyReady
+// (view_browse_ready.go) shares this verbatim -- the search head/live
 // filter is ONE piece of shared model state, not a per-view concept.
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	m.searchActive = true
@@ -1396,8 +1392,8 @@ func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 
 // openFilterMenu opens the shared facet-filter menu (E2 Task 4, bean
 // bt-9ldr), port devd openTreeFilter minus the loadAllIssues call. Factored
-// out of keyTree (E2 Task 5): keyBacklog (view_browse_backlog.go) shares this
-// verbatim -- ONE filter menu for Tree AND Backlog (design-spec.md US-05,
+// out of keyTree (E2 Task 5): keyReady (view_browse_ready.go) shares this
+// verbatim -- ONE filter menu for Tree AND Ready (design-spec.md US-05,
 // box_filter_facets.go doc comment).
 func (m model) openFilterMenu() (tea.Model, tea.Cmd) {
 	m.filterItems = m.buildFilterItems()
@@ -1457,13 +1453,13 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// (view_browse_project.go:865-874) minus the loadAllIssues call --
 		// beans-tui already holds the full Index in memory.
 		return m.openFilterMenu()
-	case keybind.Matches(msg, keys.Backlog):
-		// E2 Task 5 (bean bt-gzu6): `b` opens the Backlog view -- search/
+	case keybind.Matches(msg, keys.Ready):
+		// E2 Task 5 (bean bt-gzu6): `b` opens the Ready view -- search/
 		// filter state carries over unchanged (ONE shared m.beanMatches
 		// predicate, Task 3/4), only the master list's data source and
-		// cursor representation (backlogList) differ from the Tree.
-		m.view = viewBacklog
-		m.backlogList.setLen(len(m.backlogVisible()))
+		// cursor representation (readyList) differ from the Tree.
+		m.view = viewReady
+		m.readyList.setLen(len(m.readyVisible()))
 		return m, nil
 	case keybind.Matches(msg, keys.FilterClear):
 		// X as a direct top-level reset even with the menu closed (design-
@@ -1489,7 +1485,7 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// S5 (jira-style-ui experiment, Nested/Flat Browse toggle `G`,
-	// keymap.go/view_browse_flat.go): once the shared search/filter/Backlog/
+	// keymap.go/view_browse_flat.go): once the shared search/filter/Ready/
 	// FilterClear/Back handling above has run (identical in both modes --
 	// flat mode narrows/widens the SAME m.beanMatches-filtered set the Tree
 	// does), flat mode's own up/down-only cursor takes over instead of the

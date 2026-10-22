@@ -27,11 +27,11 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 |---|---|
 | `K` | Command palette |
 | `p` | Repository picker |
-| `b` | Backlog |
+| `b` | Ready |
 | `/` | Search |
 | `f` | Facet filter menu |
 | `X` | Clear all filters |
-| `S` | Cycle backlog sort |
+| `S` | Cycle ready sort |
 | `G` | Nested or flat |
 | `v` | Fullscreen |
 | `D` | Show or hide the detail pane |

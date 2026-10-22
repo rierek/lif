@@ -26,8 +26,8 @@ import (
 // TYPE (milestone) would otherwise be perfectly eligible for an epic's
 // parent, so only CollectDescendants (not the type filter) can be excluding
 // it. Beans-legal per this app's own philosophy (hand-editable frontmatter,
-// tolerated the same way collectCycleOrphans/appendBeanNode's cycle guards
-// already tolerate structurally odd hierarchies, view_browse_repo.go).
+// tolerated the same way the roadmap tree tolerates odd hierarchies
+// (view_browse_repo.go setItems).
 func fixtureBeansForParentPicker() []*item.Item {
 	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
@@ -44,7 +44,7 @@ func fixtureBeansForParentPicker() []*item.Item {
 // ms-1/ep-1 ancestor set. This file's fixture has a deeper/wider hierarchy,
 // so each test walks its own bean's real ancestor chain instead.
 func focusBeanFull(m model, id string) model {
-	expanded := map[string]bool{}
+	expanded := map[string]bool{unscheduledRootID: true, notOnRoadmapRootID: true}
 	cur := id
 	for {
 		b, ok := m.idx.ByID[cur]

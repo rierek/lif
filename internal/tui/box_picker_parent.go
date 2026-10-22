@@ -50,7 +50,7 @@ type pickerItem struct {
 
 // parentPickerRowBudget caps the Parent-Picker's/Blocking-Picker's row
 // window (plan Step 3/5: "windowAround bei Überlänge"). Unlike the Tree/
-// Backlog panes, these floating overlays are not handed an explicit body
+// Ready panes, these floating overlays are not handed an explicit body
 // height by their caller (modalPanel sizes to its content, not the other way
 // around) -- there is no existing "clampModalHeight" helper to mirror
 // (clampModalWidth, box_filter_facets.go, is width-only), so a fixed,
@@ -199,13 +199,13 @@ func (m model) applyParentPickerSelection() (tea.Model, tea.Cmd) {
 
 // parentPickerBox renders the floating Parent-Picker overlay -- D08 cursor
 // treatment (ansi.Strip + Accent-wrap) for the cursored row, same convention
-// as treeRows/backlogRows (view_browse_repo.go/view_browse_backlog.go)
+// as treeRows/readyRows (view_browse_repo.go/view_browse_ready.go)
 // rather than box_menu_value.go's/box_picker_tag.go's theme.Header.Render:
 // unlike those two overlays' PLAIN value/tag strings, a real row's prefix
 // here is ALREADY themed (relationRowPrefix -- status-icon/type-icon
 // colors, Key-styled ID), so re-wrapping it in a second style would clash;
 // stripping to plain text and re-tinting Accent is the same technique the
-// Tree/Backlog panes already use for exactly this reason -- T5 (bean
+// Tree/Ready panes already use for exactly this reason -- T5 (bean
 // bt-4mo9, B06) narrows that treatment to the PREFIX only (cursor bar +
 // glyph+ID), matching hangingIndentWrap's own contract (prefix carries
 // styling, text/title stays plain unless separately styled): the pending

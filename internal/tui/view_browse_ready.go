@@ -1,32 +1,32 @@
 package tui
 
-// view_browse_backlog.go — V3 Backlog (design-spec.md §6, E2 Task 5, bean
-// bt-gzu6): parentless+ready beans (idx.Backlog(), E1 Task 3), Master-Detail
+// view_browse_ready.go — V3 Ready (design-spec.md §6, E2 Task 5, bean
+// bt-gzu6): the Ready set (Store.Ready, same rule as `lif list --ready`), Master-Detail
 // reusing Task 1's Accordion (via focusedBean(), Task 2) and Task 3/4's
 // shared search+facet predicate (m.beanMatches) -- NOT a second, parallel
-// filter implementation (devd has two parallel Tree-/Backlog-filters,
+// filter implementation (devd has two parallel Tree-/Ready-filters,
 // beans-tui consolidates into one, box_filter_facets.go). Sort-Toggle `S`
 // cycles status/priority/created/updated (design-spec §6 V3) instead of a
 // floating sort menu (no V8 overlay for this in the spec, a deliberate
-// simplification vs. devd's backlogSortBox).
+// simplification vs. devd's readySortBox).
 //
-// backlogList staleness note: `/` and `f` route through the SHARED
+// readyList staleness note: `/` and `f` route through the SHARED
 // keySearchInput/keyFilterMenu handlers (update.go/box_filter_facets.go),
-// which only know about the Tree's cursorID -- they never touch backlogList.
-// So backlogList.length/.cursor can go stale relative to backlogVisible()'s
+// which only know about the Tree's cursorID -- they never touch readyList.
+// So readyList.length/.cursor can go stale relative to readyVisible()'s
 // current (shrunk) length while the user is typing/toggling facets.
-// keyBacklog resyncs it (setLen) at the top of every key it handles, before
-// any up/down move, so staleness never survives past the next backlog
-// keypress -- see TestKeyBacklogResyncsStaleCursorBeforeMove
-// (view_browse_backlog_test.go) for the regression guard.
+// keyReady resyncs it (setLen) at the top of every key it handles, before
+// any up/down move, so staleness never survives past the next ready
+// keypress -- see TestKeyReadyResyncsStaleCursorBeforeMove
+// (view_browse_ready_test.go) for the regression guard.
 //
 // CORRECTION (E2-T6 fast-follow, T5-review): the previous version of this
 // comment claimed staleness was "purely a keep future move() bounds correct
 // concern, not a render bug" -- understated. EVERY render between the shrink
-// and the next backlog keypress (i.e. live-typing a search character or
-// toggling a facet while m.view == viewBacklog) calls backlogRows/
-// renderBacklogDetailPane with the STALE m.backlogList.cursor against the
-// ALREADY-shrunk backlogVisible(). backlogRows only highlights row i==pos,
+// and the next ready keypress (i.e. live-typing a search character or
+// toggling a facet while m.view == viewReady) calls readyRows/
+// renderReadyDetailPane with the STALE m.readyList.cursor against the
+// ALREADY-shrunk readyVisible(). readyRows only highlights row i==pos,
 // so a cursor left pointing past the new (shorter) vis highlights NOTHING
 // (the `▌` selection bar vanishes); renderBeanDetailBox's own
 // `pos < len(vis)` guard (view_browse_repo.go) then falls through to its
@@ -49,47 +49,47 @@ import (
 	"github.com/rierek/lif/internal/tui/theme"
 )
 
-// backlogSortModes is the canonical 4-stop Sort-Toggle `S` cycle (bean
+// readySortModes is the canonical 4-stop Sort-Toggle `S` cycle (bean
 // bt-gzu6 Akzeptanz: "S zyklisch status->prio->created->updated->status").
 //
 // ERRATUM vs. the plan's own sketch (epic-E2-plan.md »Task 5«):
 // `modes := []string{"", "priority", "created", "updated", "status"}`
-// treated "" (the untouched default, meaning "leave idx.Backlog()'s own
+// treated "" (the untouched default, meaning "leave idx.Ready()'s own
 // canonical order in place") as a FIFTH distinct cycle stop alongside
-// "status" -- but "" and "status" render IDENTICALLY (idx.Backlog() is
-// already status-tier ordered, sortBacklog's own "" case is a no-op for
+// "status" -- but "" and "status" render IDENTICALLY (the canonical order is
+// already status-tier ordered, sortReady's own "" case is a no-op for
 // exactly that reason). A naive "find current, advance, wrap" over that
 // 5-element slice would wrap from "status" (index 4) back to "" (index 0)
 // instead of to "priority" (index 1) -- a keypress that changes
-// m.backlogSort's STRING value but not the rendered order at all, i.e. a
+// m.readySort's STRING value but not the rendered order at all, i.e. a
 // dead 5th keystroke once per lap. That contradicts the bean's own "4
 // modes" wording. Fixed here: "" is an ALIAS for "status" only when
-// LOOKING UP the current position (nextBacklogSort below); once cycling
+// LOOKING UP the current position (nextReadySort below); once cycling
 // starts, "" is never revisited -- a pure period-4 cycle, always a
 // visible change on every press.
-var backlogSortModes = []string{"status", "priority", "created", "updated"}
+var readySortModes = []string{"status", "priority", "created", "updated"}
 
-// nextBacklogSort advances current to the next Sort-Toggle stop, wrapping.
-func nextBacklogSort(current string) string {
+// nextReadySort advances current to the next Sort-Toggle stop, wrapping.
+func nextReadySort(current string) string {
 	if current == "" {
-		current = "status" // alias: idx.Backlog()'s own order IS status-tier order
+		current = "status" // alias: the canonical order IS status-tier order
 	}
-	for i, mode := range backlogSortModes {
+	for i, mode := range readySortModes {
 		if mode == current {
-			return backlogSortModes[(i+1)%len(backlogSortModes)]
+			return readySortModes[(i+1)%len(readySortModes)]
 		}
 	}
-	return backlogSortModes[0]
+	return readySortModes[0]
 }
 
-// backlogSortDisplayLabel maps the active Sort-Toggle mode to its Backlog-
+// readySortDisplayLabel maps the active Sort-Toggle mode to its Ready-
 // search-line suffix label (D02, design-spec.md §15 PF-16, bean bt-ntoz/
-// bt-d8kc): "" aliases to "status" (same alias nextBacklogSort itself uses
-// -- idx.Backlog()'s own canonical order IS status-tier order), "priority"
+// bt-d8kc): "" aliases to "status" (same alias nextReadySort itself uses
+// -- the canonical order IS status-tier order), "priority"
 // abbreviates to "prio" (PO example verbatim: "⌕ / search · sort prio"),
 // every other mode (status/created/updated) renders as its own word
 // unchanged.
-func backlogSortDisplayLabel(mode string) string {
+func readySortDisplayLabel(mode string) string {
 	if mode == "" {
 		mode = "status"
 	}
@@ -99,28 +99,32 @@ func backlogSortDisplayLabel(mode string) string {
 	return mode
 }
 
-// backlogVisible returns idx.Backlog() (E1 Task 3, unchanged) narrowed by
-// the SAME shared search+facet predicate the Tree uses (m.beanMatches, Task
-// 3/4), then ordered per the active Sort-Toggle mode (sortBacklog).
-func (m model) backlogVisible() []*item.Item {
+// readyVisible returns the items of m.readyIDs (the `lif list --ready` set,
+// Store.Ready) in canonical order (data.SortBeans, ID as the stable
+// tie-break), narrowed by the SAME shared search+facet predicate the Tree
+// uses (m.beanMatches, Task 3/4), then ordered per the active Sort-Toggle
+// mode (sortReady).
+func (m model) readyVisible() []*item.Item {
 	if m.idx == nil {
 		return nil
 	}
 	var out []*item.Item
-	for _, b := range m.idx.Backlog() {
-		if m.beanMatches(b) {
+	for id := range m.readyIDs {
+		if b, ok := m.idx.ByID[id]; ok && m.beanMatches(b) {
 			out = append(out, b)
 		}
 	}
-	sortBacklog(out, m.backlogSort)
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	data.SortBeans(out)
+	sortReady(out, m.readySort)
 	return out
 }
 
-// sortBacklog re-orders beans in place per mode -- "" leaves idx.Backlog()'s
-// own canonical (Status -> Priority -> Type -> Title) order untouched.
+// sortReady re-orders beans in place per mode -- "" leaves the canonical
+// (Status -> Priority -> Type -> Title) order readyVisible built untouched.
 // data.StatusRank/PriorityRank (E2 Task 1) back the status/priority modes;
 // created/updated compare CreatedAt/UpdatedAt via afterOrLast (nil-safe).
-func sortBacklog(beans []*item.Item, mode string) {
+func sortReady(beans []*item.Item, mode string) {
 	switch mode {
 	case "priority":
 		sort.SliceStable(beans, func(i, j int) bool {
@@ -134,7 +138,7 @@ func sortBacklog(beans []*item.Item, mode string) {
 		sort.SliceStable(beans, func(i, j int) bool {
 			return data.StatusRank(beans[i].Status) < data.StatusRank(beans[j].Status)
 		})
-	} // "" -- leave idx.Backlog()'s own canonical order in place
+	} // "" -- leave the canonical order in place
 }
 
 // afterOrLast orders newest-first; nil timestamps sort last, never panics.
@@ -148,77 +152,77 @@ func afterOrLast(a, b *time.Time) bool {
 	return a.After(*b)
 }
 
-// backlogSelected returns the bean under backlogList's cursor, or nil for an
-// empty/out-of-range list (pre-load, or every backlog row filtered out).
-func (m model) backlogSelected() *item.Item {
-	vis := m.backlogVisible()
-	if m.backlogList.cursor < 0 || m.backlogList.cursor >= len(vis) {
+// readySelected returns the bean under readyList's cursor, or nil for an
+// empty/out-of-range list (pre-load, or every ready row filtered out).
+func (m model) readySelected() *item.Item {
+	vis := m.readyVisible()
+	if m.readyList.cursor < 0 || m.readyList.cursor >= len(vis) {
 		return nil
 	}
-	return vis[m.backlogList.cursor]
+	return vis[m.readyList.cursor]
 }
 
-// backlogRowText renders one Backlog row's plain content: status glyph +
+// readyRowText renders one Ready row's plain content: status glyph +
 // type icon + ID (Sapphire) + title -- mirrors treeRowText's glyph order
-// (view_browse_repo.go) minus the indent/expand-marker (Backlog is flat, no
+// (view_browse_repo.go) minus the indent/expand-marker (Ready is flat, no
 // hierarchy; devd's variable-height block windowing is deliberately NOT
 // ported here, see plan Port-Referenzen -- a beans title is short enough for
 // the existing single-line windowAround, `truncate` handles the rare overlong
 // case exactly like every other row in the app).
 // slug is the caller's m.beanIDPrefix() (view_browse_repo.go) -- the ID is
 // shortened by shortBeanID exactly like treeRowText does it (bean bt-pl5p):
-// Tree and Backlog/Flat are TWO separate render paths, and only changing one
+// Tree and Ready/Flat are TWO separate render paths, and only changing one
 // would let them drift apart visually.
-func backlogRowText(b *item.Item, slug string) string {
-	head, title := backlogRowParts(b, slug)
+func readyRowText(b *item.Item, slug string) string {
+	head, title := readyRowParts(b, slug)
 	return head + title
 }
 
-// backlogRowParts splits a Backlog/flat row into its fixed HEAD and its
+// readyRowParts splits a Ready/flat row into its fixed HEAD and its
 // variable TITLE -- treeRowParts' counterpart (view_browse_repo.go), for the
 // same hanging-indent wrapping reason (bean bt-f68z, PO-Befund #13). The
 // doc-comment claim above that "a beans title is short enough for the existing
 // single-line windowAround" is what the PO's live test disproved.
-func backlogRowParts(b *item.Item, slug string) (head, title string) {
+func readyRowParts(b *item.Item, slug string) (head, title string) {
 	return theme.StatusIcon(b.Status) + " " + theme.TypeIcon(b.Type) + " " + theme.Key.Render(shortBeanID(b.ID, slug)) + " ", b.Title
 }
 
-// backlogRowLines renders one Backlog/flat row as one or more terminal lines,
+// readyRowLines renders one Ready/flat row as one or more terminal lines,
 // hanging-indented to the title column (treeRowLines' counterpart).
-func backlogRowLines(b *item.Item, slug string, width int) []string {
-	head, title := backlogRowParts(b, slug)
+func readyRowLines(b *item.Item, slug string, width int) []string {
+	head, title := readyRowParts(b, slug)
 	return hangingWrap(head, lipgloss.Width(head), title, width)
 }
 
-// backlogRows renders every visible Backlog row, applying the same D08
+// readyRows renders every visible Ready row, applying the same D08
 // cursor treatment as treeRows (view_browse_repo.go): a leading `▌` bar plus
 // the whole row accent-tinted when focused, muted when the Detail pane has
 // focus instead. Windowed around the cursor via the EXISTING windowAround
 // (E1 Task 8) -- no new fenestration mechanism (plan Port-Referenzen).
-func (m model) backlogRows(vis []*item.Item, focused bool, bodyH, width int) []string {
-	rows, _ := blockWindow(m.backlogBlocks(vis, focused, width), bodyH, m.backlogList.cursor)
+func (m model) readyRows(vis []*item.Item, focused bool, bodyH, width int) []string {
+	rows, _ := blockWindow(m.readyBlocks(vis, focused, width), bodyH, m.readyList.cursor)
 	return rows
 }
 
-// backlogBlocks is the Backlog's treeBlocks (view_browse_repo.go): one
-// variable-height line block per bean, shared by backlogRows above and
-// backlogClickRow below (bean bt-f68z -- rows are no longer 1:1 with beans).
-func (m model) backlogBlocks(vis []*item.Item, focused bool, width int) [][]string {
-	pos := m.backlogList.cursor
+// readyBlocks is the Ready's treeBlocks (view_browse_repo.go): one
+// variable-height line block per bean, shared by readyRows above and
+// readyClickRow below (bean bt-f68z -- rows are no longer 1:1 with beans).
+func (m model) readyBlocks(vis []*item.Item, focused bool, width int) [][]string {
+	pos := m.readyList.cursor
 	slug := m.beanIDPrefix()
 	blocks := make([][]string, len(vis))
 	for i, b := range vis {
-		blocks[i] = decorateRowBlock(backlogRowLines(b, slug, width-1), i == pos, focused)
+		blocks[i] = decorateRowBlock(readyRowLines(b, slug, width-1), i == pos, focused)
 	}
 	return blocks
 }
 
-// renderBacklogDetailPane renders the Detail box-form for the Backlog's
-// selected bean -- keys off backlogList's index cursor into vis instead of a
+// renderReadyDetailPane renders the Detail box-form for the Ready's
+// selected bean -- keys off readyList's index cursor into vis instead of a
 // treeNode slice, then hands off to the shared renderBeanDetailBox
-// (view_browse_repo.go), so Tree and Backlog can never drift out of sync on it.
-func (m model) renderBacklogDetailPane(vis []*item.Item, w, h int, focused bool) string {
-	pos := m.backlogList.cursor
+// (view_browse_repo.go), so Tree and Ready can never drift out of sync on it.
+func (m model) renderReadyDetailPane(vis []*item.Item, w, h int, focused bool) string {
+	pos := m.readyList.cursor
 	var b *item.Item
 	if pos >= 0 && pos < len(vis) {
 		b = vis[pos]
@@ -226,31 +230,31 @@ func (m model) renderBacklogDetailPane(vis []*item.Item, w, h int, focused bool)
 	return m.renderBeanDetailBox(b, w, h, focused)
 }
 
-// backlogChrome builds viewBacklog's own head/localKeys strings -- factored
-// out (E5 Task 4, bean bt-mne6) so backlogClickRow (mouse.go) can
+// readyChrome builds viewReady's own head/localKeys strings -- factored
+// out (E5 Task 4, bean bt-mne6) so readyClickRow (mouse.go) can
 // reconstruct this view's IDENTICAL geometry via clickPaneGeometry without a
 // second, independently maintained copy of this breadcrumb/footer
 // construction (Golden-Rule-Drift-Schutz, mirrors browseRepoChrome's own
 // rationale, view_browse_repo.go).
-func (m model) backlogChrome(innerW int) (head, localKeys string) {
-	head = breadcrumb(m.repoLabel(), "Backlog", renderBindings(globalBindings()), innerW)
-	localKeys = footer(m.contextualLocalHint(backlogLocalBindings()), innerW)
+func (m model) readyChrome(innerW int) (head, localKeys string) {
+	head = breadcrumb(m.repoLabel(), "Ready", renderBindings(globalBindings()), innerW)
+	localKeys = footer(m.contextualLocalHint(readyLocalBindings()), innerW)
 	return
 }
 
-// backlogLocalBindings is the Backlog view's own Footer Zone 3 local set --
+// readyLocalBindings is the Ready view's own Footer Zone 3 local set --
 // D06+Q06 (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc) REBUILD this from
 // scratch, superseding PF-11's list, mirroring browseRepoLocalBindings'
 // exact Q06 order (view_browse_repo.go) verbatim.
 //
 // D02 (design-spec.md §15 PF-17, bean bt-tct9/bt-1e0t, PO-bestätigt Option b
 // + Präzisierung, 2026-07-16) SUPERSEDES the former ERRATUM below: the
-// Backlog footer previously appended `keys.Sort` as a documented Backlog-
+// Ready footer previously appended `keys.Sort` as a documented Ready-
 // exclusive addition (bean bt-d8kc) so the feature stayed discoverable
 // without a PO instruction to remove it. The PO has now given that
-// instruction explicitly: "'S Sort' fliegt aus dem Backlog-Footer; die
+// instruction explicitly: "'S Sort' fliegt aus dem Ready-Footer; die
 // S-Taste bleibt funktional, wird aber NUR im Help-Overlay ('?')
-// dokumentiert." `S` stays fully wired (keyBacklog's Sort case, unchanged,
+// dokumentiert." `S` stays fully wired (keyReady's Sort case, unchanged,
 // below) and stays documented -- just Help-overlay-only now (helpGroups(),
 // keymap.go, already lists it under "Actions", untouched by this change).
 // The runtime state indicator (`· sort <modus>` search-line suffix,
@@ -264,22 +268,22 @@ func (m model) backlogChrome(innerW int) (head, localKeys string) {
 //
 // Former ERRATUM text (historical, superseded by D02 above, kept for
 // audit trail): "Q06's PO-verbatim list is phrased once for BOTH Browse and
-// Backlog and never mentions Sort (`S`) -- Sort has no Tree analog
-// (sortBacklog/nextBacklogSort are Backlog-only), so the shared list simply
-// never had occasion to name it. Sort stays a Backlog-EXCLUSIVE addition
+// Ready and never mentions Sort (`S`) -- Sort has no Tree analog
+// (sortReady/nextReadySort are Ready-only), so the shared list simply
+// never had occasion to name it. Sort stays a Ready-EXCLUSIVE addition
 // here rather than being silently dropped: it is a pre-existing,
 // frequently-used, currently-visible feature, and no PO instruction asked
 // for its removal ('kein Entzug ohne PO-Anweisung')."
-func backlogLocalBindings() []keybind.Binding {
+func readyLocalBindings() []keybind.Binding {
 	return browseRepoLocalBindings()
 }
 
-// viewBacklog renders the two-pane master-detail Backlog view -- mirrors
+// viewReady renders the two-pane master-detail Ready view -- mirrors
 // viewBrowseRepo's algebra exactly (view_browse_repo.go) so the frame always
 // fills width x height (Golden Rule #1: no Height() on a bordered style),
-// just with backlogVisible() rows on the left instead of the Tree's
+// just with readyVisible() rows on the left instead of the Tree's
 // treeNode flattening.
-func (m model) viewBacklog() string {
+func (m model) viewReady() string {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80
@@ -289,7 +293,7 @@ func (m model) viewBacklog() string {
 	}
 	innerW := w - 2
 
-	head, localKeys := m.backlogChrome(innerW)
+	head, localKeys := m.readyChrome(innerW)
 
 	div := theme.Dim.Render(strings.Repeat("─", innerW))
 	// bt-81f0 (Notifications vereinheitlichen, Q1-Annahme): m.err lost the
@@ -297,24 +301,24 @@ func (m model) viewBacklog() string {
 	status := m.statusLine(innerW)
 
 	// E5 Task 4 (bean bt-mne6): bodyH/lw/rw now come from the SAME
-	// clickPaneGeometry helper backlogClickRow (below) uses -- single source
+	// clickPaneGeometry helper readyClickRow (below) uses -- single source
 	// for the numeric pane geometry (Golden-Rule-Drift-Schutz).
 	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	vis := m.backlogVisible()
+	vis := m.readyVisible()
 
 	var body string
 	if m.fullscreen != fullscreenNone {
 		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): Vollbild -- mirrors
 		// viewBrowseRepo's own new branch (view_browse_repo.go), symmetric for
-		// Backlog (m.view stays viewBacklog throughout, PO-Wortlaut: Vollbild
+		// Ready (m.view stays viewReady throughout, PO-Wortlaut: Vollbild
 		// is orthogonal to which view is active). paneW: see viewBrowseRepo's
 		// own doc comment for the full border-accounting rationale (ONE pane's
 		// content width is innerW-2, not innerW -- caught live via tmux smoke).
 		paneW := innerW - 2
 		var listRows []string
 		if m.fullscreen == fullscreenList {
-			searchLine := m.treeSearchLine(paneW-2, "sort "+backlogSortDisplayLabel(m.backlogSort))
-			listRows = append([]string{searchLine}, m.backlogRows(vis, true, bodyH-1, paneW-2)...)
+			searchLine := m.treeSearchLine(paneW-2, "sort "+readySortDisplayLabel(m.readySort))
+			listRows = append([]string{searchLine}, m.readyRows(vis, true, bodyH-1, paneW-2)...)
 		}
 		var detailBean *item.Item
 		if m.fullscreen == fullscreenDetail {
@@ -327,15 +331,15 @@ func (m model) viewBacklog() string {
 		// content budget, so the actual rows window to bodyH-1 (PF-10, bean
 		// bt-uyzf, widened from bodyH-3 now that renderPane no longer reserves
 		// its own title+separator lines).
-		// D02 (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc): the Backlog-Sort-
+		// D02 (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc): the Ready-Sort-
 		// Indicator -- a dezent (theme.Muted) suffix on the search line showing
 		// the active Sort-Toggle mode.
-		searchLine := m.treeSearchLine(lw-2, "sort "+backlogSortDisplayLabel(m.backlogSort))
-		rows := append([]string{searchLine}, m.backlogRows(vis, !m.detailFocus, bodyH-1, lw-2)...)
+		searchLine := m.treeSearchLine(lw-2, "sort "+readySortDisplayLabel(m.readySort))
+		rows := append([]string{searchLine}, m.readyRows(vis, !m.detailFocus, bodyH-1, lw-2)...)
 		listBox := renderPane(pane{rows: rows}, lw, bodyH, !m.detailFocus)
 		body = listBox
 		if rw > 0 {
-			detailBox := m.renderBacklogDetailPane(vis, rw, bodyH, m.detailFocus)
+			detailBox := m.renderReadyDetailPane(vis, rw, bodyH, m.detailFocus)
 			body = lipgloss.JoinHorizontal(lipgloss.Top, listBox, detailBox)
 		}
 	}
@@ -346,30 +350,30 @@ func (m model) viewBacklog() string {
 	return m.composeOverlays(out, w, h)
 }
 
-// keyBacklog drives the Backlog view: up/down move backlogList, enter is a
+// keyReady drives the Ready view: up/down move readyList, enter is a
 // handled no-op (T6-Review B01: TAB is the ONLY detail-focus entry,
 // PO-Nachtrag 3 / D01 revidiert -- the flat list has no expand concept, so
 // enter is the analog of keyTree's leaf no-op), S cycles the sort mode,
 // `/`/`f` open the SAME shared search input/filter menu the Tree uses,
 // `b`/esc return to Tree. Detail focus (once entered via tab) delegates to
-// keyDetailFocus verbatim (Task 2) -- focusedBean()'s viewBacklog case
+// keyDetailFocus verbatim (Task 2) -- focusedBean()'s viewReady case
 // (update.go) is what makes that reuse possible without a second
 // Accordion-navigation implementation.
-func (m model) keyBacklog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) keyReady(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.detailFocus { // defensive: handleKey already routes detailFocus to keyDetailFocus first
 		return m.keyDetailFocus(msg)
 	}
 
-	// Resync backlogList's length against the CURRENT filtered/sorted view
+	// Resync readyList's length against the CURRENT filtered/sorted view
 	// before touching it -- search/filter toggles routed through the shared
-	// keySearchInput/keyFilterMenu handlers never update backlogList (see
+	// keySearchInput/keyFilterMenu handlers never update readyList (see
 	// file doc comment), so this is the one place that closes the gap.
-	vis := m.backlogVisible()
-	m.backlogList.setLen(len(vis))
+	vis := m.readyVisible()
+	m.readyList.setLen(len(vis))
 
 	switch {
 	case keybind.Matches(msg, keys.Sort):
-		m.backlogSort = nextBacklogSort(m.backlogSort)
+		m.readySort = nextReadySort(m.readySort)
 		return m, nil
 	case keybind.Matches(msg, keys.Search):
 		return m.openSearchInput()
@@ -380,16 +384,16 @@ func (m model) keyBacklog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// nur in keyTree (update.go) -- gleicher clearFacets()-Helper, danach
 		// Längen-Resync gegen die JETZT breitere Sicht.
 		m = m.clearFacets()
-		m.backlogList.setLen(len(m.backlogVisible()))
+		m.readyList.setLen(len(m.readyVisible()))
 		return m, nil
-	case keybind.Matches(msg, keys.Backlog), keybind.Matches(msg, keys.Back):
+	case keybind.Matches(msg, keys.Ready), keybind.Matches(msg, keys.Back):
 		m.view = viewBrowseRepo
 		return m, nil
 	case keybind.Matches(msg, keys.Enter):
 		// T6-Review B01 (bean bt-t1uy, PO-Nachtrag 3 / D01 revidiert): enter
 		// is a handled no-op -- TAB is the ONLY detail-focus entry (handleKey,
 		// view-agnostic). Previously this case still carried the pre-revision
-		// entry behavior (detailFocus=true + cursor reset); the Backlog is a
+		// entry behavior (detailFocus=true + cursor reset); the Ready is a
 		// flat list with no expand concept, so its enter is the analog of
 		// keyTree's leaf no-op. Kept as an explicit handled case (not removed)
 		// so enter can't fall through to the nav-key switch below.
@@ -398,43 +402,43 @@ func (m model) keyBacklog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch navKey(msg.String()) {
 	case "up":
-		// E5 Task 4 (bean bt-mne6): factored into backlogCursorMove (below)
+		// E5 Task 4 (bean bt-mne6): factored into readyCursorMove (below)
 		// so the keyboard AND the wheel dispatch (mouse.go handleMouse)
 		// share the exact same clamp logic instead of two independent
 		// copies.
-		m = m.backlogCursorMove(vis, -1)
+		m = m.readyCursorMove(vis, -1)
 	case "down":
-		m = m.backlogCursorMove(vis, 1)
+		m = m.readyCursorMove(vis, 1)
 	}
 	return m, nil
 }
 
-// backlogCursorMove resyncs backlogList's length against vis (this file's
+// readyCursorMove resyncs readyList's length against vis (this file's
 // own staleness guard, doc comment above) then shifts the cursor by delta
-// (listState.move, list.go, already clamped) -- factored out of keyBacklog's
+// (listState.move, list.go, already clamped) -- factored out of keyReady's
 // own up/down case (E5 Task 4, bean bt-mne6) so the keyboard AND the wheel
 // dispatch (mouse.go handleMouse) share one clamp. The setLen call is
-// idempotent when the caller already resynced (keyBacklog does, at its own
+// idempotent when the caller already resynced (keyReady does, at its own
 // top) -- it is NOT redundant for the wheel dispatch, which has no prior
 // resync point of its own.
-func (m model) backlogCursorMove(vis []*item.Item, delta int) model {
-	m.backlogList.setLen(len(vis))
-	m.backlogList.move(delta)
+func (m model) readyCursorMove(vis []*item.Item, delta int) model {
+	m.readyList.setLen(len(vis))
+	m.readyList.move(delta)
 	return m
 }
 
-// backlogClickRow maps a mouse click to a row index into vis (E5 Task 4,
-// bean bt-mne6, design decision f; caller: mouse.go's mouseBacklogClick) --
+// readyClickRow maps a mouse click to a row index into vis (E5 Task 4,
+// bean bt-mne6, design decision f; caller: mouse.go's mouseReadyClick) --
 // mirrors treeClickRow's own reconstruction (view_browse_repo.go) against
-// viewBacklog's OWN render formula (above, via backlogChrome +
+// viewReady's OWN render formula (above, via readyChrome +
 // clickPaneGeometry): same bodyH/lw algebra, just this view's own head/
 // localKeys. Row 0 is the search/facet head line (m.treeSearchLine, shared
 // with the Tree) -- never a row target; row 1+ maps via
-// windowStart(len(vis), bodyH-1, m.backlogList.cursor) + (clickRow-1) -- PF-10
+// windowStart(len(vis), bodyH-1, m.readyList.cursor) + (clickRow-1) -- PF-10
 // (bean bt-uyzf) widened this from bodyH-3 now that renderPane no longer
 // reserves title+separator lines -- flat list, no Doppelklick concept (plan
 // epic-E5-plan.md »Task 4« Step 6).
-func backlogClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool) {
+func readyClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool) {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80
@@ -443,7 +447,7 @@ func backlogClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok b
 		h = 24
 	}
 	innerW := w - 2
-	head, localKeys := m.backlogChrome(innerW)
+	head, localKeys := m.readyChrome(innerW)
 
 	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
 
@@ -455,9 +459,9 @@ func backlogClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok b
 		return 0, false
 	}
 
-	// bean bt-f68z: Backlog titles wrap too, so the clicked LINE is resolved
+	// bean bt-f68z: Ready titles wrap too, so the clicked LINE is resolved
 	// through the same blockWindow the renderer used instead of by dividing
 	// screen rows by one.
-	_, rowElem := blockWindow(m.backlogBlocks(vis, !m.detailFocus, lw-2), bodyH-1, m.backlogList.cursor)
+	_, rowElem := blockWindow(m.readyBlocks(vis, !m.detailFocus, lw-2), bodyH-1, m.readyList.cursor)
 	return blockWindowElemAt(rowElem, clickRow)
 }

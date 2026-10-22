@@ -47,10 +47,10 @@ func TestHelpBoxRendersEveryGroup(t *testing.T) {
 
 // TestKeyHelpOpensFromAnyView guards design decision h (ctrl+k/Palette
 // precedent, E4 Task 1): `?` opens Help from ANY view, not just
-// viewBrowseRepo -- checked here against viewBacklog.
+// viewBrowseRepo -- checked here against viewReady.
 func TestKeyHelpOpensFromAnyView(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.view = viewBacklog
+	m.view = viewReady
 	nm := step(t, m, runeMsg('?'))
 	if !nm.helpOpen {
 		t.Fatal("`?` must open Help from any view (design decision h)")

@@ -16,6 +16,7 @@ import (
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/spf13/cobra"
 )
@@ -370,10 +371,10 @@ func TestListCmdWhereEndToEnd(t *testing.T) {
 	}
 }
 
-// TestListCmdReadyEndToEnd is a regression test for the applyReadyFilter
+// TestListCmdReadyEndToEnd is a regression test for the ApplyReadyFilter
 // extraction (Task 4): `list --ready` must still exclude blocked/terminal
 // items AND continue to combine with other flags already applied to the
-// same filter object (here --type), since applyReadyFilter mutates the
+// same filter object (here --type), since ApplyReadyFilter mutates the
 // filter list.go already built rather than constructing a separate one.
 func TestListCmdReadyEndToEnd(t *testing.T) {
 	setupListTest(t)
@@ -471,7 +472,7 @@ func TestApplyReadyFilterExcludesCustomArchiveStatus(t *testing.T) {
 	}
 
 	filter := &model.ItemFilter{}
-	applyReadyFilter(filter, testCfg)
+	itemgraph.ApplyReadyFilter(filter, testCfg)
 
 	found := false
 	for _, s := range filter.ExcludeStatus {
@@ -499,7 +500,7 @@ func TestApplyReadyFilterExcludesContainerTypes(t *testing.T) {
 	}
 
 	filter := &model.ItemFilter{ExcludeType: []string{"wontfix"}}
-	applyReadyFilter(filter, testCfg)
+	itemgraph.ApplyReadyFilter(filter, testCfg)
 
 	want := []string{"wontfix", "milestone", "epic", "package", "feature"}
 	if !slices.Equal(filter.ExcludeType, want) {

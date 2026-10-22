@@ -1,6 +1,7 @@
 package itemgraph
 
 import (
+	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/rierek/lif/pkg/itemgraph/model"
@@ -99,6 +100,33 @@ func ApplyFilter(items []*item.Item, filter *model.ItemFilter, core *itemcore.Co
 	}
 
 	return result
+}
+
+// ApplyReadyFilter mutates filter in place to express "--ready": not
+// blocked, excludes in-progress/draft plus every configured archive status
+// (default: completed/scrapped, but any custom status marked `archive:
+// true` is picked up too -- a hardcoded literal list would silently treat
+// a future archive-flagged status, e.g. a project-defined "po-review", as
+// still ready), excludes items with implicit terminal status from a
+// scrapped/completed ancestor, and excludes every container type (a type on
+// rank 1 through config.MaxContainerRank: milestone, epic and feature by
+// default, whatever the configuration puts there otherwise), because ready
+// work is leaf work. It mutates an already partially-built
+// *model.ItemFilter (e.g. one that already carries --type/--status flags)
+// rather than constructing a fresh one, so callers keep whatever filters
+// they set beforehand.
+func ApplyReadyFilter(filter *model.ItemFilter, cfg *config.Config) {
+	isBlocked := false
+	excludeImplicitTerminal := true
+	filter.IsBlocked = &isBlocked
+	filter.ExcludeStatus = append(filter.ExcludeStatus, "in-progress", "draft")
+	for _, s := range cfg.StatusList() {
+		if s.Archive {
+			filter.ExcludeStatus = append(filter.ExcludeStatus, s.Name)
+		}
+	}
+	filter.ExcludeType = append(filter.ExcludeType, cfg.ContainerTypeNames()...)
+	filter.ExcludeImplicitTerminal = &excludeImplicitTerminal
 }
 
 // filterByField filters items to include only those where getter returns a value in values (OR logic).

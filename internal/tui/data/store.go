@@ -108,6 +108,22 @@ func (s *Store) Config() *config.Config { return s.cfg }
 // Items returns every loaded item.
 func (s *Store) Items() []*item.Item { return s.Core.All() }
 
+// Ready returns the IDs of the items `lif list --ready` lists: the same
+// filter (itemgraph.ApplyReadyFilter) run through the same resolver.
+func (s *Store) Ready() (map[string]bool, error) {
+	f := &model.ItemFilter{}
+	itemgraph.ApplyReadyFilter(f, s.cfg)
+	items, err := s.Resolver.Items(context.Background(), f)
+	if err != nil {
+		return nil, err
+	}
+	ids := make(map[string]bool, len(items))
+	for _, it := range items {
+		ids[it.ID] = true
+	}
+	return ids, nil
+}
+
 // Search runs a full-text query over title and body.
 func (s *Store) Search(q string) ([]*item.Item, error) { return s.Core.Search(q) }
 

@@ -40,6 +40,7 @@ func longTreeModel(t *testing.T) model {
 	m := newModel(nil, "/tmp/bt-golden-repo")
 	m = step(t, m, beansLoadedMsg{beans: beans})
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.expanded[unscheduledRootID] = true // parentless tasks sit under the Unscheduled root
 	m.cursorID = "gld-r045"
 	return m
 }

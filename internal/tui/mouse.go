@@ -7,9 +7,9 @@ package tui
 // vs. devd's own handleMouse, both consequences of design decision f
 // (view_browse_repo.go's own doc comment, "kein m.scroll-Feld existiert"):
 //
-//  1. Wheel moves the active view's CURSOR (m.cursorID/m.backlogList.cursor
+//  1. Wheel moves the active view's CURSOR (m.cursorID/m.readyList.cursor
 //     via the two *CursorMove helpers, view_browse_repo.go/
-//     view_browse_backlog.go) instead of devd's `m.scroll -= 3`/`+= 3`
+//     view_browse_ready.go) instead of devd's `m.scroll -= 3`/`+= 3`
 //     non-Tree branch -- beans-tui has no scroll-offset field to move;
 //     windowAround/windowStart already follow the cursor automatically on
 //     render. EXCEPTION (bean bt-ze10, epic bt-vy1q F1): a wheel tick
@@ -19,7 +19,7 @@ package tui
 //     deliberately scoped to that ONE pane so this doc comment's claim
 //     stays true everywhere else.
 //  2. Left-click dispatch is a SINGLE `switch m.view` over two sibling
-//     views (viewBrowseRepo/viewBacklog), not devd's Tree-vs-everything-else
+//     views (viewBrowseRepo/viewReady), not devd's Tree-vs-everything-else
 //     split (devd's non-Tree views are all Chrome()-scrolled detail screens;
 //     beans-tui's two views are both master-detail panes with their own
 //     *ClickRow row-mapping, view_*.go).
@@ -59,7 +59,7 @@ const (
 // m.settings is the config.Settings{} zero value until app.go's Run() (or a
 // Settings-Form submit) populates it (types.go's own "settings" field
 // doc-stamp) -- falls back to 24, the SAME value this file hardcoded before
-// T6b, so the Golden snapshot tests (tree/chrome/backlog) stay
+// T6b, so the Golden snapshot tests (tree/chrome/ready) stay
 // byte-identical. A configured value is additionally
 // clamped into [minTreeWidthFloor,maxTreeWidthFloor] -- consistent with
 // config.validateSettings' own [24,60] clamp range: belt-and-braces here,
@@ -80,17 +80,17 @@ func treeWidthFloor(configured int) int {
 }
 
 // clickPaneGeometry recomputes the numeric frame geometry every one of the
-// two View functions (viewBrowseRepo/viewBacklog, view_browse_repo.go/
-// view_browse_backlog.go) build ahead of their own two-pane body -- bodyH/
+// two View functions (viewBrowseRepo/viewReady, view_browse_repo.go/
+// view_browse_ready.go) build ahead of their own two-pane body -- bodyH/
 // lw/rw plus the screen origin (originX/originY) of the pane's FIRST
 // windowed content row (the search-or-summary head row already consumed --
 // PF-10, bean bt-uyzf, removed the pane's own title+separator lines, so
 // nothing else precedes it now). Single source for BOTH halves: the two View functions
 // themselves (each now calls this instead of an independently maintained
-// avail/bodyH/lw/rw copy) AND treeClickRow/backlogClickRow (Golden-Rule-
+// avail/bodyH/lw/rw copy) AND treeClickRow/readyClickRow (Golden-Rule-
 // Drift-Schutz, mirrors windowStart's own shared-geometry rationale,
 // view_browse_repo.go). head/localKeys are the caller's own EXACT
-// breadcrumb()/footer() strings (browseRepoChrome/backlogChrome), so headH
+// breadcrumb()/footer() strings (browseRepoChrome/readyChrome), so headH
 // always matches that view's real head height (narrow-terminal 2-line
 // breadcrumb wrap included). treeWidth is the caller's OWN
 // m.settings.Layout.TreeWidth (T6b, bean bt-pd22, T5-Review I01 -- BEFORE
@@ -159,7 +159,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// explizites Nicht-Ziel (v1, dokumentierter Scope-Cut). A click/wheel
 	// against the fullscreen single-pane geometry would otherwise be
 	// interpreted against the (WRONG) Split-Geometry clickPaneGeometry/
-	// treeClickRow/backlogClickRow/detailClickRow still compute -- this guard
+	// treeClickRow/readyClickRow/detailClickRow still compute -- this guard
 	// turns that into a safe no-op instead of a false hit against the wrong
 	// row/section. Placed directly after the Toast-Klick-Vorrang (that stays
 	// unconditional, design decision a) and BEFORE the pre-existing overlay
@@ -225,8 +225,8 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		switch m.view {
 		case viewBrowseRepo:
 			return m.mouseTreeClick(msg)
-		case viewBacklog:
-			return m.mouseBacklogClick(msg)
+		case viewReady:
+			return m.mouseReadyClick(msg)
 		}
 	}
 	return m, nil
@@ -261,7 +261,7 @@ func filterBarFieldAt(row, col, width int) (facet string, ok bool) {
 // filterBarHit resolves msg against the persistent filter-chip strip
 // (box_filter_bar.go, bt-wtqs) -- the strip only ever
 // renders in Browse (viewBrowseRepo, view_browse_repo.go's ONE call site;
-// Backlog never shows it, the SAME B6 precedent detailBoxFormClickRow/
+// Ready never shows it, the SAME B6 precedent detailBoxFormClickRow/
 // treeClickRow's own doc comments already establish), so a non-Browse view
 // short-circuits false here without reconstructing any geometry at all.
 //
@@ -310,7 +310,7 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 // scrolls model.boxFormScroll instead of moving a cursor -- checked first so
 // it takes priority over the view switch, mirrors the Toast-Klick-Vorrang/
 // fullscreen/overlay guards above it in handleMouse (earliest-wins
-// precedent). A wheel outside the Detail pane, e.g. over the Tree/Backlog,
+// precedent). A wheel outside the Detail pane, e.g. over the Tree/Ready,
 // falls through to the original switch below.
 func (m model) wheelMove(msg tea.MouseMsg, delta int) model {
 	if boxFormWheelHit(m, msg) {
@@ -319,8 +319,8 @@ func (m model) wheelMove(msg tea.MouseMsg, delta int) model {
 	switch m.view {
 	case viewBrowseRepo:
 		return m.treeCursorMove(m.visibleNodes(), delta)
-	case viewBacklog:
-		return m.backlogCursorMove(m.backlogVisible(), delta)
+	case viewReady:
+		return m.readyCursorMove(m.readyVisible(), delta)
 	}
 	return m
 }
@@ -407,13 +407,13 @@ func (m model) mouseTreeClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 // mouseTreeClick: resolves the clicked row via flatClickRow (view_browse_flat.go,
 // pure geometry, mirrors treeClickRow's own structure) then sets flatList's
 // index cursor. No Doppelklick semantics, same rationale as
-// mouseBacklogClick just below (flat list, keyFlat's own doc comment: "kein
+// mouseReadyClick just below (flat list, keyFlat's own doc comment: "kein
 // Doppelklick-Bedarf").
 func (m model) mouseFlatClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	vis := m.flatVisible()
 	idx, ok := flatClickRow(m, vis, msg)
 	if !ok {
-		// B07 precedent (mouseTreeClick/mouseBacklogClick, above): delegate
+		// B07 precedent (mouseTreeClick/mouseReadyClick, above): delegate
 		// to the shared Detail-Pane click dispatcher for anything outside
 		// the flat list's own column/row span.
 		return m.mouseDetailClick(msg)
@@ -423,22 +423,22 @@ func (m model) mouseFlatClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// mouseBacklogClick dispatches a Backlog left-click: resolves the clicked
-// row via backlogClickRow (view_browse_backlog.go) and sets the cursor --
+// mouseReadyClick dispatches a Ready left-click: resolves the clicked
+// row via readyClickRow (view_browse_ready.go) and sets the cursor --
 // no Doppelklick semantics (flat list, plan epic-E5-plan.md »Task 4« Step
-// 6: "kein Doppelklick-Bedarf bei Backlog").
-func (m model) mouseBacklogClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	vis := m.backlogVisible()
-	idx, ok := backlogClickRow(m, vis, msg)
+// 6: "kein Doppelklick-Bedarf bei Ready").
+func (m model) mouseReadyClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	vis := m.readyVisible()
+	idx, ok := readyClickRow(m, vis, msg)
 	if !ok {
 		// B07: mirrors mouseTreeClick's own delegation above (same
-		// rationale -- backlogClickRow's ok=false covers BOTH "wrong pane"
+		// rationale -- readyClickRow's ok=false covers BOTH "wrong pane"
 		// and "in-pane but no row hit", detailClickRow independently
 		// re-validates the X bounds either way).
 		return m.mouseDetailClick(msg)
 	}
-	m.backlogList.setLen(len(vis))
-	m.backlogList.cursor = idx
+	m.readyList.setLen(len(vis))
+	m.readyList.cursor = idx
 	return m, nil
 }
 
@@ -523,7 +523,7 @@ func boxFormEffectiveScroll(m model, b *item.Item) int {
 // (bean bt-ze10) had guarded the Vollbild off entirely rather than clamp
 // against the wrong geometry; the fix turned out to be width-ONLY. Height
 // needs no branch: bodyH is already read off the CURRENT model's own chrome
-// (browseRepoChrome/backlogChrome are footer-context-aware, so the Vollbild
+// (browseRepoChrome/readyChrome are footer-context-aware, so the Vollbild
 // yields its own correct value here for free) via the SAME clickPaneGeometry
 // call viewBrowseRepo makes BEFORE its fullscreen branch, filter-bar reclaim
 // included. The Vollbild renders ONE full-width pane instead of the split's
@@ -560,14 +560,14 @@ func boxFormPaneMetrics(m model, b *item.Item) (accW, height int) {
 	innerW := w - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
 	bodyH, _, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewBacklog {
+	if m.view != viewReady {
 		bodyH -= filterBarHeight // B6 precedent: only viewBrowseRepo shows the filter bar
 		if bodyH < 1 {
 			bodyH = 1
@@ -611,7 +611,7 @@ func (m model) adjustBoxFormScroll(b *item.Item, delta int) model {
 // boxFormWheelHit reports whether msg lands inside the Detail pane's own
 // column/row bounds -- wheelMove (above) uses this to decide whether a wheel
 // tick scrolls the box-form Detail pane (bean bt-ze10) instead of moving the
-// Tree/Backlog cursor. Mirrors detailBoxFormClickRow's own X/Y bounds check
+// Tree/Ready cursor. Mirrors detailBoxFormClickRow's own X/Y bounds check
 // (below) minus the row->target mapping a click needs -- a wheel tick has no
 // "which box did I land on" question, only "am I over the pane at all".
 func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
@@ -625,14 +625,14 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 	innerW := w - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
 	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewBacklog {
+	if m.view != viewReady {
 		originY += filterBarHeight // B6 precedent, detailBoxFormClickRow below
 	}
 
@@ -648,7 +648,7 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 // (Golden-Rule-Drift-Schutz), corrected by the B6 filter-bar offset (this
 // file's treeClickRow doc comment, view_browse_repo.go) -- ONLY viewBrowseRepo
 // ever shows the filter bar (box_filter_bar.go's one call site), so the
-// offset is guarded on `m.view != viewBacklog` here. With the Detail pane
+// offset is guarded on `m.view != viewReady` here. With the Detail pane
 // hidden (rw == 0) no X coordinate falls inside it, so every click is inert.
 //
 // detailBoxForm's OWN fixed row order (box_detail_form.go doc comment:
@@ -684,15 +684,15 @@ func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 	innerW := w - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
 	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewBacklog {
-		originY += filterBarHeight // B6: viewBacklog never shows the filter bar
+	if m.view != viewReady {
+		originY += filterBarHeight // B6: viewReady never shows the filter bar
 	}
 
 	if msg.X < originX+lw || msg.X >= originX+lw+rw {
@@ -742,7 +742,7 @@ func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 // panelBox hotkeys (box_detail_form.go), so a single click ALWAYS opens the
 // target's editor/
 // menu/picker immediately -- no Doppelklick semantics here, mirrors
-// mouseBacklogClick's own "flat list, kein Doppelklick-Bedarf" precedent
+// mouseReadyClick's own "flat list, kein Doppelklick-Bedarf" precedent
 // (this file). Matches the S6 task spec verbatim ("Trigger the SAME action
 // those keys fire").
 func (m model) mouseBoxFormDetailClick(b *item.Item, msg tea.MouseMsg) (tea.Model, tea.Cmd) {

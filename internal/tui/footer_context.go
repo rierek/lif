@@ -5,7 +5,7 @@ package tui
 // while a Filter-Menu/node-action-Overlay/Search/Command-Center/Help fully
 // captures input (handleKey's own capture-order precedent, update.go), the
 // view-local bindings underneath (browseRepoLocalBindings/
-// backlogLocalBindings) are non-functional -- showing them in the footer
+// readyLocalBindings) are non-functional -- showing them in the footer
 // would actively mislead. contextualLocalHint swaps the footer to the
 // ACTIVE capture state's own bindings instead.
 //
@@ -21,7 +21,7 @@ package tui
 // file's job is strictly the OUTER footer (Zone 3, visible around/below the
 // centered modal), which epic-E7-plan.md Task 7 Step 6 explicitly wants
 // synced to the same active context too (Q04's underlying complaint: the
-// outer footer kept showing STALE Tree/Backlog hints while a totally
+// outer footer kept showing STALE Tree/Ready hints while a totally
 // different overlay had full input capture).
 import keybind "github.com/charmbracelet/bubbles/key"
 
@@ -40,7 +40,7 @@ import keybind "github.com/charmbracelet/bubbles/key"
 // reflects ONLY over keyMap fields and would flag an unreferenced field;
 // staying local here keeps that guard, and
 // TestNoDuplicateBindingBetweenGlobalAndAnyLocalHintList (scoped to
-// browseRepoLocalBindings/backlogLocalBindings only), both untouched)
+// browseRepoLocalBindings/readyLocalBindings only), both untouched)
 // mirroring treeFilterBox's own wording exactly.
 var filterMenuCategoryHint = keybind.NewBinding(keybind.WithKeys("tab", "shift+tab"), keybind.WithHelp("tab/shift+tab", "category"))
 
@@ -253,7 +253,7 @@ func confirmGateLocalBindings() []keybind.Binding {
 	return []keybind.Binding{keys.Enter, keys.Back}
 }
 
-// searchLocalBindings is the inline Tree/Backlog search input's own footer
+// searchLocalBindings is the inline Tree/Ready search input's own footer
 // set while active (m.searchActive, keySearchInput, update.go) --
 // epic-E7-plan.md Task 7 Step 6, literal.
 func searchLocalBindings() []keybind.Binding {
@@ -308,7 +308,7 @@ func (m model) overlayLocalBindings() []keybind.Binding {
 
 // contextualLocalHint is Footer Zone 3's single source for BOTH
 // Chrome-calling views (browseRepoChrome/view_browse_repo.go,
-// backlogChrome/view_browse_backlog.go): view-local (viewLocal) in the
+// readyChrome/view_browse_ready.go): view-local (viewLocal) in the
 // normal state, but swaps to the active capture state's OWN bindings the
 // instant one fully captures input (Q04-Antwort, PO-Nachtrag 5). Priority
 // order (epic-E7-plan.md Task 7 Step 6): Filter-Menü > Overlay > Suche >
@@ -336,7 +336,7 @@ func (m model) contextualLocalHint(viewLocal []keybind.Binding) string {
 		// slotted in AFTER Help/Palette/Suche/Overlay/Filter (none of those
 		// can be active WHILE fullscreen != fullscreenNone anyway -- every
 		// full-capture state routes handleKey's dispatch back to Split-Modus
-		// first) but BEFORE the final viewLocal fallback, whose Tree/Backlog-
+		// first) but BEFORE the final viewLocal fallback, whose Tree/Ready-
 		// specific hints (tab/shift+tab/search/…) are non-functional here.
 		return renderBindings(fullscreenDetailLocalBindings())
 	case m.fullscreen == fullscreenList:

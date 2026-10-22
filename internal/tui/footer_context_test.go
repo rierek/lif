@@ -256,20 +256,6 @@ func TestContextualLocalHintPriority(t *testing.T) {
 	}
 }
 
-// TestFullscreenDetailLocalBindingsShowsHistoryKeys is the bean's own
-// explicitly-named TDD step (F01 History-Stack, E9 Task 8, bean bt-1vbp):
-// the Detail-Vollbild's own footer set is {HistoryBack, HistoryForward,
-// Back} -- the PO-Implementierungshinweis "im Footer ausweisen" made
-// concrete.
-func TestFullscreenDetailLocalBindingsShowsHistoryKeys(t *testing.T) {
-	got := stripHint(renderBindings(fullscreenDetailLocalBindings()))
-	for _, want := range []string{"[ history back", "] history fwd", "esc back"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("fullscreenDetailLocalBindings() rendered = %q, want it to contain %q", got, want)
-		}
-	}
-}
-
 // TestFullscreenListLocalBindingsOmitsHistoryKeys is the bean's own
 // explicitly-named TDD step: the Listen-Vollbild's own footer set shows
 // Back+Enter but MUST NOT show the History keys (wirkungslos there --
@@ -298,8 +284,8 @@ func TestContextualLocalHintFullscreenDetail(t *testing.T) {
 	if strings.Contains(got, "stub-view-local") {
 		t.Errorf("fullscreenDetail: contextualLocalHint = %q, must not contain the viewLocal stub", got)
 	}
-	if !strings.Contains(got, "[ history back") || !strings.Contains(got, "] history fwd") {
-		t.Errorf("fullscreenDetail: contextualLocalHint = %q, want the History hints", got)
+	if !strings.Contains(got, "esc back") || strings.Contains(got, "history") {
+		t.Errorf("fullscreenDetail: contextualLocalHint = %q, want just the esc hint", got)
 	}
 }
 

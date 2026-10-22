@@ -51,7 +51,7 @@ func boxFormWrapSensitiveBeans() []data.Bean {
 	return beans
 }
 
-// fullscreenBoxFormModel builds boxFormScrollModel's model (LIF_TUI_BOXFORM=1,
+// fullscreenBoxFormModel builds boxFormScrollModel's model (
 // 100x30, tk-2 focused) already inside fullscreenDetail, entered through the
 // REAL `v` keypress from a Detail-focused split view (keyFullscreen's own
 // detailFocus branch, view_fullscreen.go) rather than by setting m.fullscreen
@@ -59,7 +59,6 @@ func boxFormWrapSensitiveBeans() []data.Bean {
 // tests use.
 func fullscreenBoxFormModel(t *testing.T, beans []data.Bean) model {
 	t.Helper()
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, beans)
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = focusBean(m, "tk-2")
@@ -145,7 +144,7 @@ func TestBoxFormScrollBoundsUsesFullscreenWidth(t *testing.T) {
 	}
 
 	innerW := mFull.width - 2
-	wantAccW := innerW - 4 // paneW(innerW-2) handed to renderAccordionPane, which takes w-2 as accW
+	wantAccW := innerW - 4 // paneW(innerW-2) handed to renderDetailBox, which takes w-2 as accW
 	// cursor -1: the Vollbild renders no field cursor (bt-1o4g) -- there,
 	// up/down scroll the viewport instead of walking fields, so a cursor would
 	// be a Mauve frame nothing can move. Line COUNT is cursor-independent
@@ -205,34 +204,10 @@ func TestBoxFormScrollFullscreenDrivenByKeyboardReachesEnd(t *testing.T) {
 
 // --- Flag off: nothing about the Vollbild changes ---
 
-// TestBoxFormScrollFullscreenInertWithoutFlag guards the epic's hard
-// constraint that LIF_TUI_BOXFORM stays additive: without the flag, `down` inside
-// fullscreenDetail must drive the pre-existing Accordion Section cursor
-// exactly as before and never write box-form scroll state.
-func TestBoxFormScrollFullscreenInertWithoutFlag(t *testing.T) {
-	m := fixtureModel(t, boxFormLongBodyBeans()) // LIF_TUI_BOXFORM left unset
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-	m.detailFocus = true
-	m = step(t, m, runeMsg('v'))
-	if m.fullscreen != fullscreenDetail {
-		t.Fatalf("setup: fullscreen = %v, want fullscreenDetail", m.fullscreen)
-	}
-
-	before := m.secCursor
-	m = step(t, m, keyMsg(tea.KeyDown))
-	if m.boxFormScroll != 0 || m.boxFormScrollBean != "" {
-		t.Fatalf("boxFormScroll/boxFormScrollBean = %d/%q, want 0/\"\" (accordion mode must never touch box-form scroll state)", m.boxFormScroll, m.boxFormScrollBean)
-	}
-	if m.secCursor == before {
-		t.Fatalf("secCursor unchanged (%d) -- without the flag `down` must still drive the Accordion section cursor in the Vollbild", before)
-	}
-}
-
 // --- bean bt-8d35: the Vollbild has no field cursor to walk ---
 
 // TestBoxFormFullscreenTabDoesNotMoveTheFieldCursor pins the deliberate
-// exclusion in bt-8d35's Fokus-Modell: renderFullscreenBody passes fieldCursor
+// exclusion in bt-8d35's Fokus-Modell: renderFullscreenBody passes cursor
 // -1 (view_fullscreen.go), so there is no cursor rendered in the Vollbild --
 // moving an invisible one would be a focus model without a visible focus.
 // tab therefore keeps its GLOBAL meaning there (handleKey routes it to the

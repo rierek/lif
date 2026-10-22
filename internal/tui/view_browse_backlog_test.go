@@ -554,7 +554,7 @@ func TestBacklogChromeFooterMatchesQ06List(t *testing.T) {
 	m := fixtureModel(t, backlogBeans())
 	_, localKeys := m.backlogChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab focus in · shift+tab focus out · / search · f Filter · s Status · c Create · d Delete · e Edit · b Backlog · t Tags · y Yank · a Parent · r Relations"
+	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · b Backlog · y Yank · r Relations · v fullscreen · D toggle detail"
 	if plain != want {
 		t.Errorf("backlogChrome footer = %q, want exactly %q", plain, want)
 	}

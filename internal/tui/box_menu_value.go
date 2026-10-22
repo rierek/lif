@@ -148,7 +148,7 @@ func (m model) openValueMenu(group string) model {
 	// place all four trigger paths (keyboard s/o/u, field-cursor Enter, mouse
 	// click, Palette) funnel through (S6 grounding §4) -- so this is the only
 	// call site that needs touching, not four. Read by composeOverlays'
-	// placeValueMenuOverlay (view_browse_repo.go) ONLY while boxFormEnabled().
+	// placeValueMenuOverlay (view_browse_repo.go) ONLY.
 	m.valueMenuAnchorField = boxFormFieldIndexForGroup(group)
 	m.overlay = overlayValueMenu
 	return m
@@ -414,15 +414,15 @@ func valueMenuPopupY(anchorY, anchorH, fgH, canvasH, minY int) int {
 }
 
 // placeValueMenuOverlay composes the value-menu overlay onto out (Slice C):
-// while boxFormEnabled() AND the anchor field's rect resolves
+// while the anchor field's rect resolves
 // (boxFormFieldRect, box_nav_field.go, seeded via m.mutTarget/
 // m.valueMenuAnchorField at open time, openValueMenu above), the menu is
 // placed LEFT-ALIGNED directly BELOW its triggering boxed field (or flipped
 // above it, valueMenuPopupY) via placeOverlayAt (Slice B) instead of the
 // pre-existing CENTERED placeOverlay. Falls back to placeOverlay in every
-// other case: boxFormEnabled() off (accordion mode has no boxed fields to
-// anchor to at all -- D09's own scope, "nur die endlichen Einzelfeld-
-// Menüs"), or a rect that fails to resolve (nil mutTarget bean, out-of-range
+// other case: the Detail pane is hidden (no boxed fields on screen to
+// anchor to, except in the Vollbild-Detail), or a rect that fails to
+// resolve (nil mutTarget bean, out-of-range
 // anchor field -- defensive; should not happen in practice since
 // openValueMenu always seeds m.valueMenuAnchorField from the static
 // boxFormFieldIndexForGroup lookup in the SAME call that sets m.overlay).
@@ -449,14 +449,12 @@ func (m model) placeValueMenuOverlay(out string, w, h int) string {
 // click hit-test (mouseValueMenuClick, mouse.go, bt-f0y9 "feld-verankertes
 // Inline-Dropdown") needs the SAME geometry the render uses, so both now
 // call this ONE function rather than maintaining the x/y math twice
-// (Golden-Rule-Drift-Schutz). ok=false whenever boxFormEnabled() is off
-// (accordion mode renders the menu CENTERED via the pre-existing
-// placeOverlay -- Slice D is explicitly scoped to the anchored box-form
-// popup only, D09's own "nur die endlichen Einzelfeld-Menüs") or the anchor
-// field's rect fails to resolve (same defensive fallback
+// (Golden-Rule-Drift-Schutz). ok=false whenever the Detail pane is hidden
+// (the menu is then rendered CENTERED via the pre-existing placeOverlay) or
+// the anchor field's rect fails to resolve (same defensive fallback
 // placeValueMenuOverlay itself has, e.g. a vanished mutTarget bean).
 func (m model) valueMenuPopupRect() (x, y, w, h int, ok bool) {
-	if !boxFormEnabled() {
+	if m.detailHidden && m.fullscreen != fullscreenDetail {
 		return 0, 0, 0, 0, false
 	}
 	b := m.idx.ByID[m.mutTarget] // nil-safe: a nil map / missing key both yield nil
@@ -511,14 +509,9 @@ func (m model) valueMenuPopupRect() (x, y, w, h int, ok bool) {
 // that boundary is ~3 columns short of where content actually draws,
 // harmless for its own coarse pane gate, but would misplace this hit-test).
 //
-// Centered/accordion mode (boxFormEnabled() off) is deliberately OUT of
-// Slice D's scope: valueMenuPopupRect's own ok=false there routes every
-// click straight to "close without mutation" -- but handleMouse (mouse.go)
-// only ever calls this function while boxFormEnabled() in the first place
-// (its own guard mirrors composeOverlays' identical boxFormEnabled() gate),
-// so accordion mode's click is UNCHANGED: the pre-existing blanket overlay
-// guard still swallows it before this function is ever reached (no
-// regression, no new capability there either).
+// The centered mode (Detail pane hidden) has no anchored popup:
+// valueMenuPopupRect's own ok=false there routes every click straight to
+// "close without mutation".
 //
 // A click INSIDE the popup's own rect but not on any item row (the title/
 // hint/group-header/blank/border rows) is a deliberate no-op -- neither

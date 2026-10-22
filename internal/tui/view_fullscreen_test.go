@@ -13,7 +13,6 @@ package tui
 // covers keyFullscreen itself + renderFullscreenBody.
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -129,14 +128,13 @@ func TestKeyFullscreenNoOpInLobby(t *testing.T) {
 
 // TestKeyFullscreenEnterOnListEntersDetailMode guards enter on a Tree bean
 // while m.fullscreen == fullscreenList: switches to fullscreenDetail
-// targeting the cursored bean AND reinitializes the Detail-Fokus-Maschine
-// (Meta/section level, field cursor 0) -- a stale position from a previous
-// visit must not leak in.
+// targeting the cursored bean AND resets the box-form field cursor -- a
+// stale position from a previous visit must not leak in.
 func TestKeyFullscreenEnterOnListEntersDetailMode(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansWithBlocking())
 	m.cursorID = "ms-1"
 	m.fullscreen = fullscreenList
-	m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 2, 3, 1, 1 // stale, must be reset
+	m.boxFormCursor, m.boxFormCursorBean = 3, "ms-1" // stale, must be reset
 
 	m = step(t, m, keyMsg(tea.KeyEnter))
 
@@ -146,9 +144,8 @@ func TestKeyFullscreenEnterOnListEntersDetailMode(t *testing.T) {
 	if m.fullscreenBeanID != "ms-1" {
 		t.Fatalf("fullscreenBeanID = %q, want ms-1", m.fullscreenBeanID)
 	}
-	if m.secCursor != 0 || m.accOpen != 1 || m.detailLevel != 0 || m.fieldCursor != 0 {
-		t.Fatalf("Detail-Fokus-Maschine not reset: secCursor=%d accOpen=%d detailLevel=%d fieldCursor=%d, want 0/1/0/0",
-			m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor)
+	if got := boxFormEffectiveCursor(m, m.idx.ByID["ms-1"]); got != 0 {
+		t.Fatalf("box-form cursor not reset: %d, want 0", got)
 	}
 }
 
@@ -247,439 +244,6 @@ func TestKeyFullscreenEscExitsListModeToSplitViewBacklog(t *testing.T) {
 
 // --- History-Stack (ctrl+left/ctrl+right, [/] Fallback, F01, E9 Task 8, bean bt-1vbp) ---
 
-// TestKeyFullscreenEscExitsListModeClearsHistoryStacks is the fullscreenList
-// mirror of update_test.go's two Vollbild-Exit clearing guards -- defensive:
-// navBack/navForward can only ever be populated INSIDE fullscreenDetail (the
-// Scope-Entscheidung, design-spec.md §15), and fullscreenDetail never exits
-// straight into fullscreenList (always via fullscreenNone first), so this
-// path should already see empty stacks in practice -- pinned anyway so a
-// future change to that invariant cannot silently leak History across a
-// fullscreenList session (Supervisor-Entscheid: EVERY Vollbild-Exit clears
-// both stacks -- ERRATA vs. design-spec.md §15's original "werden beim
-// Verlassen NICHT geleert" text).
-func TestKeyFullscreenEscExitsListModeClearsHistoryStacks(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m.fullscreen = fullscreenList
-	m.navBack = []string{"ms-1"}
-	m.navForward = []string{"tk-1"}
-
-	m = step(t, m, keyMsg(tea.KeyEsc))
-
-	if m.fullscreen != fullscreenNone {
-		t.Fatalf("fullscreen = %v, want fullscreenNone", m.fullscreen)
-	}
-	if m.navBack != nil || m.navForward != nil {
-		t.Fatalf("navBack=%v navForward=%v, want both nil", m.navBack, m.navForward)
-	}
-}
-
-// TestHistoryBackPopsAndPushesForward is the bean's own explicitly-named TDD
-// step, tested via BOTH key encodings individually (Arbeitsregeln: die
-// terminal-Fallback-Pfade je einzeln verifizieren, nicht nur eine Variante)
-// -- pops navBack's top entry into fullscreenBeanID, pushes the bean being
-// LEFT onto navForward, and reinitializes the Detail-Fokus-Maschine (same
-// reset shape as every other Vollbild target-switch).
-func TestHistoryBackPopsAndPushesForward(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		key  tea.KeyMsg
-	}{
-		{"ctrl+left", keyMsg(tea.KeyCtrlLeft)},
-		{"[ fallback", runeMsg('[')},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			m := fixtureModel(t, fixtureBeansWithBlocking())
-			m.fullscreen = fullscreenDetail
-			m.fullscreenBeanID = "bean-b"
-			m.navBack = []string{"bean-a"}
-			m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 2, 3, 1, 1
-
-			m = step(t, m, tc.key)
-
-			if m.fullscreenBeanID != "bean-a" {
-				t.Fatalf("fullscreenBeanID = %q, want bean-a (popped from navBack)", m.fullscreenBeanID)
-			}
-			if len(m.navBack) != 0 {
-				t.Fatalf("navBack = %v, want empty (popped)", m.navBack)
-			}
-			if len(m.navForward) != 1 || m.navForward[0] != "bean-b" {
-				t.Fatalf("navForward = %v, want [bean-b] (the bean being left)", m.navForward)
-			}
-			if m.secCursor != 0 || m.accOpen != 1 || m.detailLevel != 0 || m.fieldCursor != 0 {
-				t.Fatalf("Detail-Fokus-Maschine not reset: secCursor=%d accOpen=%d detailLevel=%d fieldCursor=%d, want 0/1/0/0",
-					m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor)
-			}
-		})
-	}
-}
-
-// TestHistoryForwardPopsAndPushesBack is HistoryBack's symmetric mirror.
-func TestHistoryForwardPopsAndPushesBack(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		key  tea.KeyMsg
-	}{
-		{"ctrl+right", keyMsg(tea.KeyCtrlRight)},
-		{"] fallback", runeMsg(']')},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			m := fixtureModel(t, fixtureBeansWithBlocking())
-			m.fullscreen = fullscreenDetail
-			m.fullscreenBeanID = "bean-a"
-			m.navForward = []string{"bean-b"}
-			m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 2, 3, 1, 1
-
-			m = step(t, m, tc.key)
-
-			if m.fullscreenBeanID != "bean-b" {
-				t.Fatalf("fullscreenBeanID = %q, want bean-b (popped from navForward)", m.fullscreenBeanID)
-			}
-			if len(m.navForward) != 0 {
-				t.Fatalf("navForward = %v, want empty (popped)", m.navForward)
-			}
-			if len(m.navBack) != 1 || m.navBack[0] != "bean-a" {
-				t.Fatalf("navBack = %v, want [bean-a] (the bean being left)", m.navBack)
-			}
-			if m.secCursor != 0 || m.accOpen != 1 || m.detailLevel != 0 || m.fieldCursor != 0 {
-				t.Fatalf("Detail-Fokus-Maschine not reset: secCursor=%d accOpen=%d detailLevel=%d fieldCursor=%d, want 0/1/0/0",
-					m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor)
-			}
-		})
-	}
-}
-
-// TestHistoryBackNoOpWhenStackEmpty is the bean's own explicitly-named TDD
-// step.
-func TestHistoryBackNoOpWhenStackEmpty(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-a"
-
-	m = step(t, m, keyMsg(tea.KeyCtrlLeft))
-
-	if m.fullscreenBeanID != "bean-a" {
-		t.Fatalf("fullscreenBeanID = %q, want unchanged bean-a (No-Op, empty navBack)", m.fullscreenBeanID)
-	}
-	if len(m.navForward) != 0 {
-		t.Fatalf("navForward = %v, want unchanged empty", m.navForward)
-	}
-}
-
-// TestHistoryForwardNoOpWhenStackEmpty mirrors the above for HistoryForward.
-func TestHistoryForwardNoOpWhenStackEmpty(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-a"
-
-	m = step(t, m, keyMsg(tea.KeyCtrlRight))
-
-	if m.fullscreenBeanID != "bean-a" {
-		t.Fatalf("fullscreenBeanID = %q, want unchanged bean-a (No-Op, empty navForward)", m.fullscreenBeanID)
-	}
-	if len(m.navBack) != 0 {
-		t.Fatalf("navBack = %v, want unchanged empty", m.navBack)
-	}
-}
-
-// TestHistoryBackNoOpOutsideFullscreenDetail is the bean's own
-// explicitly-named TDD step, table-driven over every OTHER state the
-// Akzeptanz-Checkliste/Arbeitsregeln name explicitly: Split-Detail
-// (fullscreenNone + detailFocus), Listen-Vollbild (fullscreenList), and the
-// Tree/Backlog itself (fullscreenNone, no detailFocus).
-func TestHistoryBackNoOpOutsideFullscreenDetail(t *testing.T) {
-	cases := []struct {
-		name       string
-		fullscreen fullscreenMode
-		detailFoc  bool
-	}{
-		{"Split-Detail", fullscreenNone, true},
-		{"Listen-Vollbild", fullscreenList, false},
-		{"Tree/Backlog", fullscreenNone, false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			m := fixtureModel(t, fixtureBeansWithBlocking())
-			m.cursorID = "bean-a"
-			m.fullscreen = c.fullscreen
-			m.detailFocus = c.detailFoc
-			m.navBack = []string{"ep-1"}
-
-			m = step(t, m, keyMsg(tea.KeyCtrlLeft))
-
-			if len(m.navBack) != 1 || m.navBack[0] != "ep-1" {
-				t.Fatalf("navBack = %v, want unchanged [ep-1] (HistoryBack must be a No-Op outside fullscreenDetail)", m.navBack)
-			}
-		})
-	}
-}
-
-// TestHistoryForwardNoOpOutsideFullscreenDetail mirrors the above for
-// HistoryForward.
-func TestHistoryForwardNoOpOutsideFullscreenDetail(t *testing.T) {
-	cases := []struct {
-		name       string
-		fullscreen fullscreenMode
-		detailFoc  bool
-	}{
-		{"Split-Detail", fullscreenNone, true},
-		{"Listen-Vollbild", fullscreenList, false},
-		{"Tree/Backlog", fullscreenNone, false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			m := fixtureModel(t, fixtureBeansWithBlocking())
-			m.cursorID = "bean-a"
-			m.fullscreen = c.fullscreen
-			m.detailFocus = c.detailFoc
-			m.navForward = []string{"ep-1"}
-
-			m = step(t, m, keyMsg(tea.KeyCtrlRight))
-
-			if len(m.navForward) != 1 || m.navForward[0] != "ep-1" {
-				t.Fatalf("navForward = %v, want unchanged [ep-1] (HistoryForward must be a No-Op outside fullscreenDetail)", m.navForward)
-			}
-		})
-	}
-}
-
-// TestHistoryKeysNoOpWhileOverlayOpen mirrors
-// TestKeyFullscreenVNoOpWhileOverlayOrFormOpen for the History keys:
-// handleKey's overlay full-capture check (update.go) runs BEFORE
-// keyFullscreen's own checkpoint, so ctrl+left/[ typed while a node-action
-// overlay is open inside fullscreenDetail must not navigate History --
-// architecturally guaranteed by dispatch order, pinned here since it is the
-// same LESSONS-LEARNED Eintrag-3 class ("neue Kaskaden IMMER end-to-end
-// testen, aus jedem realistischen Ausgangszustand").
-func TestHistoryKeysNoOpWhileOverlayOpen(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-a"
-	m.navBack = []string{"ep-1"}
-	m = m.openValueMenu("status")
-	if m.overlay != overlayValueMenu {
-		t.Fatal("setup: openValueMenu did not set the overlay")
-	}
-
-	m = step(t, m, keyMsg(tea.KeyCtrlLeft))
-
-	if m.fullscreenBeanID != "bean-a" {
-		t.Fatalf("fullscreenBeanID = %q, want unchanged bean-a (History must not leak through an open overlay)", m.fullscreenBeanID)
-	}
-	if len(m.navBack) != 1 {
-		t.Fatalf("navBack = %v, want unchanged [ep-1]", m.navBack)
-	}
-}
-
-// TestHistoryBackForwardRoundTripReturnsToOriginalBean is the bean's own
-// explicitly-named TDD step: N Relations-Sprünge, then N x Back, then N x
-// Forward must land EXACTLY back at the original bean (identical stack
-// depths at each end of the round trip, not just the same fullscreenBeanID).
-func TestHistoryBackForwardRoundTripReturnsToOriginalBean(t *testing.T) {
-	beans := []data.Bean{
-		{ID: "n1", Title: "N1", Status: "todo", Type: "task", Priority: "normal"},
-		{ID: "n2", Title: "N2", Status: "todo", Type: "task", Priority: "normal"},
-		{ID: "n3", Title: "N3", Status: "todo", Type: "task", Priority: "normal"},
-		{ID: "n4", Title: "N4", Status: "todo", Type: "task", Priority: "normal"},
-	}
-	m := fixtureModel(t, beans)
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "n1"
-
-	// 3 Relations-Sprünge: n1 -> n2 -> n3 -> n4 (activateDetailField's
-	// jump case directly, same path every other Push test in
-	// update_test.go exercises -- the UI path to reach it (Beziehungen
-	// field enter) is covered separately, this isolates the Stack algebra).
-	for _, target := range []string{"n2", "n3", "n4"} {
-		b := m.focusedBean()
-		tm, _ := m.activateDetailField(b, relationField{kind: "", beanID: target})
-		m = tm.(model)
-	}
-	if m.fullscreenBeanID != "n4" {
-		t.Fatalf("setup: fullscreenBeanID = %q, want n4 after 3 jumps", m.fullscreenBeanID)
-	}
-	if len(m.navBack) != 3 {
-		t.Fatalf("setup: navBack = %v, want 3 entries after 3 jumps", m.navBack)
-	}
-	// T8-Review PRELUDE finding T8-F02: pin the EXACT navBack contents (push
-	// order), not just its length -- a bug that pushed the right length but
-	// wrong order/values would otherwise slip through undetected.
-	wantNavBackAfterSetup := []string{"n1", "n2", "n3"}
-	if !reflect.DeepEqual(m.navBack, wantNavBackAfterSetup) {
-		t.Fatalf("setup: navBack = %v, want %v (exact push order)", m.navBack, wantNavBackAfterSetup)
-	}
-
-	for i := 0; i < 3; i++ {
-		m = step(t, m, keyMsg(tea.KeyCtrlLeft))
-	}
-	if m.fullscreenBeanID != "n1" {
-		t.Fatalf("after 3x Back: fullscreenBeanID = %q, want n1 (original)", m.fullscreenBeanID)
-	}
-	if len(m.navBack) != 0 {
-		t.Fatalf("after 3x Back: navBack = %v, want empty", m.navBack)
-	}
-	if len(m.navForward) != 3 {
-		t.Fatalf("after 3x Back: navForward = %v, want 3 entries", m.navForward)
-	}
-	// T8-F02: exact navForward contents, not just length -- Back pushes the
-	// bean being LEFT in LIFO order (n4 first, then n3, then n2).
-	wantNavForwardAfterBack := []string{"n4", "n3", "n2"}
-	if !reflect.DeepEqual(m.navForward, wantNavForwardAfterBack) {
-		t.Fatalf("after 3x Back: navForward = %v, want %v (exact LIFO push order)", m.navForward, wantNavForwardAfterBack)
-	}
-
-	for i := 0; i < 3; i++ {
-		m = step(t, m, keyMsg(tea.KeyCtrlRight))
-	}
-	if m.fullscreenBeanID != "n4" {
-		t.Fatalf("after 3x Forward: fullscreenBeanID = %q, want n4 (back to pre-Back state)", m.fullscreenBeanID)
-	}
-	if len(m.navForward) != 0 {
-		t.Fatalf("after 3x Forward: navForward = %v, want empty", m.navForward)
-	}
-	if len(m.navBack) != 3 {
-		t.Fatalf("after 3x Forward: navBack = %v, want 3 entries (identical to pre-Back state)", m.navBack)
-	}
-	// T8-F02: the round trip's whole point is landing EXACTLY back where it
-	// started -- assert the FINAL navBack/navForward contents via
-	// reflect.DeepEqual against the exact pre-Back snapshots above, not just
-	// matching lengths (a length-only check would miss e.g. a silent
-	// element-order swap that still nets out to the same count).
-	if !reflect.DeepEqual(m.navBack, wantNavBackAfterSetup) {
-		t.Fatalf("after 3x Forward: navBack = %v, want %v (identical contents to pre-Back state)", m.navBack, wantNavBackAfterSetup)
-	}
-	if !reflect.DeepEqual(m.navForward, []string{}) {
-		t.Fatalf("after 3x Forward: navForward = %v, want [] (identical contents to pre-jump state)", m.navForward)
-	}
-}
-
-// TestHistoryBackSkipsVanishedEntry guards the Supervisor-Entscheid's
-// F01-Analogie: a bean referenced by navBack can vanish externally (repo
-// watch-reload, parallel-agent delete/rename -- same real-world trigger
-// class as the F01 b==nil-Guard fix, update_test.go) between the jump and
-// the Back press. HistoryBack must not land on/get stuck on the vanished
-// entry -- it skips past it and lands on the next STILL-VALID entry further
-// back instead (not-trap, same spirit as the guard fix).
-func TestHistoryBackSkipsVanishedEntry(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-b"
-	m.navBack = []string{"bean-a", "does-not-exist"} // top entry vanished
-
-	m = step(t, m, keyMsg(tea.KeyCtrlLeft))
-
-	if m.fullscreenBeanID != "bean-a" {
-		t.Fatalf("fullscreenBeanID = %q, want bean-a (skipped past the vanished top entry)", m.fullscreenBeanID)
-	}
-	if len(m.navBack) != 0 {
-		t.Fatalf("navBack = %v, want empty (both the vanished AND the landed-on entry consumed)", m.navBack)
-	}
-	if len(m.navForward) != 1 || m.navForward[0] != "bean-b" {
-		t.Fatalf("navForward = %v, want [bean-b]", m.navForward)
-	}
-}
-
-// TestHistoryBackAllEntriesVanishedIsCleanNoOp is
-// TestHistoryBackSkipsVanishedEntry's exhaustion case: every navBack entry
-// is vanished -- HistoryBack must land on nothing (fullscreenBeanID
-// unchanged) and leave a CLEAN, drained stack rather than an infinite loop
-// or a permanently-stuck dead entry (Supervisor-Entscheid: "No-Op mit
-// sauberem Zustand").
-func TestHistoryBackAllEntriesVanishedIsCleanNoOp(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-b"
-	m.navBack = []string{"does-not-exist-1", "does-not-exist-2"}
-
-	m = step(t, m, keyMsg(tea.KeyCtrlLeft))
-
-	if m.fullscreenBeanID != "bean-b" {
-		t.Fatalf("fullscreenBeanID = %q, want unchanged bean-b (no valid entry anywhere in navBack)", m.fullscreenBeanID)
-	}
-	if len(m.navBack) != 0 {
-		t.Fatalf("navBack = %v, want drained empty (clean state, both vanished entries discarded)", m.navBack)
-	}
-	if len(m.navForward) != 0 {
-		t.Fatalf("navForward = %v, want unchanged empty (nothing was actually navigated)", m.navForward)
-	}
-}
-
-// TestHistoryForwardSkipsVanishedEntry mirrors
-// TestHistoryBackSkipsVanishedEntry for HistoryForward.
-func TestHistoryForwardSkipsVanishedEntry(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-a"
-	m.navForward = []string{"bean-b", "does-not-exist"}
-
-	m = step(t, m, keyMsg(tea.KeyCtrlRight))
-
-	if m.fullscreenBeanID != "bean-b" {
-		t.Fatalf("fullscreenBeanID = %q, want bean-b (skipped past the vanished top entry)", m.fullscreenBeanID)
-	}
-	if len(m.navForward) != 0 {
-		t.Fatalf("navForward = %v, want empty", m.navForward)
-	}
-	if len(m.navBack) != 1 || m.navBack[0] != "bean-a" {
-		t.Fatalf("navBack = %v, want [bean-a]", m.navBack)
-	}
-}
-
-// TestHistoryBackNoOpWhenIndexNil pins T8-Review PRELUDE finding T8-F01
-// (view_fullscreen.go:94): `if m.idx == nil { break }` inside HistoryBack's
-// pop loop had no dedicated coverage -- every other History test builds its
-// model via fixtureModel, which always leaves m.idx non-nil after the
-// beansLoadedMsg round-trip. A nil m.idx IS reachable in practice (a
-// History key pressed before the first beansLoadedMsg lands, or mid a
-// repo-switch that clears the Index) -- the same defensive trigger class as
-// the b==nil-Guard fix (update.go), just one layer earlier (no Index at all
-// to resolve a bean against). Pins the IMPLEMENTED behavior as-is, not a
-// fix: no panic, and no NAVIGATION happens (fullscreenBeanID/navForward
-// stay untouched) -- but the popped top entry IS silently dropped from
-// navBack (consumed by the loop body's reslice before the nil check fires),
-// a known, accepted trade-off of this defensive guard's current shape, not
-// a bug to change here.
-func TestHistoryBackNoOpWhenIndexNil(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-b"
-	m.navBack = []string{"bean-a"}
-	m.idx = nil
-
-	m = step(t, m, keyMsg(tea.KeyCtrlLeft))
-
-	if m.fullscreenBeanID != "bean-b" {
-		t.Fatalf("fullscreenBeanID = %q, want unchanged bean-b (nil m.idx: no navigation, no panic)", m.fullscreenBeanID)
-	}
-	if len(m.navForward) != 0 {
-		t.Fatalf("navForward = %v, want unchanged empty (no navigation happened)", m.navForward)
-	}
-	if len(m.navBack) != 0 {
-		t.Fatalf("navBack = %v, want drained empty (documented: the nil-idx guard consumes the popped entry)", m.navBack)
-	}
-}
-
-// TestHistoryForwardNoOpWhenIndexNil mirrors TestHistoryBackNoOpWhenIndexNil
-// for HistoryForward's own nil-idx guard (view_fullscreen.go:112).
-func TestHistoryForwardNoOpWhenIndexNil(t *testing.T) {
-	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "bean-a"
-	m.navForward = []string{"bean-b"}
-	m.idx = nil
-
-	m = step(t, m, keyMsg(tea.KeyCtrlRight))
-
-	if m.fullscreenBeanID != "bean-a" {
-		t.Fatalf("fullscreenBeanID = %q, want unchanged bean-a (nil m.idx: no navigation, no panic)", m.fullscreenBeanID)
-	}
-	if len(m.navBack) != 0 {
-		t.Fatalf("navBack = %v, want unchanged empty (no navigation happened)", m.navBack)
-	}
-	if len(m.navForward) != 0 {
-		t.Fatalf("navForward = %v, want drained empty (documented: the nil-idx guard consumes the popped entry)", m.navForward)
-	}
-}
-
 // --- Kein neuer viewID-Wert (Akzeptanz-Checkliste) ---
 
 // TestFullscreenNeverChangesViewID guards the state-model's central
@@ -705,7 +269,7 @@ func TestFullscreenNeverChangesViewID(t *testing.T) {
 // the FULL innerW (not a Split lw/rw).
 func TestRenderFullscreenBodyListUsesFullPaneWidth(t *testing.T) {
 	rows := []string{"row one", "row two"}
-	out := renderFullscreenBody(fullscreenList, 40, 10, rows, true, nil, nil, 0, 1, 0, 0, 0)
+	out := renderFullscreenBody(fullscreenList, 40, 10, rows, true, nil, nil, 0)
 	lines := strings.Split(out, "\n")
 	if len(lines) == 0 {
 		t.Fatal("renderFullscreenBody returned no lines")
@@ -716,12 +280,12 @@ func TestRenderFullscreenBodyListUsesFullPaneWidth(t *testing.T) {
 }
 
 // TestRenderFullscreenBodyDetailUsesFullPaneWidth mirrors the List case for
-// fullscreenDetail (renderAccordionPane's own Width(w) + border contract).
+// fullscreenDetail (renderDetailBox's own Width(w) + border contract).
 func TestRenderFullscreenBodyDetailUsesFullPaneWidth(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	b := m.idx.ByID["ms-1"]
 
-	out := renderFullscreenBody(fullscreenDetail, 50, 12, nil, true, m.idx, b, 0, 1, 0, 0, 0)
+	out := renderFullscreenBody(fullscreenDetail, 50, 12, nil, true, m.idx, b, 0)
 	lines := strings.Split(out, "\n")
 	if len(lines) == 0 {
 		t.Fatal("renderFullscreenBody returned no lines")

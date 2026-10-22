@@ -212,7 +212,7 @@ func boxFormFieldSpan(blocks []string, field int) (start, height int) {
 // render, duplicated here rather than shared because mouse.go's
 // adjustBoxFormScroll needs the CLAMPED OFFSET ITSELF to store back onto
 // model.boxFormScroll, not scrollView's windowed string + indicator return
-// shape. Render-time windowing (renderAccordionPane, view_browse_repo.go)
+// shape. Render-time windowing (renderDetailBox, view_browse_repo.go)
 // still goes through scrollView directly, which self-clamps regardless --
 // this function only keeps the STORED offset (and the tests asserting it)
 // sane between keystrokes/wheel ticks.

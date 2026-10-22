@@ -5,7 +5,7 @@ package tui
 //
 //  1. the REGRESSION half: the reported failure was a scrolled Tree whose
 //     hit-test windowed against a different height than the renderer did
-//     (LIF_TUI_BOXFORM's filter bar was reclaimed from bodyH by viewBrowseRepo but
+//     (the box-form's filter bar was reclaimed from bodyH by viewBrowseRepo but
 //     not by treeClickRow). Both starts clamp to 0 at the top of an unscrolled
 //     list, which is why it presented as "sometimes works".
 //  2. the BEHAVIOUR half: single click selects only, double click toggles
@@ -54,13 +54,12 @@ func clickTree(t *testing.T, m model, substr string) model {
 // form: 60 beans, cursor parked deep enough that the window is scrolled, flag
 // ON. Before the fix this selected the wrong bean (or none at all).
 func TestScrolledTreeClickSelectsTheRowUnderThePointer(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := longTreeModel(t)
 
 	// Row 045 is the cursor; 040 is visible above it in the scrolled window.
 	m2 := clickTree(t, m, "Row 040")
 	if m2.cursorID != "gld-r040" {
-		t.Fatalf("click on the \"Row 040\" row selected %q, want gld-r040 (scrolled window, LIF_TUI_BOXFORM on)", m2.cursorID)
+		t.Fatalf("click on the \"Row 040\" row selected %q, want gld-r040 (scrolled window)", m2.cursorID)
 	}
 }
 
@@ -76,7 +75,6 @@ func TestScrolledTreeClickSelectsTheRowUnderThePointerFlagOff(t *testing.T) {
 // asserts the click lands on it -- a single-row spot check would pass against
 // an off-by-N window whose error happens to be zero at that one row.
 func TestScrolledTreeClickHitsEveryVisibleRow(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := longTreeModel(t)
 
 	for i := 30; i < 60; i++ {
@@ -101,7 +99,7 @@ func pad3(i int) string {
 
 func renderedInLeftPane(m model, substr string) bool {
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
 	for _, l := range screenLines(m) {
 		i := strings.Index(l, substr)
 		if i < 0 {

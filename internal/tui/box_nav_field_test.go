@@ -2,7 +2,7 @@ package tui
 
 // box_nav_field_test.go — TDD coverage for the box-form FIELD CURSOR (bean
 // bt-1o4g, epic bt-vy1q, PO-Nebenbefund N8 "keyboard-first"): while
-// boxFormEnabled() AND the Detail pane is focused (tab), the arrow keys must
+// the Detail pane is focused (tab), the arrow keys must
 // step between detailBoxForm's boxes (box_detail_form.go) instead of doing
 // nothing, the cursored box must render with dropdownBox/panelBox's
 // pre-existing focused=true Mauve frame, and enter must open the SAME editor
@@ -212,13 +212,13 @@ func TestBoxFormGridMoveWalksTheLayout(t *testing.T) {
 	}
 }
 
-// --- bean bt-8d35: tab/shift+tab own the field cursor, arrows scroll ---
+// --- up/down own the field cursor inside the Detail region ---
 
-// TestBoxFormTabWalksFieldsWithWrap is the PO's Flow #2 verbatim: tab steps
-// through detailBoxForm's fields in RENDER order and WRAPS at the end instead
-// of falling back into the Tree ("sonst verliert man den Fokus versehentlich
-// beim Durchsteppen").
-func TestBoxFormTabWalksFieldsWithWrap(t *testing.T) {
+// TestBoxFormDownWalksFieldsWithWrap: down steps through detailBoxForm's
+// fields in RENDER order and WRAPS at the end instead of falling back into
+// the Tree ("sonst verliert man den Fokus versehentlich beim
+// Durchsteppen").
+func TestBoxFormDownWalksFieldsWithWrap(t *testing.T) {
 	m := boxFormFieldModel(t)
 
 	want := make([]string, 0, len(boxFormFieldOrder))
@@ -228,55 +228,33 @@ func TestBoxFormTabWalksFieldsWithWrap(t *testing.T) {
 	want = append(want, boxFormFieldOrder[0].name) // wrap back to Title
 
 	for i, w := range want {
-		m = step(t, m, keyMsg(tea.KeyTab))
+		m = step(t, m, keyMsg(tea.KeyDown))
 		if got := boxFormFieldOrder[m.boxFormCursor].name; got != w {
-			t.Fatalf("tab #%d: cursor on %q, want %q", i+1, got, w)
+			t.Fatalf("down #%d: cursor on %q, want %q", i+1, got, w)
 		}
 		if !m.detailFocus {
-			t.Fatalf("tab #%d left the Detail region -- tab must move WITHIN it (bt-8d35)", i+1)
+			t.Fatalf("down #%d left the Detail region -- down must move WITHIN it", i+1)
 		}
 	}
 }
 
-// TestBoxFormShiftTabWalksFieldsBackwardsWithWrap is Flow #2's other half:
-// shift+tab is the reverse step, and from the FIRST field it wraps to the
-// last rather than exiting the region (that is esc's job now).
-func TestBoxFormShiftTabWalksFieldsBackwardsWithWrap(t *testing.T) {
+// TestBoxFormUpWalksFieldsBackwardsWithWrap is the reverse step: from the
+// FIRST field up wraps to the last rather than exiting the region (that is
+// esc's job).
+func TestBoxFormUpWalksFieldsBackwardsWithWrap(t *testing.T) {
 	m := boxFormFieldModel(t)
 
-	m = step(t, m, keyMsg(tea.KeyShiftTab))
+	m = step(t, m, keyMsg(tea.KeyUp))
 	if got, want := boxFormFieldOrder[m.boxFormCursor].name, boxFormFieldOrder[len(boxFormFieldOrder)-1].name; got != want {
-		t.Fatalf("shift+tab on the first field: cursor on %q, want the LAST field %q (wrap)", got, want)
+		t.Fatalf("up on the first field: cursor on %q, want the LAST field %q (wrap)", got, want)
 	}
 	if !m.detailFocus {
-		t.Fatal("shift+tab left the Detail region -- only esc may do that (bt-8d35)")
+		t.Fatal("up left the Detail region -- only esc may do that")
 	}
 
-	m = step(t, m, keyMsg(tea.KeyShiftTab))
-	if got, want := boxFormFieldOrder[m.boxFormCursor].name, boxFormFieldOrder[len(boxFormFieldOrder)-2].name; got != want {
-		t.Fatalf("second shift+tab: cursor on %q, want %q", got, want)
-	}
-}
-
-// TestBoxFormArrowsScrollInsteadOfMovingTheCursor is PO-Entscheidung 3:
-// the arrows scroll the WHOLE view again (bt-ze10's behaviour) and leave the
-// field cursor exactly where tab put it.
-func TestBoxFormArrowsScrollInsteadOfMovingTheCursor(t *testing.T) {
-	m := boxFormFieldModel(t)
-	b := m.focusedBean()
-	requireOverflow(t, m, b)
-
-	before := m.boxFormCursor
-	m = step(t, m, keyMsg(tea.KeyDown))
-	if m.boxFormCursor != before {
-		t.Fatalf("down moved the field cursor to %q -- the arrows must only scroll (bt-8d35)", boxFormFieldOrder[m.boxFormCursor].name)
-	}
-	if m.boxFormScroll != 1 {
-		t.Fatalf("boxFormScroll after one down = %d, want 1 (plain ±1 viewport scroll)", m.boxFormScroll)
-	}
 	m = step(t, m, keyMsg(tea.KeyUp))
-	if m.boxFormScroll != 0 {
-		t.Fatalf("boxFormScroll after up = %d, want 0", m.boxFormScroll)
+	if got, want := boxFormFieldOrder[m.boxFormCursor].name, boxFormFieldOrder[len(boxFormFieldOrder)-2].name; got != want {
+		t.Fatalf("second up: cursor on %q, want %q", got, want)
 	}
 }
 
@@ -307,13 +285,12 @@ func TestBoxFormTabFromTreeEntersAtTheFirstField(t *testing.T) {
 	}
 }
 
-// TestBoxFormTabWalksFieldsInTheBacklogToo is bt-8d35's "Reichweite" check:
+// TestBoxFormDownWalksFieldsInTheBacklogToo is bt-8d35's "Reichweite" check:
 // tab is a GLOBAL binding, so the Fokus-Modell must land identically in every
 // view that renders the box form -- the Backlog shares the very same Detail
 // pane and routes through the same keyDetailFocus (handleKey's detailFocus
 // dispatch), so this pins that it really does, rather than only Browse.
-func TestBoxFormTabWalksFieldsInTheBacklogToo(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
+func TestBoxFormDownWalksFieldsInTheBacklogToo(t *testing.T) {
 	m := fixtureModel(t, backlogBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.view = viewBacklog
@@ -326,36 +303,12 @@ func TestBoxFormTabWalksFieldsInTheBacklogToo(t *testing.T) {
 		t.Fatalf("tab-in landed on field %q, want Title", boxFormFieldOrder[got].name)
 	}
 
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = step(t, m, keyMsg(tea.KeyDown))
 	if got := boxFormFieldOrder[m.boxFormCursor].name; got != boxFormFieldOrder[1].name {
-		t.Fatalf("second tab in the Backlog: cursor on %q, want %q", got, boxFormFieldOrder[1].name)
+		t.Fatalf("second down in the Backlog: cursor on %q, want %q", got, boxFormFieldOrder[1].name)
 	}
 	if !m.detailFocus {
 		t.Fatal("tab swapped the Backlog's panes instead of moving within the Detail region")
-	}
-}
-
-// TestTabStillSwapsPanesWithoutBoxForm is the flag-OFF regression pin: the
-// whole Fokus-Modell is experiment-gated (epic bt-vy1q), so without
-// LIF_TUI_BOXFORM tab remains PF-13's bidirectional pane toggle and shift+tab
-// remains the deterministic exit.
-func TestTabStillSwapsPanesWithoutBoxForm(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "0")
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if !m.detailFocus {
-		t.Fatal("flag OFF: tab must still focus the Detail pane")
-	}
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if m.detailFocus {
-		t.Fatal("flag OFF: a second tab must toggle focus back to the Tree (PF-13)")
-	}
-	m = step(t, m, keyMsg(tea.KeyTab))
-	m = step(t, m, keyMsg(tea.KeyShiftTab))
-	if m.detailFocus {
-		t.Fatal("flag OFF: shift+tab must still be the deterministic exit (PF-13)")
 	}
 }
 
@@ -378,53 +331,13 @@ func TestBoxFormCursorStaysVisibleWhileNavigating(t *testing.T) {
 	blocks := boxFormBlocks(m.idx, b, accW, -1)
 
 	for i := 0; i < 300; i++ {
-		m = step(t, m, keyMsg(tea.KeyTab))
+		m = step(t, m, keyMsg(tea.KeyDown))
 		off := boxFormEffectiveScroll(m, b)
 		start, h := boxFormFieldSpan(blocks, m.boxFormCursor)
 		if start >= off+height || start+h <= off {
 			t.Fatalf("tab #%d: field %q spans [%d,%d) but the visible window is [%d,%d) -- the cursor scrolled out of view",
 				i, boxFormFieldOrder[m.boxFormCursor].name, start, start+h, off, off+height)
 		}
-	}
-}
-
-// TestBoxFormDownScrollsThroughATallField guards bt-ze10's own headline
-// criterion: while the cursored field is TALLER than the pane, down scrolls
-// the viewport through it instead of jumping the cursor onward -- otherwise a
-// long Body's tail would be keyboard-unreachable.
-//
-// bean bt-8d35: the cursor is walked onto the Body with tab (the arrows no
-// longer move it); the assertions themselves are unchanged, they hold now
-// because the arrows scroll again (PO-Entscheidung 3).
-func TestBoxFormDownScrollsThroughATallField(t *testing.T) {
-	m := boxFormFieldModel(t)
-	b := m.focusedBean()
-	requireOverflow(t, m, b)
-
-	body := fieldIdx(t, "body")
-	for i := 0; i < 10 && m.boxFormCursor < body; i++ {
-		m = step(t, m, keyMsg(tea.KeyTab))
-	}
-	if m.boxFormCursor != body {
-		t.Fatalf("setup: cursor on %q, want body", boxFormFieldOrder[m.boxFormCursor].name)
-	}
-
-	before := m.boxFormScroll
-	m = step(t, m, keyMsg(tea.KeyDown))
-	if m.boxFormCursor != body {
-		t.Fatalf("down on the tall Body field moved the cursor to %q -- it must first scroll the rest of the field into view", boxFormFieldOrder[m.boxFormCursor].name)
-	}
-	if m.boxFormScroll <= before {
-		t.Fatalf("boxFormScroll = %d, want > %d (down inside a tall field scrolls)", m.boxFormScroll, before)
-	}
-	if m.boxFormScrollBean != b.ID {
-		t.Fatalf("boxFormScrollBean = %q, want %q", m.boxFormScrollBean, b.ID)
-	}
-
-	up := m.boxFormScroll
-	m = step(t, m, keyMsg(tea.KeyUp))
-	if m.boxFormScroll >= up {
-		t.Fatalf("boxFormScroll after up = %d, want < %d (up inside a tall field scrolls back)", m.boxFormScroll, up)
 	}
 }
 
@@ -513,33 +426,15 @@ func TestBoxFormCursorResetsWhenSelectedBeanChanges(t *testing.T) {
 
 // --- Flag off: accordion mode is untouched ---
 
-// TestBoxFormFieldNavInertWithoutFlag guards the experiment's hard contract:
-// without LIF_TUI_BOXFORM, the same keys must drive the pre-existing accordion
-// Section/Field machine and never write the box-form cursor state.
-func TestBoxFormFieldNavInertWithoutFlag(t *testing.T) {
-	m := fixtureModel(t, boxFormLongBodyBeans()) // LIF_TUI_BOXFORM left unset
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-	m.detailFocus = true
-
-	m = step(t, m, keyMsg(tea.KeyDown))
-	m = step(t, m, keyMsg(tea.KeyRight))
-	m = step(t, m, keyMsg(tea.KeyEnter))
-	if m.boxFormCursor != 0 || m.boxFormCursorBean != "" {
-		t.Fatalf("boxFormCursor/boxFormCursorBean = %d/%q, want 0/\"\" (accordion mode must never touch the box-form cursor)", m.boxFormCursor, m.boxFormCursorBean)
-	}
-}
-
 // --- Slice A (bt-f0y9, D09 revidiert): forward field->screen-rect geometry ---
 
-// boxFormRectModel builds a fixtureModel with LIF_TUI_BOXFORM=1, tk-2 focused, at
+// boxFormRectModel builds a fixtureModel with tk-2 focused, at
 // the given terminal width (80/120, S6 grounding's own boundary widths) --
 // unscrolled (fixtureBeans' tk-2 has no long Body, unlike
 // boxFormLongBodyBeans), so Status/Type/Priority sit at their unscrolled
 // render position and boxFormEffectiveScroll(m, b) is 0.
 func boxFormRectModel(t *testing.T, width int) model {
 	t.Helper()
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: width, Height: 30})
 	m = focusBean(m, "tk-2")

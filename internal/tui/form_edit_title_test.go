@@ -276,9 +276,8 @@ func collectCmdMsgs(cmd tea.Cmd, budget int) []tea.Msg {
 func TestEditTitleFormCtrlEDoesNotFireHuhEditor(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, keyMsg(tea.KeyTab))
-	m = step(t, m, keyMsg(tea.KeyEnter)) // field level, fieldCursor=0 (title)
-	m = step(t, m, keyMsg(tea.KeyEnter)) // opens the Title-Edit-Form via styleForm
+	tm0, _ := m.openEditTitleForm(m.idx.ByID["tk-2"]) // opens the Title-Edit-Form via styleForm
+	m = tm0.(model)
 	if m.form == nil || m.formKind != "editTitle" {
 		t.Fatalf("setup: form=%v formKind=%q, want an open editTitle form", m.form, m.formKind)
 	}

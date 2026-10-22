@@ -134,38 +134,6 @@ func TestValueMenuMouseClickOutsidePopupClosesWithoutMutation(t *testing.T) {
 	}
 }
 
-// TestValueMenuMouseClickInertWithoutBoxFormFlag guards the OFF-by-default
-// contract: accordion mode (LIF_TUI_BOXFORM unset) renders the value menu
-// CENTERED (Slice C), out of Slice D's scope -- a click anywhere must stay
-// the pre-existing no-op the blanket overlay guard already gave it (no
-// regression, and deliberately no new capability either).
-func TestValueMenuMouseClickInertWithoutBoxFormFlag(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-
-	if boxFormEnabled() {
-		t.Fatal("setup: LIF_TUI_BOXFORM must be unset for this test")
-	}
-	m = step(t, m, runeMsg('s'))
-	if m.overlay != overlayValueMenu {
-		t.Fatalf("setup: overlay = %v, want overlayValueMenu", m.overlay)
-	}
-
-	msg := tea.MouseMsg{Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: 40, Y: 15}
-	tm, cmd := m.handleMouse(msg)
-	nm, ok := tm.(model)
-	if !ok {
-		t.Fatalf("handleMouse(click) did not return a model, got %T", tm)
-	}
-	if nm.overlay != overlayValueMenu {
-		t.Fatalf("overlay after click (LIF_TUI_BOXFORM off) = %v, want unchanged overlayValueMenu (blanket guard, unaffected by Slice D)", nm.overlay)
-	}
-	if cmd != nil {
-		t.Fatal("click while LIF_TUI_BOXFORM is off must not return any Cmd")
-	}
-}
-
 // --- valueMenuItemRow / valueMenuBodyAndItemRows (pure geometry) ---
 
 // TestValueMenuItemRowMatchesRenderedRows is the render-grounded cross-check

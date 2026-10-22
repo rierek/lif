@@ -140,7 +140,7 @@ func TestShortTypeFallsBackToAQuestionMark(t *testing.T) {
 // TestSetTypeColumnWidthsStoresBothValues exercises the setter/getter pair
 // on their own -- it does not, and cannot, prove that any caller derives 12
 // from a longest type name of 11 characters. That derivation lives in
-// internal/commands.feedTypeTables (longest+1) and is covered separately by
+// internal/uiconfig.Apply (longest+1) and is covered separately by
 // that package's tests, since internal/ui must not import pkg/config to
 // build the config-derived fixture itself.
 func TestSetTypeColumnWidthsStoresBothValues(t *testing.T) {

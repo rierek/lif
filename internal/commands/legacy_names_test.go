@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/internal/storeroot"
 	"github.com/rierek/lif/pkg/config"
 )
 
@@ -212,32 +213,32 @@ func TestLegacyNameWarnings_StepFollowsTheNameSource(t *testing.T) {
 	bare := config.Default()
 
 	t.Run("env var", func(t *testing.T) {
-		got := strings.Join(legacyNameWarnings(storeResolution{LegacyEnv: true}, bare, ""), "\n")
+		got := strings.Join(legacyNameWarnings(storeroot.Resolution{LegacyEnv: true}, bare, ""), "\n")
 		if !strings.Contains(got, "BEANS_PATH") || !strings.Contains(got, "LIF_PATH") {
 			t.Errorf("warnings = %q, want BEANS_PATH replaced by LIF_PATH", got)
 		}
 	})
 	t.Run("flag", func(t *testing.T) {
-		got := strings.Join(legacyNameWarnings(storeResolution{LegacyStoreDir: true, StoreDirSource: storeSourceFlag}, bare, "/p/.beans"), "\n")
+		got := strings.Join(legacyNameWarnings(storeroot.Resolution{LegacyStoreDir: true, StoreDirSource: storeroot.SourceFlag}, bare, "/p/.beans"), "\n")
 		if !strings.Contains(got, "git mv .beans .lif") || !strings.Contains(got, "--lif-path") {
 			t.Errorf("warnings = %q, want the move and the --lif-path value", got)
 		}
 	})
 	t.Run("env source", func(t *testing.T) {
-		got := strings.Join(legacyNameWarnings(storeResolution{LegacyStoreDir: true, StoreDirSource: storeSourceEnv}, bare, "/p/.beans"), "\n")
+		got := strings.Join(legacyNameWarnings(storeroot.Resolution{LegacyStoreDir: true, StoreDirSource: storeroot.SourceEnv}, bare, "/p/.beans"), "\n")
 		if !strings.Contains(got, "git mv .beans .lif") || !strings.Contains(got, "LIF_PATH") {
 			t.Errorf("warnings = %q, want the move and the LIF_PATH value", got)
 		}
 	})
 	t.Run("default", func(t *testing.T) {
-		got := strings.Join(legacyNameWarnings(storeResolution{LegacyStoreDir: true, StoreDirSource: storeSourceDefault}, bare, "/p/.beans"), "\n")
+		got := strings.Join(legacyNameWarnings(storeroot.Resolution{LegacyStoreDir: true, StoreDirSource: storeroot.SourceDefault}, bare, "/p/.beans"), "\n")
 		if !strings.Contains(got, "git mv .beans .lif") || strings.Contains(got, "path:") {
 			t.Errorf("warnings = %q, want only the move", got)
 		}
 	})
 	t.Run("config path keeps its parent", func(t *testing.T) {
-		got := strings.Join(legacyNameWarnings(storeResolution{
-			LegacyConfigFile: true, LegacyStoreDir: true, StoreDirSource: storeSourceConfig,
+		got := strings.Join(legacyNameWarnings(storeroot.Resolution{
+			LegacyConfigFile: true, LegacyStoreDir: true, StoreDirSource: storeroot.SourceConfig,
 		}, cfgWithPath, "/p/.beans"), "\n")
 		for _, want := range []string{"git mv .beans .lif", "path: ../.lif", "git mv .beans.yml .lif.yml"} {
 			if !strings.Contains(got, want) {
@@ -246,15 +247,15 @@ func TestLegacyNameWarnings_StepFollowsTheNameSource(t *testing.T) {
 		}
 	})
 	t.Run("config path in a new config file", func(t *testing.T) {
-		got := strings.Join(legacyNameWarnings(storeResolution{
-			LegacyStoreDir: true, StoreDirSource: storeSourceConfig,
+		got := strings.Join(legacyNameWarnings(storeroot.Resolution{
+			LegacyStoreDir: true, StoreDirSource: storeroot.SourceConfig,
 		}, cfgNew, "/p/.beans"), "\n")
 		if strings.Count(got, ".beans.yml") != 0 {
 			t.Errorf("warnings = %q name the config-file move although the file is new", got)
 		}
 	})
 	t.Run("nothing legacy", func(t *testing.T) {
-		if got := legacyNameWarnings(storeResolution{StoreDirSource: storeSourceDefault}, bare, "/p/.lif"); len(got) != 0 {
+		if got := legacyNameWarnings(storeroot.Resolution{StoreDirSource: storeroot.SourceDefault}, bare, "/p/.lif"); len(got) != 0 {
 			t.Errorf("warnings = %v, want none", got)
 		}
 	})

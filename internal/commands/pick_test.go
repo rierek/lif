@@ -88,7 +88,7 @@ func createScopeFixture(t *testing.T) {
 }
 
 // TestRunPickReflectsStoreResolvedPerInvocation pins SC-03/AC2.1: pick's
-// candidate set comes from whatever store resolveStorePath resolved for
+// candidate set comes from whatever store storeroot.Resolve resolved for
 // this invocation via NewRootCmd's PersistentPreRunE, not from a second,
 // independent resolution path. It distinguishes "store A" from "store B"
 // by which of runPick's two early error branches fires -- the empty-store

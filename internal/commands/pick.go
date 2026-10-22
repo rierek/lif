@@ -140,7 +140,7 @@ func (m pickModel) View() string {
 }
 
 // runPick is pickCmd's RunE. Candidates come from the already-loaded store
-// (R-16: core is populated exclusively by resolveStorePath inside
+// (R-16: core is populated exclusively by storeroot.Resolve inside
 // NewRootCmd's PersistentPreRunE; pick adds itself to no skip-list and
 // opens no second, independent store-resolution path). Every interactive
 // frame is drawn on the process's controlling terminal (opened explicitly

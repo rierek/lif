@@ -19,7 +19,6 @@ import (
 	"github.com/rierek/lif/pkg/candidates"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 )
 
@@ -134,7 +133,7 @@ func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*
 // leaves Priority empty; the parent step drops a parent that is no candidate
 // for the chosen type.
 func runCreateFormWith(d *createDraft, in createInput, out io.Writer) error {
-	resolver := &itemgraph.CoreResolver{Core: core}
+	resolver := newResolver()
 
 	typeOpts := make([]huh.Option[string], 0)
 	for _, tc := range candidates.TypeCandidates(cfg) {
@@ -199,34 +198,16 @@ func writeCreateDraft(cmd *cobra.Command, d createDraft) (*item.Item, error) {
 		return nil, cmdError(createJSON, output.ErrValidation, "%s", err)
 	}
 
-	resolver := &itemgraph.CoreResolver{Core: core}
-	b, err := resolver.CreateItem(context.Background(), input, itemcore.WithExtraOps(setMap, nil))
+	// --unset and --order go into the creating write (WithExtraOps, WithOrder):
+	// the generated CreateItemInput has no order, and a second write would
+	// fail with CONFLICT after a created hook wrote its own item.
+	opts := []itemcore.UpdateOption{itemcore.WithExtraOps(setMap, createUnset)}
+	if cmd.Flags().Changed("order") {
+		opts = append(opts, itemcore.WithOrder(createOrder))
+	}
+	b, err := newResolver().CreateItem(context.Background(), input, opts...)
 	if err != nil {
 		return nil, cmdError(createJSON, mutationErrorCode(err), "failed to create item: %v", err)
-	}
-
-	// An explicit order and --unset aren't part of the generated
-	// CreateBeanInput type or WithExtraOps (which only sets), so
-	// they're applied and persisted as a second write.
-	if len(createUnset) > 0 || cmd.Flags().Changed("order") {
-		// Capture the freshly-created item's own etag before mutating it,
-		// and pass it as ifMatch below instead of nil: nil bypasses
-		// optimistic concurrency control -- silently ignored under a
-		// normal config, and under require_if_match:true it makes the
-		// write fail outright, leaving the item on disk without the
-		// order/unset that were just requested. The item's own current
-		// etag satisfies require_if_match and still catches a genuine
-		// concurrent external write between the two writes.
-		etag := b.ETag()
-		for _, key := range createUnset {
-			delete(b.Extra, key)
-		}
-		if cmd.Flags().Changed("order") {
-			b.Order = createOrder
-		}
-		if err := core.Update(b, &etag); err != nil {
-			return nil, mutationError(createJSON, err)
-		}
 	}
 	return b, nil
 }

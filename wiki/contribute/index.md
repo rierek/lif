@@ -48,14 +48,17 @@ Then use `just`:
 
 ### Maintain the Nix flake
 
-After a release or a dependency change:
+`flake.nix` pins hashes of the Go module set (`vendorHash`) and the pnpm dependency set (`pnpmDeps`). A change to `go.mod`, `go.sum` or `frontend/pnpm-lock.yaml` without a hash update breaks `nix profile install`.
 
-1. Set `version` in `flake.nix` to the new release.
-2. If `go.mod` or `go.sum` changed, run `nix build --no-link`. Write the `got:` hash from the failure into `vendorHash`.
-3. If `frontend/pnpm-lock.yaml` changed, run `nix build --no-link .#frontend`. Write the `got:` hash into the `pnpmDeps` hash.
-4. Run `nix flake update` to refresh the nixpkgs pin.
-5. Verify with `nix run . -- version` and `nix flake check`.
-6. Commit `flake.nix` and `flake.lock` together.
+Run `just nix-hashes` after such a change, or `just nix-hashes 0.16.0` to also set `version` for an upcoming release. It builds the flake, writes each `got:` hash from a mismatch into `flake.nix` and repeats until the build passes. It uses a local `nix` if present, otherwise the `nixos/nix` Docker image. Commit `flake.nix` with the lockfile change.
+
+Three guards catch a forgotten update:
+
+- The `nix` workflow builds the flake on pull requests and on pushes to `main` and `milestone/**` that touch the flake, `go.mod`/`go.sum` or the frontend lockfile.
+- The `release` workflow runs the same build, and checks that `version` matches the tag, before goreleaser publishes anything.
+- `just release` refuses to tag when `version` in `flake.nix` differs from the next version.
+
+To refresh the nixpkgs pin, run `nix flake update`, then `just nix-hashes`, and commit `flake.nix` and `flake.lock` together.
 
 ## License
 

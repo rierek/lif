@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { worktreeStore } from '$lib/worktrees.svelte';
-  import { agentStatusesStore } from '$lib/agentStatuses.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import { statusColors, typeColors, typeBorders, priorityIndicators } from '$lib/styles';
-  import { client } from '$lib/graphqlClient';
-  import { ArchiveItemDocument } from '$lib/graphql/generated';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { worktreeStore } from '#lib/worktrees.svelte.js';
+  import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { statusTone, typeTone, priorityTone } from '#lib/styles.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { ArchiveItemDocument } from '#lib/graphql/generated.js';
 
   interface Props {
     item: Item;
@@ -65,29 +65,25 @@
       : [
           'rounded-xs p-2',
           variant === 'compact' ? 'border-l-2' : 'border-l-3',
-          typeBorders[item.type] ?? 'border-l-type-task-border',
+          'border-l-tone',
           selected ? 'bg-accent/10 ring-1 ring-accent' : 'bg-surface hover:bg-surface-alt'
         ]
   ]}
+  style={typeTone(item.type)}
 >
   {#if variant === 'board'}
     <!-- Board: two-row layout -->
     <div class="flex min-w-0 items-start gap-2">
       <span class="flex-1 text-sm leading-snug text-text">{item.title}</span>
-      {#if item.priority && item.priority !== 'normal' && priorityIndicators[item.priority]}
-        <span class={['shrink-0 text-xs', priorityIndicators[item.priority]]}>
+      {#if item.priority && item.priority !== 'normal'}
+        <span class="shrink-0 text-xs text-tone" style={priorityTone(item.priority)}>
           {item.priority}
         </span>
       {/if}
     </div>
     <div class="mt-1 flex items-center gap-2">
       <code class="text-[10px] text-text-faint">{item.id.slice(-4)}</code>
-      <span
-        class={[
-          'badge-sm',
-          typeColors[item.type] ?? 'bg-type-task-bg text-type-task-text'
-        ]}
-      >
+      <span class="badge-sm badge-tone" style={typeTone(item.type)}>
         {item.type}
       </span>
       {#each item.tags as tag}
@@ -139,12 +135,7 @@
           <span class="icon-[uil--code-branch] size-3"></span>
         </button>
       {/if}
-      <span
-        class={[
-          'shrink-0 badge-sm',
-          statusColors[item.status] ?? 'bg-status-todo-bg text-status-todo-text'
-        ]}
-      >
+      <span class="shrink-0 badge-sm badge-tone" style={statusTone(item.status)}>
         {item.status}
       </span>
       {#if isArchivable}

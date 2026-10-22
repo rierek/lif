@@ -7,17 +7,32 @@ import (
 	"path/filepath"
 
 	"github.com/rierek/lif/internal/gitutil"
+	"github.com/rierek/lif/internal/hooks"
 	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/tasks"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/internal/version"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 var core *itemcore.Core
 var cfg *config.Config
+
+// hookDispatch runs the hooks and gates of the project. The store bootstrap
+// sets it; a nil dispatcher does nothing (its Gate and Fire are nil-safe).
+var hookDispatch *hooks.Dispatcher
+
+// newResolver returns the resolver that every command uses, so that every
+// write path fires the hooks and runs the gates. Its hook functions are method
+// values of hookDispatch: they exist even when hookDispatch is nil, so only
+// the ran result of a call tells whether a hook ran, never the field being set.
+func newResolver() *itemgraph.CoreResolver {
+	return &itemgraph.CoreResolver{Core: core, BeforeMutation: hookDispatch.Gate, AfterMutation: hookDispatch.Fire}
+}
 
 // storePathFlag is the persistent root flag that names the store directory.
 const storePathFlag = "lif-path"
@@ -102,6 +117,10 @@ a full view of your project.`,
 			if err := core.Load(); err != nil {
 				return fmt.Errorf("loading items: %w", err)
 			}
+
+			// The warnings and the output of after hooks go to this
+			// command's stderr, so --json keeps stdout a single document.
+			hookDispatch = hooks.New(cfg, core.Root(), cmd.ErrOrStderr())
 
 			return nil
 		},
@@ -332,8 +351,42 @@ func reportExecutionError(cmd *cobra.Command, err error) {
 	if output.Emitted(err) || output.IsSilent(err) {
 		return
 	}
+	var se *tasks.StepError
+	var blocked *hooks.BlockedError
+	var mismatch *itemcore.ETagMismatchError
+	var required *itemcore.ETagRequiredError
+	if errors.As(err, &se) || errors.As(err, &blocked) || errors.As(err, &mismatch) || errors.As(err, &required) {
+		// A failed task step, a gate that blocked the change or an etag
+		// error is not a usage error: no pointer to the manual.
+		cmd.PrintErrln(cmd.ErrPrefix(), err.Error())
+		return
+	}
 	cmd.PrintErrln(cmd.ErrPrefix(), err.Error())
 	cmd.PrintErrf("Run '%v --help' for usage.\n", cmd.CommandPath())
+}
+
+// exitCode is the process exit code for err. For `lif run`: the failing step's
+// own code, 128+n for a step killed by signal n, 2 for an error of lif itself
+// (runLifError, or a step that could not start). 1 for everything else, also
+// for a gate that blocked a change: hooks.BlockedError has no Unwrap, so the
+// step code of the gate's task does not reach this function.
+func exitCode(err error) int {
+	var se *tasks.StepError
+	if errors.As(err, &se) {
+		switch {
+		case se.Code > 0:
+			return se.Code
+		case se.Signal > 0:
+			return 128 + int(se.Signal)
+		case !errors.Is(se.Err, tasks.ErrInterrupted):
+			return 2
+		}
+	}
+	var le *runLifError
+	if errors.As(err, &le) {
+		return 2
+	}
+	return 1
 }
 
 // Execute runs the given root command and exits on error.
@@ -341,6 +394,6 @@ func Execute(rootCmd *cobra.Command) {
 	cmd, err := rootCmd.ExecuteC()
 	if err != nil {
 		reportExecutionError(cmd, err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }

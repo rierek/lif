@@ -1,13 +1,13 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore, sortItems } from '$lib/items.svelte';
-  import { applyDrop } from '$lib/dragOrder';
-  import { matchesFilter } from '$lib/filter';
-  import { client } from '$lib/graphqlClient';
-  import { ui } from '$lib/uiState.svelte';
-  import { typeBorders } from '$lib/styles';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore, sortItems } from '#lib/items.svelte.js';
+  import { applyDrop } from '#lib/dragOrder.js';
+  import { matchesFilter } from '#lib/filter.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { statusTone, typeTone } from '#lib/styles.js';
   import { fade } from 'svelte/transition';
-  import { ArchiveItemDocument } from '$lib/graphql/generated';
+  import { ArchiveItemDocument } from '#lib/graphql/generated.js';
   import ItemCard from './ItemCard.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
 
@@ -32,17 +32,9 @@
   }
 
   const columns = [
-    { status: 'todo', label: 'Todo', color: 'bg-status-todo-bg text-status-todo-text' },
-    {
-      status: 'in-progress',
-      label: 'In Progress',
-      color: 'bg-status-in-progress-bg text-status-in-progress-text'
-    },
-    {
-      status: 'completed',
-      label: 'Completed',
-      color: 'bg-status-completed-bg text-status-completed-text'
-    }
+    { status: 'todo', label: 'Todo' },
+    { status: 'in-progress', label: 'In Progress' },
+    { status: 'completed', label: 'Completed' }
   ];
 
   function itemsForStatus(status: string): Item[] {
@@ -122,9 +114,7 @@
     <div class="min-w-50 flex-1" data-status={col.status}>
       <!-- Column header -->
       <div class="sticky top-0 z-10 mb-3 flex items-center gap-2 bg-surface-alt px-1 pb-1">
-        <span class={['badge', col.color]}
-          >{col.label}</span
-        >
+        <span class="badge badge-tone" style={statusTone(col.status)}>{col.label}</span>
         <span class="text-xs text-text-faint">{items.length}</span>
         {#if col.status === 'completed' && items.length > 0}
           <button
@@ -165,11 +155,11 @@
 
           <div
             class={[
-              'overflow-hidden rounded border border-l-5 border-border bg-surface shadow transition-all',
-              typeBorders[item.type] ?? 'border-l-type-task-border',
+              'overflow-hidden rounded border border-l-5 border-border border-l-tone bg-surface shadow transition-all',
               draggedItemId === item.id ? 'opacity-40' : 'hover:shadow-md',
               selectedId === item.id && 'bg-accent/5 ring-1 ring-accent'
             ]}
+            style={typeTone(item.type)}
             draggable="true"
             ondragstart={(e) => onDragStart(e, item)}
             ondragend={onDragEnd}

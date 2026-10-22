@@ -7,6 +7,7 @@ import (
 	"github.com/rierek/lif/internal/gitutil"
 	"github.com/rierek/lif/internal/portalloc"
 	"github.com/rierek/lif/internal/terminal"
+	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/internal/worktree"
 	"github.com/rierek/lif/pkg/forge"
 	"github.com/rierek/lif/pkg/item"
@@ -123,4 +124,16 @@ func forgePRToModel(pr *forge.PullRequest) *model.PullRequest {
 		ReviewApproved: pr.ReviewApproved,
 		Mergeable:      pr.Mergeable,
 	}
+}
+
+// configValues maps one merged config list (statuses, types or priorities) to
+// the API model in config order. field returns an entry's name and raw colour;
+// the colour reaches the client normalised, see ui.NormalizeColor.
+func configValues[T any](list []T, field func(T) (name, color string)) []*model.ConfigValue {
+	out := make([]*model.ConfigValue, len(list))
+	for i, v := range list {
+		name, color := field(v)
+		out[i] = &model.ConfigValue{Name: name, Color: ui.NormalizeColor(color)}
+	}
+	return out
 }

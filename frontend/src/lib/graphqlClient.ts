@@ -1,17 +1,12 @@
 import { Client, fetchExchange, subscriptionExchange } from 'urql';
 import { createClient as createWSClient } from 'graphql-ws';
+import { apiUrl, wsUrl } from '#lib/paths.js';
 
-const url = '/api/graphql';
-
-// Use the current host for WebSocket connections. In dev, Vite proxies /api
-// (including WebSocket) to the backend. In production, the backend serves everything.
-const wsUrl =
-  typeof window !== 'undefined'
-    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/graphql`
-    : 'ws://localhost/api/graphql';
-
+// The URLs follow the app root, which is not `/` behind a proxy that mounts the
+// UI under a prefix (see paths.ts). In dev, Vite proxies /api (including
+// WebSocket) to the backend. In production, the backend serves everything.
 const wsClient = createWSClient({
-  url: wsUrl,
+  url: () => wsUrl('/api/graphql'),
   retryAttempts: Infinity,
   shouldRetry: () => true,
   retryWait: async (retries) => {
@@ -34,7 +29,7 @@ const wsClient = createWSClient({
 });
 
 export const client = new Client({
-  url,
+  url: apiUrl('/api/graphql'),
   exchanges: [
     fetchExchange,
     subscriptionExchange({

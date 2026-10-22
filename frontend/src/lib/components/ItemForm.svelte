@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { client } from '$lib/graphqlClient';
-  import { CreateItemDocument, UpdateItemDocument, type CreateItemInput, type UpdateItemInput } from '$lib/graphql/generated';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { CreateItemDocument, UpdateItemDocument, type CreateItemInput, type UpdateItemInput } from '#lib/graphql/generated.js';
 
   interface Props {
     item?: Item | null;
@@ -35,9 +36,9 @@
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
-  const types = ['task', 'bug', 'feature', 'epic', 'milestone'];
-  const statuses = ['draft', 'todo', 'in-progress', 'completed', 'scrapped'];
-  const priorities = ['critical', 'high', 'normal', 'low', 'deferred'];
+  const types = $derived(configStore.types.map((t) => t.name));
+  const statuses = $derived(configStore.statuses.map((s) => s.name));
+  const priorities = $derived(configStore.priorities.map((p) => p.name));
 
   // Available parents (all items except current item and its descendants)
   const availableParents = $derived(
@@ -80,7 +81,7 @@
       parent: parentId || null
     };
 
-    let saved: Item | null = null;
+    let saved: Item | null;
     if (isEdit && item) {
       const input: UpdateItemInput = fields;
       const result = await client.mutation(UpdateItemDocument, { id: item.id, input }).toPromise();
@@ -101,13 +102,13 @@
   }
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-[var(--th-backdrop)]">
   <div class="w-11/12 max-w-2xl rounded-xl bg-surface p-6 shadow-xl">
     <h3 class="text-lg font-bold text-text">{isEdit ? 'Edit Item' : 'New Item'}</h3>
 
     {#if error}
       <div
-        class="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+        class="mt-4 max-h-48 overflow-auto rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm whitespace-pre-wrap text-danger"
       >
         {error}
       </div>

@@ -1,6 +1,8 @@
 import { goto } from '$app/navigation';
-import type { Item } from '$lib/items.svelte';
-import { itemsStore } from '$lib/items.svelte';
+import { resolve } from '$app/paths';
+import type { Item } from '#lib/items.svelte.js';
+import { itemsStore } from '#lib/items.svelte.js';
+import { stripRoot } from '#lib/paths.js';
 
 class UIState {
   // Active view: 'planning' or an itemId for workspace view (derived from URL)
@@ -15,7 +17,9 @@ class UIState {
 
   /** Sync UIState from URL path. Called reactively from layout on every navigation. */
   syncFromUrl(pathname: string) {
-    const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)/);
+    // The location carries the app root, which is not empty behind a proxy.
+    const path = stripRoot(pathname);
+    const workspaceMatch = path.match(/^\/workspace\/([^/]+)/);
     const newView = workspaceMatch ? workspaceMatch[1] : 'planning';
     const viewChanged = newView !== this.activeView;
 
@@ -23,7 +27,7 @@ class UIState {
       this.activeView = workspaceMatch[1];
     } else {
       this.activeView = 'planning';
-      this.planningView = pathname === '/planning/board' ? 'board' : 'backlog';
+      this.planningView = path === '/planning/board' ? 'board' : 'backlog';
     }
 
     // Restore the remembered item selection in the URL only when switching views
@@ -35,15 +39,15 @@ class UIState {
   /** Navigate to a view via URL routing. */
   navigateTo(view: 'planning' | string) {
     if (view === 'planning') {
-      goto(`/planning${this.planningView === 'board' ? '/board' : ''}`);
+      this.navigateToPlanningView(this.planningView);
     } else {
-      goto(`/workspace/${view}`);
+      goto(resolve('/workspace/[itemId]', { itemId: view }));
     }
   }
 
   /** Navigate to a planning sub-view. */
   navigateToPlanningView(view: 'backlog' | 'board') {
-    goto(view === 'board' ? '/planning/board' : '/planning');
+    goto(resolve(view === 'board' ? '/planning/board' : '/planning'));
   }
 
   // Per-view selected item ID (keyed by activeView: 'planning' or worktree ID)

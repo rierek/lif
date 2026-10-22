@@ -1,7 +1,7 @@
 [tools]
 go = "1.26"  # keep in step with go.mod; Go 1.27 needs golang.org/x/tools >= v0.52 for gqlgen
-node = "latest"
-pnpm = "latest"
+node = "24"
+pnpm = "10"
 svu = "latest"
 watchexec = "latest"
 
@@ -82,7 +82,8 @@ run = "go run ./cmd/lif"
 
 [tasks.lif-serve]
 description = "Build and run the lif-serve server"
-run = "go build -o /tmp/lif-serve-dev ./cmd/lif-serve && /tmp/lif-serve-dev --port ${LIF_PORT:-22880}"
+# The Vite dev server (VITE_PORT) is another origin than lif-serve: name it.
+run = "go build -o /tmp/lif-serve-dev ./cmd/lif-serve && /tmp/lif-serve-dev --port ${LIF_PORT:-22880} --cors-origin http://localhost:${VITE_PORT:-5173},http://127.0.0.1:${VITE_PORT:-5173}"
 sources = ["**/*.go"]
 
 [tasks.install]

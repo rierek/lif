@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { pointerClick } from '$lib/actions/pointerClick';
-  import { itemsStore } from '$lib/items.svelte';
-  import { ui } from '$lib/uiState.svelte';
+  import { pointerClick } from '#lib/actions/pointerClick.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
 
   let { planningView }: { planningView: 'backlog' | 'board' } = $props();
-  import { backlogDrag } from '$lib/backlogDrag.svelte';
-  import { matchesFilter } from '$lib/filter';
-  import ItemRow from '$lib/components/ItemRow.svelte';
-  import BoardView from '$lib/components/BoardView.svelte';
-  import ItemPane from '$lib/components/ItemPane.svelte';
-  import SplitPane from '$lib/components/SplitPane.svelte';
-  import FilterInput from '$lib/components/FilterInput.svelte';
-  import ViewToolbar from '$lib/components/ViewToolbar.svelte';
+  import { backlogDrag } from '#lib/backlogDrag.svelte.js';
+  import { matchesFilter } from '#lib/filter.js';
+  import ItemRow from '#lib/components/ItemRow.svelte';
+  import BoardView from '#lib/components/BoardView.svelte';
+  import ItemPane from '#lib/components/ItemPane.svelte';
+  import SplitPane from '#lib/components/SplitPane.svelte';
+  import FilterInput from '#lib/components/FilterInput.svelte';
+  import ViewToolbar from '#lib/components/ViewToolbar.svelte';
 
   let filterInput = $state<FilterInput | null>(null);
 

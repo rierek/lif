@@ -5,10 +5,10 @@
  * to compute fractional-index order keys when items are reordered via drag.
  */
 
-import type { Item } from '$lib/items.svelte';
-import { itemsStore } from '$lib/items.svelte';
-import { orderBetween } from '$lib/fractional';
-import { client } from '$lib/graphqlClient';
+import type { Item } from '#lib/items.svelte.js';
+import { itemsStore } from '#lib/items.svelte.js';
+import { orderBetween } from '#lib/fractional.js';
+import { client } from '#lib/graphqlClient.js';
 import { UpdateItemOrderDocument } from './graphql/generated';
 
 /**
@@ -120,8 +120,10 @@ export function applyReparent(
     .mutation(UpdateItemOrderDocument, { id: draggedId, input })
     .toPromise()
     .then((result) => {
+      if (!result.error) itemsStore.writeError = null;
       if (result.error) {
         console.error('Failed to reparent item:', result.error);
+        itemsStore.writeError = result.error.message;
         // Roll back optimistic update
         itemsStore.optimisticUpdate(draggedId, { parentId: prevParentId, order: prevOrder });
       }
@@ -188,8 +190,10 @@ export function applyDrop(
     .mutation(UpdateItemOrderDocument, { id: draggedId, input })
     .toPromise()
     .then((result) => {
+      if (!result.error) itemsStore.writeError = null;
       if (result.error) {
         console.error('Failed to update item:', result.error);
+        itemsStore.writeError = result.error.message;
         itemsStore.optimisticUpdate(draggedId, {
           order: prevOrder,
           status: prevStatus,

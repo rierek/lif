@@ -7,13 +7,6 @@ import (
 	"strings"
 )
 
-// DefaultOrigins are the default allowed origins for CORS and WebSocket.
-// They cover common local development scenarios.
-var DefaultOrigins = []string{
-	"http://localhost:*",
-	"http://127.0.0.1:*",
-}
-
 // Checker validates HTTP origins against an allowlist.
 // Patterns support a trailing `:*` wildcard to match any port.
 // The hosts the patterns name also tell which Host headers the server
@@ -22,12 +15,15 @@ var DefaultOrigins = []string{
 // The entry "*" serves the CORS response header only: CORSOrigin answers "*"
 // for every origin, so any page may read what the server answers. Nothing else
 // follows from it. IsAllowed, IsHostAllowed and CheckOriginFunc look at the
-// named entries, and "*" adds the default local origins to them, because
-// "every origin" includes those.
+// named entries; the server adds its own origins to the list.
 type Checker struct {
 	allowAll bool
 	patterns []pattern
 	hosts    []string // host names of the patterns, lower case, no port
+
+	// ownScheme is the scheme of the server's own origin: http, or https after
+	// UseTLS.
+	ownScheme string
 }
 
 type pattern struct {
@@ -42,7 +38,7 @@ type pattern struct {
 //   - "http://localhost:5173" exact match
 //   - "http://localhost:*" matches any port on localhost
 func NewChecker(origins []string) *Checker {
-	c := &Checker{}
+	c := &Checker{ownScheme: "http"}
 	for _, o := range origins {
 		if o == "*" {
 			c.allowAll = true
@@ -50,12 +46,14 @@ func NewChecker(origins []string) *Checker {
 		}
 		c.add(o)
 	}
-	if c.allowAll {
-		for _, o := range DefaultOrigins {
-			c.add(o)
-		}
-	}
 	return c
+}
+
+// UseTLS tells the checker that the server speaks TLS itself or sits behind a
+// proxy that does: the UI it serves is then an https page, so only an https
+// origin counts as the server's own.
+func (c *Checker) UseTLS() {
+	c.ownScheme = "https"
 }
 
 func (c *Checker) add(origin string) {
@@ -129,11 +127,11 @@ func (c *Checker) IsHostAllowed(hostHeader string) bool {
 // It accepts a request without an Origin, an Origin named in the list, and the
 // server's own origin: the address the request was sent to. A page that the
 // server itself served is of that origin, so the UI built into the server
-// needs no entry. Only http counts, as the server has no TLS.
+// needs no entry. Only http counts, until UseTLS makes it only https.
 func (c *Checker) CheckOriginFunc() func(r *http.Request) bool {
 	return func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
-		return c.IsAllowed(origin) || origin == "http://"+r.Host
+		return c.IsAllowed(origin) || origin == c.ownScheme+"://"+r.Host
 	}
 }
 

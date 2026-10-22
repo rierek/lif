@@ -1,9 +1,15 @@
 package main
 
-import "github.com/rierek/lif/internal/commands"
+import (
+	"os"
+
+	"github.com/rierek/lif/internal/commands"
+	"github.com/rierek/lif/internal/tasks"
+)
 
 func main() {
 	root := commands.NewRootCmd()
 	commands.RegisterCoreCommands(root)
+	tasks.LifPath, _ = os.Executable()
 	commands.Execute(root)
 }

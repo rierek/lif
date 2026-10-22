@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// localWildcards is the list a user sets to let a page on any local port in.
+var localWildcards = []string{"http://localhost:*", "http://127.0.0.1:*"}
+
 func TestCheckerIsAllowed(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -13,9 +16,9 @@ func TestCheckerIsAllowed(t *testing.T) {
 		want    bool
 	}{
 		// "*" is for the CORS header only (see TestCheckerCORSOrigin): it allows no
-		// origin here. The default local origins come along with it.
+		// origin here, the local ones included.
 		{"wildcard alone allows no other site", []string{"*"}, "http://evil.com", false},
-		{"wildcard brings the default local origins", []string{"*"}, "http://localhost:5173", true},
+		{"wildcard alone allows no other local port", []string{"*"}, "http://localhost:5173", false},
 		{"wildcard next to a named origin", []string{"http://nas.local:8080", "*"}, "http://nas.local:8080", true},
 		{"wildcard next to a named origin keeps others out", []string{"http://nas.local:8080", "*"}, "http://evil.com", false},
 		{"empty origin always allowed", []string{"http://localhost:8080"}, "", true},
@@ -29,8 +32,9 @@ func TestCheckerIsAllowed(t *testing.T) {
 		{"127.0.0.1 wildcard", []string{"http://127.0.0.1:*"}, "http://127.0.0.1:3000", true},
 		{"multiple patterns", []string{"http://localhost:*", "http://127.0.0.1:*"}, "http://127.0.0.1:8080", true},
 		{"multiple patterns miss", []string{"http://localhost:*", "http://127.0.0.1:*"}, "http://example.com:8080", false},
-		{"default origins", DefaultOrigins, "http://localhost:5173", true},
-		{"default origins reject external", DefaultOrigins, "http://evil.com:5173", false},
+		{"empty list allows no other origin", nil, "http://localhost:5173", false},
+		{"local wildcards", localWildcards, "http://localhost:5173", true},
+		{"local wildcards reject external", localWildcards, "http://evil.com:5173", false},
 	}
 
 	for _, tt := range tests {
@@ -96,9 +100,13 @@ func TestCheckerCheckOriginFuncIgnoresTheWildcard(t *testing.T) {
 	if fn(evil) {
 		t.Error("* let a page of another site through the origin check")
 	}
-	ui := &http.Request{Host: "localhost:8080", Header: http.Header{"Origin": []string{"http://localhost:5173"}}}
-	if !fn(ui) {
-		t.Error("* dropped the default local origins")
+	devServer := &http.Request{Host: "localhost:8080", Header: http.Header{"Origin": []string{"http://localhost:5173"}}}
+	if fn(devServer) {
+		t.Error("* let a page of another local port through the origin check")
+	}
+	own := &http.Request{Host: "localhost:8080", Header: http.Header{"Origin": []string{"http://localhost:8080"}}}
+	if !fn(own) {
+		t.Error("* dropped the server's own origin")
 	}
 }
 
@@ -106,7 +114,7 @@ func TestCheckerCheckOriginFuncIgnoresTheWildcard(t *testing.T) {
 // Origin is the address the request was sent to. It needs no entry in the list;
 // a page of any other origin, a look-alike included, still does.
 func TestCheckerCheckOriginFuncAcceptsTheServersOwnOrigin(t *testing.T) {
-	fn := NewChecker(DefaultOrigins).CheckOriginFunc()
+	fn := NewChecker(nil).CheckOriginFunc()
 
 	tests := []struct {
 		name   string
@@ -140,6 +148,36 @@ func TestCheckerCheckOriginFuncAcceptsTheServersOwnOrigin(t *testing.T) {
 	}
 }
 
+// Behind TLS the page the server served is an https page: only an https origin
+// is the server's own then, and an http one is a page of another site.
+func TestCheckerUseTLSMakesHTTPSTheOwnOrigin(t *testing.T) {
+	c := NewChecker(nil)
+	c.UseTLS()
+	fn := c.CheckOriginFunc()
+
+	tests := []struct {
+		name   string
+		origin string
+		want   bool
+	}{
+		{"https origin of this server", "https://192.168.1.50:8080", true},
+		{"http origin of this server", "http://192.168.1.50:8080", false},
+		{"https look-alike with another port", "https://192.168.1.50:9999", false},
+		{"no Origin", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &http.Request{Host: "192.168.1.50:8080", Header: http.Header{}}
+			if tt.origin != "" {
+				r.Header.Set("Origin", tt.origin)
+			}
+			if got := fn(r); got != tt.want {
+				t.Errorf("Origin %q: allowed = %v, want %v", tt.origin, got, tt.want)
+			}
+		})
+	}
+}
+
 // A request names its target in the Host header. The origin list doubles as the
 // list of hosts the server answers to, so a page that reaches the server under
 // a name outside the list (DNS rebinding) is turned away.
@@ -150,27 +188,28 @@ func TestCheckerIsHostAllowed(t *testing.T) {
 		host    string
 		want    bool
 	}{
-		{"default list: localhost with port", DefaultOrigins, "localhost:8080", true},
-		{"default list: localhost without port", DefaultOrigins, "localhost", true},
-		{"default list: loopback address", DefaultOrigins, "127.0.0.1:22880", true},
-		{"default list: case does not matter", DefaultOrigins, "LocalHost:8080", true},
-		{"default list: rebinding name", DefaultOrigins, "evil.example:8080", false},
-		{"default list: name that merely starts with localhost", DefaultOrigins, "localhost.evil.example:8080", false},
-		{"default list: name that merely ends with localhost", DefaultOrigins, "evil-localhost:8080", false},
-		{"default list: loopback address as a name prefix", DefaultOrigins, "127.0.0.1.evil.example:8080", false},
-		{"default list: userinfo trick", DefaultOrigins, "localhost@evil.example:8080", false},
-		{"default list: other address", DefaultOrigins, "192.168.1.50:8080", false},
+		{"local list: localhost with port", localWildcards, "localhost:8080", true},
+		{"local list: localhost without port", localWildcards, "localhost", true},
+		{"local list: loopback address", localWildcards, "127.0.0.1:22880", true},
+		{"local list: case does not matter", localWildcards, "LocalHost:8080", true},
+		{"local list: rebinding name", localWildcards, "evil.example:8080", false},
+		{"local list: name that merely starts with localhost", localWildcards, "localhost.evil.example:8080", false},
+		{"local list: name that merely ends with localhost", localWildcards, "evil-localhost:8080", false},
+		{"local list: loopback address as a name prefix", localWildcards, "127.0.0.1.evil.example:8080", false},
+		{"local list: userinfo trick", localWildcards, "localhost@evil.example:8080", false},
+		{"local list: other address", localWildcards, "192.168.1.50:8080", false},
 		// The list alone does not name ::1; a server bound to it adds its own address.
-		{"default list alone does not name IPv6 loopback", DefaultOrigins, "[::1]:8080", false},
-		{"default list: empty host", DefaultOrigins, "", false},
+		{"local list alone does not name IPv6 loopback", localWildcards, "[::1]:8080", false},
+		{"local list: empty host", localWildcards, "", false},
 		{"listed IPv6 loopback", []string{"http://[::1]:*"}, "[::1]:8080", true},
 		{"listed IPv6 loopback without port", []string{"http://[::1]:*"}, "[::1]", true},
 		{"exact origin lists its host for any port", []string{"http://192.168.1.50:8080"}, "192.168.1.50:9090", true},
 		{"replacing the list drops localhost", []string{"http://192.168.1.50:*"}, "localhost:8080", false},
-		// "*" is for the CORS header only: it never switches the host check off.
+		{"empty list names no host", nil, "localhost:8080", false},
+		// "*" is for the CORS header only: it never switches the host check off
+		// and names no host itself.
 		{"wildcard does not allow every host", []string{"*"}, "evil.example:8080", false},
-		{"wildcard keeps the local hosts", []string{"*"}, "localhost:8080", true},
-		{"wildcard keeps the loopback address", []string{"*"}, "127.0.0.1:8080", true},
+		{"wildcard alone names no local host", []string{"*"}, "localhost:8080", false},
 		{"wildcard next to a named host", []string{"*", "http://nas.local:*"}, "nas.local:8080", true},
 	}
 

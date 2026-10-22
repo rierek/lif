@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { backlogDrag } from '$lib/backlogDrag.svelte';
-  import { matchesFilter } from '$lib/filter';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { backlogDrag } from '#lib/backlogDrag.svelte.js';
+  import { matchesFilter } from '#lib/filter.js';
   import ItemCard from './ItemCard.svelte';
   import ItemRow from './ItemRow.svelte';
 

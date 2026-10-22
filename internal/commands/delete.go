@@ -10,7 +10,6 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 )
 
@@ -39,7 +38,7 @@ warned and those references will be removed after confirmation. Use -f to skip a
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		// Collect all items and their incoming links upfront (validate before deleting)
 		var targets []itemWithLinks

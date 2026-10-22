@@ -1,0 +1,25 @@
+# lif-serve as a systemd user service.
+#
+#   1. Copy this file to ~/.config/systemd/user/lif-serve.service
+#   2. Change WorkingDirectory to the project (the directory with .lif.yml)
+#      and ExecStart to where lif-serve is installed.
+#   3. systemctl --user daemon-reload
+#      systemctl --user enable --now lif-serve
+#   4. To keep it running after you log out: loginctl enable-linger $USER
+#
+# The server listens on 127.0.0.1:8080 and requires no token there. The
+# token file keeps the token across restarts; lif-serve uses it only when the
+# server asks for a token (--require-token, --public-url, or a --host beyond
+# loopback). Add the flag that matches your setup to ExecStart, for example
+#   --public-url https://box.example.ts.net/lif
+# See https://rierek.github.io/lif/reference/remote-access/
+[Unit]
+Description=lif-serve web UI
+
+[Service]
+WorkingDirectory=%h/CHANGE-ME/project
+ExecStart=%h/.local/bin/lif-serve --port 8080 --token-file %h/.config/lif/serve-token
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -93,14 +93,17 @@ func emitBatchSuccess(jsonMode bool, done []*item.Item, single func(*item.Item) 
 
 // emitBatchFailure reports a failure that struck partway through the write
 // loop. The preflight rules out unresolvable IDs and policy violations, so
-// what remains here is an I/O error — and by then some items are already
-// written. No etag conflict can occur: batch verbs deliberately set no
-// IfMatch (an etag belongs to one item, so `update --if-match` takes one ID;
-// a batch has no per-target etag to pass), and last write wins. Under
-// require_if_match, itemcore rejects the batch at the first target, before
-// any write. Unlike delete, which discards the written list on its way out,
-// the items that made it through are named, because an agent's next move
-// depends on knowing which half of the batch happened.
+// what remains here is an I/O error or a gate that blocked a later target
+// (hooks). A hook that wrote a later target does not fail the batch: the
+// batch change lands on top of the hook's write. By then some items are
+// already written. No etag conflict can occur: batch verbs deliberately set
+// no IfMatch (an etag
+// belongs to one item, so `update --if-match` takes one ID; a batch has no
+// per-target etag to pass), and last write wins. Under require_if_match,
+// itemcore rejects the batch at the first target, before any write. Unlike
+// delete, which discards the written list on its way out, the items that made
+// it through are named, because an agent's next move depends on knowing which
+// half of the batch happened.
 func emitBatchFailure(jsonMode bool, done []*item.Item, err error) error {
 	if jsonMode {
 		// A bare array cannot carry the failure, so the error case keeps the
@@ -118,7 +121,15 @@ func emitBatchFailure(jsonMode bool, done []*item.Item, err error) error {
 		for i, b := range done {
 			ids[i] = b.ID
 		}
-		return fmt.Errorf("%v (already written: %s)", err, strings.Join(ids, ", "))
+		// %w, not %v: reportExecutionError and mutationErrorCode classify the
+		// error by its type. With %v a gate's block would print as a usage
+		// error, with the pointer to the manual.
+		// The suffix has its own line after a multi-line error (a gate's output).
+		sep := " "
+		if strings.Contains(err.Error(), "\n") {
+			sep = "\n"
+		}
+		return fmt.Errorf("%w%s(already written: %s)", err, sep, strings.Join(ids, ", "))
 	}
 	return err
 }

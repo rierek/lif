@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/rierek/lif/internal/hooks"
 	"github.com/rierek/lif/pkg/itemcore"
 )
 
@@ -84,6 +85,8 @@ func TestMutationErrorCode(t *testing.T) {
 		{"wrapped validation", fmt.Errorf("x: %w", itemcore.Invalid("bad")), "VALIDATION_ERROR"},
 		{"conflict", &itemcore.ETagMismatchError{}, "CONFLICT"},
 		{"policy", &itemcore.PolicyViolationError{}, "POLICY_VIOLATION"},
+		{"gate block", &hooks.BlockedError{Hook: "g", ItemID: "x"}, "POLICY_VIOLATION"},
+		{"gate block in a batch", fmt.Errorf("%w (already written: a)", &hooks.BlockedError{Hook: "g", ItemID: "x"}), "POLICY_VIOLATION"},
 		{"io failure", fmt.Errorf("writing file: %w", os.ErrPermission), "FILE_ERROR"},
 	} {
 		if got := mutationErrorCode(tc.err); got != tc.want {

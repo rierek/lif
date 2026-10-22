@@ -1,17 +1,18 @@
 <script lang="ts">
   import './layout.css';
-  import favicon from '$lib/assets/favicon.svg';
-  import { preloadHighlighter } from '$lib/markdown';
+  import favicon from '#lib/assets/favicon.svg';
+  import { preloadHighlighter } from '#lib/markdown.js';
   import { page } from '$app/state';
-  import { onMount, onDestroy } from 'svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { worktreeStore, MAIN_WORKSPACE_ID } from '$lib/worktrees.svelte';
-  import { agentStatusesStore } from '$lib/agentStatuses.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import ItemForm from '$lib/components/ItemForm.svelte';
-  import Sidebar from '$lib/components/Sidebar.svelte';
-  import SplitPane from '$lib/components/SplitPane.svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { worktreeStore, MAIN_WORKSPACE_ID } from '#lib/worktrees.svelte.js';
+  import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
+  import ItemForm from '#lib/components/ItemForm.svelte';
+  import Sidebar from '#lib/components/Sidebar.svelte';
+  import SplitPane from '#lib/components/SplitPane.svelte';
 
   preloadHighlighter();
 
@@ -51,7 +52,14 @@
     }
   });
 
+  // Follow display.theme once the config has loaded (it picks the dark flavour)
+  $effect(() => {
+    const name = configStore.theme;
+    if (name) untrack(() => theme.setConfigured(name));
+  });
+
   onMount(() => {
+    theme.init();
     configStore.load();
     itemsStore.subscribe();
     worktreeStore.subscribe();
@@ -95,6 +103,22 @@
     />
   {/if}
 </div>
+
+{#if itemsStore.writeError}
+  <div
+    role="alert"
+    class="fixed right-4 bottom-4 z-50 flex w-11/12 max-w-lg items-start gap-3 rounded-lg border border-danger/30 bg-surface px-4 py-3 text-sm text-danger shadow-xl"
+  >
+    <span class="max-h-48 min-w-0 flex-1 overflow-auto whitespace-pre-wrap">{itemsStore.writeError}</span>
+    <button
+      class="cursor-pointer px-1 text-danger/60 hover:text-danger"
+      aria-label="Dismiss"
+      onclick={() => (itemsStore.writeError = null)}
+    >
+      ✕
+    </button>
+  </div>
+{/if}
 
 {#if ui.showForm}
   <ItemForm

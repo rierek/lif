@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rierek/lif/internal/hooks"
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/candidates"
@@ -55,7 +56,7 @@ item, no cycle) are checked for every item, before the first item is written.
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		if err := validateExtraKeys(updateSet, updateUnset); err != nil {
 			return cmdError(updateJSON, output.ErrValidation, "%s", err)
@@ -99,7 +100,9 @@ item, no cycle) are checked for every item, before the first item is written.
 		}
 
 		// Rules that depend on the item are checked for every target before
-		// the first write, so a violation leaves the store untouched.
+		// the first write, so a violation of them leaves the store untouched.
+		// A gate (hooks) answers per write: it can stop the loop below at any
+		// target, and the targets before it stay written.
 		if input.Status != nil {
 			if err := preflightStatusPolicy(targets, *input.Status, setMap); err != nil {
 				return mutationError(updateJSON, err)
@@ -335,13 +338,15 @@ func isConflictError(err error) bool {
 // mutationErrorCode maps a write-path error to the output error code that
 // describes it. Split out of mutationError so that the batch verbs, which
 // have to report a failure alongside the items already written, classify it
-// exactly the same way.
+// exactly the same way. A gate that blocked the change is a policy violation,
+// like a status policy that the item does not meet.
 func mutationErrorCode(err error) string {
 	if isConflictError(err) {
 		return output.ErrConflict
 	}
 	var policyErr *itemcore.PolicyViolationError
-	if errors.As(err, &policyErr) {
+	var blocked *hooks.BlockedError
+	if errors.As(err, &policyErr) || errors.As(err, &blocked) {
 		return output.ErrPolicy
 	}
 	var invalid *itemcore.ValidationError
@@ -434,7 +439,7 @@ func priorityFlagCompletion(cmd *cobra.Command, args []string, toComplete string
 // (beans-v725) -- beans-pkq3 AC-03. Shared by create/update/list/tag's
 // --tag.
 func tagFlagCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	resolver := &itemgraph.CoreResolver{Core: core}
+	resolver := newResolver()
 	tags, err := candidates.TagCandidates(context.Background(), resolver)
 	if err != nil {
 		return nil, completionDirective
@@ -476,7 +481,7 @@ func updateParentFlagCompletion(cmd *cobra.Command, args []string, toComplete st
 		ids = append(ids, b.ID)
 		types = append(types, b.Type)
 	}
-	resolver := &itemgraph.CoreResolver{Core: core}
+	resolver := newResolver()
 	eligible, err := candidates.ParentCandidates(context.Background(), resolver, cfg, ids, types)
 	if err != nil {
 		return nil, completionDirective
@@ -504,7 +509,7 @@ func blockingLikeFlagCompletion(args []string) ([]string, cobra.ShellCompDirecti
 	if len(args) > 0 {
 		itemID = args[0]
 	}
-	resolver := &itemgraph.CoreResolver{Core: core}
+	resolver := newResolver()
 	eligible, err := candidates.BlockingCandidates(context.Background(), resolver, cfg, itemID)
 	if err != nil {
 		return nil, completionDirective

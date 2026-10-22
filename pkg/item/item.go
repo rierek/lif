@@ -241,6 +241,21 @@ func ReservedKeyFlag(key string) (flag string, known bool) {
 	return flag, known
 }
 
+var watchableKeyRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// IsWatchableKey reports whether key is an extra front matter key that hooks
+// can watch and pass on: a plain name that is not a managed field. id, slug,
+// path and body are managed too: they are not front matter, so no extra key
+// of that name ever changes and a hook that watched one would never fire.
+func IsWatchableKey(key string) bool {
+	_, reserved := ReservedKeyFlag(key)
+	switch key {
+	case "id", "slug", "path", "body":
+		reserved = true
+	}
+	return watchableKeyRe.MatchString(key) && !reserved
+}
+
 // normalizeYAMLValue converts the map[interface{}]interface{} produced by the
 // yaml.v2 decoder (used internally by the frontmatter library) into
 // map[string]any, recursively, so Extra stays JSON-marshalable. It refuses

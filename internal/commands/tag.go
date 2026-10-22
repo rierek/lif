@@ -6,7 +6,6 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/item"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +27,7 @@ resolved before the first item is written.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
-		resolver := &itemgraph.CoreResolver{Core: core}
+		resolver := newResolver()
 
 		if len(tagAdd) == 0 && len(tagRemove) == 0 {
 			return cmdError(tagJSON, output.ErrValidation, "no tags given (use --tag or --remove-tag)")

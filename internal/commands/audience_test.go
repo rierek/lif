@@ -100,26 +100,49 @@ func TestAudienceCoversDeprecatedStubs(t *testing.T) {
 	}
 }
 
-// TestBootstrapSkipMarksExactlyInitPrimeVersionTui pins beans-bv90 AC-2/AC-3
+// TestBootstrapSkipMarksExactlyStorelessVerbs pins beans-bv90 AC-2/AC-3
 // (SC-01): the bootstrap-skip marker is set if and only if the command is
-// init, prime, version, tui, help, or completion -- the exact set PersistentPreRunE used to decide
-// by comparing cmd.Name() against a literal string set.
-func TestBootstrapSkipMarksExactlyInitPrimeVersionTui(t *testing.T) {
+// init, prime, version, tui, run, hooks, help, or completion -- the exact set
+// PersistentPreRunE used to decide by comparing cmd.Name() against a literal
+// string set. Every name of the set must be a registered command, and its
+// sub-commands (hooks allow, completion bash) carry the marker too.
+func TestBootstrapSkipMarksExactlyStorelessVerbs(t *testing.T) {
 	root := sharedTestRoot(t)
 	skip := map[string]bool{
 		"init":    true,
 		"prime":   true,
 		"version": true,
 		"tui":     true, // the Lobby outside a repo has no store to load
+		"run":     true, // global tasks run outside any project
+		"hooks":   true, // needs the config, not a store
 		// cobra's text-only built-ins need no store either (beans-mgx8)
 		"help":       true,
 		"completion": true,
 	}
+	registered := map[string]bool{}
+	var checkSubs func(cmd *cobra.Command)
+	checkSubs = func(cmd *cobra.Command) {
+		for _, sub := range cmd.Commands() {
+			if !IsBootstrapSkip(sub) {
+				t.Errorf("%q: sub-command of a bootstrap-skip command lacks the marker", sub.CommandPath())
+			}
+			checkSubs(sub)
+		}
+	}
 	for _, cmd := range root.Commands() {
+		registered[cmd.Name()] = true
 		want := skip[cmd.Name()]
 		got := IsBootstrapSkip(cmd)
 		if got != want {
 			t.Errorf("%q: bootstrap-skip=%v, want %v", cmd.Name(), got, want)
+		}
+		if want {
+			checkSubs(cmd)
+		}
+	}
+	for name := range skip {
+		if !registered[name] {
+			t.Errorf("%q is in the bootstrap-skip set but no such command is registered", name)
 		}
 	}
 }

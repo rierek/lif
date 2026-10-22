@@ -11,9 +11,9 @@
  *   - Bottom 25%: reorder below
  */
 
-import type { Item } from '$lib/items.svelte';
-import { itemsStore } from '$lib/items.svelte';
-import { applyDrop, applyReparent } from '$lib/dragOrder';
+import type { Item } from '#lib/items.svelte.js';
+import { itemsStore } from '#lib/items.svelte.js';
+import { applyDrop, applyReparent } from '#lib/dragOrder.js';
 
 export type DropMode = 'reorder' | 'reparent';
 

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { SubagentActivity } from '$lib/agentChat.svelte';
+  import type { SubagentActivity } from '#lib/agentChat.svelte.js';
   import { Editor, Extension } from '@tiptap/core';
   import StarterKit from '@tiptap/starter-kit';
   import Placeholder from '@tiptap/extension-placeholder';
-  import { FileMention } from '$lib/tiptap/FileMentionNode';
-  import { ListFilesDocument } from '$lib/graphql/generated';
-  import { client } from '$lib/graphqlClient';
+  import { FileMention } from '#lib/tiptap/FileMentionNode.js';
+  import { ListFilesDocument } from '#lib/graphql/generated.js';
+  import { client } from '#lib/graphqlClient.js';
 
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
   const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -511,7 +511,7 @@
             type="button"
             onclick={() => removeImage(i)}
             class="absolute -top-1.5 -right-1.5 flex size-5 cursor-pointer items-center justify-center
-              rounded-full bg-danger text-xs text-white opacity-0 transition-opacity
+              rounded-full bg-danger text-xs text-accent-text opacity-0 transition-opacity
               group-hover:opacity-100"
             aria-label="Remove image {i + 1}"
           >

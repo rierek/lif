@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { pointerClick } from '$lib/actions/pointerClick';
+  import { pointerClick } from '#lib/actions/pointerClick.js';
   interface Props {
     title: string;
     message: string;
@@ -33,7 +33,7 @@
 
 <!-- Clicking the backdrop cancels; Escape does the same. -->
 <div
-  class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-[var(--th-backdrop)]"
   use:pointerClick={handleBackdropClick}
 >
   <div
@@ -56,7 +56,7 @@
         class={[
           'cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
           danger
-            ? 'bg-danger text-white hover:opacity-90'
+            ? 'bg-danger text-accent-text hover:opacity-90'
             : 'bg-accent text-accent-text hover:opacity-90'
         ]}
         onclick={onConfirm}

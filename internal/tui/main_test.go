@@ -10,5 +10,7 @@ import (
 // t.Setenv("LIF_TUI_BOXFORM", "1"), which overrides this.
 func TestMain(m *testing.M) {
 	os.Setenv("LIF_TUI_BOXFORM", "0")
+	// The TUI drives the lif CLI: a developer's global hooks must not fire in tests.
+	os.Setenv("LIF_NO_HOOKS", "1")
 	os.Exit(m.Run())
 }

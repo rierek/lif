@@ -301,3 +301,14 @@ func mustCreate(t *testing.T, r *CoreResolver, title string) *item.Item {
 	}
 	return b
 }
+
+func TestValidateTitleRejectsControlCharacters(t *testing.T) {
+	for _, title := range []string{"nul\x00byte", "two\nlines", "esc\x1b[2J", "del\x7f", "c1\u0085"} {
+		if err := ValidateTitle(title); err == nil {
+			t.Errorf("ValidateTitle(%q) = nil, want an error", title)
+		}
+	}
+	if err := ValidateTitle("Zeichen: ä ö — 日本"); err != nil {
+		t.Errorf("ValidateTitle rejected a printable title: %v", err)
+	}
+}

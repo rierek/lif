@@ -387,7 +387,9 @@ type ServerConfig struct {
 	// Use "*" to send the CORS header for every origin so any page can read
 	// the answers; it allows nothing else: changes and the terminal need a
 	// listed origin, and the host check stays on.
-	// Default: ["http://localhost:*", "http://127.0.0.1:*"]
+	// Default: none; the server's own origin (its listen address) is always allowed.
+	// A port wildcard such as "http://localhost:*" lets a page on any local
+	// port change items (running project hooks) and use the terminal.
 	CORSOrigins []string `yaml:"cors_origins,omitempty"`
 }
 
@@ -417,6 +419,21 @@ type Config struct {
 	Statuses   []StatusOverride   `yaml:"statuses,omitempty"`
 	Types      []TypeOverride     `yaml:"types,omitempty"`
 	Priorities []PriorityOverride `yaml:"priorities,omitempty"`
+
+	// Tasks are the named shell tasks that lif run executes.
+	Tasks map[string]Task `yaml:"tasks,omitempty"`
+
+	// tasksNode is the raw value node of the top-level tasks key. Saving it
+	// back keeps task order and comments; without it a Save (lif rename)
+	// would delete every task.
+	tasksNode *yaml.Node `yaml:"-"`
+
+	// Hooks run tasks when an item is created or a watched field changes.
+	Hooks map[string]Hook `yaml:"hooks,omitempty"`
+
+	// hooksNode is the raw value node of the top-level hooks key, kept for
+	// Save like tasksNode.
+	hooksNode *yaml.Node `yaml:"-"`
 
 	// TypesExclusive switches the merge in TypeList() off: when true, Types is
 	// the complete type table on its own, not an override list layered onto
@@ -703,13 +720,15 @@ func Load(configPath string) (*Config, error) {
 	var cfg Config
 	if doc.Kind != 0 {
 		if err := doc.Decode(&cfg); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", configPath, err)
 		}
 		section, key, err := itemsSection(&doc, configPath)
 		if err != nil {
 			return nil, err
 		}
 		cfg.sectionKey = key
+		cfg.tasksNode = topValueNode(&doc, "tasks")
+		cfg.hooksNode = topValueNode(&doc, "hooks")
 		if section != nil {
 			if err := section.Decode(&cfg.Items); err != nil {
 				return nil, err
@@ -765,6 +784,14 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	if err := cfg.validateRequireFieldsOn(); err != nil {
+		return nil, fmt.Errorf("%s: %w", configPath, err)
+	}
+
+	if err := validateTasks(cfg.Tasks); err != nil {
+		return nil, fmt.Errorf("%s: %w", configPath, err)
+	}
+
+	if err := validateHooks(cfg.Hooks, &cfg); err != nil {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
 
@@ -1163,7 +1190,7 @@ func (c *Config) toYAMLNode() *yaml.Node {
 	}
 	if len(c.Server.CORSOrigins) > 0 {
 		key := strNode("cors_origins")
-		key.HeadComment = "Allowed origins for CORS and WebSocket (default: http://localhost:*, http://127.0.0.1:*)"
+		key.HeadComment = "Allowed origins for CORS and WebSocket (default: see `lif-serve --help`)"
 		seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle}
 		for _, origin := range c.Server.CORSOrigins {
 			seq.Content = append(seq.Content, strNode(origin))
@@ -1299,6 +1326,18 @@ func (c *Config) toYAMLNode() *yaml.Node {
 		key := strNode("priorities")
 		key.HeadComment = "Priority overrides, merged entry by entry with the built-in defaults"
 		topMapping.Content = append(topMapping.Content, key, prioritiesSeq)
+	}
+
+	if c.tasksNode != nil {
+		key := strNode("tasks")
+		key.HeadComment = "Tasks run with lif run <name>"
+		topMapping.Content = append(topMapping.Content, key, c.tasksNode)
+	}
+
+	if c.hooksNode != nil {
+		key := strNode("hooks")
+		key.HeadComment = "Hooks run tasks on item events; enable with lif hooks allow"
+		topMapping.Content = append(topMapping.Content, key, c.hooksNode)
 	}
 
 	// Wrap in a document node
@@ -1908,12 +1947,13 @@ func (c *Config) GetServerPort() int {
 	return c.Server.Port
 }
 
-// GetCORSOrigins returns the configured CORS origins, or the defaults if not set.
+// GetCORSOrigins returns the configured CORS origins; none if not set. The
+// server's own origin needs no entry (see lif-serve).
 func (c *Config) GetCORSOrigins() []string {
-	if c != nil && len(c.Server.CORSOrigins) > 0 {
+	if c != nil {
 		return c.Server.CORSOrigins
 	}
-	return []string{"http://localhost:*", "http://127.0.0.1:*"}
+	return nil
 }
 
 // GetTheme returns the configured theme name, or "mocha" when unset.

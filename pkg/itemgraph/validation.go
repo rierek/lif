@@ -3,6 +3,7 @@ package itemgraph
 import (
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/rierek/lif/pkg/config"
@@ -36,13 +37,18 @@ func ValidatePrefix(prefix string) error {
 	return nil
 }
 
-// ValidateTitle checks that a title is present and within the length limit.
+// ValidateTitle checks that a title is present, within the length limit and
+// free of control characters (NUL, newline, escape): a hook gets the title as
+// an argument and a NUL cannot be one.
 func ValidateTitle(title string) error {
 	if strings.TrimSpace(title) == "" {
 		return itemcore.Invalid("invalid title: must not be empty")
 	}
 	if n := utf8.RuneCountInString(title); n > MaxTitleLength {
 		return itemcore.Invalid("invalid title: %d characters exceeds the limit of %d", n, MaxTitleLength)
+	}
+	if strings.ContainsFunc(title, unicode.IsControl) {
+		return itemcore.Invalid("invalid title: must not contain control characters")
 	}
 	return nil
 }
@@ -58,7 +64,7 @@ func ValidateBody(body string) error {
 // ValidateTags checks every tag against the shared tag rules.
 func ValidateTags(tags []string) error {
 	for _, tag := range tags {
-		if err := item.ValidateTag(item.NormalizeTag(tag)); err != nil {
+		if err := item.ValidateTag(tag); err != nil {
 			return &itemcore.ValidationError{Err: err}
 		}
 	}

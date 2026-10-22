@@ -37,6 +37,7 @@ For the task-oriented view (store location, `LIF_PATH`, `--lif-path`, anchor, se
 
 - [GraphQL](graphql/): schema, queries, mutations. Call it with `lif graphql` or over HTTP.
 - [Web server](web-server/): the separate binary `lif-serve`. Read its security notes before you start it.
+- [Remote access](remote-access/): reach `lif-serve` from another machine with Tailscale, an SSH tunnel, Caddy, nginx or TLS, and run it as a service.
 - TUI: five pages, start with [Start and repositories](tui/start-and-repositories/). Then [Views](tui/views/), [Editing items](tui/editing-items/), [Key bindings](tui/key-bindings/) and [Settings and themes](tui/settings-and-themes/).
 
 The web server is its own binary. `lif serve` in the `lif` binary is a hidden placeholder and is not documented.
@@ -49,7 +50,7 @@ The [Glossary](glossary/) gives short definitions and, for each term, the page w
 
 - **Item IDs:** the full ID or the short ID without the configured prefix, for example `ix1n` for `f014j-ix1n`.
 - **`--json`:** many commands have this flag; see [JSON output](json-output/). `lif graph` uses `--format json`.
-- **Exit codes:** 0 on success, 1 on error. `lif check` returns 1 on at least one finding. There is no exit code 2.
+- **Exit codes:** 0 on success, 1 on error. `lif check` returns 1 on at least one finding. Only `lif run` has other codes: the exit code of the failing step, 128+n for a step that signal n killed, and 2 for an error of Lif itself.
 - **Global flags:** `--config` and `--lif-path`. See the [Command overview](commands/) and [Store resolution](configuration/#store-resolution).
 - **Formatting:** commands and field names are set in code formatting and stay English.
 

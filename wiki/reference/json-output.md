@@ -111,7 +111,7 @@ With `--json` an error is one JSON object on stdout and the exit code is 1:
 | `VALIDATION_ERROR` | The request is refused: invalid input, unknown blocker or parent, a parent the type hierarchy forbids (`failed to create item: epic items can only have milestone as parent, not task`), a dependency cycle, invalid `--format` or `--depth`, bad filter. |
 | `FILE_ERROR` | Writing or reading the file failed. |
 | `CONFLICT` | ETag mismatch (`--if-match`). |
-| `POLICY_VIOLATION` | A required field of `require_fields_on` is missing. See [Configuration](../configuration/#status-dependent-required-fields). |
+| `POLICY_VIOLATION` | A required field of `require_fields_on` is missing (see [Configuration](../configuration/#status-dependent-required-fields)), or a gate refused the change (see [Hooks](../configuration/#hooks)). |
 
 Each code is set by the command that fails. `VALIDATION_ERROR` examples: `blocker item not found: zzzz`, `invalid status: bogus (must be in-progress, todo, draft, completed, scrapped)`.
 
@@ -119,9 +119,9 @@ Each code is set by the command that fails. `VALIDATION_ERROR` examples: `blocke
 
 ## Without `--json`
 
-- Text output. An error appears once as text, the process exits with 1, Cobra's usage text is suppressed.
+- Text output. An error appears once as text, the process exits with 1, Cobra's usage text is suppressed. Item commands end it with `Run '<command> --help' for usage.`, except `lif run` step failures and changes that a gate blocks, which print no `--help` pointer. `lif graphql` prints its usage line for any resolver error. `lif run` exits with the exit code of the failing step, 128 plus the signal number, or 2 for an error of Lif (see [Tasks](../configuration/#tasks)).
 - `lif show` prints styled output on a terminal and the raw Markdown of the file when piped or redirected.
-- Exit codes: 0 on success, 1 on error. `lif check` returns 1 on at least one finding (policy warnings count only with `--strict`, legacy notices never). There is no exit code 2. `lif next` without a ready item exits with 0.
+- Exit codes: 0 on success, 1 on error. `lif check` returns 1 on at least one finding (policy warnings count only with `--strict`, legacy notices never). Only `lif run` has other codes: the exit code of the failing step, 128+n for a step that signal n killed, and 2 for an error of Lif itself. `lif next` without a ready item exits with 0.
 
 ## `lif check --json`
 

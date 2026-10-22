@@ -2,15 +2,15 @@
   import { fade } from 'svelte/transition';
   import { onDestroy } from 'svelte';
   import { pipe, subscribe as wonkaSubscribe } from 'wonka';
-  import { worktreeStore, MAIN_WORKSPACE_ID, type WorktreeStatus } from '$lib/worktrees.svelte';
-  import { WorkspaceStatusesDocument } from '$lib/graphql/generated';
-  import { itemsStore, type Item } from '$lib/items.svelte';
-  import { agentStatusesStore } from '$lib/agentStatuses.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import { client } from '$lib/graphqlClient';
-  import { ui } from '$lib/uiState.svelte';
-  import { typeBorders } from '$lib/styles';
-  import { decryptText } from '$lib/actions/decryptText';
+  import { worktreeStore, MAIN_WORKSPACE_ID, type WorktreeStatus } from '#lib/worktrees.svelte.js';
+  import { WorkspaceStatusesDocument } from '#lib/graphql/generated.js';
+  import { itemsStore, type Item } from '#lib/items.svelte.js';
+  import { agentStatusesStore } from '#lib/agentStatuses.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { typeTone } from '#lib/styles.js';
+  import { decryptText } from '#lib/actions/decryptText.js';
   import ConfirmModal from './ConfirmModal.svelte';
 
   interface PullRequestInfo {
@@ -247,7 +247,7 @@
                 {@const pr = item.pullRequest}
                 {@const [iconClass, colorClass, title] =
                   pr.state === 'merged'
-                    ? ['icon-[uil--code-branch] rotate-180', 'text-purple-400', `PR #${pr.number} merged`]
+                    ? ['icon-[uil--code-branch] rotate-180', 'text-accent', `PR #${pr.number} merged`]
                     : pr.checkStatus === 'fail'
                       ? ['icon-[uil--times-circle]', 'text-danger', `PR #${pr.number}: checks failed`]
                       : pr.checkStatus === 'pending'
@@ -292,10 +292,8 @@
                     ui.navigateTo(item.id);
                   }}
                   aria-label={wtItem.title}
-                  class={[
-                    'flex min-w-0 cursor-pointer items-baseline gap-1.5 rounded border-l-2 bg-surface-alt/50 px-2 py-1 text-left shadow-sm transition-colors hover:bg-surface-alt',
-                    typeBorders[wtItem.type] ?? 'border-l-type-task-border'
-                  ]}
+                  class="flex min-w-0 cursor-pointer items-baseline gap-1.5 rounded border-l-2 border-l-tone bg-surface-alt/50 px-2 py-1 text-left shadow-sm transition-colors hover:bg-surface-alt"
+                  style={typeTone(wtItem.type)}
                 >
                   <span class="min-w-0 flex-1 text-xs text-text-muted" use:decryptText={{ text: wtItem.title, immediate: isItemSeen(wtItem.id) }}></span>
                 </button>

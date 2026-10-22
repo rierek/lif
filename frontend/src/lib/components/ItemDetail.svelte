@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { Item } from '$lib/items.svelte';
-  import { itemsStore } from '$lib/items.svelte';
-  import { configStore } from '$lib/config.svelte';
-  import { worktreeStore } from '$lib/worktrees.svelte';
-  import { ui } from '$lib/uiState.svelte';
-  import { statusColors, typeColors, priorityColors } from '$lib/styles';
-  import { client } from '$lib/graphqlClient';
-  import { SendAgentMessageDocument, UpdateItemStatusDocument, ArchiveItemDocument } from '$lib/graphql/generated';
+  import type { Item } from '#lib/items.svelte.js';
+  import { itemsStore } from '#lib/items.svelte.js';
+  import { configStore } from '#lib/config.svelte.js';
+  import { worktreeStore } from '#lib/worktrees.svelte.js';
+  import { ui } from '#lib/uiState.svelte.js';
+  import { statusTone, typeTone, priorityTone } from '#lib/styles.js';
+  import { client } from '#lib/graphqlClient.js';
+  import { SendAgentMessageDocument, UpdateItemStatusDocument, ArchiveItemDocument } from '#lib/graphql/generated.js';
   import ItemCard from './ItemCard.svelte';
   import RenderedMarkdown from './RenderedMarkdown.svelte';
 
@@ -57,7 +57,7 @@
     switch (item.status) {
       case 'draft':
         return [
-          { label: 'Todo', status: 'todo', icon: 'icon-[uil--clipboard-notes]', iconColor: 'text-sky-400' },
+          { label: 'Todo', status: 'todo', icon: 'icon-[uil--clipboard-notes]', iconColor: 'text-info' },
           { label: 'Scrap', status: 'scrapped', icon: 'icon-[uil--trash-alt]', iconColor: 'text-danger' }
         ];
       case 'todo':
@@ -81,8 +81,10 @@
     const result = await client
       .mutation(UpdateItemStatusDocument, { id: item.id, input: { status: newStatus } })
       .toPromise();
+    if (!result.error) itemsStore.writeError = null;
     if (result.error) {
       itemsStore.optimisticUpdate(item.id, { status: oldStatus });
+      itemsStore.writeError = result.error.message;
     }
     updatingStatus = false;
   }
@@ -136,25 +138,10 @@
           </svg>
         {/if}
       </button>
-      <span
-        class={[
-          'badge',
-          typeColors[item.type] ?? 'bg-type-task-bg text-type-task-text'
-        ]}>{item.type}</span
-      >
-      <span
-        class={[
-          'badge',
-          statusColors[item.status] ?? 'bg-status-todo-bg text-status-todo-text'
-        ]}>{item.status}</span
-      >
+      <span class="badge badge-tone" style={typeTone(item.type)}>{item.type}</span>
+      <span class="badge badge-tone" style={statusTone(item.status)}>{item.status}</span>
       {#if item.priority && item.priority !== 'normal'}
-        <span
-          class={[
-            'badge border',
-            priorityColors[item.priority]
-          ]}
-        >
+        <span class="badge border border-tone text-tone" style={priorityTone(item.priority)}>
           {item.priority}
         </span>
       {/if}
@@ -197,7 +184,7 @@
           disabled={archiving}
           title="Archive this item"
         >
-          <span class="icon-[uil--archive] size-4 text-amber-400"></span>
+          <span class="icon-[uil--archive] size-4 text-warning"></span>
           {archiving ? 'Archiving…' : 'Archive'}
         </button>
       {/if}
@@ -206,7 +193,7 @@
           class="btn-toggle btn-toggle-inactive"
           onclick={() => onEdit(item)}
         >
-          <span class="icon-[uil--edit] size-4 text-sky-400"></span>
+          <span class="icon-[uil--edit] size-4 text-info"></span>
           Edit
         </button>
       {/if}
@@ -364,7 +351,7 @@
 
   .item-body :global(input[type='checkbox']) {
     margin-top: 0.25rem;
-    accent-color: #22c55e;
+    accent-color: var(--th-success);
   }
 
   .item-body :global(pre.shiki) {

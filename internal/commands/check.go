@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -59,6 +60,23 @@ func itemFieldIssues(allItems []*item.Item) []string {
 			!itemcore.IsValidParentRank(cfg, b.Type, p.Type) {
 			out = append(out, fmt.Sprintf("item %s (%s) cannot sit under parent %s (%s): parent must rank higher", b.ID, b.Type, p.ID, p.Type))
 		}
+	}
+	return out
+}
+
+// duplicateIDIssues reports one line per ID that several files carry. Only one
+// of the files answers to the ID; the others are invisible to every command.
+func duplicateIDIssues(dups map[string][]string) []string {
+	ids := make([]string, 0, len(dups))
+	for id := range dups {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		paths := slices.Clone(dups[id])
+		sort.Strings(paths)
+		out = append(out, fmt.Sprintf("ID %s is carried by %d files: %s (give all but one a new ID with lif rename)", id, len(paths), strings.Join(paths, ", ")))
 	}
 	return out
 }
@@ -278,6 +296,13 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			configErrors = append(configErrors, issues...)
 		} else if !checkJSON {
 			fmt.Printf("  %s File names give the IDs the files record\n", ui.Success.Render("✓"))
+		}
+
+		// 2b-5. Check that no ID is carried by more than one file
+		if issues := duplicateIDIssues(core.DuplicateIDs()); len(issues) > 0 {
+			configErrors = append(configErrors, issues...)
+		} else if !checkJSON {
+			fmt.Printf("  %s Every ID belongs to one file\n", ui.Success.Render("✓"))
 		}
 
 		// 2c. Check agent.default_effort is a valid effort level

@@ -12,7 +12,6 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/executor"
 	"github.com/rierek/lif/internal/graph"
-	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/pretty"
 	"github.com/vektah/gqlparser/v2/formatter"
@@ -139,7 +138,7 @@ func readFromStdin() (string, error) {
 // On error, it returns an error so the CLI can handle it appropriately.
 func executeQuery(query string, variables map[string]any, operationName string) ([]byte, error) {
 	es := graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{CoreResolver: &itemgraph.CoreResolver{Core: core}},
+		Resolvers: &graph.Resolver{CoreResolver: newResolver()},
 	})
 
 	exec := executor.New(es)
@@ -167,19 +166,37 @@ func executeQuery(query string, variables map[string]any, operationName string) 
 	return resp.Data, nil
 }
 
+// graphQLError is the CLI error of failed GraphQL errors. Unwrap hands the
+// resolver errors (a blocking gate, an etag mismatch) to errors.As, so that
+// reportExecutionError can tell them from a usage error.
+type graphQLError struct {
+	msg  string
+	errs gqlerror.List
+}
+
+func (e *graphQLError) Error() string { return e.msg }
+
+func (e *graphQLError) Unwrap() []error {
+	out := make([]error, len(e.errs))
+	for i, err := range e.errs {
+		out[i] = err
+	}
+	return out
+}
+
 // formatGraphQLErrors formats GraphQL errors into a single error.
 func formatGraphQLErrors(errs gqlerror.List) error {
 	if len(errs) == 0 {
 		return nil
 	}
 	if len(errs) == 1 {
-		return fmt.Errorf("graphql: %s", errs[0].Message)
+		return &graphQLError{msg: fmt.Sprintf("graphql: %s", errs[0].Message), errs: errs}
 	}
 	var msgs []string
 	for _, e := range errs {
 		msgs = append(msgs, e.Message)
 	}
-	return fmt.Errorf("graphql errors:\n  %s", strings.Join(msgs, "\n  "))
+	return &graphQLError{msg: fmt.Sprintf("graphql errors:\n  %s", strings.Join(msgs, "\n  ")), errs: errs}
 }
 
 // printSchema outputs the GraphQL schema.
@@ -192,7 +209,7 @@ func printSchema() error {
 // This is exported so it can be used by other commands like prompt.
 func GetGraphQLSchema() string {
 	es := graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{CoreResolver: &itemgraph.CoreResolver{Core: core}},
+		Resolvers: &graph.Resolver{CoreResolver: newResolver()},
 	})
 
 	var buf bytes.Buffer

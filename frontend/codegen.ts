@@ -16,11 +16,12 @@ const config: CodegenConfig = {
     'src/lib/graphql/generated.ts': {
       plugins: [
         { add: { content: documentNodeTypePreamble } },
-        'typescript',
         'typescript-operations',
         'typed-document-node',
       ],
       config: {
+        // The app uses enums as values (AgentMessageRole.User), so emit native TS enums.
+        enumType: 'native',
         // Use 'string' for the Time scalar (ISO 8601 strings from the backend)
         scalars: {
           Time: 'string',

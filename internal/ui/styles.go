@@ -241,6 +241,29 @@ func IsValidColor(color string) bool {
 	return activeTheme.Hex(name) != ""
 }
 
+// NormalizeColor reduces a configured colour to what a client can render
+// without knowing the theme: a lowercase #rgb/#rrggbb hex code, or the name
+// of a Catppuccin tone (legacy aliases resolved, see legacyColorAliases). A
+// value that is neither, including the empty string, gives "". The web UI
+// turns the result into var(--ctp-<tone>) or uses the hex as is.
+func NormalizeColor(color string) string {
+	color = strings.TrimSpace(color)
+	if strings.HasPrefix(color, "#") {
+		if IsValidColor(color) {
+			return strings.ToLower(color)
+		}
+		return ""
+	}
+	name := strings.ToLower(color)
+	if tone, ok := legacyColorAliases[name]; ok {
+		name = tone
+	}
+	if DefaultTheme().Hex(name) != "" {
+		return name
+	}
+	return ""
+}
+
 // Status badge styles (for inline use, like in show command)
 var (
 	StatusOpen           lipgloss.Style

@@ -10,25 +10,20 @@ import {
   ClearAgentSessionDocument,
   type AgentSessionFieldsFragment,
   AgentMessageRole,
-  type AgentMessage as GqlAgentMessage,
-  type AgentMessageImage as GqlAgentMessageImage,
-  type PendingInteraction as GqlPendingInteraction,
-  type AskUserQuestion as GqlAskUserQuestion,
-  type AskUserOption as GqlAskUserOption,
-  type SubagentActivity as GqlSubagentActivity,
   type InteractionType,
   type ImageInput,
   type FileAttachmentInput,
 } from './graphql/generated';
 
-export type AgentMessageImage = GqlAgentMessageImage;
-export type AgentMessage = GqlAgentMessage;
-export type { InteractionType };
-export type AskUserOption = GqlAskUserOption;
-export type AskUserQuestionData = GqlAskUserQuestion;
-export type PendingInteraction = GqlPendingInteraction;
-export type SubagentActivity = GqlSubagentActivity;
+// Derived from the fragment: typescript-operations 6 no longer emits schema object types.
 export type AgentSession = AgentSessionFieldsFragment;
+export type AgentMessage = AgentSession['messages'][number];
+export type AgentMessageImage = AgentMessage['images'][number];
+export type { InteractionType };
+export type PendingInteraction = NonNullable<AgentSession['pendingInteraction']>;
+export type AskUserQuestionData = NonNullable<PendingInteraction['questions']>[number];
+export type AskUserOption = AskUserQuestionData['options'][number];
+export type SubagentActivity = AgentSession['subagentActivities'][number];
 export type ImageUploadInput = ImageInput;
 export type FileAttachment = FileAttachmentInput;
 

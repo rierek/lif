@@ -1,5 +1,5 @@
-import { client } from '$lib/graphqlClient';
-import { FileDiffDocument, AllFileDiffDocument } from '$lib/graphql/generated';
+import { client } from '#lib/graphqlClient.js';
+import { FileDiffDocument, AllFileDiffDocument } from '#lib/graphql/generated.js';
 
 export interface DiffSelection {
 	path: string;

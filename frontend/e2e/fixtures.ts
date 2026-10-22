@@ -1,6 +1,6 @@
 import { test as base } from '@playwright/test';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -166,6 +166,11 @@ type Fixtures = {
   boardPage: BoardPage;
 };
 
+type Options = {
+  /** YAML appended to .lif.yml before lif-serve starts, e.g. `test.use({ lifConfigExtra: 'display:\n  theme: frappe\n' })`. */
+  lifConfigExtra: string;
+};
+
 type WorkerFixtures = {
   lifTemplate: string;
 };
@@ -174,7 +179,7 @@ type WorkerFixtures = {
  * Each test gets its own temp directory (copied from a worker-scoped template),
  * lif-serve process, and port. Full isolation — no shared state between tests.
  */
-export const test = base.extend<Fixtures, WorkerFixtures>({
+export const test = base.extend<Fixtures & Options, WorkerFixtures>({
   // Worker-scoped: run `lif init` once per worker, copy .lif dir for each test.
   // Fresh git repos are created per test (avoids stale git index/worktree state).
   lifTemplate: [
@@ -187,7 +192,9 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     { scope: 'worker' }
   ],
 
-  lif: async ({ page, lifTemplate }, use, testInfo) => {
+  lifConfigExtra: ['', { option: true }],
+
+  lif: async ({ page, lifTemplate, lifConfigExtra }, use, testInfo) => {
     const { lif: lifBin, lifServe } = getBinaries();
 
     // Fresh git repo per test (needed for worktree operations)
@@ -201,6 +208,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     // Copy pre-initialized lif files from template (avoids expensive `lif init` per test)
     cpSync(join(lifTemplate, '.lif'), join(projectDir, '.lif'), { recursive: true });
     cpSync(join(lifTemplate, '.lif.yml'), join(projectDir, '.lif.yml'));
+    if (lifConfigExtra) appendFileSync(join(projectDir, '.lif.yml'), `\n${lifConfigExtra}`);
 
     const lifPath = join(projectDir, '.lif');
 

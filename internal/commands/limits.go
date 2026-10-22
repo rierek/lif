@@ -111,3 +111,18 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 		MaxHeaderBytes: maxHeaderBytes,
 	}
 }
+
+// exemptWriteTimeout clears the write deadline of one request. net/http arms
+// WriteTimeout once it has read the request headers, so a handler that runs
+// longer than the timeout writes its response to a closed connection. A
+// mutation that runs a hook or a gate is such a handler: the write is already
+// committed when the client sees a failure, and a repeat would duplicate a
+// createItem. Only the request that carries this handler is exempt; every
+// other route keeps the WriteTimeout of newHTTPServer. gin's writer unwraps to
+// the net/http writer, so the controller reaches the connection.
+func exemptWriteTimeout() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Time{})
+		c.Next()
+	}
+}

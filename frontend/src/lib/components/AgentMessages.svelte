@@ -1,9 +1,10 @@
 <script lang="ts">
-  import type { AgentMessage, SubagentActivity } from '$lib/agentChat.svelte';
-  import { renderMarkdown, linkifyItemIds, escapeHtml } from '$lib/markdown';
+  import type { AgentMessage, SubagentActivity } from '#lib/agentChat.svelte.js';
+  import { renderMarkdown, linkifyItemIds, escapeHtml } from '#lib/markdown.js';
   import { fade } from 'svelte/transition';
-  import { decryptText } from '$lib/actions/decryptText';
-  import { itemLinks } from '$lib/actions/itemLinks';
+  import { decryptText } from '#lib/actions/decryptText.js';
+  import { itemLinks } from '#lib/actions/itemLinks.js';
+  import { apiUrl } from '#lib/paths.js';
 
   interface Props {
     messages: AgentMessage[];
@@ -151,7 +152,7 @@
                 <div class="mt-2 flex flex-wrap gap-2">
                   {#each msg.images as img}
                     <img
-                      src={img.url}
+                      src={apiUrl(img.url)}
                       alt="Attachment"
                       class="max-h-48 max-w-xs rounded border border-border"
                     />

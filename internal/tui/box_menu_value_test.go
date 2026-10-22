@@ -385,7 +385,7 @@ func TestKeyNodeActionStatusOpensMenuWithFocusedBean(t *testing.T) {
 // TestKeyNodeActionTypeOpensMenuSeededToType is jira-style-ui experiment
 // S4's positive-path pin for the new global `o` key: mirrors
 // TestKeyNodeActionStatusOpensMenuWithFocusedBean exactly, but asserts the
-// value menu opens seeded to the TYPE group (not gated behind LIF_TUI_BOXFORM --
+// value menu opens seeded to the TYPE group (
 // valid in both accordion and box-form modes, same dispatch checkpoint as
 // Status).
 func TestKeyNodeActionTypeOpensMenuSeededToType(t *testing.T) {

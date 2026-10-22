@@ -2,8 +2,7 @@ package tui
 
 // box_nav_field.go — the box-form FIELD CURSOR (bean bt-1o4g, epic bt-vy1q,
 // PO-Nebenbefund N8): keyboard-first navigation between detailBoxForm's boxes
-// (box_detail_form.go) while the Detail pane is focused (tab) and
-// boxFormEnabled().
+// (box_detail_form.go) while the Detail pane is focused (up/down).
 //
 // THREE deliberate single-source decisions, all Golden-Rule-Drift-Schutz:
 //
@@ -30,39 +29,15 @@ import (
 	"github.com/rierek/lif/internal/tui/data"
 )
 
-// boxFormFieldNext/boxFormFieldPrev are the Detail REGION's own tab/shift+tab
-// (bean bt-8d35, PO's Fokus-Modell: "tab/shift+tab bewegen INNERHALB der
-// fokussierten Region, esc VERLAESST die Region"). They carry the same
-// physical keys as the global keys.FocusIn/keys.FocusOut pane swap, but a
-// different, region-local meaning -- exactly the filterMenuCategoryHint
-// precedent (footer_context.go), and safe by construction for the same
-// reason: handleKey routes tab/shift+tab here FIRST while the Detail region
-// has focus and boxFormEnabled(), so the global meaning never also runs.
-//
-// Deliberately standalone keybind.Bindings, NOT keyMap fields: keymap_test.go's
-// TestHelpGroupsCoverEveryBindingExactlyOnce reflects over keyMap fields only
-// and would flag these as unrouted Help entries. The label lives on the SAME
-// value the handler matches (footer_context.go's boxFormRegionLabels swaps
-// them into Footer Zone 3), so bt-z4w7's "the label IS the binding" rule
-// holds literally here.
-var (
-	boxFormFieldNext = keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next field"))
-	boxFormFieldPrev = keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "prev field"))
-)
-
 // boxFormPageUp/boxFormPageDown page the focused Detail pane by one FULL
 // screen (bean bt-adkn, PO-Entscheidung 2026-07-20: pgup/pgdn -- ctrl+i is
 // Tab (0x09, indistinguishable), ctrl+k is the Command-Palette, both
 // excluded; pgup/pgdn mean exactly "blaettern" and collide with nothing,
 // TestKeymapNoCtrlSQ is the precedent for hard terminal-collision guards).
 //
-// Standalone keybind.Bindings, NOT keyMap fields -- SAME rationale as
-// boxFormFieldNext/Prev above: keymap_test.go's TestHelpGroupsCoverEvery
-// BindingExactlyOnce reflects over keyMap fields only, and these are
-// experiment-gated Detail-region-local keys, not global Help entries. (The
-// SSTD handover note said "keymap.go single source"; the closer, verified
-// precedent -- the sibling field-nav bindings right here -- governs where a
-// box-form-local binding actually belongs, so it lives beside them.)
+// Standalone keybind.Bindings, NOT keyMap fields: keymap_test.go's
+// TestHelpGroupsCoverEveryBindingExactlyOnce reflects over keyMap fields only,
+// and these are Detail-region-local keys, not global Help entries.
 //
 // Both route through the SAME adjustBoxFormScroll mutation point up/down and
 // the wheel use (keyDetailFocus, update.go), one screen == boxFormScrollBounds'
@@ -125,7 +100,7 @@ func boxFormRowCols(row int) int {
 
 // boxFormCursorRow returns the layout row the field cursor sits in, or -1 for
 // no cursor (the SAME derivation boxFormBlocks' own focusRow uses, box_detail_
-// form.go). Lets renderAccordionPane resolve the Body header's focus color
+// form.go). Lets renderDetailBox resolve the Body header's focus color
 // without restating the cursor->row rule (bean bt-adkn Rework B3).
 func boxFormCursorRow(cursor int) int {
 	if cursor >= 0 && cursor < len(boxFormFieldOrder) {
@@ -447,7 +422,7 @@ func boxFormPaneContentLeft(m model) int {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, lw, _, originX, _ := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
+	_, lw, _, originX, _ := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
 	paneLeftBorder := originX
 	if m.fullscreen != fullscreenDetail {
 		paneLeftBorder = originX + lw + 2
@@ -464,7 +439,7 @@ func boxFormPaneContentLeft(m model) int {
 // divider(1) + the PANE'S OWN top border(1)" -- one row PAST the divider is
 // exactly originY minus that last "pane's own top border" term, i.e.
 // originY-1. View/fullscreen/filter-bar agnostic: none of those ever add
-// rows ABOVE this point (the filter bar, if boxFormEnabled(), sits AT this
+// rows ABOVE this point (the filter bar sits AT this
 // row and below -- it is body chrome, not app chrome, safe to place a popup
 // over), only below it.
 func boxFormPopupChromeFloor(m model) int {
@@ -484,7 +459,7 @@ func boxFormPopupChromeFloor(m model) int {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
+	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
 	return originY - 1
 }
 
@@ -509,8 +484,8 @@ func boxFormFieldRect(m model, b *data.Bean, field int) (x, y, w, h int, ok bool
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	if boxFormEnabled() && m.view != viewBacklog {
+	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	if m.view != viewBacklog {
 		originY += filterBarHeight // B6: same correction detailBoxFormClickRow applies (mouse.go)
 	}
 

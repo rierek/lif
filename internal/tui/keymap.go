@@ -30,29 +30,26 @@ type keyMap struct {
 	Left  keybind.Binding
 	Right keybind.Binding
 
-	// Detail-Focus toggle pair (PF-13, design-spec.md §15, E7 T6): tab keeps
-	// its existing bidirectional toggle (Tree<->Detail, backward-compat) --
-	// shift+tab is NEW, a deterministic one-way exit (Detail->Tree only,
-	// no-op when already in Tree). Together they satisfy the PO's "vollständig
-	// symmetrische Paare" requirement (Nachtrag 7) without removing tab's
-	// existing toggle behavior (Planner decision, lowest regression risk --
-	// see design-spec §15 PF-13 for the full Kollisionsanalyse).
-	FocusIn  keybind.Binding // tab — focus Tree<->Detail (toggle, backward-compat)
-	FocusOut keybind.Binding // shift+tab — deterministic focus back to Tree
+	// Detail-Focus pair (PF-13, design-spec.md §15, E7 T6): tab and
+	// shift+tab both toggle between the two regions, Tree and Detail, in
+	// both directions (toggleRegion, update.go). A hidden Detail pane is
+	// shown by the toggle.
+	FocusIn  keybind.Binding // tab — toggle focus Tree<->Detail
+	FocusOut keybind.Binding // shift+tab — toggle focus Tree<->Detail
 
 	// Activation / return / global.
-	Enter   keybind.Binding // enter — open/confirm
-	Back    keybind.Binding // esc — back
-	Quit    keybind.Binding // q / ctrl+c — quit (confirm)
-	Help    keybind.Binding // ? — help overlay
-	Palette keybind.Binding // K — Command-Center
-	Picker  keybind.Binding // p — repo-picker
-	Backlog keybind.Binding // b — Backlog
-	Search  keybind.Binding // / — search
-	Filter  keybind.Binding // f — facet filter
-	Yank    keybind.Binding // y — copy context (OSC52 + native)
-	Refresh keybind.Binding // ctrl+r — manual data reload
-	Section keybind.Binding // 1…9 — accordion section jump
+	Enter        keybind.Binding // enter — open/confirm
+	Back         keybind.Binding // esc — back
+	Quit         keybind.Binding // q — quit (confirm); ctrl+c quits at once
+	Help         keybind.Binding // ? — help overlay
+	Palette      keybind.Binding // K — Command-Center
+	Picker       keybind.Binding // p — repo-picker
+	Backlog      keybind.Binding // b — Backlog
+	Search       keybind.Binding // / — search
+	Filter       keybind.Binding // f — facet filter
+	Yank         keybind.Binding // y — copy context (OSC52 + native)
+	Refresh      keybind.Binding // ctrl+r — manual data reload
+	DetailToggle keybind.Binding // D — show/hide the Detail pane
 
 	FilterClear keybind.Binding // X — reset filters
 	Toggle      keybind.Binding // space/x — toggle facet checkbox (E2 Task 4, bean bt-9ldr)
@@ -139,14 +136,6 @@ type keyMap struct {
 	// keyNodeAction (update.go).
 	Fullscreen keybind.Binding // v — fullscreen
 
-	// History-Stack (F01, E9 Task 8, bean bt-1vbp, design-spec.md §15):
-	// ctrl+left/ctrl+right are bubbletea v1.3.10's native decode of the
-	// standard xterm CSI sequences -- `[`/`]` are the terminal-unabhängig
-	// garantiert zustellbare Fallback (verified unbelegt against every OTHER
-	// binding above, TestHistoryBindingsUnbelegtElsewhere). Wirksam NUR in
-	// fullscreenDetail (keyFullscreen, view_fullscreen.go).
-	HistoryBack    keybind.Binding // ctrl+left / [ — history back
-	HistoryForward keybind.Binding // ctrl+right / ] — history fwd
 }
 
 // newKeyMap returns the currently active keybinding set. The direction cross
@@ -180,7 +169,6 @@ func newKeyMap() keyMap {
 		Filter:  keybind.NewBinding(keybind.WithKeys("f"), keybind.WithHelp("f", "Filter")),
 		Yank:    keybind.NewBinding(keybind.WithKeys("y"), keybind.WithHelp("y", "Yank")),
 		Refresh: keybind.NewBinding(keybind.WithKeys("ctrl+r"), keybind.WithHelp("ctrl+r", "reload")),
-		Section: keybind.NewBinding(keybind.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9"), keybind.WithHelp("1…9", "Section")),
 
 		FilterClear: keybind.NewBinding(keybind.WithKeys("X"), keybind.WithHelp("X", "Clear filters")),
 		Toggle:      keybind.NewBinding(keybind.WithKeys(" ", "x"), keybind.WithHelp("space/x", "Toggle facet")),
@@ -214,10 +202,8 @@ func newKeyMap() keyMap {
 
 		RenameTag: keybind.NewBinding(keybind.WithKeys("e"), keybind.WithHelp("e", "Rename")),
 
-		Fullscreen: keybind.NewBinding(keybind.WithKeys("v"), keybind.WithHelp("v", "fullscreen")),
-
-		HistoryBack:    keybind.NewBinding(keybind.WithKeys("ctrl+left", "["), keybind.WithHelp("[", "history back")),
-		HistoryForward: keybind.NewBinding(keybind.WithKeys("ctrl+right", "]"), keybind.WithHelp("]", "history fwd")),
+		Fullscreen:   keybind.NewBinding(keybind.WithKeys("v"), keybind.WithHelp("v", "fullscreen")),
+		DetailToggle: keybind.NewBinding(keybind.WithKeys("D"), keybind.WithHelp("D", "toggle detail")),
 	}
 }
 
@@ -236,8 +222,8 @@ type helpGroup struct {
 // a later task — the help view itself is out of scope here).
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
-		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.Section, k.FocusIn, k.FocusOut, k.Fullscreen, k.HistoryBack, k.HistoryForward}},
-		{"Views & Global", []keybind.Binding{k.Backlog, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView}},
+		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.FocusIn, k.FocusOut, k.Fullscreen}},
+		{"Views & Global", []keybind.Binding{k.Backlog, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView, k.DetailToggle}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are

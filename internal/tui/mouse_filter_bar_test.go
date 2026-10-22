@@ -2,7 +2,7 @@ package tui
 
 // mouse_filter_bar_test.go — TDD coverage for bt-wtqs (epic bt-vy1q): a
 // click on one of the persistent filter-strip's four chips (Type/Status/
-// Priority/Tags, box_filter_bar.go, LIF_TUI_BOXFORM-gated) must open the SAME
+// Priority/Tags, box_filter_bar.go) must open the SAME
 // shared facet-filter menu `f` opens (openFilterMenu, update.go), seeded to
 // the clicked chip's own facet -- NOT openValueMenu (that mutates the
 // FOCUSED bean, a completely different action; the Ursache-Tabelle in the
@@ -33,10 +33,10 @@ import (
 func filterBarClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, _, _, originX, rawOriginY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+	_, _, _, originX, rawOriginY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
 	// clickPaneGeometry's raw originY assumes content starts 1 row after a
 	// bordered box's own top border sitting directly below the divider --
-	// when boxFormEnabled(), that bordered box IS the filter bar itself
+	// the bordered box IS the filter bar itself
 	// (view_browse_repo.go's content build order: head+div, THEN
 	// filterBarRow, THEN the body), so the strip's own top-border row is
 	// originY-1, not originY (verified via a real View() render: rawOriginY
@@ -57,7 +57,7 @@ func filterBarClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	return tea.MouseMsg{}
 }
 
-// boxFormStripModel builds a fixtureModel with LIF_TUI_BOXFORM=1 at the given
+// boxFormStripModel builds a fixtureModel with at the given
 // terminal width (bt-wtqs Akzeptanz: geometry pinned at 80 AND 120 columns --
 // Maus-Off-by-one bugs in this repo (bt-hd42/bt-vpvu) lived exactly at
 // boundary widths, so both must be exercised, not just a comfortable 100).
@@ -72,7 +72,6 @@ func filterBarClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 // against for the Ziel-Funktion).
 func boxFormStripModel(t *testing.T, width int) model {
 	t.Helper()
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = step(t, m, tea.WindowSizeMsg{Width: width, Height: 30})
 	m.expanded["ms-1"] = true
@@ -146,37 +145,6 @@ func TestFilterBarChipClickGeometryAt80And120Cols(t *testing.T) {
 				t.Fatalf("width %d: seeded facet = %v (tab %d), want status", width, facets, m2.filterTab)
 			}
 		})
-	}
-}
-
-// TestFilterBarClickDeadWhenFlagOff guards the flag's OFF-by-default
-// contract (bean bt-wtqs doc-stamp: "Ohne Flag: kein Strip, kein neuer
-// Klick-Pfad -- Default-Verhalten byte-identisch"): the strip is not even
-// rendered without LIF_TUI_BOXFORM, so a click at the coordinates it WOULD occupy
-// must fall through unchanged (here: no-op, since no tree row exists there
-// without the boxFormEnabled() render branch reserving the offset).
-func TestFilterBarClickDeadWhenFlagOff(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.expanded["ms-1"] = true
-	m.expanded["ep-1"] = true
-	m.cursorID = "ms-1"
-
-	if boxFormEnabled() {
-		t.Fatal("setup: LIF_TUI_BOXFORM must be unset for this test")
-	}
-
-	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, _, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
-	msg := tea.MouseMsg{Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: originX + 2, Y: originY}
-
-	tm, _ := m.handleMouse(msg)
-	m2, ok := tm.(model)
-	if !ok {
-		t.Fatalf("handleMouse(click) did not return a model, got %T", tm)
-	}
-	if m2.filterOpen {
-		t.Fatalf("filterOpen = true with LIF_TUI_BOXFORM unset, want false (no strip, no click-path)")
 	}
 }
 

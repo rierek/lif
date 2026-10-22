@@ -368,9 +368,9 @@ func (m model) filterMenuSwitchTab(d int) model {
 // closing the menu (devd parity, unchanged), esc/f close the menu without
 // touching filter state (unchanged).
 //
-// enter: closes the menu with the flag OFF (unchanged); with boxFormEnabled()
-// it APPLIES the cursored value and holds the focus in the region instead --
-// bean bt-8d35's Fokus-Modell, see the case's own comment below.
+// enter APPLIES the cursored value and holds the focus in the region
+// instead of closing the menu -- bean bt-8d35's Fokus-Modell, see the case's
+// own comment below.
 //
 // tab/shift+tab safety (epic-E12-plan.md Item 7, "Kein Tastenkonflikt",
 // verified by TestFilterMenuTabDoesNotLeakToGlobalFocusToggle): keys.FocusIn
@@ -397,7 +397,7 @@ func (m model) keyFilterMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch {
-	case boxFormEnabled() && keybind.Matches(msg, filterStripApplyHint):
+	case keybind.Matches(msg, filterStripApplyHint):
 		// bean bt-8d35 Flow #3 ("Anwenden: enter -> Filter wirkt, Fokus bleibt
 		// im Strip"): under the Fokus-Modell the Strip is a REGION, and only
 		// esc/f leave a region -- enter must therefore APPLY without closing.
@@ -405,14 +405,12 @@ func (m model) keyFilterMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// copy-on-write and already live), i.e. the same effect keys.Toggle has;
 		// PO-Entscheidung 1 gives space and enter that same job inside an open
 		// multi-select, with enter carrying the "open/apply" reading.
-		// Experiment-gated: flag OFF keeps enter's pre-existing close meaning
-		// in the case just below (epic bt-vy1q, "alles additiv + gated").
 		if m.filterMenu.cursor < 0 || m.filterMenu.cursor >= len(m.filterItems) {
 			return m, nil
 		}
 		m = m.toggleFacet(m.filterItems[m.filterMenu.cursor])
 		return m.resetCursorToFirstVisible(), nil
-	case keybind.Matches(msg, keys.Back), keybind.Matches(msg, keys.Filter), keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Back), keybind.Matches(msg, keys.Filter):
 		m.filterOpen = false
 		return m.resetCursorToFirstVisible(), nil
 	case keybind.Matches(msg, keys.FilterClear):

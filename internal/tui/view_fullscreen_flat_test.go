@@ -6,7 +6,7 @@ package tui
 // from treeRows() unconditionally, so entering the Vollbild-Liste with `v`
 // silently dropped the PO back into the Tree they had just toggled away from.
 //
-// `G` is NOT gated on LIF_TUI_BOXFORM (unlike the rest of the jira-style
+// `G` is independent of the box-form (unlike the rest of the jira-style
 // experiment), so neither are these tests -- the flag stays unset throughout.
 //
 // The discriminator used below is deliberately structural rather than

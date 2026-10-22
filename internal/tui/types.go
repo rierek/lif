@@ -102,18 +102,6 @@ func cloneBoolMap(src map[string]bool) map[string]bool {
 	return out
 }
 
-// cloneStringSlice is cloneBoolMap's []string counterpart -- the same I01
-// Copy-on-Write rationale, applied to navBack/navForward (F01 History-Stack,
-// E9 Task 8, bean bt-1vbp): every push clones via this helper before
-// appending, so a slice header shared with an older model copy (a test
-// variable held around, a future undo feature) never gets silently aliased
-// by a later append reusing spare backing-array capacity.
-func cloneStringSlice(src []string) []string {
-	out := make([]string, len(src))
-	copy(out, src)
-	return out
-}
-
 // fullscreenMode enumerates F01's Vollbild-Navigation state (design-spec.md
 // §15 "F01 — Vollbild-Navigation", bean bt-13l7, E9 Task 7): ORTHOGONAL to
 // viewID (m.view) -- Vollbild changes only HOW the active view's Master-
@@ -148,20 +136,14 @@ type model struct {
 	cursorID string          // currently selected node's ID (bean ID or orphanRootID)
 
 	// detailFocus is the Tree<->Detail focus toggle (bean bt-7jr8 Q01):
-	// view-local `tab` handling, deliberately NOT routed through keymap.Right
-	// (which stays the tree's expand key).
+	// view-local `tab`/`shift+tab` handling (toggleRegion), deliberately NOT
+	// routed through keymap.Right (which stays the tree's expand key).
 	detailFocus bool
 
-	// Detail-Accordion focus machine (E2 Task 2, bean bt-2jve, port devd
-	// view_detail_issue.go's detailFocusView): secCursor/accOpen track the
-	// section level (0-based cursor / 1-based exclusive-open, kept as two
-	// fields since renderAccordion's `open` param is 1-based per its digit
-	// header while every other cursor in this codebase is 0-based).
-	// detailLevel 0 = section level, 1 = field level (Beziehungen only).
-	// fieldCursor indexes the currently open section's fields when
-	// detailLevel == 1. All four reset on every `tab`-into-detail-focus
-	// transition (handleKey).
-	secCursor, accOpen, detailLevel, fieldCursor int
+	// detailHidden hides the Detail pane in the Browse/Ready split; the tree
+	// pane then takes the full width. True at start, `D` toggles it, `tab`
+	// into a hidden Detail shows it. Not consulted in the Vollbild.
+	detailHidden bool
 
 	// Suche `/` (E2 Task 3, bean bt-4ep2, design-spec.md §6 V2): searchActive
 	// is the textinput-focused typing state (single-key shortcuts inactive
@@ -263,40 +245,35 @@ type model struct {
 	flatView bool
 	flatList listState
 
-	// Box-form Detail-Pane scroll (jira-style-ui experiment, bean bt-ze10,
-	// epic bt-vy1q F1): detailBoxForm (box_detail_form.go) renders Title +
-	// scalar-grid + Body/Relations/History as ONE tall string with NO
-	// windowing of its own -- unlike the accordion's RELATIONS section
-	// (windowRelationsSection, view_browse_repo.go), a long Body used to
-	// simply get cut off, Relations/History unreachable. boxFormScroll is
-	// the offset renderAccordionPane's boxFormEnabled() branch windows that
-	// string to (scrollView, view.go), advanced/clamped by keyDetailFocus's
-	// up/down (update.go, boxFormEnabled()-gated) and wheelMove (mouse.go,
-	// wheel over the Detail pane) via mouse.go's adjustBoxFormScroll/
-	// boxFormScrollBounds. boxFormScrollBean is the bean ID the offset was
-	// last computed for -- a SELECTION change is detected lazily by
-	// comparing this against the currently focused bean's ID
+	// Box-form Detail-Pane scroll (bean bt-ze10, epic bt-vy1q F1):
+	// detailBoxForm (box_detail_form.go) renders Title + scalar-grid +
+	// Body/Relations/History as ONE tall string with NO windowing of its
+	// own. boxFormScroll is the offset renderDetailBox windows that string
+	// to (scrollView, view.go), advanced/clamped by keyDetailFocus's
+	// up/down in the Vollbild (update.go), boxFormNav and wheelMove
+	// (mouse.go, wheel over the Detail pane) via mouse.go's
+	// adjustBoxFormScroll/boxFormScrollBounds. boxFormScrollBean is the bean
+	// ID the offset was last computed for -- a SELECTION change is detected
+	// lazily by comparing this against the currently focused bean's ID
 	// (boxFormEffectiveScroll, mouse.go) wherever the offset is READ, rather
 	// than hunted down at every one of the many cursor-move/click/jump call
 	// sites that can change the selected bean (Golden-Rule-Drift-Schutz: one
 	// derived check beats N independent, driftable reset sites). Both zero-
-	// valued by default -- accordion mode (boxFormEnabled() off) never reads
-	// either field.
+	// valued by default.
 	boxFormScroll     int
 	boxFormScrollBean string
 
 	// Box-form Detail-Pane FIELD CURSOR (bean bt-1o4g, epic bt-vy1q, PO-
 	// Nebenbefund N8 "keyboard-first"): the index into boxFormFieldOrder
-	// (box_nav_field.go) the arrow keys move and enter activates while the
+	// (box_nav_field.go) the up/down keys move and enter activates while the
 	// Detail pane is focused. boxFormCursorBean mirrors boxFormScrollBean's
 	// derived-reset doctrine exactly (see above): the cursor is reset to the
 	// first field lazily, where it is READ (boxFormEffectiveCursor), by
 	// comparing this ID against the currently focused bean -- not at every
 	// call site that can change the selection. Zero-valued by default, which
 	// is ALSO the "cursor on Title" default, so no explicit init is needed;
-	// accordion mode (boxFormEnabled() off) never reads or writes either
-	// field, and an UNFOCUSED Detail pane renders with cursor -1 (no Mauve
-	// frame at all, so the flag-on goldens stay byte-identical).
+	// an UNFOCUSED Detail pane renders with cursor -1 (no Mauve frame at
+	// all).
 	boxFormCursor     int
 	boxFormCursorBean string
 
@@ -697,38 +674,10 @@ type model struct {
 	// Vollbild `v` (F01 Kernmechanik, E9 Task 7, bean bt-13l7, design-spec.md
 	// §15): fullscreen is ORTHOGONAL to m.view (fullscreenMode doc-stamp
 	// above). fullscreenBeanID is the bean shown in fullscreenDetail --
-	// UNABHÄNGIG vom Tree-/Backlog-Cursor (a Relations-Sprung inside
-	// fullscreenDetail moves ONLY this field, never m.cursorID/
-	// m.backlogList.cursor -- those only sync back on esc-exit,
+	// UNABHÄNGIG vom Tree-/Backlog-Cursor (it only syncs back on esc-exit,
 	// keyDetailFocus's Back-case).
-	//
-	// navBack/navForward (F01 History-Stack, E9 Task 8, bean bt-1vbp, wired
-	// here -- Task 7 only declared them empty/unused) are []string Bean-ID
-	// stacks, COW throughout (cloneStringSlice above): every Relations-Sprung
-	// INSIDE fullscreenDetail (activateDetailField's jump case) pushes the
-	// bean being LEFT onto navBack and kapt navForward (Standard-Browser-
-	// Semantik). keys.HistoryBack/HistoryForward (ctrl+left/[, ctrl+right/],
-	// keyFullscreen) pop/push symmetrically between the two, wirksam NUR in
-	// fullscreenDetail. Both loop past a bean that vanished externally
-	// (watch-reload/repo-switch/parallel-agent delete) instead of landing on
-	// it -- same not-trap spirit as the F01 b==nil-Guard fix (Fix-Runde 1,
-	// bt-13l7) -- a stack that is empty OR all-vanished is a clean No-Op.
-	//
-	// ERRATA (Supervisor-Entscheid, Task 8): design-spec.md §15's original
-	// text ("navBack/navForward werden beim Verlassen NICHT geleert",
-	// verbatim repeated in bt-13l7's own "Notes for T8") is DEVIATED FROM
-	// here -- EVERY Vollbild-Exit (both keyDetailFocus's b==nil dead-end
-	// guard AND its Back-case esc-exit, PLUS keyFullscreen's fullscreenList
-	// esc-exit, defensively) now clears BOTH stacks. Rationale: leaving them
-	// populated would let a stale History-Path leak from one Vollbild
-	// session into the NEXT (e.g. `v` on a totally different bean, minutes
-	// later, would still offer Back/Forward into the earlier session's
-	// unrelated jump chain) -- the Supervisor judged that surprise worse
-	// than losing the (minor, PO-never-requested) "resume History on the
-	// same bean" convenience the original text was optimizing for.
-	fullscreen          fullscreenMode
-	fullscreenBeanID    string
-	navBack, navForward []string
+	fullscreen       fullscreenMode
+	fullscreenBeanID string
 
 	// Tag-Management page (E10 Task 2, bean bt-r92i, epic bt-362n D05-D09):
 	// tagMgmtRows is the D09 Union row list (definierte Tags alpha-sortiert
@@ -818,6 +767,7 @@ func newModel(client *data.Client, repoDir string) model {
 		client:       client,
 		repoDir:      repoDir,
 		expanded:     map[string]bool{},
+		detailHidden: true,
 		searchInput:  ti,
 		tagInput:     tagIn,
 		tagMgmtInput: tagMgmtIn,

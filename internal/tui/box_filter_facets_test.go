@@ -180,11 +180,11 @@ func TestFilterMenuUpDownMovesCursorSpaceTogglesRow(t *testing.T) {
 	}
 }
 
-// TestFilterMenuEscAndEnterAndFCloseWithoutClearing guards that all three
-// close keys (esc/enter/f) leave the toggled facet state untouched -- only
+// TestFilterMenuEscAndFCloseWithoutClearing guards that both
+// close keys (esc/f) leave the toggled facet state untouched -- only
 // X (a separate binding) clears.
-func TestFilterMenuEscAndEnterAndFCloseWithoutClearing(t *testing.T) {
-	closeKeys := []tea.KeyMsg{keyMsg(tea.KeyEsc), keyMsg(tea.KeyEnter), runeMsg('f')}
+func TestFilterMenuEscAndFCloseWithoutClearing(t *testing.T) {
+	closeKeys := []tea.KeyMsg{keyMsg(tea.KeyEsc), runeMsg('f')}
 	for _, closeKey := range closeKeys {
 		m := fixtureModel(t, fixtureBeans())
 		m = step(t, m, runeMsg('f'))
@@ -365,35 +365,12 @@ func TestFilterMenuSpaceTogglesCorrectFacetAfterTabSwitch(t *testing.T) {
 	}
 }
 
-// TestFilterMenuEnterAppliesUnchangedAcrossTabs guards that enter still
-// closes the menu without clearing state, regardless of which tab was
-// active when pressed (PO-Klickpfad step 5, "mit enter den Filter
-// anwenden").
-func TestFilterMenuEnterAppliesUnchangedAcrossTabs(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-	m = step(t, m, keyMsg(tea.KeyTab)) // Type tab
-	it := m.filterItems[m.filterMenu.cursor]
-	m = step(t, m, keyMsg(tea.KeySpace))
-
-	m = step(t, m, keyMsg(tea.KeyEnter))
-	if m.filterOpen {
-		t.Fatal("enter did not close the filter menu")
-	}
-	if !m.facetOn(it) {
-		t.Fatal("enter cleared the toggled facet -- applying must not clear filter state")
-	}
-}
-
-// --- bean bt-8d35: the Filter-Strip as a REGION (boxFormEnabled only) ---
+// --- bean bt-8d35: the Filter-Strip as a REGION ---
 
 // TestFilterStripEnterAppliesAndHoldsFocus is the PO's Flow #3 verbatim:
 // "Anwenden: enter -> Filter wirkt, **Fokus bleibt im Strip** (ausdrücklicher
-// PO-Wunsch)". Experiment-gated: with the flag OFF, enter keeps its
-// pre-existing close-the-menu meaning (TestFilterMenuEnterAppliesUnchanged
-// AcrossTabs, above, is the untouched guard for that).
+// PO-Wunsch)".
 func TestFilterStripEnterAppliesAndHoldsFocus(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, runeMsg('f'))
 	m = step(t, m, keyMsg(tea.KeyTab)) // Type tab
@@ -419,7 +396,6 @@ func TestFilterStripEnterAppliesAndHoldsFocus(t *testing.T) {
 // TestFilterStripEscLeavesTheRegion pins bt-8d35's other half for the Strip:
 // esc (and only esc / the toggle key f) leaves the region.
 func TestFilterStripEscLeavesTheRegion(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, runeMsg('f'))
 	m = step(t, m, keyMsg(tea.KeyEsc))
@@ -579,7 +555,7 @@ func TestEmptyFacetMatchViewRendersWithoutPanic(t *testing.T) {
 		t.Fatalf("visibleNodes() = %d nodes, want 0 (no fixture bean is scrapped)", n)
 	}
 	out := m.View()
-	if !strings.Contains(out, searchShield) {
+	if !strings.Contains(out, "─ Search ") {
 		t.Error("View() with zero filtered matches lost the Tree pane's search head row entirely")
 	}
 }

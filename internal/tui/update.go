@@ -236,7 +236,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.expanded = map[string]bool{}
 	m.cursorID = ""
 	m.detailFocus = false
-	m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 0, 1, 0, 0
+	m.boxFormCursor, m.boxFormCursorBean = 0, ""
 	m.searchActive = false
 	m.searchInput.SetValue("")
 	m.searchQuery = ""
@@ -717,7 +717,7 @@ const createInFlightNote = "Creation already in progress — please wait"
 // keyNodeAction routes the node-focused mutation keys (design-spec §7:
 // s/t/a/B/c/d/e -- Status/TagAssign/Assign/Blocking/Create/Delete/Editor;
 // plus jira-style-ui experiment S4's o/u -- Type/Priority, wired onto the
-// SAME value-menu machinery as Status, not gated behind LIF_TUI_BOXFORM).
+// SAME value-menu machinery as Status).
 // Placed in handleKey directly after the Refresh check and BEFORE the
 // m.detailFocus dispatch, since node actions must act on m.focusedBean()
 // regardless of which pane currently has focus (focusedBean() already
@@ -1084,61 +1084,13 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.requestQuit()
 	}
 
-	// Both replace the former raw `case "tab":` AT THE SAME dispatch point
-	// (still ahead of keyNodeAction/keyDetailFocus/keyBacklog/keyTree below) --
-	// no new collision risk (Kollisionsanalyse, epic-E7-plan.md Task 6).
-	//
-	// bt-8d35 (PO-Fokus-Modell, epic bt-vy1q): "tab/shift+tab bewegen INNERHALB
-	// der fokussierten Region, esc VERLAESST die Region". While the Detail
-	// region already HAS focus (split geometry) and boxFormEnabled(), tab is
-	// therefore no longer a pane swap at all -- it is the region-local field
-	// cursor, routed straight to keyDetailFocus (boxFormFieldNext/Prev,
-	// box_nav_field.go). Consequences, both deliberate:
-	//
-	//   - shift+tab stops being the deterministic exit (PF-13, bt-t1uy): it is
-	//     the BACKWARD field step now, and esc is the single documented way out
-	//     of a region (keyDetailFocus's Back-case).
-	//   - the Vollbild-Detail is excluded (m.fullscreen check): it renders no
-	//     field cursor at all (fieldCursor -1, view_fullscreen.go), so tab keeps
-	//     its global meaning there.
-	//
-	// Flag OFF -> the entire block below is the untouched PF-13 behaviour, and
-	// so are the Tree region's own tab/shift+tab (no intra-region targets are
-	// defined for the Tree, so tab-out-of-Tree stays the region ENTRY).
-	inFocusedDetailRegion := boxFormEnabled() && m.detailFocus && m.fullscreen != fullscreenDetail
-
-	// PF-13 (design-spec.md §15, E7 T6, bean bt-t1uy): FocusIn (tab) keeps its
-	// existing bidirectional toggle (Q01) -- FocusOut (shift+tab) is NEW, a
-	// deterministic one-way exit back to the Tree.
-	if keybind.Matches(msg, keys.FocusIn) {
-		if inFocusedDetailRegion {
-			return m.keyDetailFocus(msg)
-		}
-		m.detailFocus = !m.detailFocus
-		if m.detailFocus {
-			// enterDetailFocus-equivalent (devd view_detail_issue.go:236-243,
-			// E2 Task 2): always re-enter the Detail-Accordion at Meta,
-			// section level, field cursor 0 -- a stale cursor position from a
-			// PREVIOUS detail-focus visit (possibly on a different bean, whose
-			// section/field shape may differ) must never leak into this one.
-			m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 0, 1, 0, 0
-			// bt-8d35 Flow #2 entry step ("tab aus dem Tree -> Fokus auf das
-			// erste Feld (Title)"): the box-form cursor gets the SAME
-			// no-stale-state treatment. Clearing the owning bean rather than
-			// just the index reuses boxFormEffectiveCursor's own derived reset
-			// (box_nav_field.go) instead of adding a second reset rule.
-			m.boxFormCursor, m.boxFormCursorBean = 0, ""
-		}
-		return m, nil
-	}
-	if keybind.Matches(msg, keys.FocusOut) {
-		if inFocusedDetailRegion {
-			return m.keyDetailFocus(msg)
-		}
-		// Deterministic exit only -- no cursor-state reset (that only ever
-		// happens on tab-IN, above): a no-op when the Tree already has focus.
-		m.detailFocus = false
-		return m, nil
+	// tab and shift+tab (keys.FocusIn/FocusOut) toggle between the two
+	// regions, Tree and Detail, in either region and in both directions --
+	// the field cursor inside Detail moves with up/down, not with tab.
+	// They sit AT THE SAME dispatch point the former raw `case "tab":` had
+	// (still ahead of keyNodeAction/keyDetailFocus/keyBacklog/keyTree below).
+	if keybind.Matches(msg, keys.FocusIn) || keybind.Matches(msg, keys.FocusOut) {
+		return m.toggleRegion(keybind.Matches(msg, keys.FocusOut)), nil
 	}
 
 	// S5 (jira-style-ui experiment, bean/slice: Nested/Flat Browse toggle):
@@ -1155,15 +1107,27 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// `D` shows/hides the Detail pane of the Browse/Ready split. Hiding it
+	// drops Detail focus (a hidden pane cannot hold focus); in the
+	// Vollbild there is no split to toggle.
+	if keybind.Matches(msg, keys.DetailToggle) {
+		if m.fullscreen == fullscreenNone {
+			m.detailHidden = !m.detailHidden
+			if m.detailHidden {
+				m.detailFocus = false
+			}
+		}
+		return m, nil
+	}
+
 	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): keyFullscreen's own
 	// dispatch checkpoint -- NACH FocusIn/FocusOut (same fokus-/Ansichts-
 	// Modus-Familie), VOR keyNodeAction (below). Handles `v` (entry/no-op),
 	// `enter` while m.fullscreen == fullscreenList (Listen-Vollbild ->
 	// Detail-Vollbild), and `esc` while m.fullscreen == fullscreenList
-	// (direct exit -- the fullscreenDetail esc-cascade lives in
+	// (direct exit -- the fullscreenDetail esc-exit lives in
 	// keyDetailFocus's own Back-case instead, reached via the m.detailFocus
-	// routing line below, since it needs m.detailLevel to decide which rung
-	// fires).
+	// routing line below).
 	if handled, nm, cmd := m.keyFullscreen(msg); handled {
 		return nm, cmd
 	}
@@ -1190,8 +1154,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// fullscreenList is excluded: it renders the Master list full-width with no
 	// Detail-Body to page. fullscreenDetail is INCLUDED (focusedBean() resolves
 	// the fullscreen bean, keyDetailFocus's own doc comment) so paging works in
-	// Vollbild-Detail too. Flag off -> inert (whole path experiment-gated).
-	if boxFormEnabled() && m.fullscreen != fullscreenList {
+	// Vollbild-Detail too. A hidden Detail pane has no Body to page.
+	if (!m.detailHidden || m.fullscreen == fullscreenDetail) && m.fullscreen != fullscreenList {
 		if b := m.focusedBean(); b != nil {
 			switch {
 			case keybind.Matches(msg, boxFormPageUp):
@@ -1273,226 +1237,101 @@ func (m model) focusedBean() *data.Bean {
 	}
 }
 
-// keyDetailFocus drives the two-level Detail focus machine (Section cursor
-// <-> Field cursor within Beziehungen; devd port view_detail_issue.go:
-// 281-392). Port deviation vs. devd: no separate "header edit fields" layer
-// (devd's section index 0) -- E2 has no edit-field concept (E3 scope), so
-// section index 0 is Meta directly, no off-by-one vs. devd's secCursor-1.
+// toggleRegion flips focus between the two regions, Tree and Detail.
+// Entering Detail from the Tree shows a hidden Detail pane first and resets
+// the box-form field cursor, so a stale cursor from a previous visit (maybe
+// on a different bean) never leaks into the new one. Clearing the owning
+// bean rather than just the index reuses boxFormEffectiveCursor's own
+// derived reset (box_nav_field.go). The Vollbild keeps the former
+// semantics: tab (back=false) toggles, shift+tab (back=true) only leaves.
+func (m model) toggleRegion(back bool) model {
+	if m.fullscreen != fullscreenNone {
+		if back {
+			m.detailFocus = false
+		} else {
+			m.detailFocus = !m.detailFocus
+		}
+		return m
+	}
+	if m.detailFocus {
+		m.detailFocus = false
+		return m
+	}
+	m.detailHidden = false
+	m.detailFocus = true
+	m.boxFormCursor, m.boxFormCursorBean = 0, ""
+	return m
+}
+
+// keyDetailFocus drives the Detail region (split pane or Vollbild-Detail).
+// pgup/pgdn page the Body at handleKey's global checkpoint, never here.
+//
+// Split pane: up/down walk the box-form field cursor (boxFormNav,
+// box_nav_field.go, linear with wrap, dragging the scroll offset along so
+// the cursored field is always in the viewport); enter opens the cursored
+// field's editor (boxFormActivateCursor, the same dispatch a click takes);
+// left/right do nothing; esc leaves the region.
+//
+// Vollbild-Detail: renderFullscreenBody passes cursor -1 on purpose, so
+// there is no cursor to walk -- up/down scroll the viewport and enter does
+// nothing; esc leaves the Vollbild.
 func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	b := m.focusedBean()
 	if b == nil { // defensive guard: orphan-root cursor, no focusable bean
-		// F01 (Review Fix-Runde 1, bean bt-13l7, Schwere hoch): inside
-		// fullscreenDetail this guard is ALSO the landing spot when
-		// fullscreenBeanID vanished externally (live watch-reload, repo
-		// switch, parallel-agent delete -- real in the dogfooding repo,
-		// Reviewer-Repro: "user is trapped in a dead fullscreenDetail with
-		// no keyboard exit"). Clearing only detailFocus left m.fullscreen
-		// stuck: every subsequent key (esc included) routed right back here
-		// via handleKey's fullscreenDetail condition and died in this same
-		// guard -- Quit was the only escape. Leaving the Vollbild here too
+		// F01 (Review Fix-Runde 1, bean bt-13l7): inside fullscreenDetail
+		// this guard is ALSO the landing spot when fullscreenBeanID vanished
+		// externally (live watch-reload, repo switch, parallel-agent
+		// delete). Clearing only detailFocus left m.fullscreen stuck: every
+		// subsequent key (esc included) routed right back here via
+		// handleKey's fullscreenDetail condition and died in this same
+		// guard -- Quit was the only escape. Leaving the Vollbild here
 		// rescues EVERY trigger at the single choke point they all pass
-		// through (Reviewer-Minimal-Fix, verbatim).
+		// through.
 		if m.fullscreen == fullscreenDetail {
 			m.fullscreen = fullscreenNone
-			// F01 History-Stack (Supervisor-Entscheid, E9 Task 8, bean
-			// bt-1vbp): EVERY Vollbild-Exit clears navBack/navForward -- this
-			// guard is one of the two choke points a fullscreenDetail session
-			// can leave through (the other is the Back-case below), and
-			// leaving either stack populated here would let a stale
-			// History-Path leak into whatever the PO opens next (types.go's
-			// own navBack/navForward doc-stamp has the full ERRATA
-			// rationale vs. design-spec.md §15's original "NICHT geleert"
-			// text).
-			m.navBack, m.navForward = nil, nil
 		}
 		m.detailFocus = false
 		return m, nil
 	}
-	// width is render-time only; section COUNT is fixed (beanSectionCount).
-	// focused/secCursor/fieldCursor are passed for signature parity with the
-	// render call sites (view_browse_repo.go) -- this call only reads
-	// secs[...].fields for navigation, which metaFields/relationsSectionBody
-	// build independently of these 3 params (they only affect a section's
-	// rendered BODY string, e.g. Meta's ▷/▶ marker placement, unused here).
-	secs := beanSections(m.idx, b, 40, m.detailFocus, m.secCursor, m.fieldCursor, m.detailLevel)
 
-	// B02 (Review-Runde 2, bean bt-2jve, Critical): clamp secCursor/
-	// fieldCursor against the just-computed secs BEFORE any branch below
-	// indexes into them. m.secCursor/m.fieldCursor are model state that
-	// survives a beansLoadedMsg reload untouched -- a watch-reload between
-	// keystrokes can shrink the focused bean's Beziehungen fields while the
-	// user is still parked at field level, and secs[m.secCursor].
-	// fields[m.fieldCursor] further down would then index out of range.
-	// Single defensive clamp point, not sprinkled per-branch.
-	if m.secCursor >= len(secs) {
-		m.secCursor = len(secs) - 1
-	}
-	if m.secCursor < 0 {
-		m.secCursor = 0
-	}
-	if fc := len(secs[m.secCursor].fields); m.fieldCursor >= fc {
-		if fc == 0 {
-			m.fieldCursor = 0
-			m.detailLevel = 0 // no fields left in this section -- back to section level
-		} else {
-			m.fieldCursor = fc - 1
-		}
-	}
-
-	if s := msg.String(); len(s) == 1 && s[0] >= '1' && s[0]-'0' <= byte(beanSectionCount) {
-		m.secCursor = int(s[0]-'0') - 1
-		m.accOpen = int(s[0] - '0')
-		m.detailLevel = 0
-		m.fieldCursor = 0
-		return m, nil
-	}
-
-	// F1 (bean bt-ze10) + N8 (bean bt-1o4g) + bt-s90e + bt-8d35, epic bt-vy1q:
-	// while boxFormEnabled(), the Accordion nav below has "no effect" (box-form
-	// has no Section/Field two-level machine of its own), so the keys are
-	// repurposed here.
-	//
-	// bt-8d35 (PO-Fokus-Modell, PO-Entscheidung 3) replaced the former
-	// split-vs-Vollbild Fallunterscheidung with ONE rule for both geometries:
-	//
-	//   up/down -> PLAIN VIEWPORT SCROLL, everywhere. bt-1o4g had put the field
-	//     cursor on the arrows in the split pane; the PO took that back
-	//     ("Pfeiltasten im Detail scrollen die GESAMTE Ansicht") so the region
-	//     model reads the same in the Vollbild and in the split. Both go through
-	//     the very same adjustBoxFormScroll mutation point the wheel uses, so
-	//     keyboard and wheel cannot drift on the reset/clamp rules. bt-s90e made
-	//     boxFormScrollBounds fullscreen-aware (mouse.go's accW branch), so it
-	//     clamps against whichever budget is actually on screen.
-	//
-	//   tab/shift+tab -> FIELD CURSOR, split pane only. boxFormNav
-	//     (box_nav_field.go) steps linearly through boxFormFieldOrder with WRAP
-	//     and drags bt-ze10's scroll offset along, so a field tab jumps to can
-	//     never sit outside the viewport. enter opens the cursored field's
-	//     editor through activateBoxFormTarget (mouse.go) -- the same dispatch a
-	//     click takes.
-	//
-	//     NOT in the Vollbild: renderFullscreenBody passes fieldCursor -1 on
-	//     purpose (view_fullscreen.go), so there is no cursor rendered there to
-	//     walk -- moving an invisible one would be a Fokus-Modell without a
-	//     visible focus. tab/shift+tab keep their global meaning there
-	//     (handleKey, which only routes them here for the split geometry).
-	//
-	// boxFormEnabled() off falls straight through to the ORIGINAL switch below,
-	// unchanged -- the whole Fokus-Modell is experiment-gated (epic bt-vy1q:
-	// "alles additiv + gated").
-	if boxFormEnabled() {
+	if m.fullscreen == fullscreenDetail {
 		switch navKey(msg.String()) {
 		case "up":
 			return m.adjustBoxFormScroll(b, -1), nil
 		case "down":
 			return m.adjustBoxFormScroll(b, 1), nil
 		}
-		// pgup/pgdn are NOT handled here anymore (bean bt-adkn Rework B1): they
-		// are a FOCUS-INDEPENDENT global paging checkpoint in handleKey now, so
-		// they page the Body without a prior tab into the Detail region. This
-		// function is only reached AFTER that checkpoint, so pgup/pgdn never
-		// arrive here.
-		if m.fullscreen != fullscreenDetail {
-			switch {
-			case keybind.Matches(msg, boxFormFieldNext):
-				return m.boxFormNav(b, "next"), nil
-			case keybind.Matches(msg, boxFormFieldPrev):
-				return m.boxFormNav(b, "prev"), nil
-			}
-			if keybind.Matches(msg, keys.Enter) {
-				return m.boxFormActivateCursor(b)
-			}
-		}
-	}
-
-	switch navKey(msg.String()) {
-	case "up":
-		if m.detailLevel == 0 && m.secCursor > 0 {
-			m.secCursor--
-			m.accOpen = m.secCursor + 1
-		} else if m.detailLevel == 1 && m.fieldCursor > 0 {
-			m.fieldCursor--
-		}
-		return m, nil
-	case "down":
-		if m.detailLevel == 0 && m.secCursor < len(secs)-1 {
-			m.secCursor++
-			m.accOpen = m.secCursor + 1
-		} else if m.detailLevel == 1 && m.fieldCursor < len(secs[m.secCursor].fields)-1 {
-			m.fieldCursor++
-		}
-		return m, nil
-	case "right":
-		if m.detailLevel == 0 && len(secs[m.secCursor].fields) > 0 {
-			m.detailLevel = 1
-			m.fieldCursor = 0
-		}
-		return m, nil
-	case "left":
-		// B01 (design-spec.md §15 PF-16, bean bt-ntoz, PF-13-Pfeil-Revision):
-		// the former `else { m.detailFocus = false }` branch is REMOVED --
-		// arrow keys are pure Section/Feld navigation now, never a focus-
-		// exit (right never entered detail focus either, so left exiting it
-		// was asymmetric, PO verbatim "für Nutzer murks"). At section level
-		// (detailLevel==0) left is now simply a no-op; the two-stage
-		// cascade this branch used to perform (Feld->Sektion->Fokus
-		// verlassen) moves to esc instead (D03, below).
-		if m.detailLevel == 1 {
-			m.detailLevel = 0
-		}
-		return m, nil
-	}
-
-	// D03 (design-spec.md §15 PF-16, bean bt-ntoz): esc is the universal
-	// "back", exactly one rung per press -- the Detail-Kaskade was the one
-	// gap (E2-era no-op, validation.md D03) now that B01 removed the
-	// equivalent two-stage walk from left/j. Field level steps back to
-	// section level first; a SECOND esc (now at section level) exits detail
-	// focus entirely -- same two rungs the old left-case used to collapse
-	// into one keypress, now spread across two esc presses (one rung each,
-	// matching every other esc-site's contract, see audit table in this
-	// task's commit body).
-	if keybind.Matches(msg, keys.Back) {
-		if m.detailLevel == 1 {
-			m.detailLevel = 0
+	} else {
+		switch navKey(msg.String()) {
+		case "up":
+			return m.boxFormNav(b, "prev"), nil
+		case "down":
+			return m.boxFormNav(b, "next"), nil
+		case "left", "right":
 			return m, nil
 		}
-		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): a NEW rung in
-		// D03's "eine Ebene pro Druck" cascade -- section-level esc inside
-		// fullscreenDetail leaves the Vollbild ENTIRELY (IMMER direkt zu
-		// Browse/Backlog, NICHT schrittweise durch die Relations-Sprung-Kette
-		// -- die History-Rückwärtsnavigation ist keys.HistoryBack/
-		// ctrl+left/`[`s eigene Aufgabe, view_fullscreen.go). The
-		// Split-Detail stays focused afterward (PO: "mit dem AKTUELLEN Bean
-		// selektiert" -- the just-shown Vollbild-Detail bean, not a jump
-		// back to the Tree/Backlog's own focus), and the Tree-/Backlog-
-		// cursor syncs onto m.fullscreenBeanID so Split-Modus shows the
-		// SAME bean the PO was just looking at.
+		if keybind.Matches(msg, keys.Enter) {
+			return m.boxFormActivateCursor(b)
+		}
+	}
+
+	if keybind.Matches(msg, keys.Back) {
+		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): esc inside
+		// fullscreenDetail leaves the Vollbild ENTIRELY. The Split-Detail
+		// stays focused afterward (PO: "mit dem AKTUELLEN Bean selektiert"),
+		// and the Tree-/Backlog-cursor syncs onto m.fullscreenBeanID so
+		// Split-Modus shows the SAME bean the PO was just looking at.
 		if m.fullscreen == fullscreenDetail {
 			id := m.fullscreenBeanID
 			m.fullscreen = fullscreenNone
-			// F01 History-Stack (Supervisor-Entscheid, E9 Task 8, bean
-			// bt-1vbp): EVERY Vollbild-Exit clears navBack/navForward -- see
-			// the b==nil guard's identical clear above (the OTHER choke
-			// point a fullscreenDetail session can leave through) and
-			// types.go's navBack/navForward doc-stamp for the full ERRATA
-			// rationale vs. design-spec.md §15's original "NICHT geleert"
-			// text.
-			m.navBack, m.navForward = nil, nil
 			m.detailFocus = true
+			m.detailHidden = false
 			if m.view == viewBacklog {
 				// F02 (Review Fix-Runde 1, bean bt-13l7, SUPERVISOR-
-				// ENTSCHEID "Fallback = View-Wechsel"): after Relations-
-				// Sprünge the exit target is USUALLY no longer
-				// backlogVisible() (has a Parent / is Epic/Milestone /
-				// status outside todo+draft -- almost every jump leaves
-				// the Backlog set). The pre-fix loop then silently matched
-				// nothing and left backlogList.cursor stale -- the Split-
-				// Backlog showed a DIFFERENT bean selected, a silent
-				// violation of the PO criterion "mit dem aktuellen Bean
-				// selektiert". Fallback: switch to Browse/Tree, which can
-				// show EVERY bean -- cursor on the target + ancestors
-				// expanded, exactly the Tree-exit branch below. Only a
+				// ENTSCHEID "Fallback = View-Wechsel"): the exit target is
+				// not necessarily backlogVisible() any more. Fallback:
+				// switch to Browse/Tree, which can show EVERY bean --
+				// cursor on the target + ancestors expanded. Only a
 				// still-backlogVisible target keeps the Backlog sync.
 				found := false
 				for i, bb := range m.backlogVisible() {
@@ -1516,99 +1355,7 @@ func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.detailFocus = false
 		return m, nil
 	}
-
-	// PF-5 (design-spec.md §15, E7 T6, bean bt-t1uy): section-level enter is
-	// an ALIAS for right/l -- same guard (only sections that carry fields),
-	// entering field level at fieldCursor 0. tab remains the ONLY way to
-	// enter detail focus itself (D01 revidiert, PO-Nachtrag 3) -- this alias
-	// only fires once m.detailFocus is already true.
-	if keybind.Matches(msg, keys.Enter) && m.detailLevel == 0 {
-		// B10-Revision (design-spec.md §15 PF-17, bean bt-z4b1, D01): enter
-		// on Section [2] BODY briefly opened $EDITOR (E8-B10) -- that
-		// special case is REMOVED ersatzlos ("PO's neues Mentalmodell
-		// reserviert '$EDITOR öffnen' ausschließlich für e"). BODY carries
-		// no .fields, so it falls straight through to the generic
-		// fields>0 guard below and does nothing -- exactly the pre-E8
-		// state, restored (TestKeyDetailFocusEnterOnBodyIsNoOpAgain,
-		// update_test.go).
-		if len(secs[m.secCursor].fields) > 0 {
-			m.detailLevel = 1
-			m.fieldCursor = 0
-		}
-		return m, nil
-	}
-
-	if keybind.Matches(msg, keys.Enter) && m.detailLevel == 1 {
-		f := secs[m.secCursor].fields[m.fieldCursor]
-		return m.activateDetailField(b, f)
-	}
 	return m, nil
-}
-
-// activateDetailField dispatches a Meta-/Relations-field kind onto its
-// matching Overlay/Form/Jump -- the SHARED helper between keyDetailFocus's
-// field-level enter (Tastatur, PF-5, above) and mouseDetailClick's
-// Doppelklick (Maus, B07, design-spec.md §15 PF-16, bean bt-duz7, mouse.go)
-// -- extracted verbatim from keyDetailFocus's former inline switch so there
-// is exactly ONE place that dispatches a field kind onto its overlay/form/
-// jump (bt-duz7 Architektur-Vorgabe #1 + Akzeptanz-Checkliste). status/type/
-// priority open the combined Value-Menu seeded on that group; tags opens the
-// Tag-Picker; title opens the Title-Edit-Form; the default ("") is the
-// Relations section's UNCHANGED E2 jump behavior. The former "readonly"
-// case (created_at/updated_at, a no-op) was REMOVED by bt-lg68 (PO-
-// Nebenbefund, US-Review Runde 3): metaFields no longer produces "readonly"
-// entries (HISTORY is now the sole Created/Updated source), so that branch
-// was genuinely dead code -- any (hypothetical) future "readonly" kind would
-// now fall through to default, which is ALSO a no-op for beanID=="" (every
-// Meta field's beanID is always empty), so behavior is unchanged either way.
-func (m model) activateDetailField(b *data.Bean, f relationField) (tea.Model, tea.Cmd) {
-	switch f.kind {
-	case "status", "type", "priority":
-		// Design decision (Task 6 Step 7): m.detailFocus stays true here --
-		// the overlay lays on top as its own capture state (a2), so closing
-		// it lands the user back on the SAME field (D02 "schnell/einfach").
-		// Only the jump case below (a DIFFERENT bean) exits detail focus.
-		return m.openValueMenu(f.kind), nil
-	case "tags":
-		// PF-15/D01 (design-spec.md §15, E8 Task 1, bean bt-e6q9): enter on
-		// the tags field opens the SAME Tag-Picker the `t` key opens -- m.
-		// detailFocus stays true, mirroring status/type/priority above (the
-		// overlay is its own capture state).
-		return m.openTagPicker()
-	case "title":
-		return m.openEditTitleForm(b)
-	default: // "" -- Relations jump, unchanged E2 behavior
-		if f.beanID == "" {
-			return m, nil // unresolved reference -- nothing to jump to
-		}
-		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): inside
-		// fullscreenDetail, a Relations-Sprung must NOT exit to the
-		// Split-Tree/Backlog (the branch below, m.detailFocus = false) -- it
-		// stays in fullscreenDetail, now showing the JUMP TARGET, mirroring
-		// the SAME Detail-Fokus-Maschine reset keyFullscreen's own
-		// Listen-Vollbild-entry uses (Meta/section level, field cursor 0).
-		// The Split-Modus-Sprung branch below stays byte-for-byte unchanged
-		// -- no PO-Wortlaut requires History there either (design-spec.md
-		// §15 Scope-Entscheidung).
-		//
-		// History-Push (F01 History-Stack, E9 Task 8, bean bt-1vbp, "Notes
-		// for T8" in bt-13l7): pushes the bean being LEFT onto navBack and
-		// kappt navForward (Standard-Browser-Semantik, a fresh jump discards
-		// any stale forward-history) -- BEFORE m.fullscreenBeanID is
-		// overwritten below, so the pushed value is the bean the PO is
-		// actually leaving, not the jump target.
-		if m.fullscreen == fullscreenDetail {
-			m.navBack = append(cloneStringSlice(m.navBack), m.fullscreenBeanID)
-			m.navForward = nil
-			m.fullscreenBeanID = f.beanID
-			m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 0, 1, 0, 0
-			return m, nil
-		}
-		m.expanded = expandAncestorsOf(m.idx, m.expanded, f.beanID) // I01: clone-based
-		m.cursorID = f.beanID
-		m.detailFocus = false
-		return m, nil
-	}
 }
 
 // expandAncestorsOf returns a NEW expanded map (I01 copy-on-write) with every

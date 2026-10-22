@@ -93,10 +93,10 @@ func (m model) flatBlocks(vis []*data.Bean, focused bool, width int) [][]string 
 	return blocks
 }
 
-// renderFlatDetailPane renders the Detail-Accordion for the flat list's
+// renderFlatDetailPane renders the Detail box-form for the flat list's
 // selected bean -- mirrors renderBacklogDetailPane (view_browse_backlog.go)
 // exactly, keying off flatList's index cursor into vis instead of a treeNode
-// slice, then handing off to the shared renderBeanAccordionPane
+// slice, then handing off to the shared renderBeanDetailBox
 // (view_browse_repo.go) -- Browse's flat mode and the Backlog can never
 // drift out of sync on the Detail body, same rationale as the Tree/Backlog
 // split that shared function already serves.
@@ -106,7 +106,7 @@ func (m model) renderFlatDetailPane(vis []*data.Bean, w, h int, focused bool) st
 	if pos >= 0 && pos < len(vis) {
 		b = vis[pos]
 	}
-	return m.renderBeanAccordionPane(b, w, h, focused)
+	return m.renderBeanDetailBox(b, w, h, focused)
 }
 
 // keyFlat drives Browse's flat mode: up/down move flatList's cursor over
@@ -128,11 +128,9 @@ func (m model) renderFlatDetailPane(vis []*data.Bean, w, h int, focused bool) st
 // convention treeClickRow's own doc comment documents.
 //
 // B6 (S6): the persistent filter bar (box_filter_bar.go) sits between the
-// header divider and this split ONLY while boxFormEnabled() -- flat mode is
+// header divider and this split -- flat mode is
 // only ever reached from viewBrowseRepo (the filter bar's one call site), so
-// an unconditional boxFormEnabled() check mirrors treeClickRow's own
-// unconditional check exactly. Default off leaves this branch dead, existing
-// behavior byte-identical.
+// the correction below mirrors treeClickRow's own exactly.
 func flatClickRow(m model, vis []*data.Bean, msg tea.MouseMsg) (idx int, ok bool) {
 	w, h := m.width, m.height
 	if w <= 0 {
@@ -144,14 +142,12 @@ func flatClickRow(m model, vis []*data.Bean, msg tea.MouseMsg) (idx int, ok bool
 	innerW := w - 2
 	head, localKeys := m.browseRepoChrome(innerW)
 
-	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	if boxFormEnabled() {
-		// bt-vpvu: the bodyH half of the filter-bar correction was missing
-		// here exactly as it was in treeClickRow -- same root cause, same fix
-		// (that function's own comment carries the full analysis).
-		originY += filterBarHeight
-		bodyH -= filterBarHeight
-	}
+	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	// bt-vpvu: the bodyH half of the filter-bar correction was missing
+	// here exactly as it was in treeClickRow -- same root cause, same fix
+	// (that function's own comment carries the full analysis).
+	originY += filterBarHeight
+	bodyH -= filterBarHeight
 	if bodyH < 1 {
 		bodyH = 1
 	}

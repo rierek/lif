@@ -6,7 +6,7 @@ package tui
 // (box_dropdown.go/box_detail_form.go) — the SAME widget the Detail-Pane's
 // scalar grid already uses, so the chip row and the detail boxes read as one
 // consistent widget language (D01's own rationale). Experiment-only, gated
-// by boxFormEnabled() at the ONE call site (view_browse_repo.go).
+// at the ONE call site (view_browse_repo.go).
 //
 // D07/D08: the four chips carry NO per-chip hotkey badge — `f` still opens
 // the existing floating filter overlay (box_filter_facets.go's

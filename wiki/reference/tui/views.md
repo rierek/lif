@@ -16,7 +16,7 @@ There are four views. The item detail is a pane inside Browse and Backlog, and f
 | Backlog | Open leaf items, flat. | `b` |
 | Lobby | Repository picker. | `p` |
 | Tag management | Tag definitions. | Command palette `K`, entry `go to tags`. |
-| Detail pane | Fields, relations, body of the selected item. | `tab` from the tree. |
+| Detail pane | Fields, relations, body of the selected item. Hidden at start. | `D` shows or hides it; `tab` from the tree shows and focuses it. |
 | Fullscreen | List or detail over the full width. | `v` |
 
 The header reads `> <repo>: <View>`. The focused pane is marked by color only. Hidden by default in tree, flat and backlog: `completed` and `scrapped` items. The filter menu category `Archive` shows them.
@@ -42,12 +42,12 @@ Screenshot follows.
 
 ## Detail view
 
-`tab` from the tree focuses the detail pane. The box form is the default. `LIF_TUI_BOXFORM=0`, `false`, `no` or `off` switches to the classic layout. In the box form the boxes are, from top: `Title · <id>`, `Status (s)`, `Type (o)`, `Priority (u)`, `Parent (a)`, `Tags (t)`, `Body (e)`, `Relations (r)`, `History`. The letter is the key that edits the box.
+The detail pane is hidden at start and the tree uses the full width. `D` shows or hides it. `tab` from the tree shows the pane if needed and focuses it. The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`, `Type (o)`, `Priority (u)`, `Parent (a)`, `Tags (t)`, `Body (e)`, `Relations (r)`, `History`. The letter is the key that edits the box.
 
-- While the detail pane has focus, `tab` and `shift+tab` step through the boxes. `esc` returns to the tree. `↑`/`↓` scroll.
+- `tab` and `shift+tab` switch focus between the tree and the detail pane, in both directions.
+- While the detail pane has focus, `↑`/`↓` step through the boxes. `esc` returns to the tree.
 - `enter` on a box opens its menu, picker or the editor.
-- `v` opens the item fullscreen. Inside fullscreen detail, `[` and `]` go back and forward through relation jumps.
-- The classic layout (`LIF_TUI_BOXFORM=0`) has four collapsible sections `META`, `BODY`, `RELATIONS`, `HISTORY`. Digits `1` to `4` jump to them, only in that layout. In the default layout the digits do nothing.
+- `v` opens the item fullscreen. In fullscreen detail, `↑`/`↓` scroll and `esc` leaves.
 
 ## Moving around
 

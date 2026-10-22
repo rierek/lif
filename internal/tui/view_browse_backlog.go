@@ -28,7 +28,7 @@ package tui
 // renderBacklogDetailPane with the STALE m.backlogList.cursor against the
 // ALREADY-shrunk backlogVisible(). backlogRows only highlights row i==pos,
 // so a cursor left pointing past the new (shorter) vis highlights NOTHING
-// (the `▌` selection bar vanishes); renderBeanAccordionPane's own
+// (the `▌` selection bar vanishes); renderBeanDetailBox's own
 // `pos < len(vis)` guard (view_browse_repo.go) then falls through to its
 // "(no selection)" placeholder even though a real selection exists the
 // instant the next keypress resyncs it. Both are cosmetic flicker, never a
@@ -212,24 +212,17 @@ func (m model) backlogBlocks(vis []*data.Bean, focused bool, width int) [][]stri
 	return blocks
 }
 
-// renderBacklogDetailPane renders the Detail-Accordion (Meta/Body/
-// Beziehungen/Historie, Task 1) for the Backlog's selected bean -- keys off
-// backlogList's index cursor into vis instead of a treeNode slice, then
-// hands off to the shared renderBeanAccordionPane (view_browse_repo.go).
-//
-// CORRECTION (E2-T6 fast-follow, T5-review): T5 originally accepted a
-// ~20-line hand-duplication of renderDetailPane here, reasoned as "the
-// accepted cost" of Task 5's file-scope boundary. That reasoning didn't
-// survive contact with a second call site: renderBeanAccordionPane now
-// carries the shared bodyW/accW/beanSections/renderAccordion/renderPane body
-// once, so Tree and Backlog can never drift out of sync on it again.
+// renderBacklogDetailPane renders the Detail box-form for the Backlog's
+// selected bean -- keys off backlogList's index cursor into vis instead of a
+// treeNode slice, then hands off to the shared renderBeanDetailBox
+// (view_browse_repo.go), so Tree and Backlog can never drift out of sync on it.
 func (m model) renderBacklogDetailPane(vis []*data.Bean, w, h int, focused bool) string {
 	pos := m.backlogList.cursor
 	var b *data.Bean
 	if pos >= 0 && pos < len(vis) {
 		b = vis[pos]
 	}
-	return m.renderBeanAccordionPane(b, w, h, focused)
+	return m.renderBeanDetailBox(b, w, h, focused)
 }
 
 // backlogChrome builds viewBacklog's own head/localKeys strings -- factored
@@ -305,7 +298,7 @@ func (m model) viewBacklog() string {
 	// E5 Task 4 (bean bt-mne6): bodyH/lw/rw now come from the SAME
 	// clickPaneGeometry helper backlogClickRow (below) uses -- single source
 	// for the numeric pane geometry (Golden-Rule-Drift-Schutz).
-	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
+	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
 	vis := m.backlogVisible()
 
 	var body string
@@ -326,7 +319,7 @@ func (m model) viewBacklog() string {
 		if m.fullscreen == fullscreenDetail {
 			detailBean = m.focusedBean()
 		}
-		body = renderFullscreenBody(m.fullscreen, paneW, bodyH, listRows, true, m.idx, detailBean, m.secCursor, m.accOpen, m.fieldCursor, m.detailLevel, boxFormEffectiveScroll(m, detailBean))
+		body = renderFullscreenBody(m.fullscreen, paneW, bodyH, listRows, true, m.idx, detailBean, boxFormEffectiveScroll(m, detailBean))
 	} else {
 		// Same 1-header-row budget trade as the Tree's search head (Task 3):
 		// the search/filter summary line costs 1 line of the list pane's bodyH
@@ -339,8 +332,11 @@ func (m model) viewBacklog() string {
 		searchLine := m.treeSearchLine(lw-2, "sort "+backlogSortDisplayLabel(m.backlogSort))
 		rows := append([]string{searchLine}, m.backlogRows(vis, !m.detailFocus, bodyH-1, lw-2)...)
 		listBox := renderPane(pane{rows: rows}, lw, bodyH, !m.detailFocus)
-		detailBox := m.renderBacklogDetailPane(vis, rw, bodyH, m.detailFocus)
-		body = lipgloss.JoinHorizontal(lipgloss.Top, listBox, detailBox)
+		body = listBox
+		if rw > 0 {
+			detailBox := m.renderBacklogDetailPane(vis, rw, bodyH, m.detailFocus)
+			body = lipgloss.JoinHorizontal(lipgloss.Top, listBox, detailBox)
+		}
 	}
 
 	content := appendStatusLine(head+"\n"+div+"\n"+body+"\n"+div+"\n"+localKeys, status)
@@ -448,7 +444,7 @@ func backlogClickRow(m model, vis []*data.Bean, msg tea.MouseMsg) (idx int, ok b
 	innerW := w - 2
 	head, localKeys := m.backlogChrome(innerW)
 
-	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
+	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
 
 	if msg.X < originX || msg.X >= originX+lw {
 		return 0, false

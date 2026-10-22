@@ -677,18 +677,11 @@ func windowAround(rows []string, height, cursor int) []string {
 	return rows[start : start+height]
 }
 
-// renderDetailPane renders the Detail-Accordion (Meta/Body/Beziehungen/
-// Historie, design-spec.md §6 V4) for the cursored bean -- E2 Task 2 wiring,
-// replacing T8's title+meta-line placeholder. Resolves the tree cursor's
-// bean (or nil for "no selection") and hands off to the shared
-// renderBeanAccordionPane (below) -- E2-T6 fast-follow (T5-review): this and
-// renderBacklogDetailPane (view_browse_backlog.go) used to hand-duplicate
-// the ~20-line bodyW/accW/beanSections/renderAccordion/renderPane body;
-// extracted once both call sites existed so a future accordion-pane change
-// (e.g. scrolling) can't drift between Tree and Backlog -- confirmed by NB-2
-// (bean bt-b0w0): the RELATIONS-scroll fix landed once in renderAccordionPane
-// and Tree/Backlog/Fullscreen (view_fullscreen.go's own renderFullscreenBody)
-// all picked it up for free, no per-caller duplication.
+// renderDetailPane renders the Detail box form for the cursored bean.
+// Resolves the tree cursor's bean (or nil for "no selection") and hands off
+// to the shared renderBeanDetailBox (below), which renderBacklogDetailPane
+// (view_browse_backlog.go) and the flat list share too, so Tree, Backlog
+// and Fullscreen can never drift apart on the Detail body.
 func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string {
 	pos := m.cursorPos(nodes)
 	var b *data.Bean
@@ -698,247 +691,102 @@ func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string
 	if pos >= 0 && pos < len(nodes) && !nodes[pos].orphan && !nodes[pos].placeholder {
 		b = nodes[pos].bean
 	}
-	return m.renderBeanAccordionPane(b, w, h, focused)
+	return m.renderBeanDetailBox(b, w, h, focused)
 }
 
-// renderBeanAccordionPane renders the Detail-Accordion pane (Meta/Body/
-// Beziehungen/Historie, Task 1) for a single already-resolved bean, or the
-// "(no selection)" placeholder for nil -- the shared body of
-// renderDetailPane (Tree, above) and renderBacklogDetailPane (Backlog,
-// view_browse_backlog.go), which differ only in HOW they resolve a bean from
-// their own cursor shape (treeNode slice + orphan-guard vs. backlogList
-// index into a []*data.Bean). w/w-2/w-4 mirror renderPane's own
-// truncate(rows[i], w-2) content budget (render_shared.go) and
-// renderAccordion's own PaddingLeft(2)-eats-into-Width(w) contract
-// (accordion.go doc comment) -- bodyW = w-4 is NOT an arbitrary number.
-//
-// Scrolling when a section's content exceeds the pane height: RELATIONS is
-// the one section whose entry count is unbounded (Parent/Children/Blocking/
-// Blocked-By, potentially dozens of beans) -- NB-2 (Reopen bt-b0w0, PO-Review
-// Runde 3) gave it exactly the true scroll-with-indicator this comment used
-// to say "not needed yet" for (windowRelationsSection, view_browse_repo.go,
-// composing windowStart + scrollView). Meta/Body/History keep the ORIGINAL
-// behavior described below unchanged (their content doesn't grow unbounded
-// the way a bean's relations can): rows are simply split and handed to
-// renderPane, whose existing Golden-Rule-#1 line cap (render_shared.go:
-// `for i := 0; ... && len(lines) < h`) prevents any overflow past the pane's
-// border, the same mechanism the Tree pane relies on.
-func (m model) renderBeanAccordionPane(b *data.Bean, w, h int, focused bool) string {
-	// N8 (bean bt-1o4g): the box-form field cursor is only VISIBLE while the
-	// Detail pane actually holds focus -- an unfocused pane passes -1 (no
-	// Mauve frame anywhere), which is byte-identical to the pre-cursor render
-	// and is what keeps browse_boxform.golden untouched.
+// renderBeanDetailBox renders the box-form Detail pane for a single
+// already-resolved bean, or the "(no selection)" placeholder for nil -- the
+// shared body of renderDetailPane (Tree, above) and renderBacklogDetailPane
+// (Backlog), which differ only in HOW they resolve a bean from their own
+// cursor shape.
+func (m model) renderBeanDetailBox(b *data.Bean, w, h int, focused bool) string {
+	// The box-form field cursor is only VISIBLE while the Detail pane
+	// actually holds focus -- an unfocused pane passes -1 (no Mauve frame
+	// anywhere).
 	boxCursor := -1
-	if boxFormEnabled() && focused {
+	if focused {
 		boxCursor = boxFormEffectiveCursor(m, b)
 	}
-	return renderAccordionPane(m.idx, b, w, h, m.accOpen, m.secCursor, m.fieldCursor, m.detailLevel, focused, boxFormEffectiveScroll(m, b), boxCursor)
+	return renderDetailBox(m.idx, b, w, h, focused, boxFormEffectiveScroll(m, b), boxCursor)
 }
 
-// renderAccordionPane (I02, E4-T3-Review PFLICHT carried into E4 Task 4,
-// bean bt-yy6w) is the shared body renderBeanAccordionPane (above) and
-// renderReviewDetailPane (Review-Cockpit, view_review_cockpit.go) both used
-// to hand-duplicate (~15 lines: bodyW/accW clamps, beanSections,
-// renderAccordion, renderPane). open/secCursor/fieldCursor/focused are
-// PARAMETERS rather than read off the model, so this stays decoupled from
-// BOTH call sites' own state shape: the Tree/Backlog's shared m.accOpen/
-// m.secCursor/m.fieldCursor two-level detailFocus machine vs. the Cockpit's
-// own single reviewAccOpen digit-jump cursor (design decision i) -- WHICH
-// state backs the accordion stays entirely at each call site, mirroring
-// I01's copy-on-write doctrine applied to "shared render body, independent
-// state" instead of maps.
-// boxScroll (bean bt-ze10, epic bt-vy1q F1) is ONLY consulted inside the
-// boxFormEnabled() branch below -- the accordion branch (flag off) ignores
-// it entirely, so a caller with no box-form scroll of its own (e.g.
-// renderReviewDetailPane, view_review_cockpit.go, which passes 0) is always
-// safe. The Vollbild path (renderFullscreenBody, view_fullscreen.go) used to
-// be such a caller and now passes a REAL offset (bt-s90e) -- see its own doc
-// comment for the geometry rationale.
-// boxCursor (bean bt-1o4g) is the box-form field cursor index the
-// boxFormEnabled() branch renders with a Mauve frame, or -1 for none -- the
-// accordion branch ignores it exactly the way it ignores boxScroll. The
+// renderDetailBox is the shared box-form Detail renderer used by the split
+// panes and the Vollbild-Detail (renderFullscreenBody).
+// boxScroll is the box-form scroll offset into the full form; boxCursor is
+// the field cursor index rendered with a Mauve frame, or -1 for none. The
 // Vollbild passes -1: there, up/down scroll instead of walking fields.
-func renderAccordionPane(idx *data.Index, b *data.Bean, w, h, open, secCursor, fieldCursor, detailLevel int, focused bool, boxScroll, boxCursor int) string {
+func renderDetailBox(idx *data.Index, b *data.Bean, w, h int, focused bool, boxScroll, boxCursor int) string {
 	var rows []string
 	if b != nil {
-		bodyW := w - 4
-		if bodyW < 1 {
-			bodyW = 1
-		}
+		// accW is the outer box width (border included), what detailBoxForm's
+		// dropdownBox/panelBox calls expect.
 		accW := w - 2
 		if accW < 1 {
 			accW = 1
 		}
-		// PF-3+PF-4 (design-spec.md §15, E7 T4, bean bt-kyj5): the Kopfblock
-		// (ID/Title/type-status-prio) renders ABOVE the Accordion, same width
-		// as the Accordion itself (accW) -- not the App-Chrome header (PO-
-		// Antwort Q01: Detail-Pane only).
-		if boxFormEnabled() {
-			// S2b (jira-style-experiment, LIF_TUI_BOXFORM env gate, box_form_flag.go):
-			// swap the accordion body for detailBoxForm's jira-style boxes.
-			// accW is the SAME outer box width detailHeaderBlock/renderAccordion
-			// use above/below -- detailBoxForm's own dropdownBox/panelBox calls
-			// expect a full outer-box width (border included), not bodyW's
-			// content-only budget, so reusing accW (not inventing a new width)
-			// keeps this row-for-row consistent with the accordion path's own
-			// convention. Accordion nav (open/secCursor/fieldCursor) has no
-			// effect in this mode -- field-level nav for box-form is a later
-			// slice (see design-spec.md), acceptable for this experiment slice.
-			// F1 (bean bt-ze10, epic bt-vy1q): detailBoxForm has no windowing
-			// of its own, so a tall form (long Body, or Relations/History
-			// with many entries) used to just get cut off by renderPane's
-			// own Golden-Rule-#1 line cap below -- windowed to `h` (the SAME
-			// content-height budget renderPane itself gets handed a few
-			// lines down, so the two never disagree) via scrollView (view.go,
-			// the SAME primitive windowRelationsSection already uses for the
-			// accordion's own Relations section), offset boxScroll. At
-			// boxScroll==0 with a form that already fits (total<=h, D12's
-			// "Normalfall passt" claim), scrollView's own padding-to-h
-			// converges with renderPane's pre-existing pad-to-h loop below --
-			// byte-identical to the pre-F1 output, no golden drift.
-			// bean bt-adkn Rework B3 (PO "Sticky Body-Kopfzeile", 2026-07-21):
-			// the page indicator no longer sits on the outer pane frame -- it
-			// rides in the BODY panel's own title row, and that row is pinned to
-			// the top of the viewport while the body is paged, so the section
-			// title and its indicator stay visible while the body text scrolls
-			// beneath. Built from BLOCKS (not the joined detailBoxForm string) so
-			// the Body block's boundaries are known: only its first line (the top
-			// border) is re-rendered with the dots, and only that line is pinned.
-			blocks := boxFormBlocks(idx, b, accW, boxCursor)
-			total := 0
-			for _, bl := range blocks {
-				total += lineCount(bl)
-			}
-			page, count := boxFormPageIndex(total, h, boxScroll)
-
-			// Re-render the Body top border with the page indicator LEFT-anchored
-			// after the label (US-02), in the Body block's OWN focus color
-			// (boxFormBlocks' same cursor->row rule) so the pinned copy matches the
-			// natural one. The dot budget is the header's ACTUAL free width (accW
-			// minus corners, "─ Body ─ " label+sep, " (e) " hotkey and the minimum
-			// dashes = 21 cells), NOT accW: a long body has more pages than fit as
-			// dots, so a too-generous budget made boxFormPageBadge emit a dot row
-			// that then overflowed boxTopBorderBadges' fit check and was DROPPED
-			// whole (real 80c smoke: a 25-page body showed no indicator at all).
-			// Bounding the budget to what the header can hold makes boxFormPageBadge
-			// fall back to the compact "n/N" form instead, so it always renders.
-			dotsBudget := accW - 21
-			if dotsBudget < 1 {
-				dotsBudget = 1
-			}
-			bodyBorder := theme.Overlay
-			if boxFormCursorRow(boxCursor) == boxFormRowBody {
-				bodyBorder = theme.Mauve
-			}
-			dots := boxFormPageBadge(page, count, dotsBudget)
-			bodyHeader := boxTopBorderBadges("Body", dots, "e", accW, lipgloss.NewStyle().Foreground(bodyBorder))
-			if rest := strings.SplitN(blocks[boxFormRowBody], "\n", 2); len(rest) == 2 {
-				blocks[boxFormRowBody] = bodyHeader + "\n" + rest[1]
-			} else {
-				blocks[boxFormRowBody] = bodyHeader
-			}
-
-			form := strings.Join(blocks, "\n")
-			win, _ := scrollView(form, h, boxScroll)
-			winLines := strings.Split(win, "\n")
-
-			// Sticky pin: while the viewport top is scrolled INTO the body (the
-			// Body title has passed above the top edge but body content still
-			// fills the top), overlay the Body header onto the first content row.
-			// The one body line it covers is the topmost -- the least-missed.
-			bodyStart := 0
-			for i := 0; i < boxFormRowBody; i++ {
-				bodyStart += lineCount(blocks[i])
-			}
-			bodyEnd := bodyStart + lineCount(blocks[boxFormRowBody])
-			if boxScroll > bodyStart && boxScroll < bodyEnd && len(winLines) > 0 {
-				winLines[0] = bodyHeader
-			}
-			rows = append(rows, winLines...)
-		} else {
-			rows = append(rows, strings.Split(detailHeaderBlock(b, accW), "\n")...)
-			secs := beanSections(idx, b, bodyW, focused, secCursor, fieldCursor, detailLevel)
-			// NB-2 (Reopen bt-b0w0, PO-Review Runde 3, US-05, design-spec.md §15
-			// PF-17 Akzeptanz-Zusatz): when RELATIONS (the ONLY section this
-			// applies to, deliberately -- see windowRelationsSection's own doc
-			// comment) is the open section, its body is windowed to the pane's
-			// own line budget BEFORE renderAccordion ever joins it in -- the OLD
-			// path handed the full body to renderPane below, whose line cap just
-			// cut the tail off with no scroll/indicator (this function's own doc
-			// comment already anticipated exactly this drift). Every OTHER
-			// section (Meta/Body/History) is untouched, renderPane's existing cap
-			// still applies to them unchanged.
-			if open == relationsSectionIdx+1 {
-				secs[relationsSectionIdx].body = windowRelationsSection(secs[relationsSectionIdx].body, h, secs[relationsSectionIdx].activeLine)
-			}
-			acc := renderAccordion(secs, open, accW, focused, secCursor, fieldCursor)
-			rows = append(rows, strings.Split(acc, "\n")...)
+		// detailBoxForm has no windowing of its own, so a tall form (long
+		// Body, or Relations/History with many entries) is windowed to `h`
+		// (the SAME content-height budget renderPane gets handed below) via
+		// scrollView, offset boxScroll.
+		// The page indicator rides in the BODY panel's own title row, and
+		// that row is pinned to the top of the viewport while the body is
+		// paged, so the section title and its indicator stay visible while
+		// the body text scrolls beneath. Built from BLOCKS (not the joined
+		// detailBoxForm string) so the Body block's boundaries are known:
+		// only its first line (the top border) is re-rendered with the dots,
+		// and only that line is pinned.
+		blocks := boxFormBlocks(idx, b, accW, boxCursor)
+		total := 0
+		for _, bl := range blocks {
+			total += lineCount(bl)
 		}
+		page, count := boxFormPageIndex(total, h, boxScroll)
+
+		// Re-render the Body top border with the page indicator LEFT-anchored
+		// after the label, in the Body block's OWN focus color
+		// (boxFormBlocks' same cursor->row rule) so the pinned copy matches the
+		// natural one. The dot budget is the header's ACTUAL free width (accW
+		// minus corners, "─ Body ─ " label+sep, " (e) " hotkey and the minimum
+		// dashes = 21 cells), NOT accW: a long body has more pages than fit as
+		// dots, so boxFormPageBadge falls back to the compact "n/N" form when
+		// the budget is tight, so it always renders.
+		dotsBudget := accW - 21
+		if dotsBudget < 1 {
+			dotsBudget = 1
+		}
+		bodyBorder := theme.Overlay
+		if boxFormCursorRow(boxCursor) == boxFormRowBody {
+			bodyBorder = theme.Mauve
+		}
+		dots := boxFormPageBadge(page, count, dotsBudget)
+		bodyHeader := boxTopBorderBadges("Body", dots, "e", accW, lipgloss.NewStyle().Foreground(bodyBorder))
+		if rest := strings.SplitN(blocks[boxFormRowBody], "\n", 2); len(rest) == 2 {
+			blocks[boxFormRowBody] = bodyHeader + "\n" + rest[1]
+		} else {
+			blocks[boxFormRowBody] = bodyHeader
+		}
+
+		form := strings.Join(blocks, "\n")
+		win, _ := scrollView(form, h, boxScroll)
+		winLines := strings.Split(win, "\n")
+
+		// Sticky pin: while the viewport top is scrolled INTO the body (the
+		// Body title has passed above the top edge but body content still
+		// fills the top), overlay the Body header onto the first content row.
+		// The one body line it covers is the topmost -- the least-missed.
+		bodyStart := 0
+		for i := 0; i < boxFormRowBody; i++ {
+			bodyStart += lineCount(blocks[i])
+		}
+		bodyEnd := bodyStart + lineCount(blocks[boxFormRowBody])
+		if boxScroll > bodyStart && boxScroll < bodyEnd && len(winLines) > 0 {
+			winLines[0] = bodyHeader
+		}
+		rows = append(rows, winLines...)
 	} else {
 		rows = append(rows, theme.Dim.Render("(no selection)"))
 	}
 	return renderPane(pane{rows: rows}, w, h, focused)
-}
-
-// windowRelationsSection windows the RELATIONS section's body to fit the
-// pane's fixed chrome budget (NB-2 Reopen, bean bt-b0w0, design-spec.md §15
-// PF-17 Akzeptanz-Zusatz) -- composes two EXISTING primitives, no new
-// windowing algorithm (Planner-Konkretisierung, Implementer-Wahl): windowStart
-// (cursor-centered, the SAME convention treeRows/windowAround already use for
-// the Tree) picks the offset, scrollView (Chrome/Lobby/Help's own ↑/↓
-// indicator, view.go) slices the window AND formats the "L n–m/total" hint in
-// one call.
-//
-// activeLine (bt-se4q, bt-b0w0-Review Follow-up B01) is the display-line
-// index of the active row, computed by relationsSectionBody
-// (view_detail_bean.go) while it BUILDS the body and threaded straight
-// through here via accordionSection.activeLine (renderAccordionPane, above)
-// -- REPLACES the former activeRelationLine helper, which rescanned the
-// ALREADY-RENDERED `body` for the first line containing relationRowMarker's
-// "▶" glyph. That rescan was unanchored: a relation whose own TITLE happens
-// to contain "▶"/"▷" (Reviewer-Beleg, bt-b0w0-Review) could win over the
-// real marker, in the worst case centering the window on the wrong row
-// entirely and pushing the true cursor out of view. Default 0 (top) when no
-// row is active mirrors the removed helper's own default (e.g. RELATIONS is
-// open, accOpen==3 persisting across a FocusOut per PF-18's Prelude doc
-// note, but focus sits elsewhere -- no real cursor to center on, 0 is the
-// deterministic, jitter-free fallback windowStart's own doc comment
-// requires) -- relationsSectionBody's activeLine already defaults to 0 the
-// same way, so no extra guard is needed here.
-//
-// avail is the body's own line budget: h (the pane's full content height)
-// minus the FIXED chrome that always surrounds it -- detailHeaderBlock
-// (5 lines, constant, view_detail_bean.go) plus exactly one header line per
-// section (beanSectionCount == 4, PF-2's shared constant): sections are
-// exclusive-open (PF-18), so only ONE of them ever contributes additional
-// body lines, which is the `body` string this function receives. A no-op
-// (body returned verbatim, byte-identical) when it already fits avail -- the
-// "kein Golden-Bruch bei wenigen Relations" Akzeptanzkriterium -- or when
-// avail leaves no room at all (h too small even for the fixed chrome, a
-// pre-existing edge case out of NB-2 scope; renderPane's own cap still guards
-// the pane from overflowing in that case).
-//
-// Deliberately scoped to RELATIONS ONLY (renderAccordionPane's own call site
-// gates on open==relationsSectionIdx+1) -- Meta/Body/History keep their
-// pre-NB-2 behavior (renderPane's plain line cap) unchanged, matching the
-// bean's Root-Cause section ("Betroffene Funktionen: renderAccordionPane...
-// renderPane bleibt UNVERÄNDERT für andere Fälle").
-func windowRelationsSection(body string, h, activeLine int) string {
-	avail := h - 5 - beanSectionCount
-	if avail <= 0 {
-		return body
-	}
-	lines := strings.Split(body, "\n")
-	if len(lines) <= avail {
-		return body
-	}
-	winH := avail - 1 // reserve exactly 1 line for the more-entries indicator
-	if winH < 1 {
-		winH = 1
-	}
-	start := windowStart(len(lines), winH, activeLine)
-	win, ind := scrollView(body, winH, start)
-	return win + "\n" + theme.Muted.Render(ind)
 }
 
 // searchShield is the search head row's glyph (U+2315 TELEPHONE RECORDER,
@@ -1102,8 +950,8 @@ func treeColumnHeader(width int) string {
 }
 
 // treePaneHeadRows builds the rows that precede the bean rows in the Browse
-// left pane: the search head (1 line plain, 3 lines boxed under
-// boxFormEnabled() -- bean bt-f68z #11) followed by the column header (#12).
+// left pane: the boxed search head (3 lines, bean bt-f68z #11) followed by
+// the column header (#12).
 //
 // This is the ONE place that decides how tall that head is. viewBrowseRepo
 // trades its length out of the row budget and treeClickRow/flatClickRow offset
@@ -1111,12 +959,7 @@ func treeColumnHeader(width int) string {
 // the render from the mouse (the failure bt-vpvu was filed for: the filter bar
 // was reclaimed from bodyH by the renderer but not by the hit-test).
 func (m model) treePaneHeadRows(width int) []string {
-	var out []string
-	if boxFormEnabled() {
-		out = append(out, m.searchHeadBox(width)...)
-	} else {
-		out = append(out, m.treeSearchLine(width, ""))
-	}
+	out := m.searchHeadBox(width)
 	return append(out, treeColumnHeader(width))
 }
 
@@ -1146,10 +989,9 @@ func (m model) composeOverlays(out string, w, h int) string {
 	switch m.overlay {
 	case overlayValueMenu:
 		// Slice C (bt-f0y9, D09 revidiert): field-anchored below the
-		// triggering Status/Type/Priority box (placeOverlayAt) while
-		// boxFormEnabled(), falling back to the pre-existing CENTERED
-		// placeOverlay otherwise -- placeValueMenuOverlay (box_menu_value.go)
-		// owns that branch, not this switch.
+		// triggering Status/Type/Priority box (placeOverlayAt) --
+		// placeValueMenuOverlay (box_menu_value.go) owns that placement, not
+		// this switch.
 		out = m.placeValueMenuOverlay(out, w, h)
 	case overlayTagPicker:
 		out = placeOverlay(out, m.tagPickerBox(), w, h)
@@ -1255,24 +1097,19 @@ func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
 // keyNodeAction/keyTree but never shown in the footer). X (FilterClear)
 // stays deliberately OUT (Q06's list omits it too, same as before).
 //
-// bt-fy5d (Nebenbefund N2, epic bt-vy1q): while boxFormEnabled(), the Detail
-// pane renders each scalar field as a titled box carrying its own hotkey
-// badge in the bottom border ((e) (s) (o) (u) (a) (t), box_detail_form.go) --
-// the footer repeated all of them, which at 80 columns cost a whole third
-// footer line for information already on screen, more saliently. Those keys
-// are therefore dropped from the footer DISPLAY while the flag is on. This
-// is display-only: the bindings stay registered in keymap.go (single source)
-// and keep their Help-overlay entry, so TestHelpGroupsCoverEveryBindingExactlyOnce's
-// drift guard is untouched. With the flag OFF nothing is shown inline, so
-// the list stays byte-identical to the pre-bt-fy5d one.
+// bt-fy5d (Nebenbefund N2, epic bt-vy1q): the Detail pane renders each
+// scalar field as a titled box carrying its own hotkey badge in the bottom
+// border ((e) (s) (o) (u) (a) (t), box_detail_form.go) -- the footer repeated
+// all of them, which at 80 columns cost a whole third footer line for
+// information already on screen. Those keys are therefore dropped from the
+// footer DISPLAY. This is display-only: the bindings stay registered in
+// keymap.go (single source) and keep their Help-overlay entry, so
+// TestHelpGroupsCoverEveryBindingExactlyOnce's drift guard is untouched.
 func browseRepoLocalBindings() []keybind.Binding {
 	bs := []keybind.Binding{
 		keys.FocusIn, keys.FocusOut,
 		keys.Search, keys.Filter, keys.Status, keys.Create, keys.Delete, keys.Editor,
 		keys.Backlog, keys.TagAssign, keys.Yank, keys.Assign, keys.Blocking,
-	}
-	if !boxFormEnabled() {
-		return bs
 	}
 	out := bs[:0:0]
 	for _, b := range bs {
@@ -1281,21 +1118,10 @@ func browseRepoLocalBindings() []keybind.Binding {
 		}
 		out = append(out, b)
 	}
-	// keys.Fullscreen (bean bt-oox1, PO finding #10): `v` has been live since
-	// E9 but appeared in NEITHER footer list, so the Help overlay was the only
-	// place it was ever advertised -- the same class of miss as `r` (bt-6nuz),
-	// which is why the two were fixed together.
-	//
-	// It is added only under the box form, and that is a budget decision, not
-	// a scoping accident: the flag-OFF footer already measures 152 cells and
-	// fills its two lines at 80 columns exactly, so ANY further entry spills
-	// it to three and costs a row of list content (mouse_test.go's own D02
-	// precondition pins those two lines). Dropping the four inline-badged
-	// keys leaves the flag-ON footer at 127 cells, with room to spare. Epic
-	// bt-vy1q's standing constraint -- everything additive and gated,
-	// flag-off output byte-identical -- points the same way, and the PO saw
-	// the miss with LIF_TUI_BOXFORM=1 in the first place.
-	return append(out, keys.Fullscreen)
+	// keys.Fullscreen (bean bt-oox1, PO finding #10) and keys.DetailToggle
+	// are advertised here: the Help overlay was otherwise the only place
+	// they appeared.
+	return append(out, keys.Fullscreen, keys.DetailToggle)
 }
 
 // boxFormInlineKeys are the footer keys the box-form Detail pane already
@@ -1346,26 +1172,21 @@ func (m model) viewBrowseRepo() string {
 	// clickPaneGeometry helper treeClickRow (below) uses to map a click back
 	// to a row -- single source for the numeric pane geometry, not just the
 	// head/localKeys strings above (Golden-Rule-Drift-Schutz).
-	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
+	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
 	nodes := m.visibleNodes()
 
-	// S3 (jira-style-experiment, LIF_TUI_BOXFORM): the persistent filter chip row
+	// S3 (jira-style-experiment): the persistent filter chip row
 	// (box_filter_bar.go, design-spec.md D02/D08) sits between the header
-	// divider and the Tree/Detail split, ONLY when boxFormEnabled() --
-	// existing composition (bodyH/content below) stays byte-for-byte
-	// unchanged when the flag is off. filterBarRow's height is reclaimed
+	// divider and the Tree/Detail split. filterBarRow's height is reclaimed
 	// from bodyH BEFORE the split renders, so the outer frame's total line
 	// count still matches clickPaneGeometry's own avail budget (Golden Rule
 	// #1: no forced Height() -- the frame grows exactly to its content, so
 	// adding a row without reclaiming its height would grow the frame past
 	// the terminal).
-	var filterBarRow string
-	if boxFormEnabled() {
-		filterBarRow = m.filterBar(innerW)
-		bodyH -= lipgloss.Height(filterBarRow)
-		if bodyH < 1 {
-			bodyH = 1
-		}
+	filterBarRow := m.filterBar(innerW)
+	bodyH -= lipgloss.Height(filterBarRow)
+	if bodyH < 1 {
+		bodyH = 1
 	}
 
 	var body string
@@ -1375,8 +1196,8 @@ func (m model) viewBrowseRepo() string {
 		// render branch entirely (the Split path stays byte-for-byte
 		// unchanged for the golden fixtures, Basis-Goldens-Gegenbeleg).
 		// paneW is the SINGLE pane's own content-width param passed to
-		// renderPane/renderAccordionPane (mirrors masterDetailWidths' lw/rw
-		// contract, view.go: EVERY renderPane/renderAccordionPane caller's
+		// renderPane/renderDetailBox (mirrors masterDetailWidths' lw/rw
+		// contract, view.go: EVERY renderPane/renderDetailBox caller's
 		// `w` is a CONTENT width, its OWN RoundedBorder adds +2 more --
 		// masterDetailWidths' lw+rw+4==innerW is exactly this same
 		// accounting for the TWO Split panes; here there is only ONE pane,
@@ -1400,10 +1221,8 @@ func (m model) viewBrowseRepo() string {
 			// trade and the single-pane geometry are shared verbatim.
 			// Dispatch already handled flat mode here (keyTree routes to
 			// keyFlat, update.go; focusedBean resolves via flatSelected) --
-			// the render was the only half missing. NOT gated on
-			// boxFormEnabled(): `G` exists independently of LIF_TUI_BOXFORM, and
-			// m.flatView's default false leaves the Tree path (and every
-			// pre-existing Vollbild golden) byte-for-byte untouched.
+			// the render was the only half missing. m.flatView's default
+			// false leaves the Tree path untouched.
 			if m.flatView {
 				listRows = append(headRows, m.flatRows(m.flatVisible(), true, bodyH-len(headRows), paneW-2)...)
 			} else {
@@ -1414,12 +1233,12 @@ func (m model) viewBrowseRepo() string {
 		if m.fullscreen == fullscreenDetail {
 			detailBean = m.focusedBean() // resolves via focusedBean's own fullscreenDetail case (update.go)
 		}
-		body = renderFullscreenBody(m.fullscreen, paneW, bodyH, listRows, true, m.idx, detailBean, m.secCursor, m.accOpen, m.fieldCursor, m.detailLevel, boxFormEffectiveScroll(m, detailBean))
+		body = renderFullscreenBody(m.fullscreen, paneW, bodyH, listRows, true, m.idx, detailBean, boxFormEffectiveScroll(m, detailBean))
 	} else if m.flatView {
 		// S5 (jira-style-ui experiment, Nested/Flat Browse toggle `G`,
 		// view_browse_flat.go): the LEFT pane renders the flat, sorted bean
 		// list instead of the Tree -- everything else (search head row
-		// budget trade, Detail pane via the SAME shared renderBeanAccordionPane,
+		// budget trade, Detail pane via the SAME shared renderBeanDetailBox,
 		// master-detail Split) mirrors the Tree branch below verbatim, just
 		// sourced from flatVisible()/flatRows()/renderFlatDetailPane instead
 		// of nodes/treeRows()/renderDetailPane. Checked BEFORE the Tree
@@ -1429,8 +1248,11 @@ func (m model) viewBrowseRepo() string {
 		headRows := m.treePaneHeadRows(lw - 2) // D02 precedent: flat mode has no Sort-Toggle (unlike Backlog), no suffix
 		flatRowsWithHead := append(headRows, m.flatRows(vis, !m.detailFocus, bodyH-len(headRows), lw-2)...)
 		flatBox := renderPane(pane{rows: flatRowsWithHead}, lw, bodyH, !m.detailFocus)
-		detailBox := m.renderFlatDetailPane(vis, rw, bodyH, m.detailFocus)
-		body = lipgloss.JoinHorizontal(lipgloss.Top, flatBox, detailBox)
+		body = flatBox
+		if rw > 0 {
+			detailBox := m.renderFlatDetailPane(vis, rw, bodyH, m.detailFocus)
+			body = lipgloss.JoinHorizontal(lipgloss.Top, flatBox, detailBox)
+		}
 	} else {
 		// E2 Task 3 (bean bt-4ep2): the search head row is prepended to the Tree
 		// pane's rows, costing 1 line of its bodyH content budget -- the actual
@@ -1441,14 +1263,14 @@ func (m model) viewBrowseRepo() string {
 		headRows := m.treePaneHeadRows(lw - 2) // D02: Tree never shows a sort suffix
 		treeRowsWithHead := append(headRows, m.treeRows(nodes, !m.detailFocus, bodyH-len(headRows), lw-2)...)
 		treeBox := renderPane(pane{rows: treeRowsWithHead}, lw, bodyH, !m.detailFocus)
-		detailBox := m.renderDetailPane(nodes, rw, bodyH, m.detailFocus)
-		body = lipgloss.JoinHorizontal(lipgloss.Top, treeBox, detailBox)
+		body = treeBox
+		if rw > 0 {
+			detailBox := m.renderDetailPane(nodes, rw, bodyH, m.detailFocus)
+			body = lipgloss.JoinHorizontal(lipgloss.Top, treeBox, detailBox)
+		}
 	}
 
-	content := head + "\n" + div
-	if boxFormEnabled() {
-		content += "\n" + filterBarRow
-	}
+	content := head + "\n" + div + "\n" + filterBarRow
 	content = appendStatusLine(content+"\n"+body+"\n"+div+"\n"+localKeys, status)
 	out := outerBorder(content, innerW, true)
 
@@ -1481,30 +1303,24 @@ func treeClickRow(m model, nodes []treeNode, msg tea.MouseMsg) (idx int, ok bool
 	innerW := w - 2
 	head, localKeys := m.browseRepoChrome(innerW)
 
-	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	if boxFormEnabled() {
-		// B6 (S6, jira-style-ui experiment): boxFormEnabled()'s persistent
-		// filter bar (box_filter_bar.go) sits between the header divider and
-		// the Tree/Detail split ONLY while the flag is on (viewBrowseRepo,
-		// above) -- it reclaims its 3 rows from bodyH BEFORE the split
-		// renders, but clickPaneGeometry's own originY has no knowledge of
-		// it (that helper is shared with Backlog, which never shows the
-		// bar). treeClickRow is BROWSE-only (mouseTreeClick's own call
-		// site, mouse.go), so an unconditional boxFormEnabled() check here
-		// is correct without an extra m.view guard.
-		//
-		// bt-vpvu ROOT CAUSE: the originY correction above landed in S6, but
-		// the matching bodyH correction did NOT -- the renderer reclaims the
-		// bar's 3 rows from bodyH before windowing, this hit-test kept
-		// windowing against the UNREDUCED bodyH. Both halves computed a
-		// different window start, so every click landed on the wrong bean the
-		// moment the list was scrolled far enough for the two starts to
-		// diverge (at the top of an unscrolled list both clamp to 0, which is
-		// why it looked like "sometimes works"). Reproduced live at 80x30
-		// against sproutling before the fix.
-		originY += filterBarHeight
-		bodyH -= filterBarHeight
-	}
+	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	// B6 (S6, jira-style-ui experiment): the persistent
+	// filter bar (box_filter_bar.go) sits between the header divider and
+	// the Tree/Detail split (viewBrowseRepo, above) -- it reclaims its 3
+	// rows from bodyH BEFORE the split renders, but clickPaneGeometry's own
+	// originY has no knowledge of it (that helper is shared with Backlog,
+	// which never shows the bar). treeClickRow is BROWSE-only
+	// (mouseTreeClick's own call site, mouse.go).
+	//
+	// bt-vpvu ROOT CAUSE: the originY correction below landed in S6, but
+	// the matching bodyH correction did NOT -- the renderer reclaims the
+	// bar's 3 rows from bodyH before windowing, this hit-test kept
+	// windowing against the UNREDUCED bodyH. Both halves computed a
+	// different window start, so every click landed on the wrong bean the
+	// moment the list was scrolled far enough for the two starts to
+	// diverge.
+	originY += filterBarHeight
+	bodyH -= filterBarHeight
 	if bodyH < 1 {
 		bodyH = 1
 	}

@@ -15,12 +15,10 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `↓` / `k` | Down |
 | `←` / `j` | Back or out (collapse) |
 | `→` / `l` | In (expand) |
-| `tab` | Focus the detail pane; in the detail pane, next box |
-| `shift+tab` | Previous box in the detail pane |
+| `tab` / `shift+tab` | Switch focus between the tree and the detail pane (shows a hidden detail pane) |
+| `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |
 | `esc` | Back; leaves the detail pane, fullscreen, menus |
-| `[` / `ctrl+left` | History back (fullscreen detail) |
-| `]` / `ctrl+right` | History forward (fullscreen detail) |
 | `pgup` / `pgdown` | Page the detail body (not listed in `?`) |
 
 ## Global actions
@@ -36,12 +34,12 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `S` | Cycle backlog sort |
 | `G` | Nested or flat |
 | `v` | Fullscreen |
+| `D` | Show or hide the detail pane |
 | `ctrl+r` | Reload |
 | `y` | Copy (yank) item context |
 | `?` | Help |
 | `q` | Quit dialog |
 | `ctrl+c` | Quit at once, no confirmation |
-| `1`…`4` | Jump to a section, classic layout only (`LIF_TUI_BOXFORM=0`) |
 
 ## Item actions
 

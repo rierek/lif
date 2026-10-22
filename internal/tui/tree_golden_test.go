@@ -34,6 +34,7 @@ func goldenTreeModel(t *testing.T) model {
 	m := newModel(nil, "/tmp/bt-golden-repo")
 	m = step(t, m, beansLoadedMsg{beans: beans})
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.detailHidden = false
 	m.expanded["gld-mlst"] = true
 	m.expanded["gld-epic"] = true
 	m.expanded[orphanRootID] = true

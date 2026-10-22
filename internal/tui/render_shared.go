@@ -83,9 +83,11 @@ func borderedPane(lines []string, w, h int, border lipgloss.Color) string {
 // tags carry no color of their own (internal/item.Item.Tags is []string,
 // unlike devd's api.Tag{Color}), so the color is derived deterministically
 // from the tag name instead of being stored.
-var tagChipPalette = []lipgloss.Color{
-	theme.Mauve, theme.Peach, theme.Green, theme.Blue,
-	theme.Teal, theme.Yellow, theme.Pink, theme.Sapphire,
+func tagChipPalette() []lipgloss.Color {
+	return []lipgloss.Color{
+		theme.Mauve, theme.Peach, theme.Green, theme.Blue,
+		theme.Teal, theme.Yellow, theme.Pink, theme.Sapphire,
+	}
 }
 
 // tagSwatch renders "● name" in a color hashed from the tag name (stable
@@ -93,7 +95,8 @@ var tagChipPalette = []lipgloss.Color{
 func tagSwatch(name string) string {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(name))
-	col := tagChipPalette[h.Sum32()%uint32(len(tagChipPalette))]
+	pal := tagChipPalette()
+	col := pal[h.Sum32()%uint32(len(pal))]
 	return lipgloss.NewStyle().Foreground(col).Render("● " + name)
 }
 

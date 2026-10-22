@@ -469,7 +469,7 @@ func (m model) tagPickerBox() string {
 	for i, it := range m.tagInputFiltered {
 		marker := " "
 		if it.defined {
-			marker = tagManagementMarkerStyle.Render(tagManagementMarkerGlyph)
+			marker = tagManagementMarkerStyle().Render(tagManagementMarkerGlyph)
 		}
 		box := theme.Dim.Render("[ ]")
 		if m.tagPending[it.tag] {

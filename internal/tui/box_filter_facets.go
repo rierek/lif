@@ -174,7 +174,7 @@ func (m model) beanMatchesArchive(b *item.Item) bool {
 	if m.showArchived {
 		return true
 	}
-	return b.Status != "completed" && b.Status != "scrapped"
+	return data.IsOpenStatus(b.Status)
 }
 
 // beanMatches is the ONE combined predicate every filtered view (Tree here,

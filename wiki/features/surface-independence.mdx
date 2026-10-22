@@ -88,7 +88,7 @@ In the TUI, the key `e` opens the body in `$EDITOR`. See [TUI views](../../refer
 - Keep `lif-serve` on its default address `127.0.0.1`. It has no TLS and, on loopback, no authentication; `--host` opens it to the network behind an access token [8h4v].
 - Pass `--if-match` for concurrent writers. A writer without it is not protected.
 - Set `lif.anchor: repo-root` if Git worktrees should share one store. Without it, each worktree uses its own.
-- Expect a fixed dark theme in the TUI: it ignores `display.theme` [179g]. It does follow the statuses, types, priorities and colors of `.lif.yml`.
+- The TUI follows `display.theme` and the statuses, types, priorities, colors and short letters of `.lif.yml`.
 
 See [Known limitations](../../known-limitations/) for [8h4v] and [179g].
 

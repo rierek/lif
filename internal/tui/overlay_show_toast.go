@@ -268,7 +268,7 @@ func (m model) renderToast(base string) string {
 			continue
 		}
 		if pad := w - ansi.StringWidth(fl); pad > 0 {
-			fl += overlayPad.Render(strings.Repeat(" ", pad))
+			fl += overlayPad().Render(strings.Repeat(" ", pad))
 		}
 		bgLines[row] = spliceLine(bgLines[row], fl, x, w)
 	}

@@ -120,8 +120,9 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 			return m, toastCmd
 		}
 		m.settings = settings
-		configuredEditor = settings.Editor     // DD2-221 Port: live, no restart (editor.go)
-		theme.SetAccent(settings.Theme.Accent) // No-Op on empty/invalid (theme.go's own guard)
+		configuredEditor = settings.Editor // DD2-221 Port: live, no restart (editor.go)
+		configuredAccent = settings.Theme.Accent
+		theme.SetAccent(configuredAccent) // No-Op on empty/invalid (theme.go's own guard)
 		return m, nil
 	}
 	m.form = nil

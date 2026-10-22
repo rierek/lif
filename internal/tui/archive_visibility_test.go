@@ -7,8 +7,11 @@ package tui
 // (update_test.go, same package).
 
 import (
-	"github.com/rierek/lif/pkg/item"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/rierek/lif/pkg/item"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -248,5 +251,30 @@ func TestRepoSwitchResetsShowArchived(t *testing.T) {
 	}
 	if m2.showArchived {
 		t.Fatal("showArchived leaked across a repo switch, want reset to false")
+	}
+}
+
+// TestArchiveFilterUsesConfiguredArchiveStatus: a status the project config
+// marks `archive: true` is hidden by default, like completed/scrapped.
+func TestArchiveFilterUsesConfiguredArchiveStatus(t *testing.T) {
+	dir := t.TempDir()
+	cfg := "statuses:\n  - name: po-review\n    archive: true\n"
+	if err := os.WriteFile(filepath.Join(dir, ".lif.yml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	applyDirConfig(t, dir)
+	t.Cleanup(func() { applyRepoConfig(nil) })
+
+	items := append(archiveFixtureBeans(), &item.Item{ID: "tk-po", Title: "Task PO", Status: "po-review", Type: "task", Priority: "normal", Parent: "ep-1"})
+	m := fixtureModel(t, items)
+	if m.beanMatchesArchive(items[len(items)-1]) {
+		t.Error("po-review (archive: true) matches the archive filter by default, want hidden")
+	}
+	if !m.beanMatchesArchive(items[2]) {
+		t.Error("in-progress item hidden by the archive filter, want visible")
+	}
+	m.showArchived = true
+	if !m.beanMatchesArchive(items[len(items)-1]) {
+		t.Error("po-review hidden although showArchived is on")
 	}
 }

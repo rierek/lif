@@ -93,11 +93,11 @@ func emitBatchSuccess(jsonMode bool, done []*item.Item, single func(*item.Item) 
 
 // emitBatchFailure reports a failure that struck partway through the write
 // loop. The preflight rules out unresolvable IDs and policy violations, so
-// what remains here is an I/O error, a gate that blocked a later target
-// (hooks), or, once a hook ran, an etag conflict on a later target: the hook's
-// task may have written that item, and the resolver then expects the etag
-// that it read. By then some items are already written. Without hooks no etag
-// conflict can occur: batch verbs deliberately set no IfMatch (an etag
+// what remains here is an I/O error or a gate that blocked a later target
+// (hooks). A hook that wrote a later target does not fail the batch: the
+// batch change lands on top of the hook's write. By then some items are
+// already written. No etag conflict can occur: batch verbs deliberately set
+// no IfMatch (an etag
 // belongs to one item, so `update --if-match` takes one ID; a batch has no
 // per-target etag to pass), and last write wins. Under require_if_match,
 // itemcore rejects the batch at the first target, before any write. Unlike

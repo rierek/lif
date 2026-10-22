@@ -4,13 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
-	"github.com/rierek/lif/internal/gitutil"
 	"github.com/rierek/lif/internal/hooks"
 	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/storeroot"
 	"github.com/rierek/lif/internal/tasks"
-	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/internal/uiconfig"
 	"github.com/rierek/lif/internal/version"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/itemcore"
@@ -90,14 +89,11 @@ a full view of your project.`,
 
 			// The theme is process wide and must be in force before anything
 			// renders, so this is the single place that applies it.
-			ui.SetTheme(cfg.GetTheme())
+			uiconfig.Apply(cfg)
 
-			feedTypeTables(cfg)
-			feedStatusPriorityTables(cfg)
-
-			root, res, err := resolveStorePath(effectiveStorePath, cfg)
+			root, res, err := storeroot.Resolve(effectiveStorePath, cfg)
 			if err != nil {
-				var missing *missingStoreError
+				var missing *storeroot.MissingError
 				// Completion runs in any directory: without a store it offers
 				// the candidates that need none (beans-mgx8). An explicit
 				// --lif-path that does not resolve still fails, so completion
@@ -133,45 +129,6 @@ a full view of your project.`,
 	return rootCmd
 }
 
-// feedTypeTables fills internal/ui's process-wide type-short and
-// type-column-width tables from the merged type list. internal/ui must not
-// import pkg/config, so this is the one place - analogous to a SetTheme
-// call - where the config-derived values cross into it.
-func feedTypeTables(c *config.Config) {
-	shorts := make(map[string]string)
-	longest := 0
-	for _, t := range c.TypeList() {
-		shorts[t.Name] = c.ShortOf(t.Name)
-		// Cells, not bytes: this value becomes a column width, and a type
-		// named "Änderung" is 8 cells in 9 bytes.
-		if w := ui.DisplayWidth(t.Name); w > longest {
-			longest = w
-		}
-	}
-	ui.SetTypeShorts(shorts)
-	// One trailing space keeps the column from touching the next one, which is
-	// what the old literal 10 did for "milestone" at nine characters.
-	ui.SetTypeColumnWidths(3, longest+1)
-}
-
-// feedStatusPriorityTables fills internal/ui's process-wide status-short and
-// priority-symbol tables from the merged status/priority lists. Same
-// reasoning as feedTypeTables: internal/ui must not import pkg/config, so
-// this is where the config-derived values cross into it.
-func feedStatusPriorityTables(c *config.Config) {
-	shorts := make(map[string]string, len(c.StatusList()))
-	for _, s := range c.StatusList() {
-		shorts[s.Name] = c.ShortOfStatus(s.Name)
-	}
-	ui.SetStatusShorts(shorts)
-
-	symbols := make(map[string]string, len(c.PriorityList()))
-	for _, p := range c.PriorityList() {
-		symbols[p.Name] = p.Symbol
-	}
-	ui.SetPrioritySymbols(symbols)
-}
-
 // completionAwareRootFlags returns the --lif-path and --config values
 // PersistentPreRunE should resolve against, accounting for cobra's
 // __complete request.
@@ -205,138 +162,8 @@ func completionAwareRootFlags(cmd *cobra.Command, args []string) (storePathVal, 
 	return *sp, *cp
 }
 
-// The levels that can decide the store directory, as recorded in
-// storeResolution.StoreDirSource.
-const (
-	storeSourceFlag    = "flag"
-	storeSourceEnv     = "env"
-	storeSourceConfig  = "config"  // an explicit path: in the config file
-	storeSourceDefault = "default" // the default store directory
-)
-
-// storeResolution is the outcome of the four name levels (config file,
-// section key, store directory, env var) for the command that just resolved
-// its store. `lif check` reads it to report names still in legacy form.
-type storeResolution struct {
-	// LegacyConfigFile: the loaded config file is the legacy file.
-	LegacyConfigFile bool
-	// LegacySectionKey: that file uses the legacy section key.
-	LegacySectionKey bool
-	// LegacyStoreDir: the resolved store directory carries the legacy name.
-	LegacyStoreDir bool
-	// StoreDirSource: flag, env, config (an explicit path:) or default.
-	StoreDirSource string
-	// LegacyEnv: the legacy variable is set and the new one is not.
-	LegacyEnv bool
-}
-
 // resolution is set by the root PersistentPreRunE next to core and cfg.
-var resolution storeResolution
-
-// resolveStorePath determines the items data directory path and records which
-// name levels it went through.
-// Precedence: --lif-path flag > config file (found upward or named via
-// --config) > store-path env var > default.
-//
-// A config file is the repository's own declaration of where its store lives,
-// so it outranks the env var: the variable is commonly exported by direnv and
-// inherited into unrelated repositories, where honouring it would silently
-// redirect every call to a foreign store. Without such a declaration the env
-// var is still the next-best answer. The anchor is part of that declaration
-// and is applied while resolving it (see resolveAnchoredPath).
-//
-// The env level is resolved -- and can fail on both variables being set --
-// only when it decides, that is without a flag and without a found config.
-//
-// In worktrees, the CLI uses the worktree's local store directory.
-// lif-serve watches worktree store dirs and merges changes into
-// runtime state, so the UI stays up-to-date without writing to main.
-// A repository that wants one shared store instead opts out of that with
-// `anchor: repo-root` in its config file (see resolveAnchoredPath).
-func resolveStorePath(flagPath string, c *config.Config) (string, storeResolution, error) {
-	envPath, legacyEnv, envErr := config.ResolveStoreEnv()
-	// A found config file, and only a found one, demotes the env var. A
-	// defaulted config carries no declaration to honour.
-	configFound := c != nil && c.ConfigFile() != ""
-	envDecides := flagPath == "" && !configFound
-	if envDecides && envErr != nil {
-		return "", storeResolution{}, envErr
-	}
-	useEnv := envDecides && envPath != ""
-	explicitOverride := flagPath != "" || useEnv
-
-	res := storeResolution{LegacyEnv: legacyEnv}
-	var root string
-	switch {
-	case flagPath != "":
-		root = flagPath
-		res.StoreDirSource = storeSourceFlag
-	case useEnv:
-		root = envPath
-		res.StoreDirSource = storeSourceEnv
-	default:
-		anchored, err := resolveAnchoredPath(c)
-		if err != nil {
-			return "", storeResolution{}, err
-		}
-		root = anchored
-		res.StoreDirSource = storeSourceDefault
-		if c.Items.Path != "" {
-			res.StoreDirSource = storeSourceConfig
-		}
-	}
-	if configFound {
-		res.LegacyConfigFile = config.IsLegacyConfigFile(c.ConfigFile())
-		res.LegacySectionKey = config.IsLegacySectionKey(c.SectionKey())
-	}
-	res.LegacyStoreDir = config.IsLegacyStoreDir(root)
-
-	if info, statErr := os.Stat(root); statErr != nil || !info.IsDir() {
-		// A missing/empty live directory next to a non-empty .lif.bak-* or .beans.bak-*
-		// sibling is not "no store here" -- it's an interrupted stageAndSwap
-		// (rename.go: the swap is two os.Rename calls with the store dir absent in
-		// between). Core.Load's own detectOrphanBackup repairs or warns
-		// about exactly that case, but only gets the chance to run if this
-		// precheck doesn't fail first.
-		if itemcore.HasOrphanBackup(root) {
-			return root, res, nil
-		}
-		if explicitOverride {
-			return "", storeResolution{}, &missingStoreError{fmt.Sprintf("store path does not exist or is not a directory: %s", root)}
-		}
-		return "", storeResolution{}, &missingStoreError{fmt.Sprintf("no %s directory found at %s (run 'lif init' to create one)", filepath.Base(root), root)}
-	}
-
-	return root, res, nil
-}
-
-// resolveAnchoredPath applies the config's anchor setting.
-//
-// With AnchorRepoRoot, a call from a secondary worktree resolves to the main
-// worktree's store, so worktrees of one repository share it. Outside a git repo
-// — and in the main worktree, where there is nothing to redirect — the config
-// file's own directory stays the anchor. The default store directory, where no
-// explicit path applies, is resolved in that anchor.
-func resolveAnchoredPath(c *config.Config) (string, error) {
-	switch c.Items.Anchor {
-	case "":
-		return c.ResolveItemsPath()
-	case config.AnchorRepoRoot:
-		mainRoot, isSecondary := gitutil.MainWorktreeRoot(c.ConfigDir())
-		if !isSecondary {
-			return c.ResolveItemsPath()
-		}
-		return c.ResolveItemsPathIn(mainRoot)
-	default:
-		return "", config.ValidateAnchor(c.Items.Anchor, c.SectionKey())
-	}
-}
-
-// missingStoreError marks the failure of a store directory that does not
-// exist, so the root hook can report it as NO_LIF_DIR under --json.
-type missingStoreError struct{ msg string }
-
-func (e *missingStoreError) Error() string { return e.msg }
+var resolution storeroot.Resolution
 
 // reportExecutionError writes the one shape a failure takes: the error line
 // and a pointer to the manual, both on stderr. It is cobra's own idiom for an

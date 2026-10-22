@@ -41,6 +41,7 @@ type paletteItemKind int
 
 const (
 	paletteKindAction paletteItemKind = iota
+	paletteKindTask                   // tui.actions entry, runs paletteItem.taskName
 )
 
 // paletteItem is one row of the Command-Center's filtered action list.
@@ -48,6 +49,7 @@ type paletteItem struct {
 	kind     paletteItemKind
 	actionID string
 	label    string // pre-rendered row text
+	taskName string // paletteKindTask only
 }
 
 // paletteActions returns the context-aware action list (design decision b):
@@ -117,6 +119,11 @@ func paletteActions(m model) []paletteItem {
 		// through the Command-Center, appended last.
 		paletteItem{kind: paletteKindAction, actionID: "settings", label: "go to settings"},
 	)
+	for _, a := range m.taskActions {
+		if taskActionApplies(a, m.focusedBean()) {
+			items = append(items, paletteItem{kind: paletteKindTask, taskName: a.Task, label: "run: " + a.Label})
+		}
+	}
 	return items
 }
 
@@ -193,6 +200,8 @@ func (m model) keyPalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 	m.paletteOpen = false
 	switch it.kind {
+	case paletteKindTask:
+		return m.startTask(it.taskName)
 	case paletteKindAction:
 		switch it.actionID {
 		case "status":

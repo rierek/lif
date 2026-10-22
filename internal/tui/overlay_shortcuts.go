@@ -16,8 +16,10 @@ package tui
 // keymap.go's own doc comment on the E1 Task 7 scope cut.
 
 import (
+	"slices"
 	"strings"
 
+	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rierek/lif/internal/tui/theme"
@@ -29,6 +31,17 @@ import (
 // up group-to-group, not just within one).
 func (m model) helpBox() string {
 	groups := keys.helpGroups()
+	var taskBinds []keybind.Binding
+	for _, a := range m.taskActions {
+		if a.Key != "" {
+			taskBinds = append(taskBinds, keybind.NewBinding(keybind.WithKeys(a.Key), keybind.WithHelp(a.Key, a.Label)))
+		}
+	}
+	if len(taskBinds) > 0 {
+		// Third, not last: the box is taller than a small terminal and
+		// clips at the bottom, where a late group would never show.
+		groups = slices.Insert(groups, 2, helpGroup{"Tasks", taskBinds})
+	}
 
 	// Spaltenbreite für das Tasten-Label global bestimmen (ANSI-sicher).
 	keyW := 0

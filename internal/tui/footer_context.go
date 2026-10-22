@@ -302,6 +302,8 @@ func (m model) overlayLocalBindings() []keybind.Binding {
 		return blockingPickerLocalBindings()
 	case overlayCreateConfirm, overlayDeleteConfirm:
 		return confirmGateLocalBindings()
+	case overlayTaskOutput:
+		return taskOutputLocalBindings()
 	}
 	return nil
 }

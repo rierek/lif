@@ -16,7 +16,11 @@ package tui
 // `Editor` gains a bare `e` alongside `ctrl+e` (design-spec §7: "e/ctrl+e
 // Editor").
 
-import keybind "github.com/charmbracelet/bubbles/key"
+import (
+	"reflect"
+
+	keybind "github.com/charmbracelet/bubbles/key"
+)
 
 // keyMap is the central, typed single source of every bt keybinding (mirrors
 // devd DD2-47): navKey() derives the direction-cross normalization from
@@ -295,4 +299,19 @@ func navKey(k string) string {
 		return "right"
 	}
 	return k
+}
+
+// boundKeys returns every key string some keyMap binding answers to, so
+// tui.actions cannot claim one.
+func (k keyMap) boundKeys() map[string]bool {
+	bound := map[string]bool{}
+	v := reflect.ValueOf(k)
+	for i := 0; i < v.NumField(); i++ {
+		if b, ok := v.Field(i).Interface().(keybind.Binding); ok {
+			for _, key := range b.Keys() {
+				bound[key] = true
+			}
+		}
+	}
+	return bound
 }

@@ -931,6 +931,8 @@ func (m model) composeOverlays(out string, w, h int) string {
 		out = placeOverlay(out, m.createConfirmBox(), w, h)
 	case overlayDeleteConfirm:
 		out = placeOverlay(out, m.deleteBox(), w, h)
+	case overlayTaskOutput:
+		out = placeOverlay(out, m.taskOutputBox(), w, h)
 	}
 	if m.form != nil {
 		out = placeOverlay(out, m.formChrome(), w, h)

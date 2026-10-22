@@ -7,7 +7,7 @@ package tui
 // (keyNodeAction). Mirrors devd's own precedent (dd2_217_test.go: "der
 // clip.Copy-Pfad selbst wird nicht getestet, Seiteneffekt OSC52/pbcopy") --
 // the toast-dispatch tests below exercise the REAL clip.Copy call (same as
-// devd's TestBacklogYankKeyWired) and assert on the resulting toast, not on
+// devd's TestReadyYankKeyWired) and assert on the resulting toast, not on
 // actual clipboard content; a pure content assertion is only made against
 // beanContext directly, which takes no clipboard action.
 
@@ -119,7 +119,7 @@ func TestYankShowsConfirmationToast(t *testing.T) {
 func TestYankOnOrphanRootNoop(t *testing.T) {
 	beans := append(fixtureBeans(), fixtureOrphanBean())
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 	if m.focusedBean() != nil {
 		t.Fatal("test setup invalid: focusedBean() != nil on the orphan root")
 	}

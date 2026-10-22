@@ -24,7 +24,7 @@ import (
 
 // TestPaletteActionsBeanContextFirst guards that a focused bean's node
 // actions (status/type/priority/tags/create_tag/parent/blocking/edit_title/
-// delete) come BEFORE the global actions (create/go_backlog/...). type/
+// delete) come BEFORE the global actions (create/go_ready/...). type/
 // priority (B12, design-spec.md §15 PF-16, bean bt-ntoz, E8 Task 6) sit
 // directly after status -- the bean's own wording ("paletteActions(), im
 // focused-bean-Block, nach 'status':"). create_tag (B14, design-spec.md §15
@@ -168,7 +168,7 @@ func TestPaletteActionsIncludesCreateTag(t *testing.T) {
 func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 	beans := append(fixtureBeans(), fixtureOrphanBean())
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 
 	if m.focusedBean() != nil {
 		t.Fatal("test setup invalid: focusedBean() != nil on the orphan root")
@@ -184,7 +184,7 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 			t.Fatalf("paletteActions leaked node action %q with no focused bean", it.actionID)
 		}
 	}
-	wantGlobal := []string{"create", "go_backlog", "go_browse", "filter", "search", "reload", "repo_picker", "register_project", "go_tags", "settings"}
+	wantGlobal := []string{"create", "go_ready", "go_browse", "filter", "search", "reload", "repo_picker", "register_project", "go_tags", "settings"}
 	if len(items) != len(wantGlobal) {
 		t.Fatalf("len(items) = %d, want %d (%v)", len(items), len(wantGlobal), wantGlobal)
 	}
@@ -197,7 +197,7 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 
 // fixtureOrphanBean is a bean with a dangling parent, shared by every test
 // here that needs the synthetic orphan root to exist (visibleNodes only
-// surfaces orphanRootID once at least one such bean is present, port
+// surfaces notOnRoadmapRootID once at least one such bean is present, port
 // precedent: update_test.go's TestOrphanShownUnderSyntheticRoot).
 func fixtureOrphanBean() *item.Item {
 	return &item.Item{
@@ -212,14 +212,14 @@ func fixtureOrphanBean() *item.Item {
 // the action label list against m.palQuery.
 func TestPalFilteredActionsFuzzyFiltered(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.palQuery = "bckl"
+	m.palQuery = "rdy"
 
 	items := m.palFiltered()
 	if len(items) != 1 {
-		t.Fatalf("len(palFiltered) = %d, want 1 (only 'go to backlog' matches %q)", len(items), m.palQuery)
+		t.Fatalf("len(palFiltered) = %d, want 1 (only 'go to ready' matches %q)", len(items), m.palQuery)
 	}
-	if items[0].actionID != "go_backlog" {
-		t.Fatalf("palFiltered[0].actionID = %q, want go_backlog", items[0].actionID)
+	if items[0].actionID != "go_ready" {
+		t.Fatalf("palFiltered[0].actionID = %q, want go_ready", items[0].actionID)
 	}
 }
 
@@ -227,7 +227,7 @@ func TestPalFilteredActionsFuzzyFiltered(t *testing.T) {
 // review I01 (bean bt-kyj5 Prelude, carried into E7 T4): Plan-Step 4 of the
 // English-i18n task (bt-w9o8) claimed a fuzzy-regression test for the 5
 // word-reversed PF-8 labels ("status: setzen" -> "set status" etc.) but only
-// ever re-verified "bckl" -> "go to backlog", whose word order PF-8 left
+// ever re-verified "rdy" -> "go to ready", whose word order PF-8 left
 // UNCHANGED (lowest-risk case, doesn't exercise the reversal at all). This
 // test exercises a query against the ACTUALLY reversed "set ..." labels.
 // "stat" is verified (not assumed) to be a rune SUBSEQUENCE -- not a
@@ -254,7 +254,7 @@ func TestPalFilteredActionsFuzzyStatMatchesSetStatusAndSetParent(t *testing.T) {
 
 // TestPalFilteredActionsFuzzyGoMatchesAllGoToEntriesPlusRegisterProject
 // guards T3-review I01 (bean bt-kyj5 Prelude): the "go to <entity>" entries
-// (backlog/browse/repo picker/tags/settings) share PF-8's UNCHANGED "go to
+// (ready/browse/repo picker/tags/settings) share PF-8's UNCHANGED "go to
 // X" shape -- a plain "go" query must still fuzzy-match every one of them
 // (not fewer), in declaration order, with no bean leaking in. E10 Task 2
 // (bean bt-r92i) added a 5th such entry ("go to tags", go_tags) -- widening
@@ -274,7 +274,7 @@ func TestPalFilteredActionsFuzzyGoMatchesAllGoToEntriesPlusRegisterProject(t *te
 	m.palQuery = "go"
 
 	items := m.palFiltered()
-	wantIDs := []string{"go_backlog", "go_browse", "repo_picker", "register_project", "go_tags", "settings"}
+	wantIDs := []string{"go_ready", "go_browse", "repo_picker", "register_project", "go_tags", "settings"}
 	if len(items) != len(wantIDs) {
 		t.Fatalf("len(palFiltered) = %d, want %d (%v) for query %q", len(items), len(wantIDs), wantIDs, m.palQuery)
 	}
@@ -329,7 +329,7 @@ func TestKeyPaletteEnterDispatchesAndCloses(t *testing.T) {
 	nm, _ := m.openPalette()
 	m = nm.(model)
 
-	m.palQuery = "bckl"
+	m.palQuery = "rdy"
 	m.palList.setLen(len(m.palFiltered()))
 
 	nm2, _ := m.keyPalette(keyMsg(tea.KeyEnter))
@@ -337,8 +337,8 @@ func TestKeyPaletteEnterDispatchesAndCloses(t *testing.T) {
 	if mm.paletteOpen {
 		t.Fatal("keyPalette enter did not close the palette")
 	}
-	if mm.view != viewBacklog {
-		t.Fatalf("view = %v, want viewBacklog (go_backlog dispatched)", mm.view)
+	if mm.view != viewReady {
+		t.Fatalf("view = %v, want viewReady (go_ready dispatched)", mm.view)
 	}
 }
 
@@ -346,7 +346,7 @@ func TestKeyPaletteEscClosesNoSideEffect(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	nm, _ := m.openPalette()
 	m = nm.(model)
-	m.palQuery = "bckl"
+	m.palQuery = "rdy"
 
 	nm2, _ := m.keyPalette(keyMsg(tea.KeyEsc))
 	mm := nm2.(model)
@@ -526,7 +526,7 @@ func TestDispatchPaletteCreateTagOpensTagPickerReadyToType(t *testing.T) {
 func TestDispatchPaletteCreateTagNoFocusedBeanNoOp(t *testing.T) {
 	beans := append(fixtureBeans(), fixtureOrphanBean())
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 	m.paletteOpen = true
 
 	if m.focusedBean() != nil {

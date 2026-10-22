@@ -36,6 +36,7 @@ func toastTimeout(seq int, kind toastKind) tea.Cmd {
 // collected during the load; a non-empty warn shows as a sticky warning toast.
 type beansLoadedMsg struct {
 	beans []*item.Item
+	ready map[string]bool // IDs `lif list --ready` lists (Store.Ready)
 	warn  string
 	err   error
 }
@@ -65,7 +66,11 @@ func waitForStoreEvents(ch <-chan []itemcore.ItemEvent) tea.Cmd {
 // (ctrl+r, storeEventsMsg, after each mutation).
 func loadCmd(s *data.Store) tea.Cmd {
 	return func() tea.Msg {
-		return beansLoadedMsg{beans: s.Items(), warn: s.DrainWarnings()}
+		ready, err := s.Ready()
+		if err != nil {
+			return beansLoadedMsg{err: err}
+		}
+		return beansLoadedMsg{beans: s.Items(), ready: ready, warn: s.DrainWarnings()}
 	}
 }
 
@@ -79,6 +84,7 @@ type repoSwitchedMsg struct {
 	store   *data.Store
 	repoDir string
 	beans   []*item.Item
+	ready   map[string]bool
 	events  <-chan []itemcore.ItemEvent
 	err     error
 }
@@ -94,13 +100,18 @@ func switchRepoCmd(oldStore *data.Store, newRepoDir string, storePath string) te
 		if err != nil {
 			return repoSwitchedMsg{repoDir: newRepoDir, err: err}
 		}
+		ready, err := store.Ready()
+		if err != nil {
+			store.Close()
+			return repoSwitchedMsg{repoDir: newRepoDir, err: err}
+		}
 		if oldStore != nil {
 			oldStore.Close()
 		}
 		// A watcher failure does not fail the switch: events stays nil and
 		// applyRepoSwitched degrades via m.watchUnavailable (I04 precedent).
 		events, _ := store.Watch()
-		return repoSwitchedMsg{store: store, repoDir: newRepoDir, beans: store.Items(), events: events}
+		return repoSwitchedMsg{store: store, repoDir: newRepoDir, beans: store.Items(), ready: ready, events: events}
 	}
 }
 

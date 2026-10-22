@@ -4,17 +4,17 @@ package tui
 // Flat Browse toggle (`G`, keymap.go). Additive to viewBrowseRepo
 // (view_browse_repo.go): when m.flatView is true, the Browse view's LEFT
 // pane renders a FLAT, sorted list of beans (columns: status glyph / type
-// glyph / Key / Title) instead of the Tree, reusing view_browse_backlog.go's
-// row-rendering primitive (backlogRowText) and cursor/window mechanics
+// glyph / Key / Title) instead of the Tree, reusing view_browse_ready.go's
+// row-rendering primitive (readyRowText) and cursor/window mechanics
 // (windowAround) verbatim rather than inventing a second copy. UNLIKE the
-// full-screen Backlog view (viewBacklog), this stays Browse: the Detail
+// full-screen Ready view (viewReady), this stays Browse: the Detail
 // pane (right) and the whole master-detail split are UNCHANGED, only the
 // left pane's content source switches.
 //
 // Selected-bean resolution deliberately does NOT try to reconcile a flat
 // index cursor with the Tree's bean-ID cursorID into one shared cursor --
 // flatList (types.go) is its own minimal listState, index-based exactly like
-// backlogList, kept SEPARATE from the Tree's own cursorID/expanded state so
+// readyList, kept SEPARATE from the Tree's own cursorID/expanded state so
 // toggling `G` back to nested resumes the Tree exactly where it was.
 // Default m.flatView is false, so viewBrowseRepo's existing (unbranched)
 // Tree-render path is untouched -- tree.golden and every other pre-existing
@@ -28,14 +28,13 @@ import (
 
 // flatVisible returns every bean matching the SAME shared search+facet+
 // archive predicate the Tree uses (m.beanMatches, box_filter_facets.go --
-// identical to backlogVisible()'s own predicate half, view_browse_backlog.go),
-// but sourced from the WHOLE index (m.idx.ByID) rather than idx.Backlog()'s
+// identical to readyVisible()'s own predicate half, view_browse_ready.go),
+// but sourced from the WHOLE index (m.idx.ByID) rather than the Ready set's
 // parentless+ready subset -- a flat mode toggle for Browse must show every
-// bean the Tree would, not just the Backlog's narrower set. Ordered via
+// bean the Tree would, not just the Ready's narrower set. Ordered via
 // data.SortBeans (Status -> Priority -> Type -> Title), the SAME canonical
-// order flattenTree/appendBeanNode already default to and collectOrphans
-// already relies on for the identical "iterate idx.ByID, filter, SortBeans"
-// pattern (view_browse_repo.go).
+// order the roadmap tree and notOnRoadmap already use for the identical
+// "iterate idx.ByID, filter, SortBeans" pattern.
 func (m model) flatVisible() []*item.Item {
 	if m.idx == nil {
 		return nil
@@ -51,11 +50,11 @@ func (m model) flatVisible() []*item.Item {
 }
 
 // flatSelected returns the bean under flatList's cursor, or nil for an
-// empty/out-of-range list -- mirrors backlogSelected() exactly
-// (view_browse_backlog.go), including its staleness tolerance: a cursor
+// empty/out-of-range list -- mirrors readySelected() exactly
+// (view_browse_ready.go), including its staleness tolerance: a cursor
 // left pointing past a since-narrowed vis (search/filter routes through the
 // SHARED keySearchInput/keyFilterMenu handlers, which know nothing about
-// flatList, same gap backlogList's own doc comment documents) simply
+// flatList, same gap readyList's own doc comment documents) simply
 // resolves to nil/no-highlight until the next flat keypress resyncs it via
 // keyFlat's own setLen call, below.
 func (m model) flatSelected() *item.Item {
@@ -66,13 +65,13 @@ func (m model) flatSelected() *item.Item {
 	return vis[m.flatList.cursor]
 }
 
-// flatRows renders every visible flat row, mirroring backlogRows' own D08
-// cursor treatment (view_browse_backlog.go) verbatim: a leading `▌` bar plus
+// flatRows renders every visible flat row, mirroring readyRows' own D08
+// cursor treatment (view_browse_ready.go) verbatim: a leading `▌` bar plus
 // the whole row accent-tinted when focused, muted when the Detail pane has
 // focus instead, windowed around the cursor via the EXISTING windowAround
 // (E1 Task 8) -- no new fenestration mechanism. Row TEXT itself reuses
-// backlogRowText unchanged (status glyph + type icon + Key + Title) -- the
-// row-rendering half of "REUSE Backlog's row-rendering + selection logic",
+// readyRowText unchanged (status glyph + type icon + Key + Title) -- the
+// row-rendering half of "REUSE Ready's row-rendering + selection logic",
 // this slice's own scope instruction.
 func (m model) flatRows(vis []*item.Item, focused bool, bodyH, width int) []string {
 	rows, _ := blockWindow(m.flatBlocks(vis, focused, width), bodyH, m.flatList.cursor)
@@ -89,17 +88,17 @@ func (m model) flatBlocks(vis []*item.Item, focused bool, width int) [][]string 
 	slug := m.beanIDPrefix()
 	blocks := make([][]string, len(vis))
 	for i, b := range vis {
-		blocks[i] = decorateRowBlock(backlogRowLines(b, slug, width-1), i == pos, focused)
+		blocks[i] = decorateRowBlock(readyRowLines(b, slug, width-1), i == pos, focused)
 	}
 	return blocks
 }
 
 // renderFlatDetailPane renders the Detail box-form for the flat list's
-// selected bean -- mirrors renderBacklogDetailPane (view_browse_backlog.go)
+// selected bean -- mirrors renderReadyDetailPane (view_browse_ready.go)
 // exactly, keying off flatList's index cursor into vis instead of a treeNode
 // slice, then handing off to the shared renderBeanDetailBox
-// (view_browse_repo.go) -- Browse's flat mode and the Backlog can never
-// drift out of sync on the Detail body, same rationale as the Tree/Backlog
+// (view_browse_repo.go) -- Browse's flat mode and the Ready can never
+// drift out of sync on the Detail body, same rationale as the Tree/Ready
 // split that shared function already serves.
 func (m model) renderFlatDetailPane(vis []*item.Item, w, h int, focused bool) string {
 	pos := m.flatList.cursor
@@ -111,13 +110,13 @@ func (m model) renderFlatDetailPane(vis []*item.Item, w, h int, focused bool) st
 }
 
 // keyFlat drives Browse's flat mode: up/down move flatList's cursor over
-// flatVisible() (the selection half of "REUSE Backlog's row-rendering +
-// selection logic" -- mirrors backlogCursorMove's own resync-before-move
-// pattern, view_browse_backlog.go). left/right/enter are handled no-ops --
-// a flat list has no expand concept, same rationale as keyBacklog's own
-// enter no-op (view_browse_backlog.go doc comment). Called from keyTree
+// flatVisible() (the selection half of "REUSE Ready's row-rendering +
+// selection logic" -- mirrors readyCursorMove's own resync-before-move
+// pattern, view_browse_ready.go). left/right/enter are handled no-ops --
+// a flat list has no expand concept, same rationale as keyReady's own
+// enter no-op (view_browse_ready.go doc comment). Called from keyTree
 // (update.go) once m.flatView is true, AFTER the shared search/filter/
-// Backlog/FilterClear/Back handling that switch already does -- so `/`, `f`,
+// Ready/FilterClear/Back handling that switch already does -- so `/`, `f`,
 // `X`, `b`, esc all keep working identically in flat mode (same shared
 // state, filtered set narrows/widens exactly like the Tree's own).
 // flatClickRow maps a mouse click to a flat-list row index (S6, mouse.go's

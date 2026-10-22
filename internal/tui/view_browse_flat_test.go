@@ -19,7 +19,7 @@ import (
 
 // TestKeyGTogglesFlatView guards the basic toggle contract: `G` flips
 // m.flatView, and the rendered LEFT pane switches from the Tree's indented/
-// expand-marker rows to flatRows' un-indented, backlogRowText-based rows.
+// expand-marker rows to flatRows' un-indented, readyRowText-based rows.
 func TestKeyGTogglesFlatView(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})

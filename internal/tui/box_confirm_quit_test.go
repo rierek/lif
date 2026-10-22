@@ -32,7 +32,7 @@ func TestQuitBoxTextIsQuestion(t *testing.T) {
 }
 
 // TestKeyConfirmQuitEnterGoesToLobbyWhenReposConfiguredAndNotInLobby guards
-// A2's stage 1: Browse/Backlog + at least one configured repo -> enter on
+// A2's stage 1: Browse/Ready + at least one configured repo -> enter on
 // the quit-confirm opens the Lobby instead of quitting (bean bt-ntoz B08
 // case 1).
 func TestKeyConfirmQuitEnterGoesToLobbyWhenReposConfiguredAndNotInLobby(t *testing.T) {

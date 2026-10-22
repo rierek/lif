@@ -42,7 +42,7 @@ func screenLines(m model) []string {
 // title also shown in its own Meta section, or listed under a parent's
 // Beziehungen section) -- a plain "first match anywhere" search could
 // silently click the wrong pane. head/localKeys must be the SAME strings
-// the caller's own view renders with (browseRepoChrome/backlogChrome), so
+// the caller's own view renders with (browseRepoChrome/readyChrome), so
 // the boundary matches the real render exactly.
 func leftPaneClickAt(t *testing.T, m model, head, localKeys, substr string) tea.MouseMsg {
 	t.Helper()
@@ -102,11 +102,11 @@ func detailClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	return rightPaneClickAt(t, m, head, localKeys, substr)
 }
 
-// backlogDetailClickAt is rightPaneClickAt scoped to the Backlog view's own
-// chrome (backlogChrome) -- guards detailClickRow's m.view branch.
-func backlogDetailClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
+// readyDetailClickAt is rightPaneClickAt scoped to the Ready view's own
+// chrome (readyChrome) -- guards detailClickRow's m.view branch.
+func readyDetailClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
-	head, localKeys := m.backlogChrome(m.width - 2)
+	head, localKeys := m.readyChrome(m.width - 2)
 	return rightPaneClickAt(t, m, head, localKeys, substr)
 }
 
@@ -135,30 +135,30 @@ func TestWheelUpDownMovesTreeCursor(t *testing.T) {
 	}
 }
 
-func TestWheelMovesBacklogCursor(t *testing.T) {
-	m := fixtureModel(t, backlogBeans())
+func TestWheelMovesReadyCursor(t *testing.T) {
+	m := readyBeansModel(t)
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.view = viewBacklog
-	vis := m.backlogVisible()
+	m.view = viewReady
+	vis := m.readyVisible()
 	if len(vis) < 2 {
-		t.Fatalf("setup: need >=2 backlog-visible beans, got %d", len(vis))
+		t.Fatalf("setup: need >=2 ready-visible beans, got %d", len(vis))
 	}
-	m.backlogList.setLen(len(vis))
-	m.backlogList.cursor = 0
+	m.readyList.setLen(len(vis))
+	m.readyList.cursor = 0
 
 	tm, _ := m.handleMouse(wheelMsg(tea.MouseButtonWheelDown))
 	m2, ok := tm.(model)
 	if !ok {
 		t.Fatalf("handleMouse(wheel down) did not return a model, got %T", tm)
 	}
-	if m2.backlogList.cursor != 1 {
-		t.Fatalf("wheel down: backlogList.cursor = %d, want 1", m2.backlogList.cursor)
+	if m2.readyList.cursor != 1 {
+		t.Fatalf("wheel down: readyList.cursor = %d, want 1", m2.readyList.cursor)
 	}
 
 	tm2, _ := m2.handleMouse(wheelMsg(tea.MouseButtonWheelUp))
 	m3 := tm2.(model)
-	if m3.backlogList.cursor != 0 {
-		t.Fatalf("wheel up: backlogList.cursor = %d, want 0", m3.backlogList.cursor)
+	if m3.readyList.cursor != 0 {
+		t.Fatalf("wheel up: readyList.cursor = %d, want 0", m3.readyList.cursor)
 	}
 }
 
@@ -444,9 +444,9 @@ func TestClickPaneGeometryOriginYExcludesTitleAndSeparator(t *testing.T) {
 }
 
 // TestClickPaneGeometryMultiLineFooterHeightPin (PRELUDE, T6-Review F01,
-// bean bt-13l7, 2026-07-16): D02 collapsed the Backlog/Browse footer
+// bean bt-13l7, 2026-07-16): D02 collapsed the Ready/Browse footer
 // divergence that used to be the ONLY real render exercising clickPaneGeometry
-// with footH != 2 (TestDetailClickBacklogFooterAt80Cols's own doc comment,
+// with footH != 2 (TestDetailClickReadyFooterAt80Cols's own doc comment,
 // above) -- every OTHER clickPaneGeometry test in this file (and every real
 // Chrome at >=80 columns, post-D02) now renders a 2-line localKeys, so the
 // bodyH/footerY boundary math has not been exercised at any OTHER footH value
@@ -472,7 +472,7 @@ func TestClickPaneGeometryOriginYExcludesTitleAndSeparator(t *testing.T) {
 //	bodyH  = avail - 2 (both panes' own border)           = 30 | 29
 //	originY = 1 (outer border) + head(1) + 1 (divider) + 1 (pane's own border) = 4
 //	footerY = originY + bodyH + 2 (pane bottom border + divider, D02-era
-//	          TestDetailClickBacklogFooterAt80Cols precedent)   = 36 | 35
+//	          TestDetailClickReadyFooterAt80Cols precedent)   = 36 | 35
 func TestClickPaneGeometryMultiLineFooterHeightPin(t *testing.T) {
 	head := "H"
 	localKeys := "line one\nline two\nline three" // 3 lines -- the bean's own ">=3-Zeilen" requirement

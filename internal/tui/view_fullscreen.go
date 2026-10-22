@@ -4,8 +4,8 @@ package tui
 // §15 "F01 — Vollbild-Navigation", bean bt-13l7, E9 Task 7). keyFullscreen
 // is this file's own dispatch (handleKey's checkpoint, update.go) --
 // renderFullscreenBody is
-// the shared single-pane renderer both viewBrowseRepo()/viewBacklog() call
-// into (view_browse_repo.go/view_browse_backlog.go) instead of their normal
+// the shared single-pane renderer both viewBrowseRepo()/viewReady() call
+// into (view_browse_repo.go/view_browse_ready.go) instead of their normal
 // JoinHorizontal(listBox, detailBox) split whenever m.fullscreen !=
 // fullscreenNone.
 
@@ -26,7 +26,7 @@ import (
 func (m model) keyFullscreen(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 	// fullscreenList's OWN two keys (enter-in, esc-out) are checked FIRST,
 	// ahead of the keys.Fullscreen match below -- neither is the Fullscreen
-	// binding itself, and both must intercept BEFORE keyTree/keyBacklog ever
+	// binding itself, and both must intercept BEFORE keyTree/keyReady ever
 	// see them (this function runs earlier in handleKey's dispatch chain).
 	if m.fullscreen == fullscreenList {
 		if keybind.Matches(msg, keys.Enter) {
@@ -43,7 +43,7 @@ func (m model) keyFullscreen(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		}
 		if keybind.Matches(msg, keys.Back) {
 			// Cursor war nie entkoppelt (fullscreenList never touches
-			// m.cursorID/m.backlogList.cursor) -- keine Sync nötig, anders als
+			// m.cursorID/m.readyList.cursor) -- keine Sync nötig, anders als
 			// der fullscreenDetail-Exit (keyDetailFocus's Back-case).
 			m.fullscreen = fullscreenNone
 			return true, m, nil
@@ -61,12 +61,12 @@ func (m model) keyFullscreen(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, m, nil
 	}
 	if !m.detailFocus {
-		// Browse/Backlog + links-fokussiert -> Beans-Liste Vollbild
+		// Browse/Ready + links-fokussiert -> Beans-Liste Vollbild
 		// (PO-Wortlaut).
 		m.fullscreen = fullscreenList
 		return true, m, nil
 	}
-	// Browse/Backlog + rechts-fokussiert -> Detail-View Vollbild. b == nil
+	// Browse/Ready + rechts-fokussiert -> Detail-View Vollbild. b == nil
 	// (orphan-root cursor) is a handled no-op.
 	b := m.focusedBean()
 	if b == nil {
@@ -80,15 +80,15 @@ func (m model) keyFullscreen(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 // renderFullscreenBody is the shared single-pane renderer for BOTH
 // fullscreen flavors (F01, design-spec.md §15) -- Chrome (breadcrumb/footer/
 // status line) stays IDENTICAL to the split view (browseRepoChrome/
-// backlogChrome, unchanged callers, view_browse_repo.go/
-// view_browse_backlog.go), only the body swaps from
+// readyChrome, unchanged callers, view_browse_repo.go/
+// view_browse_ready.go), only the body swaps from
 // JoinHorizontal(listBox, detailBox) to a single full-width pane. listRows is
-// the caller's own (unverändert berechneten) Tree-/Backlog-rows, ALREADY
+// the caller's own (unverändert berechneten) Tree-/Ready-rows, ALREADY
 // including the search/sort head line as row 0 (same convention as the Split
 // pane, only nil/unused in the fullscreenDetail case). focused is passed
 // through rather than hardcoded so a future caller isn't forced into always-
 // focused -- both of this task's OWN call sites (view_browse_repo.go/
-// view_browse_backlog.go) always pass true (a Vollbild pane is by
+// view_browse_ready.go) always pass true (a Vollbild pane is by
 // definition the ONLY visible pane, there is no split-focus ambiguity to
 // resolve).
 // boxScroll is the Vollbild-Detail's box-form scroll offset,

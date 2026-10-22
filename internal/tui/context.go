@@ -3,11 +3,11 @@ package tui
 // context.go — Yank `y`'s Markdown-Kontext-Generator (E5 Task 3, bean
 // bt-e4a6, epic-E5-plan.md »Task 3«, design decision b): ONE view-agnostic
 // beanContext(idx, b) instead of devd's three separate milestoneClip/
-// sprintClip/backlogClip functions (internal/tui/context.go in devd's own
+// sprintClip/readyClip functions (internal/tui/context.go in devd's own
 // cli-go) -- beans has no devd Milestone/Sprint/Issue three-way split, so a
 // single generator covers both a leaf Issue (no "## Children" section) and
 // an Epic/Milestone (idx.Children[b.ID] non-empty -> "## Children" table)
-// via the same code path. `y` always acts on m.focusedBean() (Tree/Backlog
+// via the same code path. `y` always acts on m.focusedBean() (Tree/Ready
 // identical, update.go's keyNodeAction) -- the Review-Cockpit used to be a
 // view-local exception here (its own reviewStandMarkdown override instead of
 // beanContext), removed by E7 T1 (PF-14, bean bt-wmtb, 2026-07-15).

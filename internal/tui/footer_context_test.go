@@ -277,7 +277,7 @@ func TestFullscreenListLocalBindingsOmitsHistoryKeys(t *testing.T) {
 // TestFullscreenDetailLocalBindingsShowsHistoryKeys' counterpart at the
 // Footer Zone 3 rendering layer (contextualLocalHint) -- the PO-facing
 // surface actually rendered around/below the Vollbild-Detail body. Must NOT
-// fall through to the (irrelevant) Tree/Backlog viewLocal stub.
+// fall through to the (irrelevant) Tree/Ready viewLocal stub.
 func TestContextualLocalHintFullscreenDetail(t *testing.T) {
 	m := model{fullscreen: fullscreenDetail}
 	got := stripHint(m.contextualLocalHint(viewLocalStub()))

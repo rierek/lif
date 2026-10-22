@@ -24,7 +24,7 @@ import (
 // Setting m.cursorID alone is not enough: cursorPos falls back to index 0
 // (ms-1) for a cursorID absent from the current visibleNodes() slice.
 func focusBean(m model, id string) model {
-	m.expanded = map[string]bool{"ms-1": true, "ep-1": true}
+	m.expanded = map[string]bool{"ms-1": true, "ep-1": true, unscheduledRootID: true, notOnRoadmapRootID: true}
 	m.cursorID = id
 	return m
 }

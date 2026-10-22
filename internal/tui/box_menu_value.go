@@ -490,7 +490,7 @@ func (m model) valueMenuPopupRect() (x, y, w, h int, ok bool) {
 		x = ww - fgW // right-edge overflow: shift left, never past the field's own line
 	}
 	if paneLeft := boxFormPaneContentLeft(m); x < paneLeft {
-		x = paneLeft // never cross into the Tree/Backlog/Flat pane on the left
+		x = paneLeft // never cross into the Tree/Ready/Flat pane on the left
 	}
 	y = valueMenuPopupY(ry, rh, fgH, hh, boxFormPopupChromeFloor(m))
 

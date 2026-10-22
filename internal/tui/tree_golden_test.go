@@ -37,7 +37,7 @@ func goldenTreeModel(t *testing.T) model {
 	m.detailHidden = false
 	m.expanded["gld-mlst"] = true
 	m.expanded["gld-epic"] = true
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	m.cursorID = "gld-tsk1"
 	return m
 }

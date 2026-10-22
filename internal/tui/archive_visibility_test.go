@@ -130,6 +130,7 @@ func TestArchivedOnlyMilestoneDisappearsWithNoOpenDescendant(t *testing.T) {
 		{ID: "ms-done", Title: "Done Milestone", Status: "completed", Type: "milestone", Priority: "normal"},
 		{ID: "tk-done", Title: "Done Task", Status: "completed", Type: "task", Priority: "normal", Parent: "ms-done"},
 		{ID: "ms-open", Title: "Open Milestone", Status: "todo", Type: "milestone", Priority: "normal"},
+		{ID: "tk-open", Title: "Open Task", Status: "todo", Type: "task", Priority: "normal", Parent: "ms-open"},
 	}
 	m := fixtureModel(t, beans)
 
@@ -200,29 +201,27 @@ func TestArchivedBeanExcludedFromBleveHitByDefault(t *testing.T) {
 	}
 }
 
-// --- Backlog is structurally unaffected (index.go Backlog(): no change) ---
+// --- Ready is structurally unaffected by the archive toggle ---
 
-// TestBacklogUnaffectedByArchiveToggle guards the "KEINE Änderung nötig"
-// acceptance box for index.go Backlog(): idx.Backlog() already excludes
-// completed/scrapped structurally (todo/draft only) -- toggling showArchived
-// must not add them back, since backlogVisible() only narrows the
-// PRE-filtered idx.Backlog() set, never widens it.
-func TestBacklogUnaffectedByArchiveToggle(t *testing.T) {
+// TestReadyUnaffectedByArchiveToggle guards that toggling showArchived does
+// not add archived items back: readyVisible() only narrows the Ready set
+// (Store.Ready excludes archive statuses itself), never widens it.
+func TestReadyUnaffectedByArchiveToggle(t *testing.T) {
 	beans := []*item.Item{
 		{ID: "tk-todo", Title: "Open Task", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "tk-done", Title: "Done Task", Status: "completed", Type: "task", Priority: "normal"},
 	}
-	m := fixtureModel(t, beans)
+	m := readyModel(t, beans, "tk-todo")
 
-	before := m.backlogVisible()
+	before := m.readyVisible()
 	if len(before) != 1 || before[0].ID != "tk-todo" {
-		t.Fatalf("backlogVisible() (showArchived=false) = %v, want just tk-todo", before)
+		t.Fatalf("readyVisible() (showArchived=false) = %v, want just tk-todo", before)
 	}
 
 	m.showArchived = true
-	after := m.backlogVisible()
+	after := m.readyVisible()
 	if len(after) != 1 || after[0].ID != "tk-todo" {
-		t.Fatalf("backlogVisible() (showArchived=true) = %v, want unchanged (tk-todo only) -- Backlog() already excludes completed structurally", after)
+		t.Fatalf("readyVisible() (showArchived=true) = %v, want unchanged (tk-todo only) -- Ready() already excludes completed structurally", after)
 	}
 }
 

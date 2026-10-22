@@ -24,7 +24,7 @@ func goldenChromeOpts() ChromeOpts {
 		Width: 80, Height: 24, Bordered: true,
 		Repo:       "bt",
 		Title:      "Test",
-		GlobalHint: "ctrl+k:cmd  p:project  b:backlog  R:reviews  ?:help  q:quit",
+		GlobalHint: "ctrl+k:cmd  p:project  b:ready  R:reviews  ?:help  q:quit",
 		Body:       "dummy body content for the golden chrome frame — enough text to see wrapping behave.",
 		FooterHint: "enter: open  esc: back",
 	}

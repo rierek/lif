@@ -2,8 +2,8 @@ package tui
 
 // view_browse_repo.go — the Browse Primat-View (design-spec.md §6 V2 basis):
 // a two-pane master-detail layout, left = expandable Tree (Milestones as
-// roots -> Epics/Features -> leaves, plus a synthetic "(orphaned)" root for
-// orphans, MANDATORY per bean bt-7jr8/T3-review Q01), right = a placeholder
+// roots -> Epics/Features -> leaves, plus synthetic "Unscheduled" and "Not on
+// roadmap" roots; the tree is the roadmap, bean bt-7jr8/T3-review Q01), right = a placeholder
 // detail preview (full accordion lands in E2). Port-pattern reference: devd
 // view_browse_project.go (treeNode flattening + D08 cursor-bar rendering,
 // ~/dev/DeveloperDashboard/apps/cli-go/internal/tui/
@@ -12,6 +12,7 @@ package tui
 import (
 	"fmt"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 	"path/filepath"
 	"strings"
 
@@ -28,12 +29,12 @@ import (
 // own contract: consumers must not mutate it) -- depth-first order matches
 // render order 1:1, so cursor position == slice index.
 type treeNode struct {
-	id      string // bean ID, or orphanRootID for the synthetic "(orphaned)" root
+	id      string // bean ID, or unscheduledRootID/notOnRoadmapRootID for a synthetic root
 	bean    *item.Item
 	depth   int
 	hasKids bool
 	open    bool
-	orphan  bool // true only for the synthetic orphan-root node itself
+	section string // label ("Unscheduled", "Not on roadmap") of a synthetic root row; "" for item rows
 
 	// placeholder + hiddenCount (D01, bean bt-39cl): a synthetic, non-
 	// selectable hint row rendered as the ONLY child of an expanded node
@@ -48,142 +49,97 @@ type treeNode struct {
 	hiddenCount int // N = count of direct children hidden by the archive default (D01 "Zählwert N")
 }
 
-// flattenTree walks idx depth-first (Roots() -> Children, expand-state from
-// expanded) into the visible row list, appending the synthetic orphan root
-// (+ its subtree, when expanded) last. Returns nil for a nil idx (pre-load).
-func flattenTree(idx *data.Index, expanded map[string]bool) []treeNode {
-	if idx == nil {
-		return nil
+// setItems installs a fresh item snapshot: the flat Index, the roadmap tree
+// (roadmap.Build with includeDone -- archive hiding is the filtered
+// flattening's job), the items the roadmap places nowhere (notOnRoadmap), the
+// node -> tree-parent map (treeParent) and the Ready set. Nothing here depends
+// on expand state.
+func (m model) setItems(items []*item.Item, ready map[string]bool) model {
+	cfg := data.ActiveConfig()
+	m.idx = data.NewIndex(items)
+	m.readyIDs = ready
+	m.roadmapScheduled, m.roadmapUnscheduled = roadmap.Build(cfg, items, true, nil, nil).Tree()
+
+	placed := map[string]bool{}
+	parent := map[string]string{}
+	var walk func(n *roadmap.Node, parentID string)
+	walk = func(n *roadmap.Node, parentID string) {
+		placed[n.Item.ID] = true
+		if parentID != "" {
+			parent[n.Item.ID] = parentID
+		}
+		for _, c := range n.Children {
+			walk(c, n.Item.ID)
+		}
+	}
+	for _, n := range m.roadmapScheduled {
+		walk(n, "")
+	}
+	for _, n := range m.roadmapUnscheduled {
+		walk(n, unscheduledRootID)
 	}
 
+	m.notOnRoadmap = nil
+	for _, it := range items {
+		if !placed[it.ID] {
+			m.notOnRoadmap = append(m.notOnRoadmap, it)
+			parent[it.ID] = notOnRoadmapRootID
+		}
+	}
+	roadmap.SortSiblings(cfg, m.notOnRoadmap)
+	m.treeParent = parent
+	return m
+}
+
+// sectionNode is the synthetic, bean-less root row of the "Unscheduled" and
+// "Not on roadmap" sections.
+func sectionNode(id, label string, open bool) treeNode {
+	return treeNode{id: id, depth: 0, hasKids: true, open: open, section: label}
+}
+
+// flattenTree walks the roadmap tree depth-first (expand-state from
+// expanded) into the visible row list: the scheduled roots (milestones) at
+// depth 0, then the synthetic "Unscheduled" root (its nodes at depth 1) and
+// the synthetic "Not on roadmap" root (flat rows at depth 1), each only when
+// non-empty.
+func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, expanded map[string]bool) []treeNode {
 	var nodes []treeNode
-	ancestors := map[string]bool{}
-	for _, b := range idx.Roots() {
-		nodes = appendBeanNode(nodes, idx, b, 0, expanded, ancestors)
+	for _, n := range scheduled {
+		nodes = appendBeanNode(nodes, n, 0, expanded)
 	}
-
-	orphans := collectOrphans(idx)
-	cycles := collectCycleOrphans(idx, orphans)
-	if len(orphans) > 0 || len(cycles) > 0 {
-		open := expanded[orphanRootID]
-		nodes = append(nodes, treeNode{id: orphanRootID, depth: 0, hasKids: true, open: open, orphan: true})
+	if len(unscheduled) > 0 {
+		open := expanded[unscheduledRootID]
+		nodes = append(nodes, sectionNode(unscheduledRootID, sectionUnscheduled, open))
 		if open {
-			for _, b := range orphans {
-				nodes = appendBeanNode(nodes, idx, b, 1, expanded, ancestors)
+			for _, n := range unscheduled {
+				nodes = appendBeanNode(nodes, n, 1, expanded)
 			}
-			// B02 (T8 Opus review, bean bt-7jr8): cycle-trapped beans render as
-			// FLAT depth-1 rows -- never recursed into via appendBeanNode. Every
-			// bean whose whole Parent-chain loops back on itself (A -> B -> A)
-			// is, by construction, only reachable downward from another member
-			// of the very same cycle (see collectCycleOrphans), so recursing
-			// would either re-hit the cycle guard for nothing or -- for a bean
-			// merely hanging off a cycle member -- render it a second time here
-			// AND nested under its (also-unreachable) parent. A flat row keeps
-			// the fix simple and duplicate-free: every such bean gets exactly
-			// one visible row, just without its undefined/circular nesting
-			// reconstructed.
-			for _, b := range cycles {
-				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1, hasKids: false})
+		}
+	}
+	if len(notOn) > 0 {
+		open := expanded[notOnRoadmapRootID]
+		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open))
+		if open {
+			for _, b := range notOn {
+				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1})
 			}
 		}
 	}
 	return nodes
 }
 
-// appendBeanNode appends b (and, if expanded, its children) depth-first.
-// ancestors is the current DFS path -- a bean already on its own ancestor
-// path is skipped (defensive cycle guard; beans' frontmatter is hand-
-// editable, a parent cycle is a data error but must never hang/crash bt).
-func appendBeanNode(nodes []treeNode, idx *data.Index, b *item.Item, depth int, expanded map[string]bool, ancestors map[string]bool) []treeNode {
-	if ancestors[b.ID] {
-		return nodes
-	}
-	children := idx.Children[b.ID]
+// appendBeanNode appends n (and, if expanded, its children) depth-first. The
+// roadmap tree is acyclic by construction (roadmap.Build), so no cycle guard.
+func appendBeanNode(nodes []treeNode, n *roadmap.Node, depth int, expanded map[string]bool) []treeNode {
+	b := n.Item
 	open := expanded[b.ID]
-	nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: depth, hasKids: len(children) > 0, open: open})
-	if open && len(children) > 0 {
-		ancestors[b.ID] = true
-		for _, c := range children {
-			nodes = appendBeanNode(nodes, idx, c, depth+1, expanded, ancestors)
+	nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: depth, hasKids: len(n.Children) > 0, open: open})
+	if open {
+		for _, c := range n.Children {
+			nodes = appendBeanNode(nodes, c, depth+1, expanded)
 		}
-		delete(ancestors, b.ID)
 	}
 	return nodes
-}
-
-// collectOrphans returns every bean whose Parent is set but does not resolve
-// to a known bean (dangling parent -- beans-legal, `beans check` only
-// reports it as broken_links). Sorted via data.SortBeans (Status -> Priority
-// -> Type -> Title) for determinism: idx.ByID iteration order is a Go map,
-// so this must never be rendered unsorted (would break golden-test
-// determinism and PO expectations alike). I03 (bean bt-7jr8 T8-review,
-// closed E2 Task 4/bean bt-9ldr): this used to run its own ad-hoc
-// title-only tie-break (sortByTitleThenID) because data.sortBeans was
-// unexported at the time -- now that data.SortBeans is exported (E2 Task 1),
-// the orphan bucket uses the SAME single-source order as every other bean
-// list in the app instead of a second, parallel sort definition.
-func collectOrphans(idx *data.Index) []*item.Item {
-	var out []*item.Item
-	for _, b := range idx.ByID {
-		if b.Parent == "" {
-			continue
-		}
-		if _, ok := idx.ByID[b.Parent]; ok {
-			continue
-		}
-		out = append(out, b)
-	}
-	data.SortBeans(out)
-	return out
-}
-
-// reachableIDs returns every bean ID reachable via idx.Children, descending
-// from roots. Structural, INDEPENDENT of the current expand/collapse UI
-// state on purpose: collapsing a node in the tree must never make its
-// subtree "disappear" from cycle detection -- only from the currently
-// rendered rows (flattenTree's own expanded lookups handle that separately).
-// A bean already visited stops the walk -- guards a cycle attached under a
-// legitimately-reachable bean the same way appendBeanNode's per-path
-// ancestors guard does, just as a global set here since only the full
-// reachable SET is needed, not render order.
-func reachableIDs(idx *data.Index, roots []*item.Item) map[string]bool {
-	seen := map[string]bool{}
-	var walk func(b *item.Item)
-	walk = func(b *item.Item) {
-		if seen[b.ID] {
-			return
-		}
-		seen[b.ID] = true
-		for _, c := range idx.Children[b.ID] {
-			walk(c)
-		}
-	}
-	for _, b := range roots {
-		walk(b)
-	}
-	return seen
-}
-
-// collectCycleOrphans returns every bean reachable from NEITHER a real root
-// NOR a dangling-parent orphan's subtree -- beans trapped in a pure parent
-// cycle (A -> B -> A), or hanging off one. Their own Parent DOES resolve (so
-// collectOrphans misses them) and they can never be a Root() (Parent is
-// non-empty), so without this sweep they are silently invisible. B02 (T8
-// Opus quality review, bean bt-7jr8): beans-legal state -- frontmatter is
-// hand-editable -- must never be dropped; swept into the same synthetic
-// "(orphaned)" root as dangling-parent orphans instead.
-func collectCycleOrphans(idx *data.Index, orphans []*item.Item) []*item.Item {
-	anchors := append(append([]*item.Item{}, idx.Roots()...), orphans...)
-	reachable := reachableIDs(idx, anchors)
-
-	var out []*item.Item
-	for id, b := range idx.ByID {
-		if !reachable[id] {
-			out = append(out, b)
-		}
-	}
-	data.SortBeans(out)
-	return out
 }
 
 // visibleNodes flattens the model's current idx+expanded state -- switches
@@ -194,7 +150,7 @@ func collectCycleOrphans(idx *data.Index, orphans []*item.Item) []*item.Item {
 // state, not just an opt-in narrowing). m.beanMatches AND-combines Task 3's
 // beanMatchesSearch, Task 4's beanMatchesFacets, and Task 7's
 // beanMatchesArchive; all three stay in place as the individual halves that
-// combined predicate calls into (Backlog, E2 Task 5, reuses beanMatches
+// combined predicate calls into (Ready, E2 Task 5, reuses beanMatches
 // unchanged).
 //
 // The `|| !m.showArchived` term is deliberately NOT folded into
@@ -221,9 +177,9 @@ func (m model) visibleNodes() []treeNode {
 		// Vorgabe, scope-guard against Scope-Creep into the search/facet
 		// case, which already has its own, unrelated "0 sichtbare
 		// Kinder"-story: the collapsed-context-row devd-DD2-178 parity).
-		return flattenTreeFiltered(m.idx, m.expanded, m.beanMatches, !m.treeActive())
+		return flattenTreeFiltered(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, m.expanded, m.beanMatches, !m.treeActive())
 	}
-	return flattenTree(m.idx, m.expanded)
+	return flattenTree(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, m.expanded)
 }
 
 // treeSearchActive reports whether a local/Bleve search query is currently
@@ -276,44 +232,43 @@ func (m model) beanMatchesSearch(b *item.Item) bool {
 // view_browse_project.go:215-238, wörtlich portiert per plan Port-Referenzen:
 // a manually collapsed ancestor stays collapsed even if a descendant
 // matches -- it renders as ONE collapsed context row, never force-expanded).
-// Every real root, the orphan bucket, AND the cycle-bean sweep go through
-// the SAME predicate: an orphan/cycle bucket with zero matches is omitted
+// Every scheduled root, the Unscheduled bucket AND the Not-on-roadmap bucket
+// go through the SAME predicate: a bucket with zero matches is omitted
 // entirely, matching entries render exactly like the unfiltered tree.
-func flattenTreeFiltered(idx *data.Index, expanded map[string]bool, match func(*item.Item) bool, archiveOnly bool) []treeNode {
-	if idx == nil {
-		return nil
-	}
-
+func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, expanded map[string]bool, match func(*item.Item) bool, archiveOnly bool) []treeNode {
 	var nodes []treeNode
-	ancestors := map[string]bool{}
-	for _, b := range idx.Roots() {
-		if ns, hit := filteredBeanNode(idx, b, 0, expanded, ancestors, match, archiveOnly); hit {
+	for _, n := range scheduled {
+		if ns, hit := filteredBeanNode(n, 0, expanded, match, archiveOnly); hit {
 			nodes = append(nodes, ns...)
 		}
 	}
 
-	orphans := collectOrphans(idx)
-	cycles := collectCycleOrphans(idx, orphans)
-	var orphanNodes []treeNode
-	for _, b := range orphans {
-		if ns, hit := filteredBeanNode(idx, b, 1, expanded, ancestors, match, archiveOnly); hit {
-			orphanNodes = append(orphanNodes, ns...)
+	var unscheduledNodes []treeNode
+	for _, n := range unscheduled {
+		if ns, hit := filteredBeanNode(n, 1, expanded, match, archiveOnly); hit {
+			unscheduledNodes = append(unscheduledNodes, ns...)
 		}
 	}
-	var cycleHits []*item.Item
-	for _, b := range cycles {
-		if match(b) {
-			cycleHits = append(cycleHits, b)
+	if len(unscheduledNodes) > 0 {
+		open := expanded[unscheduledRootID]
+		nodes = append(nodes, sectionNode(unscheduledRootID, sectionUnscheduled, open))
+		if open {
+			nodes = append(nodes, unscheduledNodes...)
 		}
 	}
 
-	if len(orphanNodes) > 0 || len(cycleHits) > 0 {
-		open := expanded[orphanRootID]
-		nodes = append(nodes, treeNode{id: orphanRootID, depth: 0, hasKids: true, open: open, orphan: true})
+	var flatHits []*item.Item
+	for _, b := range notOn {
+		if match(b) {
+			flatHits = append(flatHits, b)
+		}
+	}
+	if len(flatHits) > 0 {
+		open := expanded[notOnRoadmapRootID]
+		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open))
 		if open {
-			nodes = append(nodes, orphanNodes...)
-			for _, b := range cycleHits { // cycle beans render flat (depth 1), same as flattenTree
-				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1, hasKids: false})
+			for _, b := range flatHits {
+				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1})
 			}
 		}
 	}
@@ -327,34 +282,28 @@ func flattenTreeFiltered(idx *data.Index, expanded map[string]bool, match func(*
 // subtree below (subtreeHasMatch) -- so a collapsed ancestor still renders
 // as ONE collapsed context row when a match exists somewhere beneath it,
 // without ever being force-expanded (devd DD2-178 parity, see
-// flattenTreeFiltered's own doc comment). ancestors guards a Parent-cycle
-// exactly like appendBeanNode's own defensive guard (only threaded through
-// the EXPANDED/recursing branch, mirroring appendBeanNode).
-func filteredBeanNode(idx *data.Index, b *item.Item, depth int, expanded map[string]bool, ancestors map[string]bool, match func(*item.Item) bool, archiveOnly bool) ([]treeNode, bool) {
-	if ancestors[b.ID] {
-		return nil, false
-	}
-	children := idx.Children[b.ID]
+// flattenTreeFiltered's own doc comment).
+func filteredBeanNode(n *roadmap.Node, depth int, expanded map[string]bool, match func(*item.Item) bool, archiveOnly bool) ([]treeNode, bool) {
+	b := n.Item
+	children := n.Children
 	open := expanded[b.ID]
 	self := match(b)
 
 	if !open {
-		if !self && !subtreeHasMatch(idx, children, b.ID, match) {
+		if !self && !subtreeHasMatch(children, match) {
 			return nil, false
 		}
 		return []treeNode{{id: b.ID, bean: b, depth: depth, hasKids: len(children) > 0, open: false}}, true
 	}
 
-	ancestors[b.ID] = true
 	var childNodes []treeNode
 	anyChildHit := false
 	for _, c := range children {
-		if ns, hit := filteredBeanNode(idx, c, depth+1, expanded, ancestors, match, archiveOnly); hit {
+		if ns, hit := filteredBeanNode(c, depth+1, expanded, match, archiveOnly); hit {
 			anyChildHit = true
 			childNodes = append(childNodes, ns...)
 		}
 	}
-	delete(ancestors, b.ID)
 
 	if !self && !anyChildHit {
 		return nil, false
@@ -364,16 +313,14 @@ func filteredBeanNode(idx *data.Index, b *item.Item, depth int, expanded map[str
 	// D01 (bean bt-39cl) Voll-Verdeckungs-Fall: node is open, HAS children
 	// structurally, but every single one of them was filtered out (anyChildHit
 	// false) -- WITHOUT this branch the marker would render ▾ (hasKids=true,
-	// self alone kept the parent visible) yet zero rows would follow it, the
-	// exact "Marker lügt" bug the Investigation traced to filteredBeanNode.
+	// self alone kept the parent visible) yet zero rows would follow it.
 	// archiveOnly scopes this to the pure archive-default view (visibleNodes'
 	// own doc comment) -- when it's false (search/facet narrowing active),
-	// the pre-existing behavior (silently zero child rows) is left as-is,
-	// deliberately out of scope (D01 Implementer-Vorgabe).
+	// the pre-existing behavior (silently zero child rows) is left as-is.
 	if archiveOnly && len(children) > 0 && !anyChildHit {
 		hidden := 0
 		for _, c := range children {
-			if !match(c) {
+			if !match(c.Item) {
 				hidden++
 			}
 		}
@@ -389,31 +336,11 @@ func filteredBeanNode(idx *data.Index, b *item.Item, depth int, expanded map[str
 // it, so it still renders as a single collapsed context row without being
 // force-expanded (devd DD2-178, view_browse_project.go:215-238's documented
 // PO decision -- "a manually collapsed node stays collapsed even if it
-// contains a match"). skip excludes the collapsed node itself (already
-// checked by the caller as `self`); its own local visited set guards a
-// Parent-cycle reachable under a collapsed node, independent of the caller's
-// DFS-path ancestors set (different concern: this walks unconditionally
-// downward, ignoring expand state entirely).
-func subtreeHasMatch(idx *data.Index, beans []*item.Item, skip string, match func(*item.Item) bool) bool {
-	seen := map[string]bool{skip: true}
-	var walk func(b *item.Item) bool
-	walk = func(b *item.Item) bool {
-		if seen[b.ID] {
-			return false
-		}
-		seen[b.ID] = true
-		if match(b) {
-			return true
-		}
-		for _, c := range idx.Children[b.ID] {
-			if walk(c) {
-				return true
-			}
-		}
-		return false
-	}
-	for _, b := range beans {
-		if walk(b) {
+// contains a match"). It walks unconditionally downward, ignoring expand
+// state entirely.
+func subtreeHasMatch(nodes []*roadmap.Node, match func(*item.Item) bool) bool {
+	for _, n := range nodes {
+		if match(n.Item) || subtreeHasMatch(n.Children, match) {
 			return true
 		}
 	}
@@ -557,8 +484,8 @@ func treeRowParts(n treeNode, slug string) (head, title string) {
 		// as every ▾/▸ marker, no layout shift (B03 precedent).
 		return indent + marker + theme.Muted.Render(fmt.Sprintf("%d archiviert — f→Archive", n.hiddenCount)), ""
 	}
-	if n.orphan {
-		return indent + marker + theme.Dim.Render("(orphaned)"), ""
+	if n.section != "" {
+		return indent + marker + theme.Dim.Render(n.section), ""
 	}
 	b := n.bean
 	return indent + marker + theme.StatusIcon(b.Status) + " " + theme.TypeIcon(b.Type) + " " + theme.Key.Render(shortBeanID(b.ID, slug)) + " ", b.Title
@@ -626,7 +553,7 @@ func (m model) treeBlocks(nodes []treeNode, focused bool, width int) [][]string 
 // 382-398), a plain space otherwise. focused=false (the Detail pane has focus)
 // freezes the cursor muted instead of accent -- only the focused pane's cursor
 // is highlighted (devd D03). Shared verbatim by the Tree, the Browse flat list
-// and the Backlog (view_browse_flat.go / view_browse_backlog.go), which all
+// and the Ready (view_browse_flat.go / view_browse_ready.go), which all
 // three used to carry their own copy of this five-line block.
 func decorateRowBlock(lines []string, isCursor, focused bool) []string {
 	out := make([]string, len(lines))
@@ -680,8 +607,8 @@ func windowAround(rows []string, height, cursor int) []string {
 
 // renderDetailPane renders the Detail box form for the cursored bean.
 // Resolves the tree cursor's bean (or nil for "no selection") and hands off
-// to the shared renderBeanDetailBox (below), which renderBacklogDetailPane
-// (view_browse_backlog.go) and the flat list share too, so Tree, Backlog
+// to the shared renderBeanDetailBox (below), which renderReadyDetailPane
+// (view_browse_ready.go) and the flat list share too, so Tree, Ready
 // and Fullscreen can never drift apart on the Detail body.
 func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string {
 	pos := m.cursorPos(nodes)
@@ -689,7 +616,7 @@ func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string
 	// I02 (bt-39cl Review R1): placeholder covered explicitly alongside
 	// orphan -- its bean is nil anyway (same "(no selection)" outcome), but
 	// the guard style stays consistent with focusedBean's own check.
-	if pos >= 0 && pos < len(nodes) && !nodes[pos].orphan && !nodes[pos].placeholder {
+	if pos >= 0 && pos < len(nodes) && nodes[pos].section == "" && !nodes[pos].placeholder {
 		b = nodes[pos].bean
 	}
 	return m.renderBeanDetailBox(b, w, h, focused)
@@ -697,8 +624,8 @@ func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string
 
 // renderBeanDetailBox renders the box-form Detail pane for a single
 // already-resolved bean, or the "(no selection)" placeholder for nil -- the
-// shared body of renderDetailPane (Tree, above) and renderBacklogDetailPane
-// (Backlog), which differ only in HOW they resolve a bean from their own
+// shared body of renderDetailPane (Tree, above) and renderReadyDetailPane
+// (Ready), which differ only in HOW they resolve a bean from their own
 // cursor shape.
 func (m model) renderBeanDetailBox(b *item.Item, w, h int, focused bool) string {
 	// The box-form field cursor is only VISIBLE while the Detail pane
@@ -796,7 +723,7 @@ func renderDetailBox(idx *data.Index, b *item.Item, w, h int, focused bool, boxS
 // verbatim here for the same EAW-neutral reason).
 const searchShield = "⌕"
 
-// treeSearchLine renders the Tree/Backlog pane's persistent search head row
+// treeSearchLine renders the Tree/Ready pane's persistent search head row
 // (design-spec.md §6 V2 "Such-/Filterkopf", port devd treeSearchLine
 // view_browse_project.go:1099-1117): the live textinput while typing, the
 // committed query AND/OR the active-facet summary in Red once either is
@@ -807,7 +734,7 @@ const searchShield = "⌕"
 // keeps rendering byte-identical -- only the active-state branches grew.
 //
 // sortSuffix (D02, design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc, the
-// Backlog-Sort-Indicator) is appended, ALWAYS theme.Muted ("dezenter
+// Ready-Sort-Indicator) is appended, ALWAYS theme.Muted ("dezenter
 // Suffix", PO-Wortlaut) regardless of the branch's own color, in all THREE
 // render branches below when non-empty -- rendered as its OWN span AFTER
 // the branch's already-terminated Render() call (never nested inside it):
@@ -818,8 +745,8 @@ const searchShield = "⌕"
 // (viewBrowseRepo) always passes "" -- an empty suffix appends nothing, so
 // the Tree's search line renders BYTE-IDENTICAL to before D02
 // (TestTreeSearchLineEmptySuffixUnchanged, tree.golden's own guarantee).
-// Backlog's call site (viewBacklog) passes
-// "sort "+backlogSortDisplayLabel(m.backlogSort).
+// Ready's call site (viewReady) passes
+// "sort "+readySortDisplayLabel(m.readySort).
 func (m model) treeSearchLine(w int, sortSuffix string) string {
 	suffix := ""
 	if sortSuffix != "" {
@@ -976,7 +903,7 @@ func (m model) repoLabel() string {
 
 // composeOverlays layers every floating overlay onto out in a fixed
 // z-priority order (painter's algorithm, placeOverlay) -- E3 Task 1
-// extraction (bean bt-dlgk): viewBrowseRepo and viewBacklog used to
+// extraction (bean bt-dlgk): viewBrowseRepo and viewReady used to
 // duplicate the filterOpen/confirmQuit block; a new overlay is now wired in
 // exactly ONE place instead of two. Order: filter menu first, then the
 // node-action overlay (design decision a2 -- EXACTLY one overlayID active
@@ -1042,7 +969,7 @@ func (m model) composeOverlays(out string, w, h int) string {
 }
 
 // View dispatches on viewID (devd port convention: enum + switch in view).
-// E2 Task 5 (bean bt-gzu6) adds the first sibling case (viewBacklog); later
+// E2 Task 5 (bean bt-gzu6) adds the first sibling case (viewReady); later
 // epics grow this switch further, never branches.
 //
 // E5 Task 1 (bean bt-6dts, design decision a, point 2): every sub-view's
@@ -1057,8 +984,8 @@ func (m model) composeOverlays(out string, w, h int) string {
 func (m model) View() string {
 	var out string
 	switch m.view {
-	case viewBacklog:
-		out = m.viewBacklog()
+	case viewReady:
+		out = m.viewReady()
 	case viewLobby:
 		// E5 Task 6 (bean bt-zhwl): the Lobby/Repo-Picker -- a full
 		// top-level view (view_lobby.go), not an overlay.
@@ -1091,8 +1018,8 @@ func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
 // removed entirely ("intuitiv genug", PO-Begruendung), FocusIn/FocusOut come
 // FIRST, then the PO-verbatim action order -- `tab focus in · shift+tab
 // focus out · / search · f Filter · s Status · c Create · d Delete · e Edit
-// · b Backlog · t Tags · y Yank · a Parent · r Blocking`. Backlog (`b`) is
-// NEW here (a sensible Tree->Backlog entry point that PF-11's list never
+// · b Ready · t Tags · y Yank · a Parent · r Blocking`. Ready (`b`) is
+// NEW here (a sensible Tree->Ready entry point that PF-11's list never
 // carried); Filter/Tags/Yank/Parent/Blocking close the pre-existing gap
 // PF-11's own doc comment flagged (f/X/b/t/a/B/y were handled by
 // keyNodeAction/keyTree but never shown in the footer). X (FilterClear)
@@ -1110,7 +1037,7 @@ func browseRepoLocalBindings() []keybind.Binding {
 	bs := []keybind.Binding{
 		keys.FocusIn, keys.FocusOut,
 		keys.Search, keys.Filter, keys.Status, keys.Create, keys.Delete, keys.Editor,
-		keys.Backlog, keys.TagAssign, keys.Yank, keys.Assign, keys.Blocking,
+		keys.Ready, keys.TagAssign, keys.Yank, keys.Assign, keys.Blocking,
 	}
 	out := bs[:0:0]
 	for _, b := range bs {
@@ -1246,7 +1173,7 @@ func (m model) viewBrowseRepo() string {
 		// branch so m.flatView's default false leaves that branch, and every
 		// pre-existing golden depending on it, byte-for-byte untouched.
 		vis := m.flatVisible()
-		headRows := m.treePaneHeadRows(lw - 2) // D02 precedent: flat mode has no Sort-Toggle (unlike Backlog), no suffix
+		headRows := m.treePaneHeadRows(lw - 2) // D02 precedent: flat mode has no Sort-Toggle (unlike Ready), no suffix
 		flatRowsWithHead := append(headRows, m.flatRows(vis, !m.detailFocus, bodyH-len(headRows), lw-2)...)
 		flatBox := renderPane(pane{rows: flatRowsWithHead}, lw, bodyH, !m.detailFocus)
 		body = flatBox
@@ -1309,7 +1236,7 @@ func treeClickRow(m model, nodes []treeNode, msg tea.MouseMsg) (idx int, ok bool
 	// filter bar (box_filter_bar.go) sits between the header divider and
 	// the Tree/Detail split (viewBrowseRepo, above) -- it reclaims its 3
 	// rows from bodyH BEFORE the split renders, but clickPaneGeometry's own
-	// originY has no knowledge of it (that helper is shared with Backlog,
+	// originY has no knowledge of it (that helper is shared with Ready,
 	// which never shows the bar). treeClickRow is BROWSE-only
 	// (mouseTreeClick's own call site, mouse.go).
 	//

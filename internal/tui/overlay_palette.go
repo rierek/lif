@@ -88,7 +88,7 @@ func paletteActions(m model) []paletteItem {
 	}
 	items = append(items,
 		paletteItem{kind: paletteKindAction, actionID: "create", label: "create item"},
-		paletteItem{kind: paletteKindAction, actionID: "go_backlog", label: "go to backlog"},
+		paletteItem{kind: paletteKindAction, actionID: "go_ready", label: "go to ready"},
 		paletteItem{kind: paletteKindAction, actionID: "go_browse", label: "go to browse"},
 		paletteItem{kind: paletteKindAction, actionID: "filter", label: "filter facets"},
 		paletteItem{kind: paletteKindAction, actionID: "search", label: "search items"},
@@ -251,9 +251,9 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 				return m, toastCmd
 			}
 			return m.openCreateForm()
-		case "go_backlog":
-			m.view = viewBacklog
-			m.backlogList.setLen(len(m.backlogVisible()))
+		case "go_ready":
+			m.view = viewReady
+			m.readyList.setLen(len(m.readyVisible()))
 			return m, nil
 		case "go_browse":
 			m.view = viewBrowseRepo

@@ -129,7 +129,7 @@ func relationRowMarker(active bool, fieldIdx, rowIdx int) string {
 // relationRow (below) is now a thin wrapper around this plus its own
 // `marker` parameter, byte-identical to its pre-extraction behavior.
 //
-// slug (bean bt-pt1r) is the same repo prefix treeRowText/backlogRowText
+// slug (bean bt-pt1r) is the same repo prefix treeRowText/readyRowText
 // already strip via shortBeanID (view_browse_repo.go, bean bt-pl5p) --
 // threaded in as a PARAMETER rather than resolved here, because the two
 // callers want opposite things and the difference is a deliberate design

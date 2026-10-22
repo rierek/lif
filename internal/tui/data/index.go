@@ -52,54 +52,6 @@ func NewIndex(beans []*item.Item) *Index {
 	return idx
 }
 
-// Roots returns top-level beans (no parent), optionally restricted to the
-// given types, sorted Status -> Priority -> Type -> Title. Used by the tree
-// view to seed milestones plus parentless epics/rest.
-func (idx *Index) Roots(types ...string) []*item.Item {
-	var allowed map[string]bool
-	if len(types) > 0 {
-		allowed = make(map[string]bool, len(types))
-		for _, t := range types {
-			allowed[t] = true
-		}
-	}
-
-	var roots []*item.Item
-	for _, b := range idx.beans {
-		if b.Parent != "" {
-			continue
-		}
-		if allowed != nil && !allowed[b.Type] {
-			continue
-		}
-		roots = append(roots, b)
-	}
-
-	sortBeans(roots)
-	return roots
-}
-
-// Backlog returns parentless beans that are neither milestone nor epic,
-// with status todo or draft -- the "unscheduled work" view.
-func (idx *Index) Backlog() []*item.Item {
-	var backlog []*item.Item
-	for _, b := range idx.beans {
-		if b.Parent != "" {
-			continue
-		}
-		if b.Type == "milestone" || b.Type == "epic" {
-			continue
-		}
-		if b.Status != "todo" && b.Status != "draft" {
-			continue
-		}
-		backlog = append(backlog, b)
-	}
-
-	sortBeans(backlog)
-	return backlog
-}
-
 // WithTag returns all beans carrying tag, sorted Status -> Priority -> Type
 // -> Title.
 func (idx *Index) WithTag(tag string) []*item.Item {
@@ -155,6 +107,15 @@ func SetConfig(cfg *config.Config) {
 		return
 	}
 	cur.Store(newEnums(cfg, cfg.StatusNames(), cfg.TypeNames(), cfg.PriorityNames()))
+}
+
+// ActiveConfig returns the config SetConfig installed, or the built-in
+// defaults before any config is applied.
+func ActiveConfig() *config.Config {
+	if c := cur.Load().cfg; c != nil {
+		return c
+	}
+	return config.Default()
 }
 
 // ConfiguredColors returns the colour specs (tone name or hex) the project
@@ -302,7 +263,7 @@ func SortBeans(beans []*item.Item) { sortBeans(beans) }
 
 // StatusRank exposes the status tier position (see statusOrder) for callers
 // that need to compare two beans' status without a full SortBeans call
-// (e.g. the Backlog sort-toggle, E2 Task 5).
+// (e.g. the Ready sort-toggle, E2 Task 5).
 func StatusRank(status string) int { return rank(cur.Load().statusOrder, status) }
 
 // PriorityRank exposes the priority tier position, empty treated as "normal"

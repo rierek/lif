@@ -205,12 +205,12 @@ func TestPickerKeyOpensLobbyFromAnyView(t *testing.T) {
 	// exist at the real dev machine's ~/.config/beans-tui/config.yaml.
 	t.Setenv("HOME", t.TempDir())
 
-	t.Run("from Backlog", func(t *testing.T) {
+	t.Run("from Ready", func(t *testing.T) {
 		m := fixtureModel(t, beans)
-		m.view = viewBacklog
+		m.view = viewReady
 		out := step(t, m, runeMsg('p'))
 		if out.view != viewLobby {
-			t.Fatalf("view after 'p' from Backlog = %v, want viewLobby", out.view)
+			t.Fatalf("view after 'p' from Ready = %v, want viewLobby", out.view)
 		}
 	})
 

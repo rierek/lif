@@ -1,12 +1,12 @@
 package tui
 
 // box_filter_facets.go — the ONE shared facet-filter menu for Tree (this
-// task) AND Backlog (E2 Task 5, bean bt-gzu6, reuses everything here
-// unchanged). design-spec.md §6 US-05: "Filter wirkt auf Tree UND Backlog".
-// Port pattern: devd view_browse_backlog.go:89-136 (buildBacklogFilterItems
+// task) AND Ready (E2 Task 5, bean bt-gzu6, reuses everything here
+// unchanged). design-spec.md §6 US-05: "Filter wirkt auf Tree UND Ready".
+// Port pattern: devd view_browse_ready.go:89-136 (buildReadyFilterItems
 // shape) + view_browse_project.go:936-1033 (keyTreeFilter/treeFilterBox) --
 // consolidated into ONE implementation instead of devd's two parallel ones
-// (Tree-filter vs. Backlog-filter), since beans-tui's filter state already
+// (Tree-filter vs. Ready-filter), since beans-tui's filter state already
 // lives model-wide, not per-view. No "Art" facet (devd's Milestone/Sprint/
 // Issue split) -- beans' Type enum (milestone/epic/feature/task/bug) already
 // covers that distinction, so Status/Type/Priority/Tag is the complete set.
@@ -178,7 +178,7 @@ func (m model) beanMatchesArchive(b *item.Item) bool {
 }
 
 // beanMatches is the ONE combined predicate every filtered view (Tree here,
-// Backlog in E2 Task 5) calls -- AND of search (Task 3's beanMatchesSearch),
+// Ready in E2 Task 5) calls -- AND of search (Task 3's beanMatchesSearch),
 // facets (beanMatchesFacets), and archive-visibility (beanMatchesArchive,
 // E5 Task 7). Search is NOT special-cased against the archive default: an
 // async Bleve hit for an archived bean is excluded here exactly like any

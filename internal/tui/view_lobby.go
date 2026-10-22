@@ -7,7 +7,7 @@ package tui
 // utilities (no devd-API coupling to strip), homeLogoBlock/repoPickerBody/
 // viewLobby are beans-tui-native (a "lif" banner instead of "DevDashboard",
 // beans-tui's own config.Settings.Repos instead of devd's api.Project list,
-// an Open/Total bean-count metric instead of devd's Sprint/Backlog count).
+// an Open/Total bean-count metric instead of devd's Sprint/Ready count).
 //
 // KEIN Overlay: viewLobby is a full top-level view (design decision, bean's
 // own body text) -- a repo switch needs a complete client/watcher restart,
@@ -236,7 +236,7 @@ func (m model) viewLobby() string {
 	// directly against the real m.width/m.height, this file's own
 	// overlay_show_toast.go doc-stamp) appearing pushed almost entirely
 	// off the top of the screen, just its bottom border edge visible.
-	// Every OTHER view (viewBrowseRepo/viewBacklog) already gets this right
+	// Every OTHER view (viewBrowseRepo/viewReady) already gets this right
 	// via the identical innerW := w - 2 pattern -- this now matches that
 	// established convention exactly, no new arithmetic invented.
 	innerW := w - 2

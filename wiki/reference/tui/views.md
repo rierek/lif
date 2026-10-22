@@ -1,30 +1,30 @@
 ---
 title: "Views"
-description: "Tree, flat, backlog and detail views of the TUI."
+description: "Roadmap tree, flat, ready and detail views of the TUI."
 ---
 
 Measured on Lif 0.13 with a test repository of 17 items; the TUI code is unchanged in 0.14 (checked 2026-10-14). Key names: [Key bindings](../key-bindings/).
 
 ## Overview of the views
 
-There are four views. The item detail is a pane inside Browse and Backlog, and fullscreen is a mode, not a view.
+There are four views. The item detail is a pane inside Browse and Ready, and fullscreen is a mode, not a view.
 
 | View | Purpose | How to reach it |
 |---|---|---|
-| Browse, tree | Items nested by `parent`. | Default after start. |
+| Browse, tree | The roadmap: milestones, epics, features, tasks. | Default after start. |
 | Browse, flat | All items in one list. | `G` toggles. |
-| Backlog | Open leaf items, flat. | `b` |
+| Ready | Items `lif list --ready` lists, flat. | `b` |
 | Lobby | Repository picker. | `p` |
 | Tag management | Tag definitions. | Command palette `K`, entry `go to tags`. |
 | Detail pane | Fields, relations, body of the selected item. Hidden at start. | `D` shows or hides it; `tab` from the tree shows and focuses it. |
 | Fullscreen | List or detail over the full width. | `v` |
 
-The header reads `> <repo>: <View>`. The focused pane is marked by color only. Hidden by default in tree, flat and backlog: `completed` and `scrapped` items. The filter menu category `Archive` shows them.
+The header reads `> <repo>: <View>`. The focused pane is marked by color only. Hidden by default in tree, flat and ready: `completed` and `scrapped` items. The filter menu category `Archive` shows them.
 
 ## Tree view
 
-- Roots are items without a parent. Children follow `parent`. Every level is sorted by status, priority, type, title.
-- Items whose parent does not exist, and members of a cycle, appear under a root named `(orphaned)`, last.
+- The tree is the roadmap (`lif roadmap`). At start only the milestones and the roots `Unscheduled` and `Not on roadmap` show, all collapsed. Every level is sorted like `lif roadmap`.
+- `Unscheduled` holds epics, features and items without a milestone. `Not on roadmap` holds every item the roadmap places nowhere: milestones without children, types with `roadmap: false`, items whose parent does not exist, and members of a parent cycle. Both roots come last.
 - The tree pane width is the larger of one third of the screen and `layout.tree_width` (default 36, 24 to 60). At 140 columns it is 46.
 - Sorting and menus use the status, type and priority lists of `.lif.yml` in configured order. Values the config does not name sort last.
 
@@ -34,9 +34,9 @@ Screenshot follows.
 
 `G` switches between nested and flat. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way.
 
-## Backlog view
+## Ready view
 
-`b` opens it; `esc` returns to Browse. It shows leaf items (no milestones or epics) in a flat list with the detail pane on the right. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
+`b` opens it; `esc` returns to Browse. It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, with the detail pane on the right. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
 Screenshot follows.
 
@@ -58,7 +58,7 @@ The detail pane is hidden at start and the tree uses the full width. `D` shows o
 
 ## Search and filters
 
-- `/` starts the search in tree, flat and backlog. Each keystroke can trigger a search.
+- `/` starts the search in tree, flat and ready. Each keystroke can trigger a search.
 - Text of three or more bytes goes to `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`). Shorter text matches as a substring of title or ID. An ID substring always matches.
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, for example `lif list: exit status 1: Error: querying items: syntax error`. Incomplete queries such as `title:` flash this while you type.

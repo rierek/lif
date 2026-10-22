@@ -352,12 +352,12 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 //   - Pane left edge (X): NOT originX+lw (detailBoxFormClickRow's own click
 //     boundary, mouse.go) -- see ERRATUM below. Instead: Split mode (m.
 //     fullscreen != fullscreenDetail), the Detail pane's own left border sits
-//     at originX+lw+2 (the Tree/Backlog/Flat pane occupies lw+2 columns:
+//     at originX+lw+2 (the Tree/Ready/Flat pane occupies lw+2 columns:
 //     border+lw content+border, JoinHorizontal butts the Detail pane directly
 //     against it with no gap), and detailBoxForm's own content -- the
 //     accW-wide string dropdownBox/panelBox draw, which begins with its own
 //     "╭"/"│" -- starts ONE column further right of that, at originX+lw+3.
-//     fullscreenDetail (bt-s90e): there is no preceding Tree/Backlog pane at
+//     fullscreenDetail (bt-s90e): there is no preceding Tree/Ready pane at
 //     all (renderFullscreenBody's ONE full-width pane), so content starts at
 //     originX+1.
 //
@@ -403,7 +403,7 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 // boxFormPaneContentLeft returns the column detailBoxForm's boxes actually
 // start drawing at (the SAME value boxFormFieldRect's own col=0 resolves
 // to, see the ERRATUM above): Split mode butts the Detail pane directly
-// against the Tree/Backlog/Flat pane's own lw+2-wide box (border+lw
+// against the Tree/Ready/Flat pane's own lw+2-wide box (border+lw
 // content+border, no gap), fullscreenDetail has no preceding pane at all.
 func boxFormPaneContentLeft(m model) int {
 	ww, hh := m.width, m.height
@@ -416,8 +416,8 @@ func boxFormPaneContentLeft(m model) int {
 	innerW := ww - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
@@ -453,8 +453,8 @@ func boxFormPopupChromeFloor(m model) int {
 	innerW := ww - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
@@ -478,14 +478,14 @@ func boxFormFieldRect(m model, b *item.Item, field int) (x, y, w, h int, ok bool
 	innerW := ww - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
 	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewBacklog {
+	if m.view != viewReady {
 		originY += filterBarHeight // B6: same correction detailBoxFormClickRow applies (mouse.go)
 	}
 

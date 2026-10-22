@@ -20,13 +20,12 @@ package tui
 // smoke test + an isolated `beans create`/`beans delete` probe, both
 // reproducible): the epic-E3-plan.md/bean bt-ppzb's ORIGINAL assumption --
 // that a deleted bean's direct children survive with a now-DANGLING Parent
-// field and surface under the synthetic "(orphaned)" root -- is WRONG. The
+// field and surface under the synthetic orphan root -- is WRONG. The
 // real beans 0.4.2 `delete` command actively rewrites every direct child's
 // frontmatter, REMOVING the `parent:` field entirely rather than leaving it
 // dangling. A deleted bean's direct children therefore become genuine,
-// ordinary ROOT beans (idx.Roots(), view_browse_repo.go) -- NOT
-// "(orphaned)"-bucket orphans; they render at the top level exactly like any
-// other parentless bean, not flagged or quarantined in any way. delChildren
+// ordinary parentless beans (the roadmap places them) -- NOT
+// orphan-bucket orphans; they are not flagged or quarantined. delChildren
 // (below) is still an accurate PRE-delete count (computed from the CURRENT
 // in-memory idx.Children before the mutation fires) -- only the POST-delete
 // outcome the modal's copy describes was corrected. Grandchildren are

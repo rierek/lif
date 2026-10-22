@@ -200,7 +200,7 @@ func TestGlobalBindingHelpTextsShortened(t *testing.T) {
 // binding may appear in BOTH globalBindings() (Header Zone 1, always
 // visible) AND either Chrome-calling view's own local-footer list --
 // duplication is exactly what PF-11 removes. Scoped to the two VIEW-local
-// lists only (browseRepoLocalBindings/backlogLocalBindings) -- the
+// lists only (browseRepoLocalBindings/readyLocalBindings) -- the
 // overlay-/search-/palette-/help-context footer sets (footer_context.go)
 // are a DIFFERENT axis (Q04-Antwort) and deliberately restate Enter/Back
 // for local reinforcement while a modal has full input capture (see that
@@ -212,7 +212,7 @@ func TestNoDuplicateBindingBetweenGlobalAndAnyLocalHintList(t *testing.T) {
 	}
 	lists := map[string][]keybind.Binding{
 		"browseRepoLocalBindings": browseRepoLocalBindings(),
-		"backlogLocalBindings":    backlogLocalBindings(),
+		"readyLocalBindings":      readyLocalBindings(),
 	}
 	for name, list := range lists {
 		for _, b := range list {

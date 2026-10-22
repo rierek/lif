@@ -67,12 +67,12 @@ func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 	}
 }
 
-// TestBacklogFooterFollowsBrowseRepo: the Backlog renders the SAME box-form
-// detail pane, so its footer must thin out identically (backlogLocalBindings
+// TestReadyFooterFollowsBrowseRepo: the Ready renders the SAME box-form
+// detail pane, so its footer must thin out identically (readyLocalBindings
 // delegates -- this pins that it keeps doing so).
-func TestBacklogFooterFollowsBrowseRepo(t *testing.T) {
-	if a, b := bindingKeys(backlogLocalBindings()), bindingKeys(browseRepoLocalBindings()); strings.Join(a, "|") != strings.Join(b, "|") {
-		t.Fatalf("Backlog footer diverged from Browse: %v vs %v", a, b)
+func TestReadyFooterFollowsBrowseRepo(t *testing.T) {
+	if a, b := bindingKeys(readyLocalBindings()), bindingKeys(browseRepoLocalBindings()); strings.Join(a, "|") != strings.Join(b, "|") {
+		t.Fatalf("Ready footer diverged from Browse: %v vs %v", a, b)
 	}
 }
 

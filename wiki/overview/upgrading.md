@@ -30,6 +30,13 @@ Each entry lists the old form, the new form and the migration step. Work through
 | terminal available from the network | terminal off beyond loopback | Pass `--allow-remote-terminal` if you need it; the token is still required. |
 | `--cors-origin '*'` allows every origin to change data | `*` only lets every page read answers | List the origins that may change data in `--cors-origin`. |
 
+### lif-serve origin default (0.16)
+
+| Old form | New form | Migration step |
+| --- | --- | --- |
+| a page on any local port (`http://localhost:*`, `http://127.0.0.1:*`) could change items and open the terminal | only the server's own origin may; another local port gets 403 | Name the dev server of the UI: `--cors-origin http://localhost:5173` (or `server.cors_origins`). A port wildcard brings the old behaviour back and the risk with it: any local page can run project hooks and open a shell. |
+| `--cors-origin` replaced the default list | `--cors-origin` adds to the server's own origins | Nothing to repeat: `localhost` and `127.0.0.1` on the server's port always work. |
+
 ### JSON output and CLI behaviour (0.15)
 
 | Old form | New form | Migration step |

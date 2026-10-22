@@ -31,7 +31,7 @@ lif-serve --host 0.0.0.0
 |---|---|---|
 | `--host` | none | `127.0.0.1` |
 | `--port`, `-p` | `server.port` | `8080` |
-| `--cors-origin` (list; comma-separated or repeated) | `server.cors_origins` | `http://localhost:*`, `http://127.0.0.1:*` |
+| `--cors-origin` (list; comma-separated or repeated) | `server.cors_origins` | none: only the server's own origin |
 | `--allow-remote-terminal` | none | off |
 | `--public-url` | none | unset |
 | `--require-token` | none | off |
@@ -49,7 +49,7 @@ What the new options do, in short; [Network and CORS](#network-and-cors) has the
 - `--token-file <path>` keeps the token across restarts. A missing file is created with mode `0600` and a random token. An existing file must not be readable by group or others (`token file … is accessible by other users (mode 0644); run chmod 600 …`) and must hold at least 32 characters. The environment variable `LIF_SERVE_TOKEN` does the same without a file, with the same length rule; the flag wins. Both apply only when the server asks for a token: on loopback without `--require-token` they are ignored. Together with `--allow-remote-terminal` or `--allow-remote-agent` the server uses a token derived from the stored one (a keyed hash of the two flags), so a token that was valid without the opt-in does not open the server with it.
 - `--tls-cert` and `--tls-key` (PEM files, both or neither) serve HTTPS with TLS 1.2 or newer. Plain HTTP to that port is refused with 400.
 
-A flag overrides the config value, which overrides the default. A given `--cors-origin` **replaces** the default list; it does not extend it, so name `http://localhost:*` yourself if you still open the UI as `localhost`. The page that `lif-serve` itself serves needs no entry, under whatever address you open it. A dev server of the UI and every other page do. The entry `*` is special, see [Network and CORS](#network-and-cors). See [Configuration](../configuration/).
+A flag overrides the config value, which overrides the default. The default is no entry: the server accepts changes and WebSocket upgrades only from its own origin (its address and port, under `localhost` and `127.0.0.1` alike). A given `--cors-origin` **adds** origins to that; a dev server of the UI on another port needs one, for example `--cors-origin http://localhost:5173`. A port wildcard such as `http://localhost:*` lets a page on any local port run changes and open the terminal; see [Network and CORS](#network-and-cors) before you set it. The entry `*` is special, see [Network and CORS](#network-and-cors). See [Configuration](../configuration/).
 
 Startup output with the defaults:
 
@@ -57,8 +57,7 @@ Startup output with the defaults:
 [lif] Listening on 127.0.0.1:8080 (loopback only: reachable from this machine only)
 [lif] Starting server at http://127.0.0.1:8080/
 [lif] GraphQL Playground: http://127.0.0.1:8080/playground
-[lif] Allowed origins: http://localhost:*, http://127.0.0.1:*
-[lif] NOTE: a web page from any port of these hosts, such as another local dev server, may change items (which runs project hooks) and use the terminal. List only the origins you need.
+[lif] Allowed origins: http://localhost:8080, http://127.0.0.1:8080
 [lif] Hooks: 2 project hooks (1 gates) active
 [lif] Agent: enabled
 [lif] Terminal: enabled
@@ -74,8 +73,7 @@ The first line is the address the listener really got [9a66]. With `--host 0.0.0
 [lif] Access token: <token>
 [lif] Open the UI: http://192.168.1.50:8080/?token=<token>
 [lif] GraphQL Playground: http://192.168.1.50:8080/playground?token=<token>
-[lif] Allowed origins: http://localhost:*, http://127.0.0.1:*
-[lif] NOTE: a web page from any port of these hosts, such as another local dev server, may change items (which runs project hooks) and use the terminal. List only the origins you need.
+[lif] Allowed origins: only this server's own origin
 [lif] Agent: disabled (the server is reachable from the network). Add --allow-remote-agent to enable it.
 [lif] Terminal: disabled (the server is reachable from the network). Add --allow-remote-terminal to enable it.
 ```
@@ -91,7 +89,7 @@ Behind a proxy (`--public-url https://box.tailnet.ts.net/lif` on loopback) the s
 [lif] Access token: <token>
 [lif] Open the UI: https://box.tailnet.ts.net/lif/?token=<token>
 [lif] GraphQL Playground: https://box.tailnet.ts.net/lif/playground?token=<token>
-[lif] Allowed origins: http://localhost:*, http://127.0.0.1:*, https://box.tailnet.ts.net
+[lif] Allowed origins: http://localhost:8080, http://127.0.0.1:8080, https://box.tailnet.ts.net
 [lif] Agent: disabled (the server is reachable from the network). Add --allow-remote-agent to enable it.
 [lif] Terminal: disabled (the server is reachable from the network). Add --allow-remote-terminal to enable it.
 ```
@@ -102,14 +100,15 @@ With `--token-file` or `LIF_SERVE_TOKEN` the token line reads `Access token: rea
 
 What may use the server depends on the address it listens on.
 
-**On loopback (default)** two checks stand in front of every route. Both read the origin list.
+**On loopback (default)** two checks stand in front of every route. Both read the origin list: the server's own origins plus your `--cors-origin` entries.
 
-- **`Host` header.** A request whose `Host` names a host outside the list gets 403 `host "…" is not allowed`. This stops DNS rebinding: a page of another site makes its name resolve to `127.0.0.1`, so the browser treats the server as that site's own origin. The list gives the host names (`localhost` and `127.0.0.1` by default, and the loopback address the server is bound to); the port is not compared.
+- **`Host` header.** A request whose `Host` names a host outside the list gets 403 `host "…" is not allowed`. This stops DNS rebinding: a page of another site makes its name resolve to `127.0.0.1`, so the browser treats the server as that site's own origin. The list gives the host names (`localhost`, `127.0.0.1` and the loopback address the server is bound to, plus those of your entries); the port is not compared.
 - **`Origin` header.** A request that can change state, that is any method but GET, HEAD and OPTIONS and every WebSocket upgrade, gets 403 `origin "…" is not allowed` when its `Origin` is neither in the list nor the server's own origin. The server's own origin is `http://` plus the `Host` the request was sent to: the page that `lif-serve` serves comes from there, so the built-in UI needs no `--cors-origin`. `Origin: null` (sandboxed pages) is refused. This stops a page of another site from sending `POST /api/graphql` or opening a WebSocket. Reads are not refused, but the page cannot read the answer: the CORS header goes only to listed origins.
 - **No `Origin` at all** passes, so `curl` and scripts keep working, as in the example on [GraphQL](../graphql/). The two checks keep web pages out; they are no protection against a program, which can send any header. The exception is `/api/terminal`: only the web UI uses it and a browser always sends `Origin` on a WebSocket upgrade, so a client without one gets 403 there.
 - A `POST /api/graphql` needs `Content-Type: application/json`. Form and `text/plain` posts, the kinds a page can send without a CORS preflight, answer `transport not supported`, and a mutation over GET answers `GET requests only allow query operations`.
-- Pattern `scheme://host:*` matches any port. Other entries match exactly. With the default list, a page served from any other local port (`http://localhost:*`) passes: another local web app, or an XSS hole in one, can change items, which runs the project hooks and gates of `.lif.yml`, and open the terminal (a shell as your user). The default stays because dev servers on another port need it. `--cors-origin` replaces the list, but the server always adds `http://<its loopback address>:*` (for example `http://127.0.0.1:*`), so a page on another port of that address still passes; no list closes this. Name only the origins that you need, and do not open untrusted pages in a browser while `lif-serve` runs on a project with hooks. The startup output shows a `NOTE` while the list has a `:*` entry.
-- `--cors-origin '*'` sends `Access-Control-Allow-Origin: *`, so any page can **read** what the server answers: items, workspaces, agent sessions. That is all it does. The host check stays on, a page of another site still cannot change anything or open a WebSocket or the terminal, and the default local origins stay allowed as if they were listed. Name the origins that may change things in the list. The server prints a `WARNING` for `*` that names the shell. In 0.14 `*` also let every origin open a WebSocket, the terminal included.
+- **Default: the server's own origin only.** Without `--cors-origin` (and without `server.cors_origins`) nothing but the page that `lif-serve` serves itself may change items or open a WebSocket. On loopback that page is reachable as `localhost`, `127.0.0.1` or the bound loopback address, each on the port of the server. A request from any other local port, such as a dev server of the UI on `http://localhost:5173`, gets 403 `origin "…" is not allowed`, like a page of another site. Entries of `--cors-origin` are added to the own origins; they do not replace them. An entry matches exactly (`http://localhost:5173`). The pattern `scheme://host:*` matches any port.
+- **Risk of a port wildcard.** With `http://localhost:*` (or `http://127.0.0.1:*`) in the list, a page served from any local port can use the server: another local web app, or an XSS hole in one, can change items, which runs the project hooks and gates of `.lif.yml`, and open the terminal (a shell as your user). Do not set it. Name the exact origin of your dev server instead, for example `--cors-origin http://localhost:5173`, and do not open untrusted pages in a browser while `lif-serve` runs on a project with hooks. The startup output shows a `NOTE` while the list has a `:*` entry. Before 0.16 the default list was `http://localhost:*, http://127.0.0.1:*`; a setup that relied on it needs an explicit entry now.
+- `--cors-origin '*'` sends `Access-Control-Allow-Origin: *`, so any page can **read** what the server answers: items, workspaces, agent sessions. That is all it does. The host check stays on, a page of another site, or of another local port, still cannot change anything or open a WebSocket or the terminal, and the server's own origins stay allowed. Name the origins that may change things in the list. The server prints a `WARNING` for `*` that names the shell. In 0.14 `*` also let every origin open a WebSocket, the terminal included.
 
 **Beyond loopback** a script can send any header, so the checks above prove nothing against it. The server asks for the access token instead:
 
@@ -185,6 +184,6 @@ Shells in workspaces get the environment variable `LIF_WORKSPACE_PORT` (legacy `
 
 - Without TLS the access token travels in clear text beyond loopback. Use `--tls-cert` and `--tls-key`, a proxy that ends TLS, or a tunnel [8h4v].
 - No authentication on loopback: every local user of the machine, and every program that runs as you, can use the port [8h4v].
-- With the default origin list a page served from any other local port can use the server (see [Network and CORS](#network-and-cors)).
+- A `--cors-origin` entry with a port wildcard such as `http://localhost:*` lets a page from any local port use the server (see [Network and CORS](#network-and-cors)). The default does not.
 - Beyond loopback, and behind a proxy, the terminal pane of the UI cannot connect while the terminal is off and retries every 500 ms.
 - `lif serve` in the `lif` binary is only a placeholder.

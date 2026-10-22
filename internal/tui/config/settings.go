@@ -57,7 +57,7 @@ type Settings struct {
 
 	// RepoStorePaths maps a Repos entry (repo dir, exact string match) to
 	// an explicit store path the Lobby passes as --lif-path for THAT repo
-	// (data.Client.StorePath). Exists for repos whose config `path` cannot
+	// (data.Store.StorePath). Exists for repos whose config `path` cannot
 	// resolve the store on its own. Absent entries let lif resolve it.
 	RepoStorePaths map[string]string `yaml:"repo_store_paths,omitempty"`
 

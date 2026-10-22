@@ -1,7 +1,7 @@
 package tui
 
 // app_test.go — Q01 (bean bt-7jr8, T8-review): Init() must not panic against
-// a nil data.Client -- it must surface a beansLoadedMsg carrying an error
+// a nil data.Store -- it must surface a beansLoadedMsg carrying an error
 // instead of nil-dereferencing inside loadCmd -> Client.List -> Client.run
 // (cmd.Dir = c.RepoDir on a nil *Client).
 

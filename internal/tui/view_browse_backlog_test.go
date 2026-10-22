@@ -10,6 +10,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,15 +21,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // backlogBeans is a small parentless fixture set covering both Backlog
 // membership (parentless, non-milestone/epic, status todo/draft) and
 // non-membership (parented, milestone/epic type, or completed/in-progress
 // status) -- mirrors idx.Backlog()'s own filter (data/index.go).
-func backlogBeans() []data.Bean {
-	return []data.Bean{
+func backlogBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "bk-mlst", Title: "A Milestone", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "bk-tsk1", Title: "Backlog Task One", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "bk-tsk2", Title: "Backlog Task Two", Status: "draft", Type: "bug", Priority: "high"},
@@ -93,17 +93,17 @@ func TestBacklogAppliesSharedSearchAndFacetFilters(t *testing.T) {
 // staleBacklogBeans returns 10 Backlog-eligible beans (8 "task", 2 "bug",
 // all todo/parentless) so a facet filter can shrink backlogVisible() from
 // 10 down to 2 while a cursor parked at index 9 goes stale.
-func staleBacklogBeans() []data.Bean {
-	var beans []data.Bean
+func staleBacklogBeans() []*item.Item {
+	var beans []*item.Item
 	for i := 0; i < 8; i++ {
-		beans = append(beans, data.Bean{
+		beans = append(beans, &item.Item{
 			ID: fmt.Sprintf("stale-tsk%d", i), Title: fmt.Sprintf("Task %d", i),
 			Status: "todo", Type: "task", Priority: "normal",
 		})
 	}
 	beans = append(beans,
-		data.Bean{ID: "stale-bug0", Title: "Bug Zero", Status: "todo", Type: "bug", Priority: "high"},
-		data.Bean{ID: "stale-bug1", Title: "Bug One", Status: "todo", Type: "bug", Priority: "high"},
+		&item.Item{ID: "stale-bug0", Title: "Bug Zero", Status: "todo", Type: "bug", Priority: "high"},
+		&item.Item{ID: "stale-bug1", Title: "Bug One", Status: "todo", Type: "bug", Priority: "high"},
 	)
 	return beans
 }
@@ -176,7 +176,7 @@ func TestKeyBacklogResyncsStaleCursorBeforeMove(t *testing.T) {
 // view_browse_backlog.go) that treats "" as an ALIAS for "status" when
 // finding the current position, never re-entering "" once cycling starts.
 func TestBacklogSortCyclesThroughFourModesAndBackToStart(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "bk-a", Title: "Zeta", Status: "todo", Type: "task", Priority: "low"},
 		{ID: "bk-b", Title: "Alpha", Status: "in-progress", Type: "task", Priority: "critical"},
 	}
@@ -205,7 +205,7 @@ func TestBacklogSortCyclesThroughFourModesAndBackToStart(t *testing.T) {
 func TestBacklogSortOrdersChangeVisibly(t *testing.T) {
 	older := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	newer := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "bk-a", Title: "A", Status: "todo", Type: "task", Priority: "low", CreatedAt: &older, UpdatedAt: nil},
 		{ID: "bk-b", Title: "B", Status: "todo", Type: "task", Priority: "critical", CreatedAt: &newer, UpdatedAt: &newer},
 	}
@@ -398,9 +398,9 @@ func TestKeyBacklogFilterClearResetsFacets(t *testing.T) {
 // existing windowAround/windowStart (E1 Task 8) -- no new fenestration
 // mechanism.
 func TestBacklogWindowingReusesExistingWindowAround(t *testing.T) {
-	var beans []data.Bean
+	var beans []*item.Item
 	for i := 0; i < 40; i++ {
-		beans = append(beans, data.Bean{
+		beans = append(beans, &item.Item{
 			ID: "bk-w" + string(rune('a'+i)), Title: "Row", Status: "todo", Type: "task", Priority: "normal",
 		})
 	}
@@ -425,7 +425,7 @@ func TestBacklogWindowingReusesExistingWindowAround(t *testing.T) {
 // the tree), cursor parked on the second row, Backlog view active.
 func goldenBacklogModel(t *testing.T) model {
 	t.Helper()
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gbk-mlst", Title: "Golden Milestone", Status: "in-progress", Type: "milestone", Priority: "high"},
 		{ID: "gbk-tsk1", Title: "First backlog task", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "gbk-tsk2", Title: "Second backlog task", Status: "draft", Type: "bug", Priority: "critical", Tags: []string{"backend"}},

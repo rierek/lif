@@ -6,6 +6,7 @@ package tui
 // historieSectionBody so Created/Updated formatting lives in one place.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"time"
 
@@ -57,7 +58,7 @@ func glowRender(md string, width int) string {
 
 // bodySectionBody renders b.Body via glowRender (glamour), with a muted
 // placeholder for an empty body -- digit-jump 2 must always show something.
-func bodySectionBody(b *data.Bean, bodyW int) string {
+func bodySectionBody(b *item.Item, bodyW int) string {
 	if strings.TrimSpace(b.Body) == "" {
 		return theme.Dim.Render("(no body)")
 	}
@@ -144,7 +145,7 @@ func relationRowMarker(active bool, fieldIdx, rowIdx int) string {
 //
 // A foreign/dangling ID (no such prefix) is untouched either way -- that is
 // shortBeanID's own contract.
-func relationRowPrefix(rel *data.Bean, slug string) string {
+func relationRowPrefix(rel *item.Item, slug string) string {
 	return theme.StatusIcon(rel.Status) + " " + theme.TypeIcon(rel.Type) + " " + theme.Key.Render(shortBeanID(rel.ID, slug)) + " "
 }
 
@@ -154,7 +155,7 @@ func relationRowPrefix(rel *data.Bean, slug string) string {
 // continuation lines align under the title's own start on THIS row instead
 // of falling back to column 0. Passes slug "" on purpose -- see
 // relationRowPrefix's own note: the Detail pane keeps the FULL ID (bt-pl5p).
-func relationRow(rel *data.Bean, marker string, w int) string {
+func relationRow(rel *item.Item, marker string, w int) string {
 	return hangingIndentWrap(marker+relationRowPrefix(rel, ""), rel.Title, w)
 }
 
@@ -179,7 +180,7 @@ func relationRow(rel *data.Bean, marker string, w int) string {
 // construction time, so a relation TITLE that happens to contain "▶"/"▷"
 // can never be mistaken for the real cursor.
 func resolveSorted(idx *data.Index, ids []string, startIdx int, active bool, fieldIdx, w int) (lines []string, fields []relationField, nextIdx, activeOffset int) {
-	var resolved []*data.Bean
+	var resolved []*item.Item
 	var unresolved []string
 	for _, id := range ids {
 		if rel, ok := idx.ByID[id]; ok {
@@ -230,7 +231,7 @@ func resolveSorted(idx *data.Index, ids []string, startIdx int, active bool, fie
 // resolveSorted's own B04 parameters; activeOffset mirrors resolveSorted's
 // own bt-se4q addition (display-line offset of the active row within this
 // call's `lines`, -1 if not present here).
-func beanListRow(beans []*data.Bean, startIdx int, active bool, fieldIdx, w int) (lines []string, fields []relationField, nextIdx, activeOffset int) {
+func beanListRow(beans []*item.Item, startIdx int, active bool, fieldIdx, w int) (lines []string, fields []relationField, nextIdx, activeOffset int) {
 	rowIdx := startIdx
 	activeOffset = -1
 	lineOffset := 0
@@ -284,7 +285,7 @@ func beanListRow(beans []*data.Bean, startIdx int, active bool, fieldIdx, w int)
 // of re-deriving it from already-rendered text, which could be fooled by a
 // "▶"/"▷" character living inside a relation's own TITLE (Reviewer-Beleg,
 // bt-b0w0-Review).
-func relationsSectionBody(idx *data.Index, b *data.Bean, bodyW int, active bool, fieldIdx int) (string, []relationField, int) {
+func relationsSectionBody(idx *data.Index, b *item.Item, bodyW int, active bool, fieldIdx int) (string, []relationField, int) {
 	var groups []string
 	var fields []relationField
 	gi := 0
@@ -365,11 +366,11 @@ func fmtTime(t *time.Time) string {
 // muted placeholder instead of Go's zero-time string. B01 (E2-T1-quality-
 // review, MANDATORY carry-over into Task 2): wrapped via wrapText -- a long
 // ETag must wrap instead of overflowing the Detail pane's bordered width.
-func historieSectionBody(b *data.Bean, bodyW int) string {
+func historieSectionBody(b *item.Item, bodyW int) string {
 	var lines []string
 	lines = append(lines, theme.Muted.Render("Created: ")+fmtTime(b.CreatedAt))
 	lines = append(lines, theme.Muted.Render("Updated: ")+fmtTime(b.UpdatedAt))
-	etag := b.ETag
+	etag := b.ETag()
 	if etag == "" {
 		etag = theme.Dim.Render("(none)")
 	}

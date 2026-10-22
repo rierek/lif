@@ -10,6 +10,7 @@ package tui
 // (not just until a hypothetical future T2).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
 	"testing"
@@ -198,8 +199,8 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 // here that needs the synthetic orphan root to exist (visibleNodes only
 // surfaces orphanRootID once at least one such bean is present, port
 // precedent: update_test.go's TestOrphanShownUnderSyntheticRoot).
-func fixtureOrphanBean() data.Bean {
-	return data.Bean{
+func fixtureOrphanBean() *item.Item {
+	return &item.Item{
 		ID: "orph-1", Title: "Orphaned Task", Status: "todo", Type: "task",
 		Priority: "normal", Parent: "does-not-exist",
 	}
@@ -580,13 +581,13 @@ func TestPaletteActionsIncludesRegisterProject(t *testing.T) {
 	}
 }
 
-// TestRegisterProjectNilClientNoOp guards the m.client == nil guard (Palette
+// TestRegisterProjectNilClientNoOp guards the m.store == nil guard (Palette
 // opened from the Lobby itself, no live repo) -- no-op, never crash, no
 // toast, settings unchanged.
 func TestRegisterProjectNilClientNoOp(t *testing.T) {
 	t.Setenv("HOME", t.TempDir()) // isolation: this path must never touch real config.yaml
 	m := fixtureModel(t, fixtureBeans())
-	if m.client != nil {
+	if m.store != nil {
 		t.Fatal("test setup invalid: fixtureModel's client is not nil")
 	}
 	before := append([]string{}, m.settings.Repos...)
@@ -614,7 +615,7 @@ func TestRegisterProjectAlreadyRegisteredShowsInfoToastNoDuplicate(t *testing.T)
 	t.Setenv("HOME", t.TempDir()) // isolation: dedup branch must never reach SaveUserSettings
 	repoDir := "/tmp/bt-d3ps-already-registered"
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: repoDir}
+	m.store = &data.Store{RepoDir: repoDir}
 	m.settings.Repos = []string{repoDir}
 
 	nm, cmd := m.registerProject()
@@ -651,7 +652,7 @@ func TestRegisterProjectSuccessSavesSettingsAndToasts(t *testing.T) {
 	}
 
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: repoDir}
+	m.store = &data.Store{RepoDir: repoDir}
 	if len(m.settings.Repos) != 0 {
 		t.Fatalf("test setup invalid: settings.Repos = %v, want empty", m.settings.Repos)
 	}

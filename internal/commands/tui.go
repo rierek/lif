@@ -1,8 +1,6 @@
 package commands
 
 import (
-	"os"
-
 	"github.com/rierek/lif/internal/tui"
 	tuiconfig "github.com/rierek/lif/internal/tui/config"
 	"github.com/rierek/lif/internal/tui/data"
@@ -29,7 +27,7 @@ current directory. Outside a repository, it shows the repository picker when
 		if len(args) > 0 {
 			path = args[0]
 		}
-		return runTUI(path, storePath)
+		return runTUI(path, storePath, configPath)
 	},
 }
 
@@ -68,16 +66,13 @@ func decideStartup(argPath string, cwdFindErr error, configuredRepoCount int) st
 	return startupError
 }
 
-// runTUI starts the TUI: repo discovery upward from path (default cwd), a
-// Client, then tui.Run. storePathFlag, when set, is handed only to the client
-// of this process's single-repo launch -- never to a Lobby repo the user
-// switches to later, which resolves its own store.
-func runTUI(path, storePathFlag string) error {
-	// The TUI drives the same build that runs it.
-	if exe, err := os.Executable(); err == nil {
-		data.Binary = exe
-	}
-
+// runTUI starts the TUI: repo discovery upward from path (default cwd), an
+// in-process data.Store, then tui.Run. storePathFlag and configPathFlag (the
+// persistent --lif-path and --config flags, parsed also for this bootstrap-skip
+// command), when set, apply only to the store of this process's single-repo
+// launch -- never to a Lobby repo the user switches to later, which resolves
+// its own store and config.
+func runTUI(path, storePathFlag, configPathFlag string) error {
 	settings, err := tuiconfig.LoadSettings()
 	if err != nil {
 		settings = tuiconfig.DefaultSettings()
@@ -89,16 +84,26 @@ func runTUI(path, storePathFlag string) error {
 		if ferr != nil {
 			return ferr
 		}
-		return tui.Run(&data.Client{RepoDir: repoDir, StorePath: storePathFlag}, repoDir, settings)
+		return runTUIRepo(repoDir, storePathFlag, configPathFlag, settings)
 	}
 
 	cwdRepoDir, cwdErr := data.FindRepo(".")
 	switch decideStartup("", cwdErr, len(settings.Repos)) {
 	case startupUseCwdRepo:
-		return tui.Run(&data.Client{RepoDir: cwdRepoDir, StorePath: storePathFlag}, cwdRepoDir, settings)
+		return runTUIRepo(cwdRepoDir, storePathFlag, configPathFlag, settings)
 	case startupLobby:
-		return tui.Run(nil, "", settings) // Lobby-first: client == nil is tui.Run's contract
+		return tui.Run(nil, "", settings) // Lobby-first: store == nil is tui.Run's contract
 	default: // startupError
 		return cwdErr
 	}
+}
+
+// runTUIRepo opens repoDir's store and hands it to tui.Run, which owns it from
+// then on and closes it on exit.
+func runTUIRepo(repoDir, storePathFlag, configPathFlag string, settings tuiconfig.Settings) error {
+	store, err := data.Open(repoDir, storePathFlag, configPathFlag)
+	if err != nil {
+		return err
+	}
+	return tui.Run(store, repoDir, settings)
 }

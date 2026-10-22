@@ -10,13 +10,13 @@ package tui
 // mutateCmd, esc discards.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // contentIndent measures a rendered picker row's hangingIndentWrap indent,
@@ -146,12 +146,13 @@ func TestBlockingPickerToggleFlipsPendingOnly(t *testing.T) {
 
 // TestBlockingPickerEnterDiffsViaSetBlocking mirrors
 // TestTagPickerEnterDiffsFireOneSetTagsCall's verification shape exactly: a
-// real data.Client pointed at a nonexistent repo dir (no beans binary
+// real data.Store pointed at a nonexistent repo dir (no beans binary
 // required), cmd() resolves DIRECTLY to a mutationDoneMsg (not a
 // tea.BatchMsg), whose error text names the dispatched CLI subcommand.
 func TestBlockingPickerEnterDiffsViaSetBlocking(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansWithBlocking())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t3-scratch-dir"}
+	store := newTestStore(t, fixtureBeansWithBlocking()...)
+	m.store = store
 	m = focusBeanFull(m, "bean-a") // Blocking: [bean-b]
 	m = step(t, m, runeMsg('r'))
 
@@ -163,7 +164,7 @@ func TestBlockingPickerEnterDiffsViaSetBlocking(t *testing.T) {
 	}
 	m = step(t, m, runeMsg(' '))
 	for i, it := range m.blockItems {
-		if it.id == "ep-1" { // not originally present -> toggle on = add
+		if it.id == "ep-2" { // not originally present -> toggle on = add
 			m.menu.cursor = i
 		}
 	}
@@ -186,8 +187,11 @@ func TestBlockingPickerEnterDiffsViaSetBlocking(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg (ONE combined SetBlocking call, not tea.Batch)", msg)
 	}
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetBlocking dispatched)", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "bean-a"); !got.IsBlocking("ep-2") || got.IsBlocking("bean-b") {
+		t.Fatalf("bean-a Blocking on disk = %v, want [ep-2] (proves SetBlocking dispatched)", got.Blocking)
 	}
 }
 
@@ -278,7 +282,7 @@ func TestBlockingPickerBoxUsesWideModalWidth(t *testing.T) {
 // column 0 or split the ID itself.
 func TestBlockingPickerBoxLongTitleWrapsWithHangingIndent(t *testing.T) {
 	longID := "bt-averylongidentifier99"
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "ep-1", Title: "Focus", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: longID, Title: "Hier steht ein langer Titel eines beans der so umbricht dass die Uebersicht gewahrt ist", Status: "todo", Type: "task", Priority: "normal"},
 	}
@@ -332,7 +336,7 @@ func TestBlockingPickerBoxLongTitleWrapsWithHangingIndent(t *testing.T) {
 // once as a non-cursor row -- and asserts the indent doesn't move.
 func TestBlockingPickerRowIndentJitterParityCursorVsNonCursor(t *testing.T) {
 	longID := "bt-averylongidentifier99"
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "ep-1", Title: "Focus", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: longID, Title: "Hier steht ein langer Titel eines beans der so umbricht dass die Uebersicht gewahrt ist", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "bt-other", Title: "Short", Status: "todo", Type: "task", Priority: "normal"},
@@ -429,7 +433,7 @@ func TestBlockingPickerEnterTargetVanishedClosesGracefully(t *testing.T) {
 	// bean-a vanishes externally; a reload lands while the picker is still
 	// open (m.overlay survives a reload untouched, applyLoaded never touches
 	// it).
-	var remaining []data.Bean
+	var remaining []*item.Item
 	for _, b := range beans {
 		if b.ID != "bean-a" {
 			remaining = append(remaining, b)

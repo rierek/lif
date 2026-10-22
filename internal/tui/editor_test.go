@@ -6,7 +6,7 @@ package tui
 // (design decision c, unchanged), prepareEditor/readEditorResult's tempfile
 // round-trip (Port devd editor.go, unchanged, testable without a tea
 // runtime), parseRawBean's frontmatter/body split, and applyEditorFinished's
-// parse -> diff -> ONE combined data.Client.UpdateWhole call dispatch
+// parse -> diff -> ONE combined Store.UpdateWhole call dispatch
 // (changed-only, vanished-target guard, parse-error recovery, F2 Review-
 // Runde 2: etag CAPTURED AT OPEN, never a fresh m.beanETag(id) re-read at
 // submit -- see applyEditorFinished's doc-stamp, update.go).
@@ -19,6 +19,7 @@ package tui
 
 import (
 	"errors"
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"strings"
 	"testing"
@@ -28,92 +29,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// fakeBeansOnPath installs an executable "beans" shell script (script,
-// verbatim) on PATH ahead of the real binary, for the duration of the
-// calling test (t.Setenv reverts automatically). Used by the F2 tests below
-// to observe values (e.g. the --if-match etag) that cross into a real
-// subprocess -- something no amount of in-process struct inspection can see
-// once data.Client has handed them to exec.Command.
-func fakeBeansOnPath(t *testing.T, script string) {
-	t.Helper()
-	dir := t.TempDir()
-	path := dir + "/lif"
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
-		t.Fatalf("write fake lif script: %v", err)
-	}
-	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
-}
-
-// fakeBeansEchoIfMatch installs a fake "beans" that always fails, echoing
-// the --if-match value it received to stderr in a form classifyError's
-// conflictSubstring fallback (mutations.go) recognizes as a conflict --
-// letting a test assert on the ACTUAL etag string UpdateWhole dispatched,
-// not just that a mutation fired at all.
-func fakeBeansEchoIfMatch(t *testing.T) {
-	t.Helper()
-	fakeBeansOnPath(t, `#!/bin/sh
-prev=""
-etag=""
-for arg in "$@"; do
-  if [ "$prev" = "--if-match" ]; then
-    etag="$arg"
-  fi
-  prev="$arg"
-done
-echo "etag mismatch: received-if-match=$etag" 1>&2
-exit 1
-`)
-}
-
-// fakeBeansEchoArgs installs a fake "beans" that always fails, echoing
-// EVERY argument it received (space-joined) to stderr -- lets a test assert
-// on the exact flag set a combined UpdateWhole call dispatched (which
-// fields ended up in the ONE `beans update` invocation, D01's "nur
-// geänderte Felder" Akzeptanz-item), not just that some mutation fired.
-func fakeBeansEchoArgs(t *testing.T) {
-	t.Helper()
-	fakeBeansOnPath(t, `#!/bin/sh
-echo "ARGS:$@" 1>&2
-exit 1
-`)
-}
-
-// fakeBeansConflict installs a fake "beans" that always fails with a real
-// CONFLICT JSON error envelope on stdout (the shape classifyError's PRIMARY
-// branch parses, mutations.go) -- for tests that only need a genuine
-// data.ErrConflict-classified error, not the specific etag value.
-func fakeBeansConflict(t *testing.T) {
-	t.Helper()
-	fakeBeansOnPath(t, `#!/bin/sh
-echo '{"success":false,"error":"etag mismatch: stale","code":"CONFLICT"}'
-exit 1
-`)
-}
-
-// fakeBeansValidationError installs a fake "beans" that always fails with a
-// real VALIDATION_ERROR JSON error envelope on stdout (the OTHER
-// classifyError primary-branch shape, mutations.go -- e.g. what a hand-typed
-// invalid status: value in the whole-bean $EDITOR produces on submit,
-// F01/bt-z4b1 Review-Runde 1). Deliberately NOT a CONFLICT: F01's whole
-// point is that the recovery-tempfile path must fire for EVERY UpdateWhole
-// failure, not just the errors.Is(_, data.ErrConflict) subset.
-func fakeBeansValidationError(t *testing.T) {
-	t.Helper()
-	fakeBeansOnPath(t, `#!/bin/sh
-echo '{"success":false,"error":"invalid status: banana","code":"VALIDATION_ERROR"}'
-exit 1
-`)
-}
-
 // rawEditorText builds a whole-bean $EDITOR raw text (the SAME shape
-// data.Client.ShowRaw's seed / a submitted editorFinishedMsg.content carry)
+// Store.Raw's seed / a submitted editorFinishedMsg.content carry)
 // from a rawBeanFrontmatter + explicit body, via yaml.Marshal against the
 // SAME struct parseRawBean unmarshals into -- guarantees the two stay in
 // sync without hand-formatting YAML in every test. Deliberately does NOT
-// add a leading newline to body itself (unlike data.Bean.Body's own
+// add a leading newline to body itself (unlike item.Item.Body's own
 // CLI-JSON convention, which always carries one, verified in
 // internal/data/client_mut_test.go) -- tests compare parseRawBean's
-// extracted body against whatever they set on a *data.Bean snapshot
+// extracted body against whatever they set on a *item.Item snapshot
 // directly, so staying consistent within this file's own tests is what
 // matters, not mirroring the CLI's exact byte convention (that convention
 // is separately pinned by TestParseRawBeanRoundTrip below, against a REAL
@@ -402,7 +326,7 @@ func TestParseRawBeanRejectsMalformedFrontmatter(t *testing.T) {
 // box_picker_tag.go) and Parent's dedicated ParentChanged bool (distinct
 // from "" as a valid --remove-parent target).
 func TestBuildWholeEditDiffDetectsPerFieldChanges(t *testing.T) {
-	snapshot := &data.Bean{
+	snapshot := &item.Item{
 		ID: "tk-1", Title: "Old Title", Status: "todo", Type: "task", Priority: "normal",
 		Tags: []string{"keep", "drop"}, Blocking: []string{"bk-keep", "bk-drop"},
 		BlockedBy: []string{"bb-keep", "bb-drop"}, Parent: "old-parent", Body: "old body",
@@ -486,40 +410,30 @@ func TestBuildWholeEditDiffDetectsPerFieldChanges(t *testing.T) {
 // --- showRawCmd / beanRawLoadedMsg (openBeanEditor's FIRST Cmd-hop) ---
 
 // TestShowRawCmdReturnsBeanRawLoadedMsg guards messages.go's showRawCmd
-// wiring against data.Client.ShowRaw via a fake "beans" binary (no real
-// repo needed -- internal/data's own TestShowRawReturnsFileFormat already
-// covers ShowRaw itself against a real CLI).
+// wiring against Store.Raw: the message carries the item's file as it lies on
+// disk, tagged with the id.
 func TestShowRawCmdReturnsBeanRawLoadedMsg(t *testing.T) {
-	fakeBeansOnPath(t, `#!/bin/sh
-echo "---"
-echo "# tk-9"
-echo "title: Fake Raw"
-echo "status: todo"
-echo "type: task"
-echo "priority: normal"
-echo "---"
-echo ""
-echo "Fake body."
-exit 0
-`)
-	client := &data.Client{RepoDir: t.TempDir()}
-	cmd := showRawCmd(client, "tk-9")
+	store := fixtureStore(t)
+	cmd := showRawCmd(store, "tk-1")
 	if cmd == nil {
 		t.Fatal("showRawCmd() returned a nil Cmd")
 	}
 	msg := cmd()
 	loaded, ok := msg.(beanRawLoadedMsg)
 	if !ok {
-		t.Fatalf("showRawCmd()() = %T, want beanRawLoadedMsg", msg)
+		t.Fatalf("showRawCmd()()  = %T, want beanRawLoadedMsg", msg)
 	}
 	if loaded.err != nil {
 		t.Fatalf("beanRawLoadedMsg.err = %v, want nil", loaded.err)
 	}
-	if loaded.id != "tk-9" {
-		t.Fatalf("id = %q, want tk-9", loaded.id)
+	if loaded.id != "tk-1" {
+		t.Fatalf("id = %q, want tk-1", loaded.id)
 	}
-	if !strings.Contains(loaded.raw, "title: Fake Raw") {
-		t.Fatalf("raw = %q, want it to contain the fake ShowRaw output", loaded.raw)
+	if want := "title: " + storeItem(t, store, "tk-1").Title; !strings.Contains(loaded.raw, want) {
+		t.Fatalf("raw = %q, want it to contain %q", loaded.raw, want)
+	}
+	if missing := showRawCmd(store, "no-such-item")().(beanRawLoadedMsg); missing.err == nil {
+		t.Fatal("showRawCmd for an unknown id: want an error")
 	}
 }
 
@@ -606,7 +520,7 @@ func TestApplyBeanRawLoadedDiscardsStaleLoad(t *testing.T) {
 // must clear the full editor-open state (target/etag/snapshot).
 func TestEditorFinishedUnchangedFiresNoMutation(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-z4b1-scratch-dir"}
+	m.store = newTestStore(t)
 	snap := *m.idx.ByID["tk-1"]
 	m.editorTarget = "tk-1"
 	m.editorETag = "captured-etag"
@@ -634,23 +548,26 @@ func TestEditorFinishedUnchangedFiresNoMutation(t *testing.T) {
 // TestApplyEditorFinishedBuildsCombinedUpdateWholeCall guards the core D01
 // round-trip: a changed editor return is parsed (parseRawBean), diffed
 // against m.editorSnapshot (buildWholeEditDiff), and dispatched as ONE
-// data.Client.UpdateWhole call carrying ONLY the changed fields -- verified
-// via a fake "beans" that echoes its full argument list back (proof of the
-// EXACT flag set, not just that some mutation fired).
+// Store.UpdateWhole call carrying ONLY the changed fields -- verified on the
+// item on disk afterwards: changed fields landed, unchanged ones kept.
 func TestApplyEditorFinishedBuildsCombinedUpdateWholeCall(t *testing.T) {
-	fakeBeansEchoArgs(t)
-
-	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: t.TempDir()}
-	m.editorTarget = "tk-1"
-	m.editorETag = "captured-etag"
-	m.editorSnapshot = &data.Bean{
-		ID: "tk-1", Title: "Old Title", Status: "todo", Type: "task", Priority: "normal",
-		Tags: []string{"keep", "drop"}, Body: "old body",
+	beans := fixtureBeans()
+	for _, b := range beans {
+		if b.ID == "tk-1" {
+			b.Title, b.Tags, b.Body = "Old Title", []string{"keep", "drop"}, "old body"
+		}
 	}
+	store := newTestStore(t, beans...)
+	before := storeItem(t, store, "tk-1")
+
+	m := fixtureModel(t, beans)
+	m.store = store
+	m.editorTarget = "tk-1"
+	m.editorETag = before.ETag()
+	m.editorSnapshot = before
 
 	fm := rawBeanFrontmatter{
-		Title: "New Title", Status: "todo", Type: "task", Priority: "normal",
+		Title: "New Title", Status: before.Status, Type: before.Type, Priority: before.Priority, Parent: before.Parent,
 		Tags: []string{"keep", "added"},
 	}
 	raw := rawEditorText(t, fm, "new body")
@@ -671,19 +588,16 @@ func TestApplyEditorFinishedBuildsCombinedUpdateWholeCall(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
-	if mdm.err == nil {
-		t.Fatal("setup: the fake lif script always exits 1")
+	if mdm.err != nil {
+		t.Fatalf("UpdateWhole failed: %v", mdm.err)
 	}
-	dispatched := mdm.err.Error()
-	for _, want := range []string{"--title", "New Title", "--tag", "added", "--remove-tag", "drop", "--body", "new body", "--if-match", "captured-etag"} {
-		if !strings.Contains(dispatched, want) {
-			t.Errorf("dispatched args = %q, want it to contain %q", dispatched, want)
-		}
+	got := storeItem(t, store, "tk-1")
+	if got.Title != "New Title" || !got.HasTag("added") || !got.HasTag("keep") || got.HasTag("drop") ||
+		!strings.Contains(got.Body, "new body") {
+		t.Errorf("changed fields did not land: %+v", got)
 	}
-	for _, notWant := range []string{"--status", "--type", "--priority", "--parent", "--remove-parent"} {
-		if strings.Contains(dispatched, notWant) {
-			t.Errorf("dispatched args = %q, must NOT contain unchanged-field flag %q", dispatched, notWant)
-		}
+	if got.Status != before.Status || got.Type != before.Type || got.Priority != before.Priority || got.Parent != before.Parent {
+		t.Errorf("unchanged fields were touched: status %q type %q priority %q parent %q", got.Status, got.Type, got.Priority, got.Parent)
 	}
 }
 
@@ -696,19 +610,14 @@ func TestApplyEditorFinishedBuildsCombinedUpdateWholeCall(t *testing.T) {
 // let UpdateWhole sail through with no conflict ever raised. Freezing the
 // etag AND the full snapshot at open (openBeanEditor, editor.go) must mean
 // applyEditorFinished still dispatches the OLD (open-time) etag even after
-// the reload. Proven via a fake "beans" binary (fakeBeansEchoIfMatch) that
-// echoes the actual --if-match value it received back into the error text.
+// the reload. Proven against a real store: an external write makes the
+// open-time etag stale on disk, so it fails with ErrConflict where a fresh
+// re-read at submit would have sailed through.
 func TestEditorFinishedUsesEtagCapturedAtOpenNotFreshIndexRead(t *testing.T) {
-	fakeBeansEchoIfMatch(t)
-
-	openBeans := fixtureBeans()
-	for i := range openBeans {
-		if openBeans[i].ID == "tk-1" {
-			openBeans[i].ETag = "etag-open"
-		}
-	}
-	m := fixtureModel(t, openBeans)
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	store := fixtureStore(t)
+	openETag := storeItem(t, store, "tk-1").ETag()
+	m := fixtureModel(t, fixtureBeans())
+	m.store = store
 	m = focusBean(m, "tk-1")
 
 	// ctrl+e captures editorETag/editorSnapshot from the CURRENT (open-time) index.
@@ -717,11 +626,11 @@ func TestEditorFinishedUsesEtagCapturedAtOpenNotFreshIndexRead(t *testing.T) {
 	if !ok {
 		t.Fatalf("Update(ctrl+e) did not return a model, got %T", tm)
 	}
-	if nm.editorETag != "etag-open" {
-		t.Fatalf("editorETag = %q, want %q (captured at open)", nm.editorETag, "etag-open")
+	if nm.editorETag != openETag {
+		t.Fatalf("editorETag = %q, want %q (captured at open)", nm.editorETag, openETag)
 	}
-	if nm.editorSnapshot == nil || nm.editorSnapshot.ETag != "etag-open" {
-		t.Fatalf("editorSnapshot = %+v, want a snapshot carrying ETag %q", nm.editorSnapshot, "etag-open")
+	if nm.editorSnapshot == nil || nm.editorSnapshot.ETag() != openETag {
+		t.Fatalf("editorSnapshot = %+v, want a snapshot carrying ETag %q", nm.editorSnapshot, openETag)
 	}
 	if cmd == nil {
 		t.Fatal("ctrl+e must return a Cmd (the ShowRaw-read, first Cmd-hop)")
@@ -730,18 +639,15 @@ func TestEditorFinishedUsesEtagCapturedAtOpenNotFreshIndexRead(t *testing.T) {
 	// A watch-reload lands WHILE the $EDITOR-open sequence is still in
 	// flight, rotating tk-1's etag in the live index -- the exact async
 	// window F2 guards.
-	reloadBeans := fixtureBeans()
-	for i := range reloadBeans {
-		if reloadBeans[i].ID == "tk-1" {
-			reloadBeans[i].ETag = "etag-after-reload"
-		}
+	if err := store.SetPriority("tk-1", "critical", openETag); err != nil {
+		t.Fatalf("setup: external write: %v", err)
 	}
-	nm = step(t, nm, beansLoadedMsg{beans: reloadBeans})
-	if nm.editorETag != "etag-open" {
+	nm = step(t, nm, beansLoadedMsg{beans: store.Items()})
+	if nm.editorETag != openETag {
 		t.Fatalf("editorETag = %q, want unchanged by an unrelated reload", nm.editorETag)
 	}
-	if nm.editorSnapshot.ETag != "etag-open" {
-		t.Fatalf("editorSnapshot.ETag = %q, want unchanged by an unrelated reload", nm.editorSnapshot.ETag)
+	if nm.editorSnapshot.ETag() != openETag {
+		t.Fatalf("editorSnapshot.ETag() = %q, want unchanged by an unrelated reload", nm.editorSnapshot.ETag())
 	}
 
 	// The $EDITOR session finishes -- what matters here is the --if-match
@@ -763,14 +669,11 @@ func TestEditorFinishedUsesEtagCapturedAtOpenNotFreshIndexRead(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
-	if mdm.err == nil {
-		t.Fatal("setup: the fake lif script always exits 1")
+	if !errors.Is(mdm.err, data.ErrConflict) {
+		t.Fatalf("UpdateWhole error = %v, want ErrConflict: the OPEN-time etag is stale on disk (F2: must NOT re-read m.idx fresh at submit)", mdm.err)
 	}
-	if !strings.Contains(mdm.err.Error(), "received-if-match=etag-open") {
-		t.Fatalf("UpdateWhole dispatched --if-match: %v, want it to contain the OPEN-time etag %q (F2: must NOT re-read m.idx fresh at submit)", mdm.err, "etag-open")
-	}
-	if strings.Contains(mdm.err.Error(), "etag-after-reload") {
-		t.Fatalf("UpdateWhole dispatched the RELOADED etag: %v, want the one captured at open (F2 regression)", mdm.err)
+	if strings.Contains(storeItem(t, store, "tk-1").Body, "new body") {
+		t.Fatal("the stale-etag edit reached the disk (F2 regression: the RELOADED etag was dispatched)")
 	}
 }
 
@@ -788,10 +691,10 @@ func TestEditorFinishedUsesEtagCapturedAtOpenNotFreshIndexRead(t *testing.T) {
 // (TestApplyEditorFinishedRecoversTempfileOnCLIValidationError below).
 func TestApplyEditorFinishedRecoversTempfileOnParseError(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	m.store = fixtureStore(t)
 	m.editorTarget = "tk-1"
 	m.editorETag = "etag-open"
-	m.editorSnapshot = &data.Bean{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high"}
+	m.editorSnapshot = &item.Item{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high"}
 
 	const malformed = "not a valid raw bean at all, no frontmatter delimiters"
 	tm, cmd := m.Update(editorFinishedMsg{content: malformed, changed: true})
@@ -838,13 +741,12 @@ func TestApplyEditorFinishedRecoversTempfileOnParseError(t *testing.T) {
 // recoverable: tempfile exists, carries the FULL raw edited text, and its
 // path rides along in the status-line text.
 func TestApplyEditorFinishedRecoversTempfileOnCLIValidationError(t *testing.T) {
-	fakeBeansValidationError(t)
-
+	store := fixtureStore(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	m.store = store
 	m.editorTarget = "tk-1"
-	m.editorETag = "etag-open"
-	m.editorSnapshot = &data.Bean{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high"}
+	m.editorETag = storeItem(t, store, "tk-1").ETag() // current, so the rejection is validation, not conflict
+	m.editorSnapshot = &item.Item{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high"}
 
 	// Parses fine (valid YAML/delimiters) -- the CLI is what rejects it.
 	fm := rawBeanFrontmatter{Title: "Task One", Status: "banana", Type: "task", Priority: "high"}
@@ -864,14 +766,14 @@ func TestApplyEditorFinishedRecoversTempfileOnCLIValidationError(t *testing.T) {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
 	if mdm.err == nil {
-		t.Fatal("setup: the fake lif script always exits 1")
+		t.Fatal("setup: the invalid status must be rejected")
 	}
 	if errors.Is(mdm.err, data.ErrConflict) {
 		t.Fatalf("mutationDoneMsg.err = %v, want a NON-conflict error (F01 is precisely about the non-conflict path)", mdm.err)
 	}
 
 	fm2 := step(t, nm, mdm)
-	if !strings.Contains(fm2.err, "VALIDATION_ERROR") {
+	if !strings.Contains(fm2.err, "invalid status") {
 		t.Fatalf("status line = %q, want it to surface the CLI's own validation error", fm2.err)
 	}
 	const marker = "your version: "
@@ -897,13 +799,11 @@ func TestApplyEditorFinishedRecoversTempfileOnCLIValidationError(t *testing.T) {
 // riding along in the status-line text applyMutationResult (update.go)
 // produces.
 func TestApplyEditorFinishedConflictWritesRecoveryTempFileAndSurfacesPath(t *testing.T) {
-	fakeBeansConflict(t)
-
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	m.store = fixtureStore(t)
 	m.editorTarget = "tk-1"
 	m.editorETag = "etag-open"
-	m.editorSnapshot = &data.Bean{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Body: "old body"}
+	m.editorSnapshot = &item.Item{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Body: "old body"}
 
 	fm := rawBeanFrontmatter{Title: "Task One", Status: "in-progress", Type: "task", Priority: "high"}
 	raw := rawEditorText(t, fm, "edited body that must not be lost")
@@ -954,7 +854,7 @@ func TestEditorFinishedTargetVanishedSurfacesError(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.editorTarget = "does-not-exist"
 	m.editorETag = "captured-etag"
-	m.editorSnapshot = &data.Bean{ID: "does-not-exist", Title: "Ghost"}
+	m.editorSnapshot = &item.Item{ID: "does-not-exist", Title: "Ghost"}
 
 	tm, cmd := m.Update(editorFinishedMsg{content: "new content", changed: true})
 	nm, ok := tm.(model)
@@ -1009,7 +909,7 @@ func TestApplyEditorFinishedVanishedTargetRecoversTempfile(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.editorTarget = "does-not-exist"
 	m.editorETag = "captured-etag"
-	m.editorSnapshot = &data.Bean{ID: "does-not-exist", Title: "Ghost", Status: "todo", Type: "task", Priority: "normal"}
+	m.editorSnapshot = &item.Item{ID: "does-not-exist", Title: "Ghost", Status: "todo", Type: "task", Priority: "normal"}
 
 	fm := rawBeanFrontmatter{Title: "Ghost Edited", Status: "todo", Type: "task", Priority: "normal"}
 	raw := rawEditorText(t, fm, "edited body that must survive an externally deleted target")

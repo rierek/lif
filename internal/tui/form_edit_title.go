@@ -13,9 +13,8 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
-
-	"github.com/rierek/lif/internal/tui/data"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -85,7 +84,7 @@ func buildEditTitleForm(title string) *huh.Form {
 // are mutually exclusive capture states, design decision a2, so there is no
 // collision) -- the ETag is deliberately NOT captured here (design decision
 // d): submitForm's "editTitle" case re-reads it fresh via m.beanETag.
-func (m model) openEditTitleForm(b *data.Bean) (tea.Model, tea.Cmd) {
+func (m model) openEditTitleForm(b *item.Item) (tea.Model, tea.Cmd) {
 	m.mutTarget = b.ID
 	m.formKind = "editTitle"
 	m.form = m.styleForm(buildEditTitleForm(b.Title))

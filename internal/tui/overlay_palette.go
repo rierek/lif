@@ -100,7 +100,7 @@ func paletteActions(m model) []paletteItem {
 		// bt-d3ps (epic-E13-plan.md Item 4, PO-Redefinition Grilling
 		// 2026-07-17, replaces the earlier discovery-scan design entirely --
 		// NO scan, NO discovery roots, NO find-persistence): registers the
-		// currently open repo (m.client.RepoDir) into the SAME central
+		// currently open repo (m.store.RepoDir) into the SAME central
 		// config.yaml register the Lobby itself reads (view_lobby.go) --
 		// grouped directly after "go to repo picker" (same repo-registry
 		// neighborhood, mirrors "create_tag" sitting directly after "tags").
@@ -263,7 +263,7 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 		case "search":
 			return m.openSearchInput()
 		case "reload":
-			return m, loadCmd(m.client)
+			return m, loadCmd(m.store)
 		case "repo_picker":
 			// E5 Task 6 (bean bt-zhwl): identical to keys.Picker's own
 			// dispatch (handleKey, update.go) -- the Command-Center is a
@@ -298,13 +298,13 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 // opened via plain cwd-resolution (FindRepo, never explicitly registered)
 // has no way into that list otherwise. This is the one-keystroke bridge.
 func (m model) registerProject() (tea.Model, tea.Cmd) {
-	if m.client == nil {
+	if m.store == nil {
 		// Palette opened from the Lobby itself (no live repo) -- mirrors
 		// dispatchPalette's own "edit_title" focusedBean()-nil-guard shape:
 		// no-op, never crash.
 		return m, nil
 	}
-	repoDir := m.client.RepoDir
+	repoDir := m.store.RepoDir
 	for _, r := range m.settings.Repos {
 		if r == repoDir {
 			var toastCmd tea.Cmd

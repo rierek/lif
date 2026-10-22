@@ -11,6 +11,7 @@ package tui
 // a bean has exactly ONE parent, there is nothing to diff.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	keybind "github.com/charmbracelet/bubbles/key"
@@ -66,7 +67,7 @@ const parentPickerRowBudget = 14
 // prefix drops the current repo's own ID prefix exactly like the left pane's
 // rows do. pickerItem.id deliberately keeps the FULL id: it is the mutation
 // target handed to SetParent, not display text.
-func buildParentItems(idx *data.Index, b *data.Bean, slug string) []pickerItem {
+func buildParentItems(idx *data.Index, b *item.Item, slug string) []pickerItem {
 	items := []pickerItem{{id: "", title: "(No parent)"}}
 	for _, cand := range data.EligibleParents(idx, b) {
 		items = append(items, pickerItem{id: cand.ID, prefix: relationRowPrefix(cand, slug), title: cand.Title})
@@ -188,12 +189,12 @@ func (m model) applyParentPickerSelection() (tea.Model, tea.Cmd) {
 		m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 		return m, toastCmd
 	}
-	client := m.client
+	store := m.store
 	if it.id == "" {
-		return m, mutateCmd(func() error { return client.RemoveParent(id, etag) })
+		return m, mutateCmd(store, func() error { return store.RemoveParent(id, etag) })
 	}
 	parentID := it.id
-	return m, mutateCmd(func() error { return client.SetParent(id, parentID, etag) })
+	return m, mutateCmd(store, func() error { return store.SetParent(id, parentID, etag) })
 }
 
 // parentPickerBox renders the floating Parent-Picker overlay -- D08 cursor

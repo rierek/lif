@@ -116,7 +116,7 @@ Task fixture body.
 // (round-robin) across the 10 epics via `parent`. A realistic tree depth
 // (milestone -> epic -> task) rather than a flat list, per E6 T1 design
 // decision b (epic-E6-plan.md) -- the US-01 performance smoke measures
-// Client.List() against this, the exact call `cmd/tui.go::runTUI`/loadCmd
+// Open+Items() against this, the exact calls runTUI and loadCmd
 // issues on startup (`beans list --json --full`).
 //
 // n must be >= 11 (1 milestone + 10 epics minimum). IDs are generated

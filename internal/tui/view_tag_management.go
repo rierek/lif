@@ -126,7 +126,7 @@ func tagRegistryRows(idx *data.Index, defs []string) []tagRegistryRow {
 // entry): loads the registry FRESH from disk (D03, mirrors openLobby's own
 // "reload from disk on every open" convention) -- synchronous, no tea.Cmd
 // (D02: a local file read is fast enough for a direct call, same contract
-// LoadTagDefs itself documents). A nil m.client (pre-load / test fixture)
+// LoadTagDefs itself documents). A nil m.store (pre-load / test fixture)
 // degrades to an empty registry rather than panicking -- mirrors D02's own
 // tolerant-missing philosophy one layer up. Resets tagMgmtCursor (mirrors
 // openLobby's repoList reset) so a stale cursor from a PREVIOUS, longer page
@@ -134,8 +134,8 @@ func tagRegistryRows(idx *data.Index, defs []string) []tagRegistryRow {
 func (m model) openTagManagementPage() (tea.Model, tea.Cmd) {
 	m.view = viewTagManagement
 	var defs []string
-	if m.client != nil {
-		defs, _ = m.client.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
+	if m.store != nil {
+		defs, _ = m.store.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
 	}
 	m.tagMgmtRows = tagRegistryRows(m.idx, defs)
 	m.tagMgmtCursor = listState{}
@@ -463,7 +463,7 @@ func (m model) openTagMgmtAdopt(row tagRegistryRow) (tea.Model, tea.Cmd) {
 		return m.showToast(toastWarn, "invalid tag name (a-z0-9, hyphen-separated, lowercase)", "", nil, false)
 	}
 	defs := definedTagNames(m.tagMgmtRows)
-	return m, saveTagDefsCmd(m.client, data.AddTagDefName(defs, row.name), row.name,
+	return m, saveTagDefsCmd(m.store, data.AddTagDefName(defs, row.name), row.name,
 		fmt.Sprintf("tag '%s' registered", row.name))
 }
 
@@ -515,7 +515,7 @@ func (m model) keyTagMgmtInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// refindName = the new name, explicitly (B01, Fix-Runde 1, bean
 			// bt-1lsu): applyTagDefsSaved no longer reads the input's Value()
 			// implicitly -- every dispatch site names its own cursor target.
-			return m, saveTagDefsCmd(m.client, data.AddTagDefName(defs, name), name, "")
+			return m, saveTagDefsCmd(m.store, data.AddTagDefName(defs, name), name, "")
 		case "rename":
 			// E10 Task 5 (bean bt-y9my, D13): Registry-Rename and Bean-Sweep
 			// dispatch as TWO INDEPENDENT Cmds in ONE tea.Batch -- neither
@@ -528,8 +528,8 @@ func (m model) keyTagMgmtInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			old := m.tagMgmtInputTarget
 			defs := definedTagNames(m.tagMgmtRows)
 			return m, tea.Batch(
-				saveTagDefsCmd(m.client, data.RenameTagDefName(defs, old, name), name, ""),
-				renameTagCmd(m.client, m.idx, old, name),
+				saveTagDefsCmd(m.store, data.RenameTagDefName(defs, old, name), name, ""),
+				renameTagCmd(m.store, m.idx, old, name),
 			)
 		}
 		return m, nil
@@ -602,7 +602,7 @@ func (m model) openTagMgmtDeleteConfirm() (tea.Model, tea.Cmd) {
 // second save path) with the target removed from the registry's CURRENT
 // defined names (data.RemoveTagDefName, T1); esc/n cancels WITHOUT saving
 // (mirrors keyDeleteConfirm's own esc/n-cancel dual, box_confirm_delete.go).
-// REGISTRY-ONLY (D12): this function never calls data.Client.SetTags or
+// REGISTRY-ONLY (D12): this function never calls data.Store.SetTags or
 // touches m.idx in any way -- only SaveTagDefs, exactly like Create (T3).
 // Every OTHER key is a silent, HANDLED no-op (Full-Capture-Disziplin, the
 // SAME "no fallthrough to any outer handler" contract keyTagMgmtInput
@@ -620,7 +620,7 @@ func (m model) keyTagMgmtDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// name-search misses, and the cursor stays put -- and stale text in
 		// the (esc-aborted, never-cleared) Create input can no longer
 		// redirect the cursor, since applyTagDefsSaved no longer reads it.
-		return m, saveTagDefsCmd(m.client, data.RemoveTagDefName(defs, target), target, "")
+		return m, saveTagDefsCmd(m.store, data.RemoveTagDefName(defs, target), target, "")
 	case keybind.Matches(msg, keys.Back), msg.String() == "n":
 		m.tagMgmtDeleteConfirm = false
 		m.tagMgmtDeleteTarget = ""

@@ -15,13 +15,13 @@ package tui
 // also firing a Toast) is covered per-site in each of their own owning
 // _test.go files (box_confirm_delete_test.go et al.), not duplicated here.
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // errMarker is a distinctive, never-otherwise-emitted string used to prove
@@ -52,7 +52,7 @@ func TestViewBrowseRepoNeverRendersMErr(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gld-mlst", Title: "Golden Milestone", Status: "in-progress", Type: "milestone", Priority: "high"},
 	}
 	m := newModel(nil, "/tmp/bt-81f0-scratch-repo")
@@ -72,7 +72,7 @@ func TestViewBacklogNeverRendersMErr(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gld-tsk1", Title: "Backlog-eligible task", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	m := newModel(nil, "/tmp/bt-81f0-scratch-repo")
@@ -93,7 +93,7 @@ func TestViewTagManagementNeverRendersMErr(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gld-tsk1", Title: "Some task", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"backend"}},
 	}
 	m := newModel(nil, "/tmp/bt-81f0-scratch-repo")

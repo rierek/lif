@@ -303,7 +303,7 @@ func (m model) viewLobby() string {
 // only: the surrounding hint line ("↑↓:move  enter:open  type:filter  ",
 // viewLobby) keeps its own colon format, out of this task's scope.
 func lobbyExitHint(m model) string {
-	if m.client != nil {
+	if m.store != nil {
 		return theme.BindingKey.Render("esc") + " " + theme.BindingDesc.Render("back") + "  " +
 			theme.BindingKey.Render("q") + " " + theme.BindingDesc.Render("quit")
 	}
@@ -351,12 +351,6 @@ func (m model) openLobby() (tea.Model, tea.Cmd) {
 // above), q ALWAYS quit-confirms (B08 stage 2 must stay reachable), ctrl+c
 // ALWAYS quits immediately (bt-7jr8 kill-switch contract); any other key
 // filters repoQuery live.
-//
-// notify is wired here (not messages.go) as
-// func(){ activeProgram.Send(watchMsg{}) } -- activeProgram (app.go) is
-// guaranteed non-nil by the time a keypress can reach this handler (Run()
-// sets it immediately after tea.NewProgram, strictly before p.Run() is ever
-// called, and no key can be dispatched before that).
 func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// bt-l8e7 fix (E12 Item 3): intercept the RAW tea.KeyUp/tea.KeyDown
 	// KeyType here, NOT navKey()'s letter-alias table (keys.Up binds "i",
@@ -380,10 +374,9 @@ func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		target := filtered[m.repoList.cursor]
-		notify := func() { activeProgram.Send(watchMsg{}) }
-		return m, switchRepoCmd(m.watchStop, target, m.settings.RepoStorePaths[target], notify)
+		return m, switchRepoCmd(m.store, target, m.settings.RepoStorePaths[target])
 	case "esc":
-		if m.client != nil {
+		if m.store != nil {
 			// A live repo already exists (p from a running session) -- go
 			// back to it instead of force-quitting a working session
 			// (design decision, bean bt-zhwl Step 9: devd's own keyHome has
@@ -396,7 +389,7 @@ func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.requestQuit()
 	case "q":
 		// B01 fix (bt-1u0t Fix-Runde 1): q quit-confirms REGARDLESS of
-		// m.client -- the pre-fix uniform esc/q/ctrl+c case made stage 2 of
+		// m.store -- the pre-fix uniform esc/q/ctrl+c case made stage 2 of
 		// the B08 quit cascade unreachable once a repo had ever been opened
 		// (q always bounced back to Browse), contradicting the PO wording
 		// (bt-ntoz B08: "aus der Lobby q→enter beendet die TUI").

@@ -6,6 +6,7 @@ package tui
 // forced for determinism.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // goldenTreeModel builds the deterministic fixture rendered by
@@ -23,7 +23,7 @@ import (
 // both branches expanded, cursor parked on a leaf.
 func goldenTreeModel(t *testing.T) model {
 	t.Helper()
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gld-mlst", Title: "Golden Milestone", Status: "in-progress", Type: "milestone", Priority: "high"},
 		{ID: "gld-epic", Title: "Golden Epic", Status: "todo", Type: "epic", Priority: "normal", Parent: "gld-mlst", Tags: []string{"backend"}},
 		{ID: "gld-tsk1", Title: "First golden task", Status: "todo", Type: "task", Priority: "normal", Parent: "gld-epic"},

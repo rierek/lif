@@ -15,7 +15,7 @@ import (
 )
 
 func TestLoadTagDefsMissingFileReturnsEmpty(t *testing.T) {
-	c := &Client{RepoDir: t.TempDir()}
+	c := &Store{RepoDir: t.TempDir()}
 	got, err := c.LoadTagDefs()
 	if err != nil || len(got) != 0 {
 		t.Fatalf("want (nil, nil), got (%v, %v)", got, err)
@@ -40,7 +40,7 @@ func TestLoadTagDefsSkipsInvalidNamesDefensively(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".lif-tags.yml"),
 		[]byte("tags:\n  - good-tag\n  - Bad_Tag\n  - \"\"\n"), 0o644)
-	c := &Client{RepoDir: dir}
+	c := &Store{RepoDir: dir}
 	got, _ := c.LoadTagDefs()
 	if len(got) != 1 || got[0] != "good-tag" {
 		t.Fatalf("want [good-tag], got %v", got)
@@ -49,7 +49,7 @@ func TestLoadTagDefsSkipsInvalidNamesDefensively(t *testing.T) {
 
 func TestSaveTagDefsRoundTripSortedDeduped(t *testing.T) {
 	dir := t.TempDir()
-	c := &Client{RepoDir: dir}
+	c := &Store{RepoDir: dir}
 	if err := c.SaveTagDefs([]string{"zeta", "alpha", "alpha"}); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestLoadTagDefsCorruptYAMLReturnsEmptyNoPanic(t *testing.T) {
 		[]byte("tags: [this is not: valid: yaml: at: all"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	c := &Client{RepoDir: dir}
+	c := &Store{RepoDir: dir}
 	got, err := c.LoadTagDefs()
 	if err != nil {
 		t.Fatalf("want nil error on corrupt YAML, got %v", err)
@@ -90,7 +90,7 @@ func TestLoadTagDefsCorruptYAMLReturnsEmptyNoPanic(t *testing.T) {
 // the written file round-trips through LoadTagDefs as valid YAML.
 func TestSaveTagDefsWritesReadablePermissions(t *testing.T) {
 	dir := t.TempDir()
-	c := &Client{RepoDir: dir}
+	c := &Store{RepoDir: dir}
 	if err := c.SaveTagDefs([]string{"solo"}); err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestTagDefsLegacyFileIsUsedInPlace(t *testing.T) {
 	if err := os.WriteFile(legacy, []byte("tags:\n  - alpha\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	c := &Client{RepoDir: dir}
+	c := &Store{RepoDir: dir}
 
 	got, err := c.LoadTagDefs()
 	if err != nil || !reflect.DeepEqual(got, []string{"alpha"}) {

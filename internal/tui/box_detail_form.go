@@ -14,6 +14,7 @@ package tui
 // the pane (dropdownBox floors at 8 cells) but never collapse to 1-up.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -95,7 +96,7 @@ func gridRow(cells []scalarCell, width, focusedCol int) string {
 // (box_panel.go) reusing view_detail_bean.go's own content renderers. idx is
 // needed to resolve Relations (parent/children/blocking). width = inner pane
 // width in cells.
-func detailBoxForm(idx *data.Index, b *data.Bean, width, cursor int) string {
+func detailBoxForm(idx *data.Index, b *item.Item, width, cursor int) string {
 	return strings.Join(boxFormBlocks(idx, b, width, cursor), "\n")
 }
 
@@ -112,7 +113,7 @@ func detailBoxForm(idx *data.Index, b *data.Bean, width, cursor int) string {
 // cursor at all -- which is the state EVERY pre-bt-1o4g call site is in
 // (unfocused Detail pane, fullscreen, the flag-on goldens), so the -1 render
 // is exactly the previous output, every box focused=false.
-func boxFormBlocks(idx *data.Index, b *data.Bean, width, cursor int) []string {
+func boxFormBlocks(idx *data.Index, b *item.Item, width, cursor int) []string {
 	focusRow, focusCol := -1, -1
 	if cursor >= 0 && cursor < len(boxFormFieldOrder) {
 		focusRow = boxFormFieldOrder[cursor].row

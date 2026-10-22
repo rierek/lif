@@ -12,6 +12,7 @@ package tui
 // beanContext directly, which takes no clipboard action.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -21,8 +22,8 @@ import (
 // contextFixtureBeans is a small Epic -> 2 Tasks hierarchy with a resolvable
 // Blocking relation -- the exact shape TestBeanContextResolvesParentTitle
 // AndRelations needs (fixtureBeans has no Blocking set on any bean).
-func contextFixtureBeans() []data.Bean {
-	return []data.Bean{
+func contextFixtureBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1", Blocking: []string{"tk-2"}},
 		{ID: "tk-2", Title: "Task Two", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-1"},

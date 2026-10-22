@@ -8,11 +8,11 @@ package tui
 // oldPos fallback, no new cursor logic).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- openDeleteConfirm ---
@@ -84,7 +84,7 @@ func TestOpenDeleteConfirmLeafHasZeroChildren(t *testing.T) {
 // fixtureBeans() for Q01 coverage: tk-1 blocks tk-2 (tk-1.Blocking =
 // [tk-2], tk-2.BlockedBy = [tk-1]) -- both halves of the SAME link, so
 // deleting either end exercises countLinkedBeans from each side.
-func fixtureBeansLinked() []data.Bean {
+func fixtureBeansLinked() []*item.Item {
 	beans := fixtureBeans()
 	for i := range beans {
 		switch beans[i].ID {
@@ -298,14 +298,12 @@ func TestDeleteBoxOmitsLinkedWarningWhenZero(t *testing.T) {
 // --- keyDeleteConfirm ---
 
 // TestDeleteConfirmEnterFiresDeleteAndCloses guards enter: closes the
-// overlay and returns a Cmd whose resolved mutationDoneMsg's error names
-// "lif delete" (proves data.Client.Delete dispatched, NO --if-match --
-// mutations.go's Delete signature takes no etag at all), verified the same
-// no-binary-required way box_picker_parent_test.go/box_confirm_create_test.go
-// already use.
+// overlay and returns a Cmd whose resolved mutationDoneMsg carries no error
+// and whose item is gone from the store on disk (Store.Delete takes no etag).
 func TestDeleteConfirmEnterFiresDeleteAndCloses(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t6-scratch-dir"}
+	store := fixtureStore(t)
+	m.store = store
 	m = focusBean(m, "tk-1")
 	m = step(t, m, runeMsg('d'))
 
@@ -325,8 +323,11 @@ func TestDeleteConfirmEnterFiresDeleteAndCloses(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif delete") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves Delete dispatched)", mdm.err, "lif delete")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if _, err := store.Core.Get("tk-1"); err == nil {
+		t.Fatal("tk-1 still exists on disk after the delete (proves Delete dispatched)")
 	}
 }
 
@@ -381,7 +382,7 @@ func TestDeleteConfirmEnterTargetVanishedClosesGracefully(t *testing.T) {
 		t.Fatal("setup: d did not open the delete confirm")
 	}
 
-	remaining := []data.Bean{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
+	remaining := []*item.Item{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
 	m = step(t, m, beansLoadedMsg{beans: remaining})
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
@@ -443,7 +444,7 @@ func TestDeleteCursorClampsViaApplyLoadedOldPos(t *testing.T) {
 	}
 
 	nm = step(t, nm, mutationDoneMsg{err: nil})
-	remaining := []data.Bean{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- tk-2 deleted
+	remaining := []*item.Item{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- tk-2 deleted
 	nm = step(t, nm, beansLoadedMsg{beans: remaining})
 
 	if nm.cursorID == "tk-2" {
@@ -484,7 +485,7 @@ func TestKeyNodeActionDNoFocusedBeanIsSilentNoOp(t *testing.T) {
 // drove it end-to-end through the ACTUAL delete flow before, nor proved
 // View() survives rendering a fully empty repo without panicking.
 func TestDeleteLastBeanInRepoClearsCursorGracefully(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "tk-1", Title: "Only Task", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)

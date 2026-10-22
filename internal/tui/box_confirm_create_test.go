@@ -8,11 +8,11 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // skipSlowHuhDriveInShortMode guards the handful of tests in this file that
@@ -153,7 +153,7 @@ func TestSubmitFormParksCmdAndOpensConfirm(t *testing.T) {
 
 // TestCreateConfirmEnterFiresPendingCmd guards the enter branch of
 // keyCreateConfirm: closes the overlay and returns the createCmd that
-// actually dispatches `beans create` (verified via a real data.Client
+// actually dispatches `beans create` (verified via a real data.Store
 // pointed at a nonexistent repo dir -- same no-binary-required pattern
 // box_picker_parent_test.go/box_picker_tag_test.go already use).
 //
@@ -167,7 +167,8 @@ func TestSubmitFormParksCmdAndOpensConfirm(t *testing.T) {
 func TestCreateConfirmEnterFiresPendingCmd(t *testing.T) {
 	skipSlowHuhDriveInShortMode(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t4-scratch-dir"}
+	store := fixtureStore(t)
+	m.store = store
 	m = openFilledCreateConfirm(t, m, "ep-1", "New Task")
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
@@ -197,8 +198,11 @@ func TestCreateConfirmEnterFiresPendingCmd(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want createDoneMsg", msg)
 	}
-	if cdm.err == nil || !strings.Contains(cdm.err.Error(), "lif create") {
-		t.Fatalf("createDoneMsg.err = %v, want an error containing %q (proves Create dispatched)", cdm.err, "lif create")
+	if cdm.err != nil || cdm.bean == nil {
+		t.Fatalf("createDoneMsg = %+v, want a created item (proves Create dispatched)", cdm)
+	}
+	if got := storeItem(t, store, cdm.bean.ID); got.Title != "New Task" || got.Parent != "ep-1" {
+		t.Fatalf("created item on disk = %+v, want title New Task under ep-1", got)
 	}
 
 	// F1: once createDoneMsg resolves (error path here), pendingCreate must
@@ -220,7 +224,7 @@ func TestCreateConfirmEnterFiresPendingCmd(t *testing.T) {
 func TestCreateConfirmEnterErrorPreservesDraftAndReopensForm(t *testing.T) {
 	skipSlowHuhDriveInShortMode(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t5-scratch-dir"}
+	m.store = newTestStore(t)
 	m = openFilledCreateConfirm(t, m, "ep-1", "New Task")
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
@@ -288,7 +292,7 @@ func TestCreateConfirmEnterErrorPreservesDraftAndReopensForm(t *testing.T) {
 func TestCreateDoneErrorWhileBusyRoutesToStatusLineFormUntouched(t *testing.T) {
 	skipSlowHuhDriveInShortMode(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t5-scratch-dir"}
+	m.store = newTestStore(t)
 	m = openFilledCreateConfirm(t, m, "ep-1", "New Task")
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter)) // fires the createCmd, now in flight
@@ -347,7 +351,7 @@ func TestCreateDoneErrorWhileBusyRoutesToStatusLineFormUntouched(t *testing.T) {
 func TestKeyNodeActionCIgnoredWhileCreateInFlight(t *testing.T) {
 	skipSlowHuhDriveInShortMode(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t5-scratch-dir"}
+	m.store = newTestStore(t)
 	m = openFilledCreateConfirm(t, m, "ep-1", "New Task")
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
@@ -425,7 +429,7 @@ func TestCreateDoneSuccessConsumesDraft(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	d := beanDraft{title: "New Task"}
 	m.createDraft = &d
-	newBean := data.Bean{ID: "tk-9", Title: "New Task", Type: "task", Status: "todo", Priority: "normal"}
+	newBean := &item.Item{ID: "tk-9", Title: "New Task", Type: "task", Status: "todo", Priority: "normal"}
 
 	nm := step(t, m, createDoneMsg{bean: newBean})
 	if nm.createDraft != nil {
@@ -480,7 +484,7 @@ func TestCreateConfirmEscReturnsToFilledForm(t *testing.T) {
 // mirroring fixtureModel's own convention) arrives.
 func TestCreateDoneJumpsCursorAndExpandsParentPath(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans()) // ms-1 -> ep-1 -> tk-1, tk-2
-	newBean := data.Bean{ID: "tk-9", Title: "New Task", Type: "task", Status: "todo", Priority: "normal", Parent: "ep-1"}
+	newBean := &item.Item{ID: "tk-9", Title: "New Task", Type: "task", Status: "todo", Priority: "normal", Parent: "ep-1"}
 
 	tm, cmd := m.Update(createDoneMsg{bean: newBean})
 	nm, ok := tm.(model)

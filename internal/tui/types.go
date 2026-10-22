@@ -7,6 +7,8 @@ package tui
 // beans-native from the start, design-spec.md §3.1/§13).
 
 import (
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
 	"time"
 
 	"github.com/rierek/lif/internal/tui/config"
@@ -126,7 +128,7 @@ type model struct {
 
 	width, height int
 
-	client  *data.Client
+	store   *data.Store
 	repoDir string
 
 	idx *data.Index
@@ -481,7 +483,7 @@ type model struct {
 	editorETag   string
 
 	// editorSnapshot (D01, design-spec.md §15 PF-17, bean bt-z4b1): the FULL
-	// *data.Bean value at $EDITOR-OPEN time, frozen in the SAME
+	// *item.Item value at $EDITOR-OPEN time, frozen in the SAME
 	// openBeanEditor call as editorTarget/editorETag above -- unlike the
 	// old openBodyEditor (SetBody-only, E3 Task 5/E8 B10, both SUPERSEDED
 	// by this task), the whole-bean $EDITOR round-trip diffs EVERY field
@@ -492,7 +494,7 @@ type model struct {
 	// applyBeanRawLoaded's error paths (update.go) clear all three
 	// together on every exit, mirroring editorTarget/editorETag's own
 	// contract.
-	editorSnapshot *data.Bean
+	editorSnapshot *item.Item
 
 	// Delete-Confirm `d` (E3 Task 6, bean bt-ppzb, box_confirm_delete.go):
 	// delTitle/delChildren are captured at OPEN time (openDeleteConfirm) for
@@ -633,23 +635,16 @@ type model struct {
 	// filter text over m.settings.Repos, repoSearch the backing
 	// textinput.Model (constructed once in newModel, like searchInput/
 	// tagInput), repoList the cursor over the CURRENTLY filtered result
-	// (filteredRepos(), view_lobby.go). watchStop holds the CURRENTLY
-	// running watcher's stop func -- the crux of the whole task: unlike E1-
-	// E4, where the watcher's stop lived ONLY as app.go Run()'s own local
-	// variable (invisible to Update()), a repo switch needs Update() itself
-	// to be able to retire the OLD watcher before the new one starts
-	// (switchRepoCmd, messages.go) -- so it now lives on the model instead.
-	// Populated two ways: the VERY FIRST watcher (app.go Run(), via the
-	// async initialWatchMsg -- see that type's own doc-stamp for why not a
-	// direct field write) and every subsequent repoSwitchedMsg
-	// (applyRepoSwitched, update.go). nil is a legitimate steady-state value
-	// (data.Watch failed to start, m.watchUnavailable carries that instead,
-	// I04 precedent) -- callers must nil-check before calling it (mirrors
-	// data.Watch's own stop being nil on error).
-	repoQuery  string
-	repoSearch textinput.Model
-	repoList   listState
-	watchStop  func()
+	// (filteredRepos(), view_lobby.go). storeEvents is the CURRENT store's
+	// change-event channel (Store.Watch): Update() re-arms
+	// waitForStoreEvents(m.storeEvents) after each batch, and a repo switch
+	// replaces it (applyRepoSwitched). nil is a legitimate steady-state value
+	// (Watch failed to start, m.watchUnavailable carries that, I04
+	// precedent); waitForStoreEvents(nil) is a no-op.
+	repoQuery   string
+	repoSearch  textinput.Model
+	repoList    listState
+	storeEvents <-chan []itemcore.ItemEvent
 
 	// Archiv-Sicht (E5 Task 7, bean bt-ggt2, design decision e): showArchived
 	// is a PROGRAM DEFAULT (false = completed/scrapped hidden), toggled via
@@ -741,7 +736,7 @@ type model struct {
 }
 
 // newModel builds the initial (pre-load) App-Shell state.
-func newModel(client *data.Client, repoDir string) model {
+func newModel(store *data.Store, repoDir string) model {
 	ti := textinput.New() // E2 Task 3: Tree search box (port devd app.go treeSearch)
 	ti.Placeholder = "Search (title/ID, 3+ chars also searches Bleve)"
 	ti.Prompt = ""
@@ -764,7 +759,7 @@ func newModel(client *data.Client, repoDir string) model {
 
 	return model{
 		view:         viewBrowseRepo,
-		client:       client,
+		store:        store,
 		repoDir:      repoDir,
 		expanded:     map[string]bool{},
 		detailHidden: true,

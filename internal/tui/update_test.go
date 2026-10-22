@@ -9,6 +9,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -22,8 +23,8 @@ import (
 
 // fixtureBeans is a small milestone -> epic -> 2 tasks hierarchy shared by
 // the Update tests below.
-func fixtureBeans() []data.Bean {
-	return []data.Bean{
+func fixtureBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
 		// tk-1 sorts before tk-2 (Index.sortBeans: Status -> Priority -> Type ->
@@ -39,7 +40,7 @@ func fixtureBeans() []data.Bean {
 // The Detail pane is shown (a real model starts with it hidden, see
 // TestDetailHiddenAtStartAndToggle) so the split-layout tests keep their
 // geometry.
-func fixtureModel(t *testing.T, beans []data.Bean) model {
+func fixtureModel(t *testing.T, beans []*item.Item) model {
 	t.Helper()
 	m := step(t, newModel(nil, "/tmp/bt-fixture-repo"), beansLoadedMsg{beans: beans})
 	m.detailHidden = false
@@ -261,7 +262,7 @@ func TestReloadKeepsCursorOnID(t *testing.T) {
 
 	// Reload with tk-2 removed: cursor must not still point at it, and must
 	// clamp to a bean that is actually still visible in the new tree.
-	without := []data.Bean{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1
+	without := []*item.Item{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1
 	m = step(t, m, beansLoadedMsg{beans: without})
 	if m.cursorID == "tk-2" {
 		t.Fatal("cursor still points at the removed bean")
@@ -312,7 +313,7 @@ func TestBeansLoadedErrorSurfacesInStatusLine(t *testing.T) {
 // under the synthetic "(orphaned)" root, never silently dropped, and never
 // leak into the real Roots() top level (its Parent is non-empty).
 func TestOrphanShownUnderSyntheticRoot(t *testing.T) {
-	beans := append(fixtureBeans(), data.Bean{
+	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Orphaned Task", Status: "todo", Type: "task",
 		Priority: "normal", Parent: "does-not-exist",
 	})
@@ -363,7 +364,7 @@ func TestOrphanShownUnderSyntheticRoot(t *testing.T) {
 // alphabetical-title order and canonical-status order DISAGREE, making the
 // assertion a real discriminator.
 func TestOrphanBucketUsesCanonicalStatusPriorityTypeTitleOrder(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "root", Title: "Root", Type: "milestone", Status: "todo"},
 		{ID: "orph-z", Title: "Z orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing"},
 		{ID: "orph-a", Title: "A orphan", Status: "in-progress", Type: "task", Priority: "critical", Parent: "missing"},
@@ -402,7 +403,7 @@ func TestOrphanBucketUsesCanonicalStatusPriorityTypeTitleOrder(t *testing.T) {
 // showArchived on keeps both orphans visible so the ordering assertion below
 // still exercises what it was written to exercise.
 func TestOrphanBucketUsesCanonicalOrderOverTitle(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "orph-alpha", Title: "Alpha orphan", Status: "scrapped", Type: "task", Priority: "normal", Parent: "missing"},
 		{ID: "orph-zulu", Title: "Zulu orphan", Status: "in-progress", Type: "task", Priority: "normal", Parent: "missing"},
 	}
@@ -470,7 +471,7 @@ func TestTabTogglesDetailFocusAndPaneAccent(t *testing.T) {
 // them either. Both must still surface under the synthetic "(orphaned)"
 // root, and flattening a pure cycle must return promptly (no hang).
 func TestCycleBeansShowUnderOrphanRoot(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "cyc-a", Title: "Cycle A", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-b"},
 		{ID: "cyc-b", Title: "Cycle B", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-a"},
 	}
@@ -505,10 +506,10 @@ func TestCycleBeansShowUnderOrphanRoot(t *testing.T) {
 
 // fiftyFlatBeans returns 50 flat (unparented) tasks wnd-00..wnd-49 -- a tree
 // taller than any reasonable pane, used to exercise windowing (B01).
-func fiftyFlatBeans() []data.Bean {
-	beans := make([]data.Bean, 50)
+func fiftyFlatBeans() []*item.Item {
+	beans := make([]*item.Item, 50)
 	for i := range beans {
-		beans[i] = data.Bean{
+		beans[i] = &item.Item{
 			ID:       fmt.Sprintf("wnd-%02d", i),
 			Title:    fmt.Sprintf("Window Task %02d", i),
 			Status:   "todo",
@@ -566,8 +567,8 @@ func TestSetExpandedDoesNotMutateSharedMapAcrossModelCopies(t *testing.T) {
 // ep-1, Blocking bean-b) and bean-b (under ep-2) -- used to exercise the
 // Beziehungen-field jump + ancestor-expand (bean-b's ancestor ep-2 starts
 // collapsed, so the jump must expand it).
-func fixtureBeansWithBlocking() []data.Bean {
-	return []data.Bean{
+func fixtureBeansWithBlocking() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
 		{ID: "ep-2", Title: "Epic Two", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
@@ -659,15 +660,9 @@ func TestKeyTabStillTogglesBothDirections(t *testing.T) {
 // the Title-Edit-Form (the former section-context-sensitive B10 branching
 // is GONE, no exceptions).
 func TestKeyNodeActionEditorAlwaysOpensBeanEditor(t *testing.T) {
-	setup := func(t *testing.T) (model, *data.Bean) {
+	setup := func(t *testing.T) (model, *item.Item) {
 		t.Helper()
-		beans := fixtureBeans()
-		for i := range beans {
-			if beans[i].ID == "tk-1" {
-				beans[i].ETag = "tk-1-etag"
-			}
-		}
-		m := fixtureModel(t, beans)
+		m := fixtureModel(t, fixtureBeans())
 		m = focusBean(m, "tk-1")
 		return m, m.idx.ByID["tk-1"]
 	}
@@ -702,8 +697,8 @@ func TestKeyNodeActionEditorAlwaysOpensBeanEditor(t *testing.T) {
 				if nm.editorTarget != b.ID {
 					t.Fatalf("editorTarget = %q, want %q", nm.editorTarget, b.ID)
 				}
-				if nm.editorETag != b.ETag {
-					t.Fatalf("editorETag = %q, want %q", nm.editorETag, b.ETag)
+				if nm.editorETag != b.ETag() {
+					t.Fatalf("editorETag = %q, want %q", nm.editorETag, b.ETag())
 				}
 				if nm.editorSnapshot == nil || nm.editorSnapshot.ID != b.ID {
 					t.Fatalf("editorSnapshot = %v, want a snapshot of %q", nm.editorSnapshot, b.ID)
@@ -722,11 +717,7 @@ func TestKeyNodeActionEditorAlwaysOpensBeanEditor(t *testing.T) {
 	// (focusedBean's viewBacklog case, update.go).
 	for _, key := range []tea.KeyMsg{runeMsg('e'), keyMsg(tea.KeyCtrlE)} {
 		t.Run("backlog, no detail focus/"+key.String(), func(t *testing.T) {
-			beans := backlogBeans()
-			for i := range beans {
-				beans[i].ETag = beans[i].ID + "-etag"
-			}
-			m := fixtureModel(t, beans)
+			m := fixtureModel(t, backlogBeans())
 			m.view = viewBacklog
 			m.backlogList.setLen(len(m.backlogVisible()))
 			m.backlogList.cursor = 0
@@ -794,7 +785,7 @@ func markerOnLineContaining(s, substr, marker string) bool {
 // "(orphaned)" root itself (not a real bean) must never panic and must exit
 // detail focus rather than getting stuck.
 func TestKeyDetailFocusOnOrphanRootExitsGracefully(t *testing.T) {
-	beans := append(fixtureBeans(), data.Bean{
+	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
@@ -848,7 +839,7 @@ func TestWindowAroundStableAtEdges(t *testing.T) {
 // freezing the whole TUI. Run with a bounded `go test -timeout` so a
 // regression fails loudly (timeout) instead of hanging the suite.
 func TestExpandAncestorsOfHandlesParentCycle(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "cyc-a", Title: "Cycle A", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-b"},
 		{ID: "cyc-b", Title: "Cycle B", Status: "todo", Type: "task", Priority: "normal", Parent: "cyc-a"},
 	}
@@ -881,9 +872,9 @@ func TestRepoSwitchClearsToast(t *testing.T) {
 
 	newRepo := t.TempDir()
 	tm, _ := m.applyRepoSwitched(repoSwitchedMsg{
-		client:  &data.Client{RepoDir: newRepo},
+		store:   newTestStore(t),
 		repoDir: newRepo,
-		beans:   []data.Bean{},
+		beans:   []*item.Item{},
 	})
 	m2, ok := tm.(model)
 	if !ok {

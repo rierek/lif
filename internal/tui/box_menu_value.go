@@ -13,6 +13,7 @@ package tui
 // enter only closes without mutating anything (filter facets act live).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	keybind "github.com/charmbracelet/bubbles/key"
@@ -84,7 +85,7 @@ func valueMenuCursorFor(items []valueMenuItem, group, value string) int {
 // valueMenuIsCurrent reports whether it is b's current value in its own
 // group -- drives the "(current)" marker (valueMenuBox). Priority mirrors
 // data.PriorityRank's own empty-defaults-to-normal convention.
-func valueMenuIsCurrent(b *data.Bean, it valueMenuItem) bool {
+func valueMenuIsCurrent(b *item.Item, it valueMenuItem) bool {
 	switch it.group {
 	case "status":
 		return b.Status == it.value
@@ -107,7 +108,7 @@ func valueMenuIsCurrent(b *data.Bean, it valueMenuItem) bool {
 // field-level enter cascade seeds "type"/"priority" too, not only the
 // `s`-key's hardcoded "status"). Returns "" for an unrecognized group (falls
 // back to valueMenuCursorFor's own index-0 default, never panics).
-func currentValueForGroup(b *data.Bean, group string) string {
+func currentValueForGroup(b *item.Item, group string) string {
 	switch group {
 	case "status":
 		return b.Status
@@ -240,14 +241,14 @@ func (m model) applyValueMenuSelection() (tea.Model, tea.Cmd) {
 		m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 		return m, toastCmd
 	}
-	client := m.client
+	store := m.store
 	switch it.group {
 	case "status":
-		return m, mutateCmd(func() error { return client.SetStatus(id, it.value, etag) })
+		return m, mutateCmd(store, func() error { return store.SetStatus(id, it.value, etag) })
 	case "type":
-		return m, mutateCmd(func() error { return client.SetType(id, it.value, etag) })
+		return m, mutateCmd(store, func() error { return store.SetType(id, it.value, etag) })
 	case "priority":
-		return m, mutateCmd(func() error { return client.SetPriority(id, it.value, etag) })
+		return m, mutateCmd(store, func() error { return store.SetPriority(id, it.value, etag) })
 	}
 	return m, nil
 }
@@ -299,7 +300,7 @@ func (m model) valueMenuBodyAndItemRows() (body string, itemRows []int) {
 	// wrong thing, both describing a group they were not showing.
 	b.WriteString(theme.Muted.Render("enter:apply  esc/"+valueMenuGroupKey(m.valueMenuGroup()).Help().Key+":cancel") + "\n")
 
-	var cur *data.Bean
+	var cur *item.Item
 	if m.idx != nil {
 		cur = m.idx.ByID[m.mutTarget]
 	}

@@ -297,9 +297,8 @@ func TestToastSeqStaysMonotonicAcrossReset(t *testing.T) {
 // (beansLoadedMsg) untouched -- applyLoaded never assigns m.toast, so there
 // is nothing to clobber it (design decision a).
 func TestConflictToastIsStickyAndSurvivesReload(t *testing.T) {
-	fakeBeansConflict(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	m.store = conflictingStore(t)
 	m = focusBean(m, "tk-2")
 	m = step(t, m, runeMsg('s'))
 	if m.overlay != overlayValueMenu {

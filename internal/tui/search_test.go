@@ -11,10 +11,10 @@ package tui
 // equalStrings from update_test.go (same package).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- Local live filter (flattenTreeFiltered / beanMatchesSearch) ---
@@ -54,7 +54,7 @@ func TestLocalSearchMatchesBeanIDSubstring(t *testing.T) {
 // ancestor whose OWN title doesn't match stays visible when one of its
 // descendants does -- the match's path must render as context.
 func TestLocalSearchPreservesAncestorPathOfMatch(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "root-1", Title: "Container", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "leaf-1", Title: "Findme", Status: "todo", Type: "task", Priority: "normal", Parent: "root-1"},
 	}
@@ -75,7 +75,7 @@ func TestLocalSearchPreservesAncestorPathOfMatch(t *testing.T) {
 // context row, its matching child stays hidden, and it is NEVER
 // auto-expanded.
 func TestLocalSearchCollapsedAncestorHidesMatchingDescendant(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "root-1", Title: "Container", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "leaf-1", Title: "Findme", Status: "todo", Type: "task", Priority: "normal", Parent: "root-1"},
 	}
@@ -93,7 +93,7 @@ func TestLocalSearchCollapsedAncestorHidesMatchingDescendant(t *testing.T) {
 // zero matching orphans/cycle-beans, it must be omitted entirely (not shown
 // as an empty collapsed bucket).
 func TestLocalSearchOrphanBucketOmittedWhenNoMatch(t *testing.T) {
-	beans := append(fixtureBeans(), data.Bean{
+	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Orphaned Task", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
@@ -111,7 +111,7 @@ func TestLocalSearchOrphanBucketOmittedWhenNoMatch(t *testing.T) {
 // counterpart: a matching orphan renders exactly like today, under the
 // (still expanded) orphan root.
 func TestLocalSearchOrphanBucketShowsMatchingOrphan(t *testing.T) {
-	beans := append(fixtureBeans(), data.Bean{
+	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Findable Orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
@@ -261,10 +261,10 @@ func TestSearchBleveFiresOnlyAtThreeOrMoreChars(t *testing.T) {
 }
 
 // TestSearchCmdTagsResultWithQuery guards searchCmd's message tagging
-// directly (no beans binary required either way -- Search() tags the query
-// on BOTH its success and its error path, so a repo-less Client is enough).
+// directly (Store.Search() tags the query
+// on BOTH its success and its error path).
 func TestSearchCmdTagsResultWithQuery(t *testing.T) {
-	c := &data.Client{RepoDir: t.TempDir()}
+	c := fixtureStore(t)
 	msg := searchCmd(c, "abc")()
 	res, ok := msg.(searchBleveResultMsg)
 	if !ok {
@@ -303,7 +303,7 @@ func TestSearchBleveStaleResultDiscardedWhenQueryChangedMeanwhile(t *testing.T) 
 // Bleve response arrives (its Bleve result set may legitimately be empty for
 // that bean).
 func TestSearchIDSubstringHitStaysVisibleAfterBleveResultArrives(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "tk-1", Title: "Something Else Entirely", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)

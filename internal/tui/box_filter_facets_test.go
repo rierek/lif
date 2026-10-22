@@ -11,11 +11,11 @@ package tui
 // (same package).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- buildFilterItems / tagFilterOptions ---
@@ -25,7 +25,7 @@ import (
 // full beans enums, design-spec.md §4) plus the dynamic, deduped Tag facet
 // collected from the currently loaded beans.
 func TestBuildFilterItemsCoversStatusTypePriorityAndDynamicTags(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "b1", Title: "One", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"backend", "urgent"}},
 		{ID: "b2", Title: "Two", Status: "in-progress", Type: "bug", Priority: "high", Tags: []string{"backend"}},
 	}
@@ -73,9 +73,9 @@ func TestBuildFilterItemsCoversStatusTypePriorityAndDynamicTags(t *testing.T) {
 // the tag facet order flicker between calls. Repeated calls against the SAME
 // model must return byte-identical order.
 func TestTagFilterOptionsDeterministicAcrossCalls(t *testing.T) {
-	beans := make([]data.Bean, 0, 10)
+	beans := make([]*item.Item, 0, 10)
 	for i := 0; i < 10; i++ {
-		beans = append(beans, data.Bean{
+		beans = append(beans, &item.Item{
 			ID: string(rune('a' + i)), Title: "Bean", Status: "todo", Type: "task", Priority: "normal",
 			Tags: []string{string(rune('z' - i))},
 		})
@@ -416,7 +416,7 @@ func TestFilterStripEscLeavesTheRegion(t *testing.T) {
 // reports a phantom tab for a zero-row facet, see its own doc comment) so
 // this test genuinely exercises all five tabs, matching real-world usage.
 func TestTreeFilterBoxShowsTabBarAndOnlyActiveFacetRows(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "tk-1", Title: "Task One", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"backend"}},
 	}
 	m := fixtureModel(t, beans)
@@ -451,7 +451,7 @@ func TestTreeFilterBoxShowsTabBarAndOnlyActiveFacetRows(t *testing.T) {
 // active facet combine with AND semantics: a bean matching the search text
 // but excluded by the facet must not be visible; one matching both is.
 func TestTreeCombinesSearchAndFacetsWithAnd(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "a", Title: "Alpha Task", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "b", Title: "Alpha Bug", Status: "todo", Type: "bug", Priority: "normal"},
 	}
@@ -469,7 +469,7 @@ func TestTreeCombinesSearchAndFacetsWithAnd(t *testing.T) {
 // every facet map empty -> everything matches.
 func TestBeanMatchesFacetsEmptyMapsImposeNoConstraint(t *testing.T) {
 	m := model{}
-	b := &data.Bean{ID: "x", Status: "todo", Type: "task", Priority: "normal"}
+	b := &item.Item{ID: "x", Status: "todo", Type: "task", Priority: "normal"}
 	if !m.beanMatchesFacets(b) {
 		t.Fatal("beanMatchesFacets with all facet maps empty must match everything")
 	}
@@ -479,8 +479,8 @@ func TestBeanMatchesFacetsEmptyMapsImposeNoConstraint(t *testing.T) {
 // within-facet semantics (a bean matches if ANY of its tags is selected).
 func TestBeanMatchesFacetsTagRequiresAnyOverlap(t *testing.T) {
 	m := model{filterTag: map[string]bool{"backend": true}}
-	hit := &data.Bean{ID: "a", Tags: []string{"frontend", "backend"}}
-	miss := &data.Bean{ID: "b", Tags: []string{"frontend"}}
+	hit := &item.Item{ID: "a", Tags: []string{"frontend", "backend"}}
+	miss := &item.Item{ID: "b", Tags: []string{"frontend"}}
 	if !m.beanMatchesFacets(hit) {
 		t.Error("bean with a matching tag among several must match the tag facet")
 	}

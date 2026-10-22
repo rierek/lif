@@ -1,6 +1,9 @@
 package data
 
-import "github.com/rierek/lif/pkg/itemcore"
+import (
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+)
 
 // hierarchy.go — parent-assignment eligibility rules (E3 Task 3, bean
 // bt-p1uz, design decision f, epic-E3-plan.md »Task 3«): validParentTypes
@@ -41,7 +44,7 @@ func CollectDescendants(idx *Index, id string) map[string]bool {
 	if idx == nil {
 		return descendants
 	}
-	queue := append([]*Bean(nil), idx.Children[id]...)
+	queue := append([]*item.Item(nil), idx.Children[id]...)
 	for len(queue) > 0 {
 		b := queue[0]
 		queue = queue[1:]
@@ -63,7 +66,7 @@ func CollectDescendants(idx *Index, id string) map[string]bool {
 // short-circuits to no candidates at all -- a milestone can never take a
 // parent, so there is nothing to filter idx.beans against. Sorted via the
 // single-source SortBeans (I03) -- callers must never re-sort.
-func EligibleParents(idx *Index, b *Bean) []*Bean {
+func EligibleParents(idx *Index, b *item.Item) []*item.Item {
 	if idx == nil || b == nil {
 		return nil
 	}
@@ -77,7 +80,7 @@ func EligibleParents(idx *Index, b *Bean) []*Bean {
 	}
 	descendants := CollectDescendants(idx, b.ID)
 
-	var out []*Bean
+	var out []*item.Item
 	for _, cand := range idx.beans {
 		if cand.ID == b.ID {
 			continue

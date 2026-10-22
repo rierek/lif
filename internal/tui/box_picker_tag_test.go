@@ -9,6 +9,7 @@ package tui
 // box_menu_value_test.go (same package).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ import (
 // with: urgent appears on tk-1 AND tk-2 (count 2), backend and zeta each
 // appear once (count 1, tied -- exercises collectTagCounts' alpha
 // tie-break: backend < zeta).
-func fixtureBeansTagged() []data.Bean {
+func fixtureBeansTagged() []*item.Item {
 	beans := fixtureBeans()
 	for i := range beans {
 		switch beans[i].ID {
@@ -90,7 +91,7 @@ func TestCollectTagCountsSortedByCountDescThenAlpha(t *testing.T) {
 // usage count is far lower (rare-defined, count 1, beats popular-free,
 // count 3).
 func TestCollectTagCountsDefinedFirstThenCountDescThenAlpha(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "b1", Tags: []string{"popular-free"}},
 		{ID: "b2", Tags: []string{"popular-free"}},
 		{ID: "b3", Tags: []string{"popular-free"}},
@@ -115,7 +116,7 @@ func TestCollectTagCountsDefinedFirstThenCountDescThenAlpha(t *testing.T) {
 // key even at count 0: ghost-defined (defined, count 0) still sorts before
 // in-use-free (free, count 1).
 func TestCollectTagCountsIncludesUnusedDefinedTagAtCountZero(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "b1", Tags: []string{"in-use-free"}},
 	})
 	defined := map[string]bool{"ghost-defined": true}
@@ -168,7 +169,7 @@ func TestOpenTagPickerSeedsPendingFromFocusedBean(t *testing.T) {
 
 // TestOpenTagPickerLoadsRegistryFreshMarksDefinedIncludingUnused writes a
 // real .lif-tags.yml (T1, internal/data/tagdefs.go) to a temp repo dir,
-// points m.client at it, and verifies openTagPicker (D03: loads the
+// points m.store at it, and verifies openTagPicker (D03: loads the
 // registry FRESH on every open) marks tagItems[].defined correctly AND
 // surfaces a registry-defined tag that is not currently used on ANY bean
 // (ghost-defined, count 0) -- the concrete behavior behind this task's own
@@ -179,7 +180,7 @@ func TestOpenTagPickerLoadsRegistryFreshMarksDefinedIncludingUnused(t *testing.T
 		t.Fatal(err)
 	}
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: dir}
+	m.store = &data.Store{RepoDir: dir}
 	m = focusBean(m, "tk-2") // tags: urgent
 
 	m = step(t, m, runeMsg('t'))
@@ -203,14 +204,14 @@ func TestOpenTagPickerLoadsRegistryFreshMarksDefinedIncludingUnused(t *testing.T
 // TestOpenTagPickerNilClientDegradesToNoDefinedTags mirrors D02's
 // tolerant-missing philosophy one layer up (same precedent as
 // TestOpenTagManagementPageNilClientBuildsFromIdxOnly, view_tag_management_test.go,
-// T2): a nil m.client (pre-load/test fixture -- fixtureModel's own default)
-// must never panic on m.client.LoadTagDefs() and must degrade to an empty
+// T2): a nil m.store (pre-load/test fixture -- fixtureModel's own default)
+// must never panic on m.store.LoadTagDefs() and must degrade to an empty
 // registry, i.e. every row free (defined=false).
 func TestOpenTagPickerNilClientDegradesToNoDefinedTags(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
 
-	m = step(t, m, runeMsg('t')) // must not panic on a nil m.client
+	m = step(t, m, runeMsg('t')) // must not panic on a nil m.store
 
 	for _, it := range m.tagItems {
 		if it.defined {
@@ -225,12 +226,12 @@ func TestOpenTagPickerNilClientDegradesToNoDefinedTags(t *testing.T) {
 // togglable AND fire a real save mutation on enter -- Suggest-Mode only
 // affects sort/display, never selectability.
 func TestOpenTagPickerFreeTagRemainsTogglableAndSavable(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".lif-tags.yml"), []byte("tags:\n  - urgent\n"), 0o644); err != nil {
+	store := newTestStore(t, fixtureBeansTagged()...)
+	if err := os.WriteFile(filepath.Join(store.RepoDir, ".lif-tags.yml"), []byte("tags:\n  - urgent\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: dir}
+	m.store = store
 	m = focusBean(m, "tk-2") // tags: urgent
 	m = step(t, m, runeMsg('t'))
 
@@ -249,8 +250,12 @@ func TestOpenTagPickerFreeTagRemainsTogglableAndSavable(t *testing.T) {
 		t.Fatal("a free tag toggle must still fire a save mutation (no strict mode)")
 	}
 	msg := cmd()
-	if _, ok := msg.(mutationDoneMsg); !ok {
-		t.Fatalf("cmd() = %T, want mutationDoneMsg -- free tag save must dispatch a real SetTags call", msg)
+	mdm, ok := msg.(mutationDoneMsg)
+	if !ok || mdm.err != nil {
+		t.Fatalf("cmd() = %+v, want a successful mutationDoneMsg -- free tag save must dispatch a real SetTags call", msg)
+	}
+	if !storeItem(t, store, "tk-2").HasTag("backend") {
+		t.Fatal("the free tag did not land on tk-2 on disk")
 	}
 }
 
@@ -294,12 +299,12 @@ func TestTagPickerToggleFlipsPendingOnly(t *testing.T) {
 // AddTag/RemoveTag mutateCmds batched via tea.Batch -- N sequential
 // mutations against ONE etag would be a conflict cascade. Verified two
 // ways: cmd() resolves DIRECTLY to a mutationDoneMsg (a tea.Batch would
-// instead resolve to a tea.BatchMsg), and the underlying error text (real
-// data.Client pointed at a nonexistent repo dir, no beans binary required)
-// contains "lif update", proving SetTags actually dispatched.
+// instead resolve to a tea.BatchMsg), and the item on disk (real temp store)
+// carries the tag diff, proving SetTags actually dispatched.
 func TestTagPickerEnterDiffsFireOneSetTagsCall(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t2-scratch-dir"}
+	store := newTestStore(t, fixtureBeansTagged()...)
+	m.store = store
 	m = focusBean(m, "tk-2") // tags: urgent
 	m = step(t, m, runeMsg('t'))
 
@@ -325,8 +330,11 @@ func TestTagPickerEnterDiffsFireOneSetTagsCall(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg (ONE combined SetTags call, not tea.Batch)", msg)
 	}
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetTags dispatched)", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "tk-2"); !got.HasTag("backend") || got.HasTag("urgent") {
+		t.Fatalf("tk-2 tags on disk = %v, want urgent replaced by backend (proves SetTags dispatched)", got.Tags)
 	}
 }
 
@@ -659,7 +667,7 @@ func TestTagPickerBoxRendersSearchField(t *testing.T) {
 // above), enter always means "commit and close" whenever there is a match.
 func TestTagPickerEnterWithFilteredMatchSavesAndClosesPicker(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-9ipw-d01-scratch-dir"}
+	m.store = newTestStore(t)
 	m = focusBean(m, "tk-2") // original tags: urgent
 	m = step(t, m, runeMsg('t'))
 
@@ -712,7 +720,7 @@ func TestTagPickerEnterTargetVanishedClosesGracefully(t *testing.T) {
 	m = tagPickerCursorTo(t, m, "backend")
 	m = step(t, m, runeMsg(' ')) // ensure a pending change exists
 
-	remaining := []data.Bean{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
+	remaining := []*item.Item{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
 	m = step(t, m, beansLoadedMsg{beans: remaining})
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))

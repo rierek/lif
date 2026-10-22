@@ -11,18 +11,18 @@ package tui
 // own fixture style.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // placeholderFixtureBeans builds the exact repro shape from the bean's own
 // Investigation (repro-39cl): one Epic whose 3 Direct-Children are ALL
 // archived (2x completed, 1x scrapped), plus one open sibling Epic with NO
 // children at all (D01 acceptance box's own "Epic ohne Children" control).
-func placeholderFixtureBeans() []data.Bean {
-	return []data.Bean{
+func placeholderFixtureBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ep-full", Title: "Epic Full Archive", Status: "in-progress", Type: "epic", Priority: "normal"},
 		{ID: "ch-1", Title: "Child One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
 		{ID: "ch-2", Title: "Child Two", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
@@ -34,8 +34,8 @@ func placeholderFixtureBeans() []data.Bean {
 // mixFixtureBeans is the D01 acceptance box's "Mix" case: 1 open + 2
 // archived Direct-Children -- the open child must stay visible, NO
 // placeholder (only the Voll-Verdeckungs-Fall gets one).
-func mixFixtureBeans() []data.Bean {
-	return []data.Bean{
+func mixFixtureBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ep-mix", Title: "Epic Mix", Status: "in-progress", Type: "epic", Priority: "normal"},
 		{ID: "ch-open", Title: "Child Open", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-mix"},
 		{ID: "ch-done1", Title: "Child Done One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-mix"},
@@ -206,7 +206,7 @@ func TestTreeCursorMoveSkipsPlaceholderDownward(t *testing.T) {
 // as the LAST visible row -- ep-full is the only root, so its placeholder is
 // the tree's final row).
 func TestTreeCursorMoveSkipsPlaceholderUpward(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "ep-full", Title: "Epic Full Archive", Status: "in-progress", Type: "epic", Priority: "normal"},
 		{ID: "ch-1", Title: "Child One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
 	}
@@ -238,7 +238,7 @@ func TestApplyLoadedCursorRestoreSkipsPlaceholderOnEmptyCursorID(t *testing.T) {
 	m := fixtureModel(t, placeholderFixtureBeans())
 	m.expanded["ep-full"] = true
 
-	m = step(t, m, beansLoadedMsg{beans: []data.Bean{}}) // -> cursorID = ""
+	m = step(t, m, beansLoadedMsg{beans: []*item.Item{}}) // -> cursorID = ""
 	if m.cursorID != "" {
 		t.Fatalf("setup: cursorID = %q after empty load, want \"\"", m.cursorID)
 	}
@@ -261,11 +261,11 @@ func TestApplyLoadedCursorRestoreSkipsPlaceholderOnEmptyCursorID(t *testing.T) {
 // tk-open and archives ep-full's remaining children -> new tree:
 // [ep-full, placeholder] -- oldPos 1 hits the placeholder exactly.
 func TestApplyLoadedOldPosFallbackSkipsPlaceholder(t *testing.T) {
-	before := []data.Bean{
+	before := []*item.Item{
 		{ID: "ep-full", Title: "Epic", Status: "in-progress", Type: "epic", Priority: "normal"},
 		{ID: "tk-open", Title: "Open Task", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-full"},
 	}
-	after := []data.Bean{
+	after := []*item.Item{
 		{ID: "ep-full", Title: "Epic", Status: "in-progress", Type: "epic", Priority: "normal"},
 		{ID: "ch-1", Title: "Child One", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-full"},
 	}

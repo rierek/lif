@@ -6,6 +6,7 @@ package tui
 // validation (type-hierarchy stays the CLI's own VALIDATION_ERROR path).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -141,7 +142,7 @@ func requireFieldValue(t *testing.T, exhausted bool, what, got, want string) {
 }
 
 func idxWithMS1() *data.Index {
-	return data.NewIndex([]data.Bean{
+	return data.NewIndex([]*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
 	})
 }

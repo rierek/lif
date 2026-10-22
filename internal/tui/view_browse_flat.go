@@ -23,6 +23,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // flatVisible returns every bean matching the SAME shared search+facet+
@@ -35,11 +36,11 @@ import (
 // order flattenTree/appendBeanNode already default to and collectOrphans
 // already relies on for the identical "iterate idx.ByID, filter, SortBeans"
 // pattern (view_browse_repo.go).
-func (m model) flatVisible() []*data.Bean {
+func (m model) flatVisible() []*item.Item {
 	if m.idx == nil {
 		return nil
 	}
-	var out []*data.Bean
+	var out []*item.Item
 	for _, b := range m.idx.ByID {
 		if m.beanMatches(b) {
 			out = append(out, b)
@@ -57,7 +58,7 @@ func (m model) flatVisible() []*data.Bean {
 // flatList, same gap backlogList's own doc comment documents) simply
 // resolves to nil/no-highlight until the next flat keypress resyncs it via
 // keyFlat's own setLen call, below.
-func (m model) flatSelected() *data.Bean {
+func (m model) flatSelected() *item.Item {
 	vis := m.flatVisible()
 	if m.flatList.cursor < 0 || m.flatList.cursor >= len(vis) {
 		return nil
@@ -73,7 +74,7 @@ func (m model) flatSelected() *data.Bean {
 // backlogRowText unchanged (status glyph + type icon + Key + Title) -- the
 // row-rendering half of "REUSE Backlog's row-rendering + selection logic",
 // this slice's own scope instruction.
-func (m model) flatRows(vis []*data.Bean, focused bool, bodyH, width int) []string {
+func (m model) flatRows(vis []*item.Item, focused bool, bodyH, width int) []string {
 	rows, _ := blockWindow(m.flatBlocks(vis, focused, width), bodyH, m.flatList.cursor)
 	return rows
 }
@@ -83,7 +84,7 @@ func (m model) flatRows(vis []*data.Bean, focused bool, bodyH, width int) []stri
 // flatClickRow below so the click resolves against the SAME window the
 // renderer produced (bean bt-f68z -- rows stopped being 1:1 with beans once
 // titles wrap).
-func (m model) flatBlocks(vis []*data.Bean, focused bool, width int) [][]string {
+func (m model) flatBlocks(vis []*item.Item, focused bool, width int) [][]string {
 	pos := m.flatList.cursor
 	slug := m.beanIDPrefix()
 	blocks := make([][]string, len(vis))
@@ -100,9 +101,9 @@ func (m model) flatBlocks(vis []*data.Bean, focused bool, width int) [][]string 
 // (view_browse_repo.go) -- Browse's flat mode and the Backlog can never
 // drift out of sync on the Detail body, same rationale as the Tree/Backlog
 // split that shared function already serves.
-func (m model) renderFlatDetailPane(vis []*data.Bean, w, h int, focused bool) string {
+func (m model) renderFlatDetailPane(vis []*item.Item, w, h int, focused bool) string {
 	pos := m.flatList.cursor
-	var b *data.Bean
+	var b *item.Item
 	if pos >= 0 && pos < len(vis) {
 		b = vis[pos]
 	}
@@ -131,7 +132,7 @@ func (m model) renderFlatDetailPane(vis []*data.Bean, w, h int, focused bool) st
 // header divider and this split -- flat mode is
 // only ever reached from viewBrowseRepo (the filter bar's one call site), so
 // the correction below mirrors treeClickRow's own exactly.
-func flatClickRow(m model, vis []*data.Bean, msg tea.MouseMsg) (idx int, ok bool) {
+func flatClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool) {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80

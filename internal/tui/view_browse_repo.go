@@ -11,6 +11,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"path/filepath"
 	"strings"
 
@@ -23,12 +24,12 @@ import (
 )
 
 // treeNode is a single visible (already-flattened) row of the tree. Index-free
-// (holds a *data.Bean pointer straight into the Index, mirroring data.Index's
+// (holds a *item.Item pointer straight into the Index, mirroring data.Index's
 // own contract: consumers must not mutate it) -- depth-first order matches
 // render order 1:1, so cursor position == slice index.
 type treeNode struct {
 	id      string // bean ID, or orphanRootID for the synthetic "(orphaned)" root
-	bean    *data.Bean
+	bean    *item.Item
 	depth   int
 	hasKids bool
 	open    bool
@@ -93,7 +94,7 @@ func flattenTree(idx *data.Index, expanded map[string]bool) []treeNode {
 // ancestors is the current DFS path -- a bean already on its own ancestor
 // path is skipped (defensive cycle guard; beans' frontmatter is hand-
 // editable, a parent cycle is a data error but must never hang/crash bt).
-func appendBeanNode(nodes []treeNode, idx *data.Index, b *data.Bean, depth int, expanded map[string]bool, ancestors map[string]bool) []treeNode {
+func appendBeanNode(nodes []treeNode, idx *data.Index, b *item.Item, depth int, expanded map[string]bool, ancestors map[string]bool) []treeNode {
 	if ancestors[b.ID] {
 		return nodes
 	}
@@ -121,8 +122,8 @@ func appendBeanNode(nodes []treeNode, idx *data.Index, b *data.Bean, depth int, 
 // unexported at the time -- now that data.SortBeans is exported (E2 Task 1),
 // the orphan bucket uses the SAME single-source order as every other bean
 // list in the app instead of a second, parallel sort definition.
-func collectOrphans(idx *data.Index) []*data.Bean {
-	var out []*data.Bean
+func collectOrphans(idx *data.Index) []*item.Item {
+	var out []*item.Item
 	for _, b := range idx.ByID {
 		if b.Parent == "" {
 			continue
@@ -145,10 +146,10 @@ func collectOrphans(idx *data.Index) []*data.Bean {
 // legitimately-reachable bean the same way appendBeanNode's per-path
 // ancestors guard does, just as a global set here since only the full
 // reachable SET is needed, not render order.
-func reachableIDs(idx *data.Index, roots []*data.Bean) map[string]bool {
+func reachableIDs(idx *data.Index, roots []*item.Item) map[string]bool {
 	seen := map[string]bool{}
-	var walk func(b *data.Bean)
-	walk = func(b *data.Bean) {
+	var walk func(b *item.Item)
+	walk = func(b *item.Item) {
 		if seen[b.ID] {
 			return
 		}
@@ -171,11 +172,11 @@ func reachableIDs(idx *data.Index, roots []*data.Bean) map[string]bool {
 // Opus quality review, bean bt-7jr8): beans-legal state -- frontmatter is
 // hand-editable -- must never be dropped; swept into the same synthetic
 // "(orphaned)" root as dangling-parent orphans instead.
-func collectCycleOrphans(idx *data.Index, orphans []*data.Bean) []*data.Bean {
-	anchors := append(append([]*data.Bean{}, idx.Roots()...), orphans...)
+func collectCycleOrphans(idx *data.Index, orphans []*item.Item) []*item.Item {
+	anchors := append(append([]*item.Item{}, idx.Roots()...), orphans...)
 	reachable := reachableIDs(idx, anchors)
 
-	var out []*data.Bean
+	var out []*item.Item
 	for id, b := range idx.ByID {
 		if !reachable[id] {
 			out = append(out, b)
@@ -242,7 +243,7 @@ func (m model) treeSearchActive() bool {
 //
 // I01 (E2-T3-Review finding, PFLICHT carried into bean bt-9ldr/Task 4): the
 // authoritative-Bleve branch UNIONs the local ID-substring match back in
-// rather than replacing it outright. Rationale: data.Client.Search runs a
+// rather than replacing it outright. Rationale: data.Store.Search runs a
 // title+body full-text query (client.go doc comment) -- it does not
 // necessarily index an arbitrary ID substring as a token, so a bean that
 // only matched the query by ID would otherwise flicker OUT of the tree the
@@ -256,7 +257,7 @@ func (m model) treeSearchActive() bool {
 // substring/Bleve match below. The AND-combined prefix-facet half
 // (beanMatchesSearchPrefixFacets) is checked FIRST -- a facet miss short-
 // circuits before touching the text path at all.
-func (m model) beanMatchesSearch(b *data.Bean) bool {
+func (m model) beanMatchesSearch(b *item.Item) bool {
 	if !m.beanMatchesSearchPrefixFacets(b) {
 		return false
 	}
@@ -278,7 +279,7 @@ func (m model) beanMatchesSearch(b *data.Bean) bool {
 // Every real root, the orphan bucket, AND the cycle-bean sweep go through
 // the SAME predicate: an orphan/cycle bucket with zero matches is omitted
 // entirely, matching entries render exactly like the unfiltered tree.
-func flattenTreeFiltered(idx *data.Index, expanded map[string]bool, match func(*data.Bean) bool, archiveOnly bool) []treeNode {
+func flattenTreeFiltered(idx *data.Index, expanded map[string]bool, match func(*item.Item) bool, archiveOnly bool) []treeNode {
 	if idx == nil {
 		return nil
 	}
@@ -299,7 +300,7 @@ func flattenTreeFiltered(idx *data.Index, expanded map[string]bool, match func(*
 			orphanNodes = append(orphanNodes, ns...)
 		}
 	}
-	var cycleHits []*data.Bean
+	var cycleHits []*item.Item
 	for _, b := range cycles {
 		if match(b) {
 			cycleHits = append(cycleHits, b)
@@ -329,7 +330,7 @@ func flattenTreeFiltered(idx *data.Index, expanded map[string]bool, match func(*
 // flattenTreeFiltered's own doc comment). ancestors guards a Parent-cycle
 // exactly like appendBeanNode's own defensive guard (only threaded through
 // the EXPANDED/recursing branch, mirroring appendBeanNode).
-func filteredBeanNode(idx *data.Index, b *data.Bean, depth int, expanded map[string]bool, ancestors map[string]bool, match func(*data.Bean) bool, archiveOnly bool) ([]treeNode, bool) {
+func filteredBeanNode(idx *data.Index, b *item.Item, depth int, expanded map[string]bool, ancestors map[string]bool, match func(*item.Item) bool, archiveOnly bool) ([]treeNode, bool) {
 	if ancestors[b.ID] {
 		return nil, false
 	}
@@ -393,10 +394,10 @@ func filteredBeanNode(idx *data.Index, b *data.Bean, depth int, expanded map[str
 // Parent-cycle reachable under a collapsed node, independent of the caller's
 // DFS-path ancestors set (different concern: this walks unconditionally
 // downward, ignoring expand state entirely).
-func subtreeHasMatch(idx *data.Index, beans []*data.Bean, skip string, match func(*data.Bean) bool) bool {
+func subtreeHasMatch(idx *data.Index, beans []*item.Item, skip string, match func(*item.Item) bool) bool {
 	seen := map[string]bool{skip: true}
-	var walk func(b *data.Bean) bool
-	walk = func(b *data.Bean) bool {
+	var walk func(b *item.Item) bool
+	walk = func(b *item.Item) bool {
 		if seen[b.ID] {
 			return false
 		}
@@ -684,7 +685,7 @@ func windowAround(rows []string, height, cursor int) []string {
 // and Fullscreen can never drift apart on the Detail body.
 func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string {
 	pos := m.cursorPos(nodes)
-	var b *data.Bean
+	var b *item.Item
 	// I02 (bt-39cl Review R1): placeholder covered explicitly alongside
 	// orphan -- its bean is nil anyway (same "(no selection)" outcome), but
 	// the guard style stays consistent with focusedBean's own check.
@@ -699,7 +700,7 @@ func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string
 // shared body of renderDetailPane (Tree, above) and renderBacklogDetailPane
 // (Backlog), which differ only in HOW they resolve a bean from their own
 // cursor shape.
-func (m model) renderBeanDetailBox(b *data.Bean, w, h int, focused bool) string {
+func (m model) renderBeanDetailBox(b *item.Item, w, h int, focused bool) string {
 	// The box-form field cursor is only VISIBLE while the Detail pane
 	// actually holds focus -- an unfocused pane passes -1 (no Mauve frame
 	// anywhere).
@@ -715,7 +716,7 @@ func (m model) renderBeanDetailBox(b *data.Bean, w, h int, focused bool) string 
 // boxScroll is the box-form scroll offset into the full form; boxCursor is
 // the field cursor index rendered with a Mauve frame, or -1 for none. The
 // Vollbild passes -1: there, up/down scroll instead of walking fields.
-func renderDetailBox(idx *data.Index, b *data.Bean, w, h int, focused bool, boxScroll, boxCursor int) string {
+func renderDetailBox(idx *data.Index, b *item.Item, w, h int, focused bool, boxScroll, boxCursor int) string {
 	var rows []string
 	if b != nil {
 		// accW is the outer box width (border included), what detailBoxForm's
@@ -1229,7 +1230,7 @@ func (m model) viewBrowseRepo() string {
 				listRows = append(headRows, m.treeRows(nodes, true, bodyH-len(headRows), paneW-2)...)
 			}
 		}
-		var detailBean *data.Bean
+		var detailBean *item.Item
 		if m.fullscreen == fullscreenDetail {
 			detailBean = m.focusedBean() // resolves via focusedBean's own fullscreenDetail case (update.go)
 		}

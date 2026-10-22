@@ -12,6 +12,7 @@ package tui
 // covers that distinction, so Status/Type/Priority/Tag is the complete set.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"sort"
 	"strings"
 
@@ -105,7 +106,7 @@ func (m model) tagFilterOptions() []string {
 	if m.idx == nil {
 		return nil
 	}
-	all := make([]*data.Bean, 0, len(m.idx.ByID))
+	all := make([]*item.Item, 0, len(m.idx.ByID))
 	for _, b := range m.idx.ByID {
 		all = append(all, b)
 	}
@@ -134,7 +135,7 @@ func (m model) filterActive() bool {
 // (beanMatches AND-combines this with beanMatchesSearch, view_browse_repo.go
 // / search_test.go, E2 Task 3). An empty facet map imposes no constraint
 // (matches everything); a non-empty one requires membership.
-func (m model) beanMatchesFacets(b *data.Bean) bool {
+func (m model) beanMatchesFacets(b *item.Item) bool {
 	if len(m.filterStatus) > 0 && !m.filterStatus[b.Status] {
 		return false
 	}
@@ -169,7 +170,7 @@ func (m model) beanMatchesFacets(b *data.Bean) bool {
 // there), so this predicate lives entirely outside the four
 // filterStatus/filterType/filterPriority/filterTag maps beanMatchesFacets
 // checks.
-func (m model) beanMatchesArchive(b *data.Bean) bool {
+func (m model) beanMatchesArchive(b *item.Item) bool {
 	if m.showArchived {
 		return true
 	}
@@ -186,7 +187,7 @@ func (m model) beanMatchesArchive(b *data.Bean) bool {
 // comment applies unchanged), no separate wiring needed in
 // applyBleveResult (documented Task-7 decision, "Suche respektiert den
 // Archiv-Default").
-func (m model) beanMatches(b *data.Bean) bool {
+func (m model) beanMatches(b *item.Item) bool {
 	return m.beanMatchesSearch(b) && m.beanMatchesFacets(b) && m.beanMatchesArchive(b)
 }
 

@@ -146,10 +146,12 @@ func usesLif(plan []Planned) bool {
 	return false
 }
 
-// StepError reports the failing step. Code > 0 is the step's exit code.
+// StepError reports the failing step. Code > 0 is the step's exit code;
+// Signal > 0 is the signal that killed the step.
 type StepError struct {
 	Task              string
 	Step, Total, Code int // Step is 1-based
+	Signal            syscall.Signal
 	Err               error
 }
 
@@ -210,7 +212,7 @@ func RunContext(ctx context.Context, root string, plan []Planned, args []string,
 			}
 		}
 		for j, step := range p.Task.Steps {
-			cmd := exec.CommandContext(ctx, shell(), append([]string{"-c", step, p.Name}, taskArgs...)...)
+			cmd := exec.CommandContext(ctx, shell(), append([]string{"-ec", step, p.Name}, taskArgs...)...)
 			cmd.Dir = root
 			cmd.Env = env
 			cmd.Stdin, cmd.Stdout, cmd.Stderr = streams.Stdin, streams.Stdout, streams.Stderr
@@ -225,8 +227,12 @@ func RunContext(ctx context.Context, root string, plan []Planned, args []string,
 			}
 			se := &StepError{Task: p.Name, Step: j + 1, Total: len(p.Task.Steps), Err: err}
 			var ee *exec.ExitError
-			if errors.As(err, &ee) && ee.ExitCode() > 0 {
-				se.Code = ee.ExitCode()
+			if errors.As(err, &ee) {
+				if ws, ok := ee.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+					se.Signal = ws.Signal()
+				} else if ee.ExitCode() > 0 {
+					se.Code = ee.ExitCode()
+				}
 			}
 			if ctx.Err() != nil {
 				se.Err = context.Cause(ctx)

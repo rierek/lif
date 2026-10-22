@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -284,11 +285,27 @@ func TestTP17_SignalIsStepErrorWithoutCode(t *testing.T) {
 	}}
 	_, _, err := runTask(t, set, "x", false, nil, "", nil)
 	var se *StepError
-	if !errors.As(err, &se) || se.Code != 0 || se.Err == nil {
+	if !errors.As(err, &se) || se.Code != 0 || se.Signal != syscall.SIGTERM || se.Err == nil {
 		t.Fatalf("err = %#v", err)
 	}
 	if !strings.HasPrefix(err.Error(), `task "x": step 1 of 1: `) {
 		t.Fatalf("msg = %q", err.Error())
+	}
+}
+
+func TestTP17b_FailingNonLastCommandStopsStep(t *testing.T) {
+	set := Set{Root: t.TempDir(), Project: map[string]config.Task{
+		"x": steps("false\necho after"),
+		"y": steps("false || true\necho after"),
+	}}
+	out, _, err := runTask(t, set, "x", false, nil, "", nil)
+	var se *StepError
+	if !errors.As(err, &se) || se.Code != 1 || strings.Contains(out, "after") {
+		t.Fatalf("out = %q, err = %#v", out, err)
+	}
+	out, _, err = runTask(t, set, "y", false, nil, "", nil)
+	if err != nil || out != "after\n" {
+		t.Fatalf("|| true: out = %q, err = %v", out, err)
 	}
 }
 

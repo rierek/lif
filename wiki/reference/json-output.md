@@ -119,9 +119,9 @@ Each code is set by the command that fails. `VALIDATION_ERROR` examples: `blocke
 
 ## Without `--json`
 
-- Text output. An error appears once as text, the process exits with 1, Cobra's usage text is suppressed. Item commands end it with `Run '<command> --help' for usage.`, except `lif run` step failures and changes that a gate blocks, which print no `--help` pointer. `lif graphql` prints its usage line for any resolver error. `lif run` also exits with the exit code of the failing step (see [Tasks](../configuration/#tasks)).
+- Text output. An error appears once as text, the process exits with 1, Cobra's usage text is suppressed. Item commands end it with `Run '<command> --help' for usage.`, except `lif run` step failures and changes that a gate blocks, which print no `--help` pointer. `lif graphql` prints its usage line for any resolver error. `lif run` exits with the exit code of the failing step, 128 plus the signal number, or 2 for an error of Lif (see [Tasks](../configuration/#tasks)).
 - `lif show` prints styled output on a terminal and the raw Markdown of the file when piped or redirected.
-- Exit codes: 0 on success, 1 on error. `lif check` returns 1 on at least one finding (policy warnings count only with `--strict`, legacy notices never). Except for `lif run`, which returns the exit code of the failing step, there is no exit code 2. `lif next` without a ready item exits with 0.
+- Exit codes: 0 on success, 1 on error. `lif check` returns 1 on at least one finding (policy warnings count only with `--strict`, legacy notices never). Only `lif run` has other codes: the exit code of the failing step, 128+n for a step that signal n killed, and 2 for an error of Lif itself. `lif next` without a ready item exits with 0.
 
 ## `lif check --json`
 

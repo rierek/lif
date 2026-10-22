@@ -15,6 +15,11 @@ import (
 
 var runGlobal bool
 
+// runLifError is an error of lif run itself, not of a step: exit code 2.
+type runLifError struct{ error }
+
+func (e *runLifError) Unwrap() error { return e.error }
+
 var runCmd = &cobra.Command{
 	Use:   "run [task] [args...]",
 	Short: "Run a task defined in .lif.yml or ~/.lif/tasks.yml",
@@ -30,8 +35,8 @@ and resolves its dependencies in the global file only.
       desc: Accept an item         # shown by 'lif run'
       args: [id]                   # required positional args, exported as $id
       deps: [test]                 # tasks that run first, without args
-      steps:                       # each step is one 'sh -c' script
-        - lif update "$id" -s completed
+      steps:                       # each step is one 'sh -ec' script
+        - '"$LIF" update "$id" -s completed'
 
 Steps run in the project root (the directory of .lif.yml; the current
 directory when there is none). Everything after the task name goes to the
@@ -45,9 +50,17 @@ Environment of every step:
   LIF_TASK_ORIGIN  "project" or "global"
   LIF_PATH         absolute store path, when --lif-path or LIF_PATH is set
 
-A failing step stops the run. lif then exits with the exit code of that step.
-Other failures (signal, unknown task, bad config) exit 1. A multi-line step
-runs without 'set -e': start it with 'set -e' to stop at the first failure.`,
+A failing step stops the run. Steps run with 'sh -ec': a failing command in a
+multi-line step stops the step; end a command with '|| true' to ignore its
+failure.
+
+Exit code of lif run:
+  0       every step succeeded
+  n       the step failed with exit code n (passed through)
+  128+n   the step was killed by signal n (143 for SIGTERM)
+  2       lif itself failed: unknown task, missing args, unknown flag,
+          dependency cycle, bad task config
+  1       lif was interrupted (SIGINT, SIGTERM, SIGHUP) and the step exited 0`,
 	Example: `  lif run
   lif run test
   lif run po-accept lif-ab12
@@ -56,14 +69,14 @@ runs without 'set -e': start it with 'set -e' to stop at the first failure.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		set, err := loadTaskSet()
 		if err != nil {
-			return err
+			return &runLifError{err}
 		}
 		if len(args) == 0 {
 			return listTasks(cmd, set)
 		}
 		plan, err := set.Plan(args[0], runGlobal)
 		if err != nil {
-			return err
+			return &runLifError{err}
 		}
 		top := plan[len(plan)-1]
 		if _, shadows := set.Global[top.Name]; shadows && top.Origin == "project" {
@@ -71,9 +84,15 @@ runs without 'set -e': start it with 'set -e' to stop at the first failure.`,
 			fmt.Fprintf(cmd.ErrOrStderr(), "running project task %q (overrides global; use -g for the global one)\n", top.Name)
 		}
 		if err := tasks.CheckArgs(top, args[1:]); err != nil {
-			return err
+			return &runLifError{err}
 		}
-		return tasks.Run(set.Root, plan, args[1:], tasks.IO{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()}, storeEnv())
+		err = tasks.Run(set.Root, plan, args[1:], tasks.IO{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()}, storeEnv())
+		if err != nil {
+			if _, isStep := err.(*tasks.StepError); !isStep {
+				return &runLifError{err} // "lif binary not found"
+			}
+		}
+		return err
 	},
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) > 0 {
@@ -206,6 +225,8 @@ func storeEnv() []string {
 func RegisterRunCmd(root *cobra.Command) {
 	runCmd.Flags().BoolVarP(&runGlobal, "global", "g", false, "Use the global task even if the project defines one with the same name")
 	// Everything after the task name goes to the task, --help and -- included.
+	// A flag error of run is an error of lif itself: exit code 2.
+	runCmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return &runLifError{err} })
 	runCmd.Flags().SetInterspersed(false)
 	root.AddCommand(runCmd)
 }

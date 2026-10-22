@@ -44,7 +44,7 @@ Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif grap
 ## What you get
 
 <KeyValueList>
-  <KeyValueItem term="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error; `lif run` returns the exit code of the failing step.</KeyValueItem>
+  <KeyValueItem term="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error; `lif run` has its own codes, see [Tasks](#tasks).</KeyValueItem>
   <KeyValueItem term="GraphQL without a server">`lif graphql '<query>'` (alias `lif query`) also reads stdin. A mutation through the CLI works the same way, for example `createItem` with `title` and `type`.</KeyValueItem>
   <KeyValueItem term="Agents that learn Lif from Lif">`lif prime` prints a prompt that teaches a coding agent how to use Lif, and it runs without a loaded store. Agents learn from `lif prime` and `--help`, not from prior knowledge.</KeyValueItem>
   <KeyValueItem term="Review findings become items">`lif promote <artifact> <finding-id>...` creates items from the findings of a review artifact. It writes nothing if a chosen finding is malformed and skips findings that were already taken over.</KeyValueItem>
@@ -77,7 +77,6 @@ tasks:
     args: [id]
     steps:
       - |
-        set -e
         "$LIF" update "$id" --tag accepted --body-append "## PO acceptance $(date +%F)"
         file="$("$LIF" path)/$("$LIF" show "$id" --json | jq -r .path)"
         git add -- "$file"
@@ -101,13 +100,23 @@ tasks:
 lif run wt start lif-ab12 milestone/0.16   # runs: just -g wt start lif-ab12 milestone/0.16
 ```
 
-Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run and sets the exit code of `lif run`. Inside a multi-line step only the last command decides: start the script with `set -e`, as `po-accept` above does. A signal (Ctrl-C, SIGTERM) goes to the step and its child processes, and `lif run` waits for the step to end. `lif run` has no `--json`. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
+Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run. Every step runs with `sh -ec`: inside a multi-line step the first failing command stops the step, as in `po-accept` above. End a command with `|| true` when its failure is deliberate and the step goes on. Hooks and gates run their tasks the same way. A signal (Ctrl-C, SIGTERM) goes to the step, and `lif run` waits for the step to end. When stdin is not a terminal, the signal goes to the whole process group of the step, so its child processes get it too; with a terminal on stdin, only the step gets SIGTERM and SIGHUP, and the terminal sends Ctrl-C itself. `lif run` has no `--json`. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
+
+Exit code of `lif run`:
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Every step succeeded. |
+| n | The step failed with its own exit code n. The code passes through unchanged. |
+| 128+n | A signal n killed the step, for example 143 for SIGTERM. |
+| 2 | Lif itself failed: unknown task, missing arguments, unknown flag, dependency cycle, bad task config. |
+| 1 | Lif got SIGINT, SIGTERM or SIGHUP, passed it to the step, and the step exited with 0. |
 
 ## Hooks
 
 A hook runs a task by itself when an item is created or one of its fields changes: `status`, `type`, `parent`, `tags` or any extra front matter key of your workflow. Tasks are the *what*, hooks are the *when*. Nobody has to remember the step, neither a person nor an agent. A hook reacts after the change is written. A gate checks before the write and can refuse the change.
 
-Project hooks run only after you have read them and run `lif hooks allow`. `lif hooks` lists every hook and gate and says whether the project hooks run. While the project is not allowed, the list shows the global hooks that run and marks a project hook of the same name `not allowed`. `lif hooks --steps` prints the steps that the hooks can run: read them before you allow.
+Project hooks run only after you have read them and run `lif hooks allow`. An edit of the hooks or tasks in `.lif.yml` takes the allow back, also an edit by an agent and also a `.lif.yml` in a fresh clone or worktree. Until the next `lif hooks allow`, project gates do not run: the change succeeds with exit code 0 and Lif only prints a warning on stderr. `--json` output does not carry that warning, so a script that reads only the JSON does not see that the gates stayed off. `lif hooks` lists every hook and gate and says whether the project hooks run. While the project is not allowed, the list shows the global hooks that run and marks a project hook of the same name `not allowed`. `lif hooks --steps` prints the steps that the hooks can run: read them before you allow.
 
 ### Open and close a container worktree
 
@@ -203,7 +212,7 @@ See [Hooks](../../reference/configuration/#hooks) in the configuration reference
 
 ## Errors
 
-Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is an exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer, and exits with the exit code of the failing step. A change that an item command's gate blocks is an error with the code `POLICY_VIOLATION` and also prints no `--help` pointer: see [Gates](#gates). `lif graphql` prints its usage line for any resolver error.
+Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is an exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer, and exits with the exit code of the failing step, 128+n for a step that a signal killed, or 2 for an error of Lif itself (see the [exit code table](#tasks)). A change that an item command's gate blocks is an error with the code `POLICY_VIOLATION` and also prints no `--help` pointer: see [Gates](#gates). `lif graphql` prints its usage line for any resolver error.
 
 ## Tips
 
@@ -244,7 +253,7 @@ Run `lif check` after every automated change.
 - With a server, `lif-serve` offers `/api/graphql` and a playground at `/playground`.
 - `lif promote` takes a review artifact that follows the findings schema. It validates every selected record and the `--parent` item first, writes nothing if one fails, and then creates one item per record with the configured default status. The command page describes the artifact format. See [`lif promote`](../../reference/commands/lif-promote/).
 - GraphQL `createItem` without `status` sets the configured default status (0.14).
-- `lif check` returns 1 on at least one problem. Normal errors do not use exit code 2, except `lif run`, which returns the exit code of the failing step.
+- `lif check` returns 1 on at least one problem. Normal errors do not use exit code 2. Only `lif run` has other codes: the exit code of the failing step, 128+n for a signal, 2 for an error of Lif.
 - On a GraphQL error the CLI prints `Error:` and a message. It returns no partial data.
 
 ## Limits

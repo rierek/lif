@@ -102,8 +102,7 @@ item, no cycle) are checked for every item, before the first item is written.
 		// Rules that depend on the item are checked for every target before
 		// the first write, so a violation of them leaves the store untouched.
 		// A gate (hooks) answers per write: it can stop the loop below at any
-		// target, and the targets before it stay written. Once a hook ran, a
-		// later target can also fail with CONFLICT (see CoreResolver).
+		// target, and the targets before it stay written.
 		if input.Status != nil {
 			if err := preflightStatusPolicy(targets, *input.Status, setMap); err != nil {
 				return mutationError(updateJSON, err)

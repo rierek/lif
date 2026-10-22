@@ -365,14 +365,26 @@ func reportExecutionError(cmd *cobra.Command, err error) {
 	cmd.PrintErrf("Run '%v --help' for usage.\n", cmd.CommandPath())
 }
 
-// exitCode is the process exit code for err: the failing step's own code for
-// a task step, 1 for everything else. A gate that blocked a change is 1 too:
-// hooks.BlockedError has no Unwrap, so the step code of the gate's task does
-// not reach this function.
+// exitCode is the process exit code for err. For `lif run`: the failing step's
+// own code, 128+n for a step killed by signal n, 2 for an error of lif itself
+// (runLifError, or a step that could not start). 1 for everything else, also
+// for a gate that blocked a change: hooks.BlockedError has no Unwrap, so the
+// step code of the gate's task does not reach this function.
 func exitCode(err error) int {
 	var se *tasks.StepError
-	if errors.As(err, &se) && se.Code > 0 {
-		return se.Code
+	if errors.As(err, &se) {
+		switch {
+		case se.Code > 0:
+			return se.Code
+		case se.Signal > 0:
+			return 128 + int(se.Signal)
+		case !errors.Is(se.Err, tasks.ErrInterrupted):
+			return 2
+		}
+	}
+	var le *runLifError
+	if errors.As(err, &le) {
+		return 2
 	}
 	return 1
 }

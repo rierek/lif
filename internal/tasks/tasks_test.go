@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -284,7 +285,7 @@ func TestTP17_SignalIsStepErrorWithoutCode(t *testing.T) {
 	}}
 	_, _, err := runTask(t, set, "x", false, nil, "", nil)
 	var se *StepError
-	if !errors.As(err, &se) || se.Code != 0 || se.Err == nil {
+	if !errors.As(err, &se) || se.Code != 0 || se.Signal != syscall.SIGTERM || se.Err == nil {
 		t.Fatalf("err = %#v", err)
 	}
 	if !strings.HasPrefix(err.Error(), `task "x": step 1 of 1: `) {

@@ -203,22 +203,46 @@ func TestTR10_StepExitCodePassesThrough(t *testing.T) {
 	}
 }
 
-func TestTR11_OtherErrorsExitOne(t *testing.T) {
-	runEnv(t, "", "")
-	_, _, err := runTR(t, "run", "nope")
-	if err == nil {
-		t.Fatal("want error for unknown task")
+func TestTR11_LifErrorsOfRunExitTwo(t *testing.T) {
+	runEnv(t, "tasks:\n  need:\n    args: [id]\n    steps: ['true']\n  a:\n    deps: [b]\n    steps: ['true']\n  b:\n    deps: [a]\n    steps: ['true']\n", "")
+	for _, args := range [][]string{{"run", "nope"}, {"run", "need"}, {"run", "a"}} {
+		_, _, err := runTR(t, args...)
+		if err == nil {
+			t.Fatalf("%v: want error", args)
+		}
+		if got := exitCode(err); got != 2 {
+			t.Fatalf("%v: exitCode = %d; want 2 (err %v)", args, got, err)
+		}
 	}
-	if got := exitCode(err); got != 1 {
-		t.Fatalf("exitCode = %d; want 1", got)
+	runEnv(t, "tasks:\n  Bad Name:\n    steps: ['echo x']\n", "")
+	_, _, err := runTR(t, "run", "x")
+	if got := exitCode(err); got != 2 {
+		t.Fatalf("bad config: exitCode = %d; want 2 (err %v)", got, err)
 	}
-	// Only *tasks.StepError carries a code, even a wrapped ExitError does not.
+}
+
+func TestTR11b_ExitCodeOutsideRunStaysOne(t *testing.T) {
+	// Only run's errors and *tasks.StepError map to other codes; a wrapped ExitError does not.
 	wrapped := fmt.Errorf("x: %w", &exec.ExitError{})
 	if got := exitCode(wrapped); got != 1 {
 		t.Fatalf("exitCode(wrapped ExitError) = %d; want 1", got)
 	}
-	if got := exitCode(&tasks.StepError{Task: "t", Step: 1, Total: 1, Err: errors.New("sig")}); got != 1 {
-		t.Fatalf("exitCode(StepError without code) = %d; want 1", got)
+	if got := exitCode(errors.New("x")); got != 1 {
+		t.Fatalf("exitCode(plain) = %d; want 1", got)
+	}
+	if got := exitCode(&tasks.StepError{Task: "t", Step: 1, Total: 1, Err: tasks.ErrInterrupted}); got != 1 {
+		t.Fatalf("exitCode(interrupted) = %d; want 1", got)
+	}
+	if got := exitCode(&tasks.StepError{Task: "t", Step: 1, Total: 1, Err: errors.New("start")}); got != 2 {
+		t.Fatalf("exitCode(StepError without code) = %d; want 2", got)
+	}
+}
+
+func TestTR11c_SignaledStepExitsOnePlusSignal(t *testing.T) {
+	runEnv(t, "tasks:\n  sig:\n    steps: ['kill -TERM $$']\n", "")
+	_, _, err := runTR(t, "run", "sig")
+	if got := exitCode(err); got != 143 {
+		t.Fatalf("exitCode = %d; want 143 (err %v)", got, err)
 	}
 }
 

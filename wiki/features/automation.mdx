@@ -109,7 +109,7 @@ Exit code of `lif run`:
 | 0 | Every step succeeded. |
 | n | The step failed with its own exit code n. The code passes through unchanged. |
 | 128+n | A signal n killed the step, for example 143 for SIGTERM. |
-| 2 | Lif itself failed: unknown task, missing or invalid arguments, dependency cycle, bad task config. |
+| 2 | Lif itself failed: unknown task, missing arguments, unknown flag, dependency cycle, bad task config. |
 | 1 | Lif got SIGINT, SIGTERM or SIGHUP, passed it to the step, and the step exited with 0. |
 
 ## Hooks
@@ -212,7 +212,7 @@ See [Hooks](../../reference/configuration/#hooks) in the configuration reference
 
 ## Errors
 
-Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is an exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer, and exits with the exit code of the failing step. A change that an item command's gate blocks is an error with the code `POLICY_VIOLATION` and also prints no `--help` pointer: see [Gates](#gates). `lif graphql` prints its usage line for any resolver error.
+Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is an exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer, and exits with the exit code of the failing step, 128+n for a step that a signal killed, or 2 for an error of Lif itself (see the [exit code table](#tasks)). A change that an item command's gate blocks is an error with the code `POLICY_VIOLATION` and also prints no `--help` pointer: see [Gates](#gates). `lif graphql` prints its usage line for any resolver error.
 
 ## Tips
 

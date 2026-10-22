@@ -238,7 +238,20 @@ func TestTR11b_ExitCodeOutsideRunStaysOne(t *testing.T) {
 	}
 }
 
-func TestTR11c_SignaledStepExitsOnePlusSignal(t *testing.T) {
+func TestTR11d_RunFlagErrorsExitTwo(t *testing.T) {
+	runEnv(t, "", "")
+	for _, args := range [][]string{{"run", "--bogus"}, {"run", "--json"}} {
+		_, _, err := runTR(t, args...)
+		if err == nil {
+			t.Fatalf("%v: want error", args)
+		}
+		if got := exitCode(err); got != 2 {
+			t.Fatalf("%v: exitCode = %d; want 2 (err %v)", args, got, err)
+		}
+	}
+}
+
+func TestTR11c_SignaledStepExits128PlusSignal(t *testing.T) {
 	runEnv(t, "tasks:\n  sig:\n    steps: ['kill -TERM $$']\n", "")
 	_, _, err := runTR(t, "run", "sig")
 	if got := exitCode(err); got != 143 {

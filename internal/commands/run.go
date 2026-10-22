@@ -58,7 +58,7 @@ Exit code of lif run:
   0       every step succeeded
   n       the step failed with exit code n (passed through)
   128+n   the step was killed by signal n (143 for SIGTERM)
-  2       lif itself failed: unknown task, missing or invalid args,
+  2       lif itself failed: unknown task, missing args, unknown flag,
           dependency cycle, bad task config
   1       lif was interrupted (SIGINT, SIGTERM, SIGHUP) and the step exited 0`,
 	Example: `  lif run
@@ -225,6 +225,8 @@ func storeEnv() []string {
 func RegisterRunCmd(root *cobra.Command) {
 	runCmd.Flags().BoolVarP(&runGlobal, "global", "g", false, "Use the global task even if the project defines one with the same name")
 	// Everything after the task name goes to the task, --help and -- included.
+	// A flag error of run is an error of lif itself: exit code 2.
+	runCmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return &runLifError{err} })
 	runCmd.Flags().SetInterspersed(false)
 	root.AddCommand(runCmd)
 }

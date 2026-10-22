@@ -7,6 +7,7 @@ package tui
 // beans-native from the start, design-spec.md §3.1/§13).
 
 import (
+	pkgconfig "github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/rierek/lif/pkg/roadmap"
@@ -71,6 +72,7 @@ const (
 	overlayBlockingPicker
 	overlayCreateConfirm
 	overlayDeleteConfirm
+	overlayTaskOutput
 )
 
 // Picker-Stil-Divergenz (E3-T3-Review PFLICHT, carried into bean bt-ppzb/E3
@@ -163,6 +165,16 @@ type model struct {
 	// pane then takes the full width. True at start, `D` toggles it, `tab`
 	// into a hidden Detail shows it. Not consulted in the Vollbild.
 	detailHidden bool
+
+	// taskActions are the tui.actions of the open repo's config that passed
+	// validation (setTaskActions). Label is resolved.
+	taskActions []pkgconfig.TUIAction
+
+	// taskOutput* hold the open overlayTaskOutput: its title, the sanitized
+	// output lines and the index of the first visible line.
+	taskOutputTitle  string
+	taskOutputLines  []string
+	taskOutputScroll int
 
 	// Suche `/` (E2 Task 3, bean bt-4ep2, design-spec.md §6 V2): searchActive
 	// is the textinput-focused typing state (single-key shortcuts inactive
@@ -774,7 +786,7 @@ func newModel(store *data.Store, repoDir string) model {
 	repoIn.Prompt = ""
 	repoIn.CharLimit = 200
 
-	return model{
+	m := model{
 		view:         viewBrowseRepo,
 		store:        store,
 		repoDir:      repoDir,
@@ -785,4 +797,5 @@ func newModel(store *data.Store, repoDir string) model {
 		tagMgmtInput: tagMgmtIn,
 		repoSearch:   repoIn,
 	}
+	return m.setTaskActions()
 }

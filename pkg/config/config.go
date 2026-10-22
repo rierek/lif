@@ -404,6 +404,19 @@ type DisplayConfig struct {
 	MaxWidth int `yaml:"max_width,omitempty"`
 }
 
+// TUIConfig configures lif tui. Actions expose tasks as palette entries and keys.
+type TUIConfig struct {
+	Actions []TUIAction `yaml:"actions,omitempty"`
+}
+
+// TUIAction exposes one task in the TUI.
+type TUIAction struct {
+	Task     string   `yaml:"task"`               // name in tasks: or ~/.lif/tasks.yml
+	Key      string   `yaml:"key,omitempty"`      // optional single key
+	Label    string   `yaml:"label,omitempty"`    // default: task desc, else name
+	Statuses []string `yaml:"statuses,omitempty"` // offered only for a focused item in one of these
+}
+
 // Config holds the items configuration.
 type Config struct {
 	Project  ProjectConfig  `yaml:"project,omitempty"`
@@ -434,6 +447,13 @@ type Config struct {
 	// hooksNode is the raw value node of the top-level hooks key, kept for
 	// Save like tasksNode.
 	hooksNode *yaml.Node `yaml:"-"`
+
+	// TUI configures lif tui.
+	TUI TUIConfig `yaml:"tui,omitempty"`
+
+	// tuiNode is the raw value node of the top-level tui key, kept for Save
+	// like tasksNode.
+	tuiNode *yaml.Node `yaml:"-"`
 
 	// TypesExclusive switches the merge in TypeList() off: when true, Types is
 	// the complete type table on its own, not an override list layered onto
@@ -729,6 +749,7 @@ func Load(configPath string) (*Config, error) {
 		cfg.sectionKey = key
 		cfg.tasksNode = topValueNode(&doc, "tasks")
 		cfg.hooksNode = topValueNode(&doc, "hooks")
+		cfg.tuiNode = topValueNode(&doc, "tui")
 		if section != nil {
 			if err := section.Decode(&cfg.Items); err != nil {
 				return nil, err
@@ -1338,6 +1359,12 @@ func (c *Config) toYAMLNode() *yaml.Node {
 		key := strNode("hooks")
 		key.HeadComment = "Hooks run tasks on item events; enable with lif hooks allow"
 		topMapping.Content = append(topMapping.Content, key, c.hooksNode)
+	}
+
+	if c.tuiNode != nil {
+		key := strNode("tui")
+		key.HeadComment = "lif tui settings"
+		topMapping.Content = append(topMapping.Content, key, c.tuiNode)
 	}
 
 	// Wrap in a document node

@@ -58,6 +58,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case searchBleveResultMsg:
 		return m.applyBleveResult(msg)
 
+	case taskDoneMsg:
+		return m.applyTaskDone(msg)
+
 	case mutationDoneMsg:
 		// E3 (bean bt-dlgk): every Set*/Add*/Remove*/Delete mutation goes
 		// through this ONE case -- applyMutationResult below is the shared
@@ -219,6 +222,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	// field elsewhere on model to also reset (toastState's own seq/sticky
 	// live INSIDE the struct this pointer addresses, overlay_show_toast.go).
 	m.toast = nil
+	m = m.setTaskActions() // the new repo's tui.actions; may raise a warning toast
 
 	// Port devd selectProject's reset-on-switch breadth (view_home.go).
 	m.expanded = map[string]bool{}
@@ -866,6 +870,8 @@ func (m model) keyOverlay(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keyCreateConfirm(msg)
 	case overlayDeleteConfirm:
 		return m.keyDeleteConfirm(msg)
+	case overlayTaskOutput:
+		return m.keyTaskOutput(msg)
 	}
 	return m, nil
 }
@@ -1175,6 +1181,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// checked BEFORE the detailFocus/keyReady/keyTree dispatch below so
 	// they act on m.focusedBean() regardless of which pane has focus (see
 	// keyNodeAction's own doc comment for the full rationale).
+	if handled, nm, cmd := m.keyTaskAction(msg); handled {
+		return nm, cmd
+	}
 	if handled, nm, cmd := m.keyNodeAction(msg); handled {
 		return nm, cmd
 	}

@@ -134,6 +134,27 @@ tasks:
 
 See [Automation](../../features/automation/#tasks) for examples.
 
+## TUI actions
+
+`lif tui` shows no task by default. `tui.actions` in `.lif.yml` exposes tasks as entries of the command palette (`run: <label>`) and optionally as a key:
+
+```yaml
+tui:
+    actions:
+        - task: po-accept
+          key: A
+          label: accept
+          statuses: [to-review]
+```
+
+- `task`. The name of a task in `tasks:` or in `~/.lif/tasks.yml`. An unknown name is dropped and the TUI shows a warning.
+- `key`. Optional single key. A key that has more than one character or that the TUI already uses is dropped, and the TUI shows a warning.
+- `label`. Text of the palette entry and the key help. Default: the task `desc`, else the task name.
+- `statuses`. Optional list. The action is offered only while the focused item has one of these statuses.
+- Arguments. A task with one argument gets the focused item ID. A task without an argument gets none. A task with more than one argument is an error. Every step also gets `LIF_ITEM_ID` (the focused item ID, or empty) and `LIF_PATH`.
+- Execution. The task runs in the TUI process without a trust check, like `lif run`, with empty stdin. The TUI shows the output and the exit code in an overlay (`esc` closes it); a task without output and without error shows a short toast.
+- `lif rename` keeps the `tui:` block.
+
 ## Hooks
 
 A hook runs a [task](#tasks) by itself when an item is created or when one of its fields changes. Tasks are the *what*, hooks are the *when*: a hook adds no commands of its own, so `lif run` and a hook run the same steps the same way. A gate is a hook that runs before the write and can refuse it. `lif hooks` lists every hook and gate, and whether the project hooks run.

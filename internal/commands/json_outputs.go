@@ -5,6 +5,7 @@ import (
 	"github.com/rierek/lif/internal/version"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/roadmap"
 )
 
 // JSONOutputs maps the name of a published JSON Schema file to a value of the
@@ -26,7 +27,7 @@ func JSONOutputs() map[string]any {
 		"progress":    progressResult{},
 		"rename":      renameResult{},
 		"rename-plan": itemcore.RenamePlan{},
-		"roadmap":     roadmapData{},
+		"roadmap":     roadmap.Data{},
 		"version":     version.Info{},
 	}
 }

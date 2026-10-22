@@ -15,6 +15,7 @@ import (
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/roadmap"
 	"github.com/spf13/cobra"
 )
 
@@ -88,7 +89,7 @@ func TestRoadmapCmdJSONScopesToEpicRoot(t *testing.T) {
 		t.Fatalf("roadmapCmd.RunE() error = %v", err)
 	}
 
-	var got roadmapData
+	var got roadmap.Data
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("failed to unmarshal JSON output: %v", err)
 	}
@@ -128,7 +129,7 @@ func TestRoadmapCmdJSONScopesToMilestoneRoot(t *testing.T) {
 		t.Fatalf("roadmapCmd.RunE() error = %v", err)
 	}
 
-	var got roadmapData
+	var got roadmap.Data
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("failed to unmarshal JSON output: %v", err)
 	}
@@ -298,19 +299,19 @@ func TestRoadmapCmdTableViewRendersHeaderNoConnectors(t *testing.T) {
 // a test can check that the milestone/unscheduled grouping survives being
 // flattened into ui.FormTable rows (which drop Depth entirely -- Section is
 // what carries the grouping across that flattening, per ui/columns.go).
-func roadmapGroupingFixture() *roadmapData {
+func roadmapGroupingFixture() *roadmap.Data {
 	now := time.Now()
 	m1 := &item.Item{ID: "beans-m1", Type: "milestone", Title: "v1.0", Status: "todo", CreatedAt: &now, Path: "m1--v10.md"}
 	m2 := &item.Item{ID: "beans-m2", Type: "milestone", Title: "v2.0", Status: "todo", CreatedAt: &now, Path: "m2--v20.md"}
 	t1 := &item.Item{ID: "beans-t1", Type: "task", Title: "In v1", Status: "todo", Path: "t1--in-v1.md"}
 	t2 := &item.Item{ID: "beans-t2", Type: "task", Title: "In v2", Status: "todo", Path: "t2--in-v2.md"}
 	orphan := &item.Item{ID: "beans-o1", Type: "task", Title: "Orphan", Status: "todo", Path: "o1--orphan.md"}
-	return &roadmapData{
-		Milestones: []milestoneGroup{
+	return &roadmap.Data{
+		Milestones: []roadmap.MilestoneGroup{
 			{Milestone: m1, Other: []*item.Item{t1}},
 			{Milestone: m2, Other: []*item.Item{t2}},
 		},
-		Unscheduled: &unscheduledGroup{Other: []*item.Item{orphan}},
+		Unscheduled: &roadmap.UnscheduledGroup{Other: []*item.Item{orphan}},
 	}
 }
 
@@ -352,12 +353,12 @@ func TestRoadmapOutputNoLineExceedsWidth(t *testing.T) {
 	e := &item.Item{ID: "beans-e1", Type: "epic", Title: "A moderately long epic title", Status: "todo", Tags: []string{"auth"}, Path: "e1.md"}
 	f := &item.Item{ID: "beans-f1", Type: "feature", Title: "A moderately long feature title", Status: "todo", Priority: "high", Path: "f1.md"}
 	leaf := &item.Item{ID: "beans-t1", Type: "task", Title: "A moderately long leaf title", Status: "in-progress", Priority: "critical", Tags: []string{"blocked"}, Path: "t1.md"}
-	data := &roadmapData{
-		Milestones: []milestoneGroup{
+	data := &roadmap.Data{
+		Milestones: []roadmap.MilestoneGroup{
 			{
 				Milestone: m,
-				Containers: []roadmapContainer{
-					{Epic: &epicGroup{Epic: e, Features: []featureGroup{{Feature: f, Items: []*item.Item{leaf}}}}},
+				Containers: []roadmap.Container{
+					{Epic: &roadmap.EpicGroup{Epic: e, Features: []roadmap.FeatureGroup{{Feature: f, Items: []*item.Item{leaf}}}}},
 				},
 			},
 		},

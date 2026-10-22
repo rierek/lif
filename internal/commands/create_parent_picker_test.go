@@ -19,6 +19,7 @@ import (
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
 	"github.com/rierek/lif/pkg/itemgraph"
+	"github.com/rierek/lif/pkg/roadmap"
 )
 
 const ppLongTitle = "Eine sehr lange Überschrift für das Feature mit Umlauten ÄÖÜ äöü ß und noch mehr Text damit es abgeschnitten wird"
@@ -232,7 +233,7 @@ func TestParentPickerRowsFollowRoadmapOrder(t *testing.T) {
 	got := ppIDsInOrder(e.view(), []string{"m1", "m2", "e1", "e2", "e3", "f1", "f3", "f4"})
 	var want []string
 	inRoadmap := map[string]bool{}
-	for _, r := range roadmapRows(buildRoadmap(all, true, nil, nil)) {
+	for _, r := range roadmapRows(roadmap.Build(cfg, all, true, nil, nil)) {
 		id := strings.TrimPrefix(r.Item.ID, "pp-")
 		inRoadmap[id] = true
 		for _, g := range got {

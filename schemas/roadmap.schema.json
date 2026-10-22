@@ -1,7 +1,85 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$ref": "#/$defs/roadmapData",
+  "$ref": "#/$defs/Data",
   "$defs": {
+    "Container": {
+      "properties": {
+        "epic": {
+          "$ref": "#/$defs/EpicGroup"
+        },
+        "feature": {
+          "$ref": "#/$defs/FeatureGroup"
+        }
+      },
+      "type": "object"
+    },
+    "Data": {
+      "properties": {
+        "root": {
+          "$ref": "#/$defs/RootGroup"
+        },
+        "milestones": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MilestoneGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unscheduled": {
+          "$ref": "#/$defs/UnscheduledGroup"
+        }
+      },
+      "type": "object",
+      "required": [
+        "milestones"
+      ]
+    },
+    "EpicGroup": {
+      "properties": {
+        "epic": {
+          "$ref": "#/$defs/Item"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Item"
+          },
+          "type": "array"
+        },
+        "features": {
+          "items": {
+            "$ref": "#/$defs/FeatureGroup"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "required": [
+        "epic"
+      ]
+    },
+    "FeatureGroup": {
+      "properties": {
+        "feature": {
+          "$ref": "#/$defs/Item"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Item"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "required": [
+        "feature"
+      ]
+    },
     "Item": {
       "properties": {
         "id": {
@@ -89,54 +167,14 @@
       "title": "Item",
       "description": "An item as printed by show, create, update, list and the other item verbs."
     },
-    "epicGroup": {
-      "properties": {
-        "epic": {
-          "$ref": "#/$defs/Item"
-        },
-        "items": {
-          "items": {
-            "$ref": "#/$defs/Item"
-          },
-          "type": "array"
-        },
-        "features": {
-          "items": {
-            "$ref": "#/$defs/featureGroup"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object",
-      "required": [
-        "epic"
-      ]
-    },
-    "featureGroup": {
-      "properties": {
-        "feature": {
-          "$ref": "#/$defs/Item"
-        },
-        "items": {
-          "items": {
-            "$ref": "#/$defs/Item"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object",
-      "required": [
-        "feature"
-      ]
-    },
-    "milestoneGroup": {
+    "MilestoneGroup": {
       "properties": {
         "milestone": {
           "$ref": "#/$defs/Item"
         },
         "containers": {
           "items": {
-            "$ref": "#/$defs/roadmapContainer"
+            "$ref": "#/$defs/Container"
           },
           "type": "array"
         },
@@ -152,60 +190,22 @@
         "milestone"
       ]
     },
-    "roadmapContainer": {
+    "RootGroup": {
       "properties": {
         "epic": {
-          "$ref": "#/$defs/epicGroup"
+          "$ref": "#/$defs/EpicGroup"
         },
         "feature": {
-          "$ref": "#/$defs/featureGroup"
+          "$ref": "#/$defs/FeatureGroup"
         }
       },
       "type": "object"
     },
-    "roadmapData": {
-      "properties": {
-        "root": {
-          "$ref": "#/$defs/rootGroup"
-        },
-        "milestones": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/milestoneGroup"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "unscheduled": {
-          "$ref": "#/$defs/unscheduledGroup"
-        }
-      },
-      "type": "object",
-      "required": [
-        "milestones"
-      ]
-    },
-    "rootGroup": {
-      "properties": {
-        "epic": {
-          "$ref": "#/$defs/epicGroup"
-        },
-        "feature": {
-          "$ref": "#/$defs/featureGroup"
-        }
-      },
-      "type": "object"
-    },
-    "unscheduledGroup": {
+    "UnscheduledGroup": {
       "properties": {
         "containers": {
           "items": {
-            "$ref": "#/$defs/roadmapContainer"
+            "$ref": "#/$defs/Container"
           },
           "type": "array"
         },

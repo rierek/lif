@@ -9,6 +9,7 @@ import (
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 	"github.com/spf13/cobra"
 )
 
@@ -94,8 +95,8 @@ var milestonesCmd = &cobra.Command{
 
 		item.SortByStatusPriorityAndType(milestones, cfg.StatusNames(), cfg.PriorityNames(), cfg.TypeNames())
 
-		idx := buildChildrenIndex(allItems)
-		hidden := hiddenSubtrees(allItems, idx)
+		idx := roadmap.ChildrenIndex(allItems)
+		hidden := roadmap.HiddenSubtrees(cfg, allItems, idx)
 		visibleIdx := visibleChildrenIndex(idx, hidden)
 
 		entries := make([]milestoneEntry, 0, len(milestones))

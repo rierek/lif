@@ -116,6 +116,8 @@ In the lobby, `↑`/`↓` (or `i`/`k`) move, `enter` opens the repository, `/` o
 
 The palette entry `open: documentation` opens this reference (`https://rierek.github.io/lif/reference/`) in the default browser and shows the URL in a toast. If no opener exists, an error toast shows the URL instead.
 
+The palette lists its entries by verb: all `set:` entries first, then all `view:` entries, then the others (`create:`, `delete:`, `focus:`, `register:`, `reload:`, `run:`, `search:`), and `open:` last. Inside each group the entries are alphabetical. The `set:` and `delete:` entries and `create: tag` appear only when an item is selected.
+
 ## Outside the TUI
 
 The zsh widget `extras/zsh/lif-pick.zsh` binds `Alt+i` (`^[i`) to [`lif pick`](../../commands/lif-pick/). It is not part of the TUI. Load it by sourcing the file from your `.zshrc`; that was not measured here.

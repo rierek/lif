@@ -369,12 +369,10 @@ func TestViewDispatcherRoutesTagManagementView(t *testing.T) {
 
 // --- Command-Center entry point (D05) ---
 
-// TestPaletteActionsIncludesGoToTagsBeforeSettings guards D05's wiring:
-// "go to tags" is a global action (no focused-bean requirement, mirrors
-// "go to settings"), grouped directly BEFORE "settings" as the new
-// last-but-one entry (Planner-Entscheidung, epic bt-362n body's own D05
-// wording).
-func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
+// TestPaletteActionsIncludesGoToTagsAndSettings guards D05's wiring:
+// "view: tags" is a global action (no focused-bean requirement, mirrors
+// "view: settings"). Order is pinned by TestPaletteActionsGroupedByVerb.
+func TestPaletteActionsIncludesGoToTagsAndSettings(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	items := paletteActions(m)
 
@@ -395,9 +393,6 @@ func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
 	}
 	if settingsIdx == -1 {
 		t.Fatal(`paletteActions missing "settings"`)
-	}
-	if settingsIdx != gotIdx+1 {
-		t.Fatalf("go_tags at %d, settings at %d -- want settings directly after go_tags", gotIdx, settingsIdx)
 	}
 }
 

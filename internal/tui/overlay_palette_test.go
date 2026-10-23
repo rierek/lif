@@ -13,6 +13,9 @@ import (
 	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,45 +25,24 @@ import (
 
 // --- paletteActions: context-aware ordering (design decision b) ---
 
-// TestPaletteActionsBeanContextFirst guards that a focused bean's node
-// actions (status/type/priority/tags/create_tag/parent/blocking/edit_title/
-// delete) come BEFORE the global actions (create/go_ready/...). type/
-// priority (B12, design-spec.md §15 PF-16, bean bt-ntoz, E8 Task 6) sit
-// directly after status -- the bean's own wording ("paletteActions(), im
-// focused-bean-Block, nach 'status':"). create_tag (B14, design-spec.md §15
-// PF-16, bean bt-ntoz, E8 Task 7, bean bt-yqdy) sits directly after tags --
-// same "grouped with the related action" precedent.
-func TestPaletteActionsBeanContextFirst(t *testing.T) {
+// TestPaletteActionsBeanContextAddsNodeActions guards that a focused bean
+// adds its node actions to the palette; their position is the verb grouping
+// (TestPaletteActionsGroupedByVerb), alphabetical inside each group.
+func TestPaletteActionsBeanContextAddsNodeActions(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2") // task bean -- focusedBean() != nil
 
-	items := paletteActions(m)
-	if len(items) == 0 {
-		t.Fatal("paletteActions returned no items")
+	var got []string
+	for _, it := range paletteActions(m) {
+		got = append(got, it.actionID)
 	}
-	if items[0].actionID != "status" {
-		t.Fatalf("items[0].actionID = %q, want %q (first node action)", items[0].actionID, "status")
-	}
-
-	wantNodeIDs := []string{"status", "type", "priority", "tags", "create_tag", "parent", "blocking", "edit_title", "delete"}
-	for i, want := range wantNodeIDs {
-		if items[i].actionID != want {
-			t.Fatalf("items[%d].actionID = %q, want %q", i, items[i].actionID, want)
+	for _, want := range []string{"status", "type", "priority", "tags", "create_tag", "parent", "blocking", "edit_title", "delete"} {
+		if !slices.Contains(got, want) {
+			t.Fatalf("node action %q missing from %v", want, got)
 		}
 	}
-	// The global "create" action must appear strictly AFTER every node action.
-	createIdx := -1
-	for i, it := range items {
-		if it.actionID == "create" {
-			createIdx = i
-			break
-		}
-	}
-	if createIdx == -1 {
-		t.Fatal(`"create" action missing from paletteActions`)
-	}
-	if createIdx < len(wantNodeIDs) {
-		t.Fatalf("create action at index %d, want it after all %d node actions", createIdx, len(wantNodeIDs))
+	if got[0] != "blocking" {
+		t.Fatalf("items[0].actionID = %q, want blocking (first set: label alphabetically)", got[0])
 	}
 }
 
@@ -184,7 +166,7 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 			t.Fatalf("paletteActions leaked node action %q with no focused bean", it.actionID)
 		}
 	}
-	wantGlobal := []string{"create", "go_ready", "go_browse", "filter", "search", "reload", "repo_picker", "register_project", "go_tags", "settings", "open_docs"}
+	wantGlobal := []string{"go_ready", "repo_picker", "go_browse", "settings", "go_tags", "create", "filter", "register_project", "reload", "search", "open_docs"}
 	if len(items) != len(wantGlobal) {
 		t.Fatalf("len(items) = %d, want %d (%v)", len(items), len(wantGlobal), wantGlobal)
 	}
@@ -241,7 +223,7 @@ func TestPalFilteredActionsFuzzyStatMatchesSetStatusAndSetParent(t *testing.T) {
 	m.palQuery = "stat"
 
 	items := m.palFiltered()
-	wantIDs := []string{"status", "parent"}
+	wantIDs := []string{"parent", "status"}
 	if len(items) != len(wantIDs) {
 		t.Fatalf("len(palFiltered) = %d, want %d (%v) for query %q", len(items), len(wantIDs), wantIDs, m.palQuery)
 	}
@@ -260,7 +242,7 @@ func TestPalFilteredVerbPrefixNarrowsToVerbEntries(t *testing.T) {
 	m.palQuery = "set:"
 
 	items := m.palFiltered()
-	wantIDs := []string{"status", "type", "priority", "tags", "parent", "blocking", "edit_title"}
+	wantIDs := []string{"blocking", "parent", "priority", "status", "tags", "edit_title", "type"}
 	if len(items) != len(wantIDs) {
 		t.Fatalf("len(palFiltered) = %d, want %d (%v) for query %q", len(items), len(wantIDs), wantIDs, m.palQuery)
 	}
@@ -724,5 +706,32 @@ func TestDispatchPaletteRegisterProjectRoutesToRegisterProject(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Fatal("dispatchPalette(register_project) with nil client must return a nil cmd (registerProject's own no-op)")
+	}
+}
+
+// TestPaletteActionsGroupedByVerb guards beans-w2cc: set, view, the rest,
+// open last; alphabetical by label inside each group.
+func TestPaletteActionsGroupedByVerb(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans())
+	m = focusBean(m, "tk-2")
+	var verbs []string
+	var labels []string
+	for _, it := range paletteActions(m) {
+		verb, _, _ := strings.Cut(it.label, ":")
+		if len(verbs) == 0 || verbs[len(verbs)-1] != verb {
+			verbs = append(verbs, verb)
+		}
+		labels = append(labels, it.label)
+	}
+	for i, v := range verbs {
+		if want := []string{"set", "view"}; i < 2 && v != want[i] {
+			t.Fatalf("verb group %d = %q, want %q (groups: %v)", i, v, want[i], verbs)
+		}
+	}
+	if verbs[len(verbs)-1] != "open" {
+		t.Fatalf("last verb group = %q, want open (groups: %v)", verbs[len(verbs)-1], verbs)
+	}
+	if !sort.StringsAreSorted(labels[:7]) {
+		t.Fatalf("set: group not alphabetical: %v", labels[:7])
 	}
 }

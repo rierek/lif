@@ -1019,6 +1019,7 @@ func (m model) footerBindings() []keybind.Binding {
 		b   keybind.Binding
 		act bool
 	}{
+		{toastDismissHint, m.escDismissesToast()},
 		{keys.FocusIn, ring},
 		{keys.FocusOut, ring},
 		{keys.Search, !m.detailFocus},

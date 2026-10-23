@@ -118,6 +118,8 @@ The palette entry `open: documentation` opens this reference (`https://rierek.gi
 
 The palette lists its entries by verb: all `set:` entries first, then all `view:` entries, then the others (`create:`, `delete:`, `focus:`, `register:`, `reload:`, `run:`, `search:`), and `open:` last. Inside each group the entries are alphabetical. The `set:` and `delete:` entries and `create: tag` appear only when an item is selected.
 
+A sticky toast, such as a warning, has no timer. Click it, or press `esc`, to close it. `esc` closes the toast only when it has no other job: with an overlay, form, palette, search, filter, detail focus, flat list or Ready list open, `esc` keeps its own meaning. The footer shows `esc dismiss` while it applies.
+
 ## Outside the TUI
 
 The zsh widget `extras/zsh/lif-pick.zsh` binds `Alt+i` (`^[i`) to [`lif pick`](../../commands/lif-pick/). It is not part of the TUI. Load it by sourcing the file from your `.zshrc`; that was not measured here.

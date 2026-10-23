@@ -559,10 +559,10 @@ func TestReadyChromeFooterShowsFocusInFocusOut(t *testing.T) {
 	m := readyBeansModel(t)
 	_, localKeys := m.readyChrome(200)
 	plain := stripHint(localKeys)
-	if !strings.Contains(plain, "tab focus in") {
+	if !strings.Contains(plain, "tab next focus") {
 		t.Errorf("readyChrome footer = %q, want FocusIn's real hint (not a hand-typed suffix)", plain)
 	}
-	if !strings.Contains(plain, "shift+tab focus out") {
+	if !strings.Contains(plain, "shift+tab prev focus") {
 		t.Errorf("readyChrome footer = %q, want shift+tab visible for the first time (PF-13)", plain)
 	}
 }
@@ -581,7 +581,7 @@ func TestReadyChromeFooterMatchesQ06List(t *testing.T) {
 	m.view = viewReady
 	_, localKeys := m.readyChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · M Roadmap · L List · y Yank · b Blocking · v next layout · shift+v previous layout"
+	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · M Roadmap · L List · y Yank · b Blocking · v next layout · shift+v previous layout"
 	if plain != want {
 		t.Errorf("readyChrome footer = %q, want exactly %q", plain, want)
 	}

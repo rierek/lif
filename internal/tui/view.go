@@ -158,7 +158,7 @@ const nbsp = "\u00a0"
 // with its own desc starting the next (observed: Ready footer at 80
 // columns split "S" from "Sort"). Every space WITHIN one binding's own
 // "key desc..." -- between key and desc, AND between a multi-word desc's
-// own words (e.g. FocusIn's "focus in") -- is therefore nbsp, not " ":
+// own words (e.g. FocusIn's "next focus") -- is therefore nbsp, not " ":
 // the whole entry becomes one wrap-atomic unit. Only the " · " SEPARATOR
 // BETWEEN entries stays a real, breakable space -- that IS where wrapping
 // should be free to happen.

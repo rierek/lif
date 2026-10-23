@@ -270,21 +270,6 @@ func searchLocalBindings() []keybind.Binding {
 func paletteLocalBindings() []keybind.Binding { return []keybind.Binding{keys.Enter, keys.Back} }
 func helpLocalBindings() []keybind.Binding    { return []keybind.Binding{keys.Back} }
 
-// fullscreenDetailLocalBindings is the Detail-Vollbild's own Footer Zone 3
-// set: keys.Back's Vollbild-exit meaning here is a non-obvious D03 rung
-// (keyDetailFocus's Back-case, update.go) worth reinforcing at the point
-// the PO is actually looking.
-func fullscreenDetailLocalBindings() []keybind.Binding {
-	return []keybind.Binding{keys.Back}
-}
-
-// fullscreenListLocalBindings is the Listen-Vollbild's own Footer Zone 3
-// set. enter is the meaningful LOCAL key
-// this mode adds (Listen-Vollbild -> Detail-Vollbild jump, keyFullscreen).
-func fullscreenListLocalBindings() []keybind.Binding {
-	return []keybind.Binding{keys.Back, keys.Enter}
-}
-
 // overlayLocalBindings dispatches m.overlay to its own footer set --
 // extracted helper for contextualLocalHint's overlay case, below. A method
 // on model (bean bt-z4w7) rather than a free function taking overlayID: the
@@ -333,16 +318,6 @@ func (m model) contextualLocalHint(viewLocal []keybind.Binding) string {
 		return renderBindings(paletteLocalBindings())
 	case m.helpOpen:
 		return renderBindings(helpLocalBindings())
-	case m.fullscreen == fullscreenDetail:
-		// F01 (E9 Task 8, bean bt-1vbp): a further Capture-artiger Zustand,
-		// slotted in AFTER Help/Palette/Suche/Overlay/Filter (none of those
-		// can be active WHILE fullscreen != fullscreenNone anyway -- every
-		// full-capture state routes handleKey's dispatch back to Split-Modus
-		// first) but BEFORE the final viewLocal fallback, whose Tree/Ready-
-		// specific hints (tab/shift+tab/search/…) are non-functional here.
-		return renderBindings(fullscreenDetailLocalBindings())
-	case m.fullscreen == fullscreenList:
-		return renderBindings(fullscreenListLocalBindings())
 	}
 	return renderBindings(viewLocal)
 }

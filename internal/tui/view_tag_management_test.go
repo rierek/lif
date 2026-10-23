@@ -318,7 +318,7 @@ func TestViewTagManagementNoNewRegistryFileOnRender(t *testing.T) {
 
 // TestViewTagManagementLinesFitExactlyNoWrap is a regression guard (found
 // live during this task's OWN tmux-smoke run, same "B01" bug class as
-// view_lobby.go's own doc-stamp / view_browse_repo.go's F01 Vollbild
+// view_lobby.go's own doc-stamp / view_browse_repo.go's single-pane precedent
 // paneW note): a single full-width pane's renderPane `w` argument is a
 // CONTENT width (its own RoundedBorder adds +2 more) -- passing innerW
 // unadjusted (instead of innerW-2) double-counts the border, and

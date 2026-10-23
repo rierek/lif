@@ -142,12 +142,12 @@ func flatClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool
 	innerW := w - 2
 	head, localKeys := m.browseRepoChrome(innerW)
 
-	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	// bt-vpvu: the bodyH half of the filter-bar correction was missing
 	// here exactly as it was in treeClickRow -- same root cause, same fix
 	// (that function's own comment carries the full analysis).
-	originY += filterBarHeight
-	bodyH -= filterBarHeight
+	originY += m.filterRows()
+	bodyH -= m.filterRows()
 	if bodyH < 1 {
 		bodyH = 1
 	}

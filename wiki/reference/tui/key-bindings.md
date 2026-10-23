@@ -15,10 +15,10 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `↓` / `k` | Down |
 | `←` / `j` | Back or out (collapse) |
 | `→` / `l` | In (expand) |
-| `tab` / `shift+tab` | Switch focus between the tree and the detail pane (shows a hidden detail pane) |
+| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout) |
 | `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |
-| `esc` | Back; leaves the detail pane, fullscreen, menus |
+| `esc` | Back; leaves the detail pane, menus |
 | `pgup` / `pgdown` | Page the detail body (not listed in `?`) |
 
 ## Global actions
@@ -33,8 +33,7 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `X` | Clear all filters |
 | `S` | Cycle ready sort |
 | `G` | Nested or flat |
-| `v` | Fullscreen |
-| `D` | Show or hide the detail pane |
+| `v` / `shift+v` | Next or previous layout: roadmap, roadmap + filter, roadmap + filter + details, details; both wrap |
 | `ctrl+r` | Reload |
 | `y` | Copy (yank) item context |
 | `?` | Help |

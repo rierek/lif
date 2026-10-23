@@ -112,21 +112,6 @@ func cloneBoolMap(src map[string]bool) map[string]bool {
 	return out
 }
 
-// fullscreenMode enumerates F01's Vollbild-Navigation state (design-spec.md
-// §15 "F01 — Vollbild-Navigation", bean bt-13l7, E9 Task 7): ORTHOGONAL to
-// viewID (m.view) -- Vollbild changes only HOW the active view's Master-
-// Detail pair renders (one full-width pane instead of two side-by-side), it
-// never changes WHICH viewID is active. No new viewID value is added for
-// this (design decision, explicitly verified against the bean's own
-// Akzeptanz-Checkliste).
-type fullscreenMode int
-
-const (
-	fullscreenNone   fullscreenMode = iota
-	fullscreenList                  // Tree ODER Ready-Liste (je nach m.view), Vollbreite
-	fullscreenDetail                // Detail-Accordion EINES Beans, Vollbreite
-)
-
 // model is the App-Shell state. T8 wires the read-only Tree (design-spec.md
 // §6 V2 basis) + async load/reload/watch; mutation state (forms, pickers,
 // menus) lands in E2/E3 as new fields on this same struct (devd port
@@ -160,11 +145,6 @@ type model struct {
 	// view-local `tab`/`shift+tab` handling (toggleRegion), deliberately NOT
 	// routed through keymap.Right (which stays the tree's expand key).
 	detailFocus bool
-
-	// detailHidden hides the Detail pane in the Browse/Ready split; the tree
-	// pane then takes the full width. True at start, `D` toggles it, `tab`
-	// into a hidden Detail shows it. Not consulted in the Vollbild.
-	detailHidden bool
 
 	// taskActions are the tui.actions of the open repo's config that passed
 	// validation (setTaskActions). Label is resolved.
@@ -280,8 +260,8 @@ type model struct {
 	// detailBoxForm (box_detail_form.go) renders Title + scalar-grid +
 	// Body/Relations/History as ONE tall string with NO windowing of its
 	// own. boxFormScroll is the offset renderDetailBox windows that string
-	// to (scrollView, view.go), advanced/clamped by keyDetailFocus's
-	// up/down in the Vollbild (update.go), boxFormNav and wheelMove
+	// to (scrollView, view.go), advanced/clamped by pgup/pgdn
+	// (update.go), boxFormNav and wheelMove
 	// (mouse.go, wheel over the Detail pane) via mouse.go's
 	// adjustBoxFormScroll/boxFormScrollBounds. boxFormScrollBean is the bean
 	// ID the offset was last computed for -- a SELECTION change is detected
@@ -695,13 +675,9 @@ type model struct {
 	// repo B).
 	showArchived bool
 
-	// Vollbild `v` (F01 Kernmechanik, E9 Task 7, bean bt-13l7, design-spec.md
-	// §15): fullscreen is ORTHOGONAL to m.view (fullscreenMode doc-stamp
-	// above). fullscreenBeanID is the bean shown in fullscreenDetail --
-	// UNABHÄNGIG vom Tree-/Ready-Cursor (it only syncs back on esc-exit,
-	// keyDetailFocus's Back-case).
-	fullscreen       fullscreenMode
-	fullscreenBeanID string
+	// layout is the Browse/Ready layout cycled by v / shift+v (layout.go).
+	// The zero value is layoutRoadmap, the start layout.
+	layout layoutMode
 
 	// Tag-Management page (E10 Task 2, bean bt-r92i, epic bt-362n D05-D09):
 	// tagMgmtRows is the D09 Union row list (definierte Tags alpha-sortiert
@@ -791,7 +767,6 @@ func newModel(store *data.Store, repoDir string) model {
 		store:        store,
 		repoDir:      repoDir,
 		expanded:     map[string]bool{},
-		detailHidden: true,
 		searchInput:  ti,
 		tagInput:     tagIn,
 		tagMgmtInput: tagMgmtIn,

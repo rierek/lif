@@ -609,7 +609,7 @@ func windowAround(rows []string, height, cursor int) []string {
 // Resolves the tree cursor's bean (or nil for "no selection") and hands off
 // to the shared renderBeanDetailBox (below), which renderReadyDetailPane
 // (view_browse_ready.go) and the flat list share too, so Tree, Ready
-// and Fullscreen can never drift apart on the Detail body.
+// and layoutDetail can never drift apart on the Detail body.
 func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string {
 	pos := m.cursorPos(nodes)
 	var b *item.Item
@@ -639,10 +639,9 @@ func (m model) renderBeanDetailBox(b *item.Item, w, h int, focused bool) string 
 }
 
 // renderDetailBox is the shared box-form Detail renderer used by the split
-// panes and the Vollbild-Detail (renderFullscreenBody).
+// panes and the full-width layoutDetail.
 // boxScroll is the box-form scroll offset into the full form; boxCursor is
-// the field cursor index rendered with a Mauve frame, or -1 for none. The
-// Vollbild passes -1: there, up/down scroll instead of walking fields.
+// the field cursor index rendered with a Mauve frame, or -1 for none.
 func renderDetailBox(idx *data.Index, b *item.Item, w, h int, focused bool, boxScroll, boxCursor int) string {
 	var rows []string
 	if b != nil {
@@ -852,9 +851,9 @@ func (m model) searchHeadBox(width int) []string {
 // treeHeaderWideMin is the pane width from which the column header spells its
 // labels out instead of abbreviating them to the single letters (bean bt-f68z,
 // PO-Befund #12: "Master-Detail (schmal): Header auf die Keybindings kuerzen.
-// Vollbild (v, breit): Header ausschreiben. Also breitenabhaengig, nicht zwei
+// full-width list layouts (v): Header ausschreiben. Also breitenabhaengig, nicht zwei
 // getrennte Implementierungen"). The split's left pane is ~30 cells even on a
-// wide terminal (masterDetailWidths' 1fr:2fr, view.go), the Vollbild pane is
+// wide terminal (masterDetailWidths' 1fr:2fr, view.go), the full-width list pane is
 // the full inner width -- 48 separates the two cleanly at every terminal size
 // the app supports, without a second code path.
 const treeHeaderWideMin = 48
@@ -868,7 +867,7 @@ const treeHeaderWideMin = 48
 // deliberately drops that alignment for the two glyph columns -- they are ONE
 // cell wide by construction, so "Status" and "Type" cannot sit above them; it
 // reads as a spelled-out legend instead, which is what "ausschreiben" asks
-// for and what the extra Vollbild width makes room for.
+// for and what the extra full-width layout makes room for.
 func treeColumnHeader(width int) string {
 	label := "   S T ID   Title"
 	if width >= treeHeaderWideMin {
@@ -1048,10 +1047,7 @@ func browseRepoLocalBindings() []keybind.Binding {
 		}
 		out = append(out, b)
 	}
-	// keys.Fullscreen (bean bt-oox1, PO finding #10) and keys.DetailToggle
-	// are advertised here: the Help overlay was otherwise the only place
-	// they appeared.
-	return append(out, keys.Fullscreen, keys.DetailToggle)
+	return append(out, keys.LayoutNext, keys.LayoutPrev)
 }
 
 // boxFormInlineKeys are the footer keys the box-form Detail pane already
@@ -1102,68 +1098,34 @@ func (m model) viewBrowseRepo() string {
 	// clickPaneGeometry helper treeClickRow (below) uses to map a click back
 	// to a row -- single source for the numeric pane geometry, not just the
 	// head/localKeys strings above (Golden-Rule-Drift-Schutz).
-	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	nodes := m.visibleNodes()
 
-	// S3 (jira-style-experiment): the persistent filter chip row
-	// (box_filter_bar.go, design-spec.md D02/D08) sits between the header
-	// divider and the Tree/Detail split. filterBarRow's height is reclaimed
+	// S3 (jira-style-experiment): the filter chip row (box_filter_bar.go,
+	// design-spec.md D02/D08) sits between the header divider and the
+	// Tree/Detail split in the filter layouts only. Its height is reclaimed
 	// from bodyH BEFORE the split renders, so the outer frame's total line
 	// count still matches clickPaneGeometry's own avail budget (Golden Rule
 	// #1: no forced Height() -- the frame grows exactly to its content, so
 	// adding a row without reclaiming its height would grow the frame past
 	// the terminal).
-	filterBarRow := m.filterBar(innerW)
-	bodyH -= lipgloss.Height(filterBarRow)
-	if bodyH < 1 {
-		bodyH = 1
+	var filterBarRow string
+	if m.layout.hasFilter() {
+		filterBarRow = m.filterBar(innerW)
+		bodyH -= lipgloss.Height(filterBarRow)
+		if bodyH < 1 {
+			bodyH = 1
+		}
 	}
 
 	var body string
-	if m.fullscreen != fullscreenNone {
-		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): Vollbild --
-		// checked BEFORE the Split's JoinHorizontal build below, a NEW
-		// render branch entirely (the Split path stays byte-for-byte
-		// unchanged for the golden fixtures, Basis-Goldens-Gegenbeleg).
-		// paneW is the SINGLE pane's own content-width param passed to
-		// renderPane/renderDetailBox (mirrors masterDetailWidths' lw/rw
-		// contract, view.go: EVERY renderPane/renderDetailBox caller's
-		// `w` is a CONTENT width, its OWN RoundedBorder adds +2 more --
-		// masterDetailWidths' lw+rw+4==innerW is exactly this same
-		// accounting for the TWO Split panes; here there is only ONE pane,
-		// so its content width is innerW-2, not innerW itself (bean
-		// bt-13l7's "innerW direkt als Pane-Breite" reads as the pane's
-		// TOTAL occupied width, i.e. what masterDetailWidths' RESULT already
-		// represents, not renderPane's raw `w` argument -- passing innerW
-		// unadjusted double-counts the border and overflows the outer frame
-		// by 2 columns, caught live via tmux smoke). bodyH is still the
-		// correct height source (unverändert wiederverwendet).
-		paneW := innerW - 2
-		var listRows []string
-		if m.fullscreen == fullscreenList {
-			headRows := m.treePaneHeadRows(paneW - 2) // search head + column header (bean bt-f68z #11/#12)
-			// B8 (bean bt-s90e): the Vollbild-Liste sources its rows from the
-			// SAME m.flatView switch the split's own left pane does (the
-			// `else if m.flatView` branch below) -- this branch used to call
-			// treeRows() unconditionally, so `v` after `G` silently put the
-			// PO back in the Tree they had just toggled away from. Only the
-			// row SOURCE differs; the search head line, the bodyH-1 budget
-			// trade and the single-pane geometry are shared verbatim.
-			// Dispatch already handled flat mode here (keyTree routes to
-			// keyFlat, update.go; focusedBean resolves via flatSelected) --
-			// the render was the only half missing. m.flatView's default
-			// false leaves the Tree path untouched.
-			if m.flatView {
-				listRows = append(headRows, m.flatRows(m.flatVisible(), true, bodyH-len(headRows), paneW-2)...)
-			} else {
-				listRows = append(headRows, m.treeRows(nodes, true, bodyH-len(headRows), paneW-2)...)
-			}
+	if m.layout == layoutDetail {
+		// Detail alone at full width (rw is the full pane width there).
+		if m.flatView {
+			body = m.renderFlatDetailPane(m.flatVisible(), rw, bodyH, true)
+		} else {
+			body = m.renderDetailPane(nodes, rw, bodyH, true)
 		}
-		var detailBean *item.Item
-		if m.fullscreen == fullscreenDetail {
-			detailBean = m.focusedBean() // resolves via focusedBean's own fullscreenDetail case (update.go)
-		}
-		body = renderFullscreenBody(m.fullscreen, paneW, bodyH, listRows, true, m.idx, detailBean, boxFormEffectiveScroll(m, detailBean))
 	} else if m.flatView {
 		// S5 (jira-style-ui experiment, Nested/Flat Browse toggle `G`,
 		// view_browse_flat.go): the LEFT pane renders the flat, sorted bean
@@ -1200,7 +1162,10 @@ func (m model) viewBrowseRepo() string {
 		}
 	}
 
-	content := head + "\n" + div + "\n" + filterBarRow
+	content := head + "\n" + div
+	if filterBarRow != "" {
+		content += "\n" + filterBarRow
+	}
 	content = appendStatusLine(content+"\n"+body+"\n"+div+"\n"+localKeys, status)
 	out := outerBorder(content, innerW, true)
 
@@ -1233,14 +1198,13 @@ func treeClickRow(m model, nodes []treeNode, msg tea.MouseMsg) (idx int, ok bool
 	innerW := w - 2
 	head, localKeys := m.browseRepoChrome(innerW)
 
-	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	// B6 (S6, jira-style-ui experiment): the persistent
 	// filter bar (box_filter_bar.go) sits between the header divider and
-	// the Tree/Detail split (viewBrowseRepo, above) -- it reclaims its 3
-	// rows from bodyH BEFORE the split renders, but clickPaneGeometry's own
-	// originY has no knowledge of it (that helper is shared with Ready,
-	// which never shows the bar). treeClickRow is BROWSE-only
-	// (mouseTreeClick's own call site, mouse.go).
+	// the Tree/Detail split (viewBrowseRepo, above) in the filter layouts --
+	// it reclaims its 3 rows from bodyH BEFORE the split renders, but
+	// clickPaneGeometry's own originY has no knowledge of it (m.filterRows
+	// is 0 in the layouts without the bar).
 	//
 	// bt-vpvu ROOT CAUSE: the originY correction below landed in S6, but
 	// the matching bodyH correction did NOT -- the renderer reclaims the
@@ -1249,8 +1213,8 @@ func treeClickRow(m model, nodes []treeNode, msg tea.MouseMsg) (idx int, ok bool
 	// different window start, so every click landed on the wrong bean the
 	// moment the list was scrolled far enough for the two starts to
 	// diverge.
-	originY += filterBarHeight
-	bodyH -= filterBarHeight
+	originY += m.filterRows()
+	bodyH -= m.filterRows()
 	if bodyH < 1 {
 		bodyH = 1
 	}

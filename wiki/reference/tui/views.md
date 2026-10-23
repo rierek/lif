@@ -7,7 +7,7 @@ Measured on Lif 0.13 with a test repository of 17 items; the TUI code is unchang
 
 ## Overview of the views
 
-There are four views. The item detail is a pane inside Browse and Ready, and fullscreen is a mode, not a view.
+There are four views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
 
 | View | Purpose | How to reach it |
 |---|---|---|
@@ -16,8 +16,7 @@ There are four views. The item detail is a pane inside Browse and Ready, and ful
 | Ready | Items `lif list --ready` lists, flat. | `b` |
 | Lobby | Repository picker. | `p` |
 | Tag management | Tag definitions. | Command palette `K`, entry `view: tags`. |
-| Detail pane | Fields, relations, body of the selected item. Hidden at start. | `D` shows or hides it; `tab` from the tree shows and focuses it. |
-| Fullscreen | List or detail over the full width. | `v` |
+| Detail pane | Fields, relations, body of the selected item. Not shown at start. | `v` / `shift+v` change the [layout](#layouts). |
 
 The header reads `> <repo>: <View>`. The focused pane is marked by color only. Hidden by default in tree, flat and ready: `completed` and `scrapped` items. The filter menu category `Archive` shows them.
 
@@ -36,25 +35,37 @@ Screenshot follows.
 
 ## Ready view
 
-`b` opens it; `esc` returns to Browse. It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, with the detail pane on the right. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
+`b` opens it; `esc` returns to Browse. It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
 Screenshot follows.
 
+## Layouts
+
+`v` and `shift+v` cycle the layout of Browse (tree and flat) and Ready. `v` goes forward, `shift+v` backward, both wrap. In Ready the Ready list takes the place of the roadmap. The order is:
+
+| Layout | Shows |
+|---|---|
+| Roadmap | The list at full width. No filter bar, no detail pane. This is the start layout. |
+| Roadmap + filter | The filter bar above the list. |
+| Roadmap + filter + details | The filter bar above the list, the detail pane on the right. |
+| Details | The detail of the selected item at full width. No filter bar. |
+
+When a layout change leaves the focused region out, focus moves to the list, or to the detail in layout Details. `tab` and `shift+tab` never change the layout.
+
 ## Detail view
 
-The detail pane is hidden at start and the tree uses the full width. `D` shows or hides it. `tab` from the tree shows the pane if needed and focuses it. The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`, `Type (o)`, `Priority (u)`, `Parent (a)`, `Tags (t)`, `Body (e)`, `Relations (r)`, `History`. The letter is the key that edits the box.
+The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`, `Type (o)`, `Priority (u)`, `Parent (a)`, `Tags (t)`, `Body (e)`, `Relations (r)`, `History`. The letter is the key that edits the box.
 
-- `tab` and `shift+tab` switch focus between the tree and the detail pane, in both directions.
-- While the detail pane has focus, `↑`/`↓` step through the boxes. `esc` returns to the tree.
+- In layout Roadmap + filter + details, `tab` and `shift+tab` switch focus between the list and the detail pane, in both directions. In the other layouts there is only one region and they do nothing.
+- While the detail has focus, `↑`/`↓` step through the boxes. `esc` returns to the list (not in layout Details, which has no list).
 - `enter` on a box opens its menu, picker or the editor.
-- `v` opens the item fullscreen. In fullscreen detail, `↑`/`↓` scroll and `esc` leaves.
 
 ## Moving around
 
 - Movement uses the `i/j/k/l` diamond (`i` up, `k` down, `j` left, `l` right) and the arrow keys, not vim keys.
 - `enter` opens, `esc` goes back. `ctrl+r` reloads. `K` opens the command palette.
 - The TUI watches the store: a change from another process appears without a key press.
-- Mouse: always on. Wheel scrolls the list (or the detail body). A left click selects a row; a second click within 500 ms expands or collapses an item with children. Clicking a detail box opens its editor or picker. A click on the filter chips opens the filter menu. The mouse is ignored in forms, overlays, the lobby, tag management and fullscreen.
+- Mouse: always on. Wheel scrolls the list (or the detail body). A left click selects a row; a second click within 500 ms expands or collapses an item with children. Clicking a detail box opens its editor or picker. A click on the filter chips opens the filter menu. The mouse is ignored in forms, overlays, the lobby and tag management. Without a detail pane, a click does not reach the former detail area.
 
 ## Search and filters
 

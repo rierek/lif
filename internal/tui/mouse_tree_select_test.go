@@ -99,7 +99,7 @@ func pad3(i int) string {
 
 func renderedInLeftPane(m model, substr string) bool {
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
+	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	for _, l := range screenLines(m) {
 		i := strings.Index(l, substr)
 		if i < 0 {

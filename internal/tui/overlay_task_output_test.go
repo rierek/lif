@@ -31,7 +31,7 @@ func taskModel(t *testing.T, extra string) model {
 	m := newModel(s, s.RepoDir)
 	m = step(t, m, tea.WindowSizeMsg{Width: 160, Height: 45})
 	m = step(t, m, beansLoadedMsg{beans: s.Items()})
-	m.detailHidden = false
+	m.layout = layoutFilterDetail
 	return focusBean(m, "tk-1")
 }
 
@@ -318,12 +318,12 @@ tui:
 
 func TestBoundKeysCoversKeymap(t *testing.T) {
 	b := keys.boundKeys()
-	for _, k := range []string{"s", "q", "D", "ctrl+r", "tab"} {
+	for _, k := range []string{"s", "q", "v", "V", "ctrl+r", "tab"} {
 		if !b[k] {
 			t.Errorf("boundKeys lacks %q", k)
 		}
 	}
-	if b["A"] {
-		t.Error(`boundKeys claims "A"`)
+	if b["A"] || b["D"] {
+		t.Error(`boundKeys claims "A" or "D"`)
 	}
 }

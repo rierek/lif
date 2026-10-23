@@ -40,7 +40,7 @@ The Board view (`B`) is planned and not bound yet. `esc` in the flat list or Rea
 | `K` / `:` | Command palette |
 | `/` | Search |
 | `f` | Jump to the filter bar, Type field; from layout roadmap or details it first switches to roadmap + filter |
-| `X` | Clear all filters |
+| `X` | Clear Type, Status, Priority and Tags (not Archive) |
 | `S` | Cycle ready sort |
 | `ctrl+r` | Reload |
 | `y` | Copy (yank) item context |
@@ -82,7 +82,7 @@ All act on the selected item. Behavior: [Editing items](../editing-items/).
 | `t` | Type menu |
 | `p` | Priority menu |
 | `a` | Assign parent |
-| `b` | Blocking (blocking picker) |
+| `b` | Relations (blocking picker) |
 | `g` | Tag picker |
 | `c` | Create item |
 | `d` | Delete (with confirmation, no cascade) |
@@ -100,7 +100,7 @@ Moved or removed keys: type was `o`, priority was `u`, tags were `t`, blocking w
 | `enter` / `space` / `↓` | Open the value menu of the field | Focused filter field |
 | `↑` / `↓` | Move within the values | Filter value menu |
 | `space` / `x` / `enter` | Toggle a value; the list filters at once and the menu stays open | Filter value menu |
-| `X` | Clear all filters; layout and menu stay | Focused filter field, filter value menu, lists |
+| `X` | Clear Type, Status, Priority and Tags; Archive, layout and menu stay | Focused filter field, filter value menu, lists |
 | `esc` | Close the menu; a second `esc` returns to the list | Filter value menu, focused filter field |
 | `space` / `x` | Toggle a value | Relations picker |
 | `space` | Toggle a tag | Tag picker |
@@ -112,7 +112,7 @@ In the tag picker `n` is ordinary text; create a tag by typing a new name and pr
 
 ## Lobby and palette
 
-In the lobby, `↑`/`↓` (or `i`/`k`) move, `enter` opens the repository, `/` opens the repository filter (the only way to type into it), `q` quits at once, and `esc` twice leaves the lobby (back to the open repository, or quit when none is open). In the filter `esc` closes it. Any other key between the two `esc` presses cancels the first. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
+In the lobby, `↑`/`↓` (or `i`/`k`) move, `enter` opens the repository, `/` opens the repository filter (the only way to type into it), `q` opens the `Quit?` dialog (`y` quits, `n` or `esc` stays), and `esc` twice leaves the lobby (back to the open repository, or quit when none is open). In the filter `esc` closes it. Any other key between the two `esc` presses cancels the first. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
 
 The palette entry `open: documentation` opens this reference (`https://rierek.github.io/lif/reference/tui/views/`) in the default browser and shows the URL in a toast. If no opener exists, an error toast shows the URL instead.
 

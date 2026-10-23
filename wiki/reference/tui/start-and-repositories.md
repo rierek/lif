@@ -44,7 +44,7 @@ Repo-Picker
 
 - `P` opens the picker from any view, also with fewer than two repositories. The "at least two" rule applies only to startup.
 - `↑`/`↓` (or `i`/`k`) move, `enter` opens. `/` opens the filter (substring of the path); only then do typed keys go into it, and `esc` closes it.
-- `q` quits at once. `esc` twice leaves the lobby: back to the open repository, or quit when none is open. A key between the two presses cancels the first.
+- `q` opens the `Quit?` dialog: `y` quits, `n` or `esc` stays in the lobby. `esc` twice leaves the lobby: back to the open repository, or quit when none is open. A key between the two presses cancels the first.
 - Config edits made while the TUI runs appear the next time you press `P`.
 - After each switch the TUI writes `last_repo` to `state.json`. Nothing reads it back.
 
@@ -67,7 +67,7 @@ All keys: [Settings and themes](../settings-and-themes/).
 
 ## Quit and help
 
-- `q` opens a `Quit?` dialog. `enter` or `y` goes to the lobby first when a repository is configured; there `q` quits at once. `esc` or `n` cancels.
+- `q` opens a `Quit?` dialog. `enter` or `y` goes to the lobby first when a repository is configured; in the lobby it quits. `esc` or `n` cancels.
 - `ctrl+c` quits at once, without confirmation.
 - `?` opens the help overlay, generated from the same key map as [Key bindings](../key-bindings/). The overlay is 54 rows high and is clipped on shorter terminals.
 - `K` opens the command palette.

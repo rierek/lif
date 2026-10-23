@@ -31,37 +31,32 @@ func TestContextualLocalHintDefaultUsesViewLocal(t *testing.T) {
 	}
 }
 
-func TestContextualLocalHintFilterOpen(t *testing.T) {
-	m := model{filterOpen: true}
-	got := m.contextualLocalHint(viewLocalStub())
-	got = stripHint(got)
+func TestContextualLocalHintOverlayFilterMenu(t *testing.T) {
+	m := model{overlay: overlayFilterMenu}
+	got := stripHint(m.contextualLocalHint(viewLocalStub()))
 	if strings.Contains(got, "stub-view-local") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, must NOT contain the (irrelevant) viewLocal stub", got)
+		t.Errorf("overlayFilterMenu: contextualLocalHint = %q, must NOT contain the (irrelevant) viewLocal stub", got)
 	}
-	if !strings.Contains(got, "space/x Toggle facet") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, want it to contain the Toggle hint (Q04)", got)
+	if !strings.Contains(got, "space/x Toggle facet") || !strings.Contains(got, "enter apply") {
+		t.Errorf("overlayFilterMenu: contextualLocalHint = %q, want the toggle and apply hints (Q04)", got)
+	}
+	if strings.Contains(got, "category") {
+		t.Errorf("overlayFilterMenu: contextualLocalHint = %q, the menu has no category tabs any more", got)
 	}
 }
 
-// TestFilterMenuFooterHintShowsCategoryLabel is bt-nxuk's own regression
-// guard (Reviewer-Finding B04 aus bt-2p9m-Review 2026-07-17): while the
-// Filter-Menu is open, tab/shift+tab actually switch the active facet
-// category (keyFilterMenu, box_filter_facets.go) -- NOT the global
-// Tree<->Detail focus-swap keys.FocusIn/keys.FocusOut label the outer
-// footer used to leak through (footer_context.go's filterMenuLocalBindings
-// used to return the SAME keybind.Binding values keymap.go defines with
-// WithHelp("tab","focus in")/WithHelp("shift+tab","focus out")). The
-// Filter-Menu's own inline hint (treeFilterBox, box_filter_facets.go) has
-// always said "tab/shift+tab:category" -- Footer Zone 3 must say the same
-// thing, not the stale global label.
-func TestFilterMenuFooterHintShowsCategoryLabel(t *testing.T) {
-	m := model{filterOpen: true}
+// TestContextualLocalHintFilterFieldFocus: AC8 -- while the focus is in a
+// filter field the footer shows that field's keys, not the list's.
+func TestContextualLocalHintFilterFieldFocus(t *testing.T) {
+	m := model{filterFocus: true}
 	got := stripHint(m.contextualLocalHint(viewLocalStub()))
-	if !strings.Contains(got, "tab/shift+tab category") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, want it to contain the filter-menu-local \"tab/shift+tab category\" hint (bt-nxuk)", got)
+	if strings.Contains(got, "stub-view-local") {
+		t.Errorf("filterFocus: contextualLocalHint = %q, must NOT contain the viewLocal stub", got)
 	}
-	if strings.Contains(got, "focus in") || strings.Contains(got, "focus out") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, must NOT contain the global FocusIn/FocusOut \"focus in\"/\"focus out\" label (bt-nxuk)", got)
+	for _, want := range []string{"←/→ field", "enter values", "X Clear filters", "esc back"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("filterFocus: contextualLocalHint = %q, want it to contain %q", got, want)
+		}
 	}
 }
 
@@ -228,8 +223,7 @@ func TestContextualLocalHintHelpOpen(t *testing.T) {
 }
 
 // TestContextualLocalHintPriority guards the priority chain design-spec.md
-// §15 PF-11 spells out (mirrors handleKey's own full-capture dispatch
-// order, update.go): Filter-Menü > Overlay > Suche > Palette > Help >
+// §15 PF-11 spells out: Overlay > Suche > Palette > Help > filter field >
 // View-Normalzustand. Only adjacent pairs whose rendered hints actually
 // DIFFER are usable as a discriminator here (searchActive and paletteOpen
 // both render the identical {Enter,Back} pair by design, so that specific
@@ -241,7 +235,8 @@ func TestContextualLocalHintPriority(t *testing.T) {
 		m    model
 		want string // a substring only the winning branch's hint contains
 	}{
-		{"filter beats overlay", model{filterOpen: true, overlay: overlayValueMenu}, "X Clear filters"},
+		{"overlay beats filter field", model{filterFocus: true, overlay: overlayValueMenu}, "s Status"},
+		{"search beats filter field", model{filterFocus: true, searchActive: true}, "enter open/confirm"},
 		{"overlay beats search", model{overlay: overlayValueMenu, searchActive: true}, "s Status"},
 		{"palette beats help", model{paletteOpen: true, helpOpen: true}, "enter open/confirm"},
 	}

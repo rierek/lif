@@ -7,7 +7,7 @@ package tui
 // tui/overlay_shortcuts_test.go), ADAPTED: devd's Help closes on ANY key
 // ("beliebige Taste sollte Hilfe schließen") -- beans-tui deliberately does
 // NOT port that (bean bt-wpn9 Akzeptanz + design decision h precedent):
-// Help is a FULL-CAPTURE floating overlay like filterOpen/paletteOpen/
+// Help is a FULL-CAPTURE floating overlay like paletteOpen/
 // m.form/m.overlay (handleKey's own doc comments), so only esc/?/q close it
 // and every OTHER key is swallowed as a no-op, not routed anywhere else.
 
@@ -83,7 +83,7 @@ func TestKeyHelpEscQCloseHelp(t *testing.T) {
 }
 
 // TestHelpCapturesSingleKeysWhileOpen guards full-capture semantics (same
-// precedent as filterOpen/paletteOpen/m.form/m.overlay, handleKey's own doc
+// precedent as paletteOpen/m.form/m.overlay, handleKey's own doc
 // comments): `q` while Help is open must NOT ALSO fall through to the
 // quit-confirm switch, and any other key (not esc/?/q) is a no-op that
 // leaves Help open and leaks through to NOTHING else (no overlay, no

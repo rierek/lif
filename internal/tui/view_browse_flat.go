@@ -160,7 +160,7 @@ func flatClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool
 	if clickRow < 0 {
 		return 0, false // above the pane, or on the search head / column header
 	}
-	_, rowElem := blockWindow(m.flatBlocks(vis, !m.detailFocus, lw-2), bodyH-len(headRows), m.flatList.cursor)
+	_, rowElem := blockWindow(m.flatBlocks(vis, m.listFocus(), lw-2), bodyH-len(headRows), m.flatList.cursor)
 	return blockWindowElemAt(rowElem, clickRow)
 }
 

@@ -398,20 +398,39 @@ func TestHandleKeyCtrlKNoLongerBound(t *testing.T) {
 
 func TestHandleKeyPaletteUnreachableWhileFilterOpen(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.filterOpen = true
+	m = step(t, m, runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEnter)) // opens the value menu of the Type field
+	if m.overlay != overlayFilterMenu {
+		t.Fatal("setup: the filter value menu did not open")
+	}
 	m = step(t, m, runeMsg('K'))
 	if m.paletteOpen {
-		t.Fatal("K opened the palette while filterOpen -- capture order violated (design decision h)")
+		t.Fatal("K opened the palette while the filter menu is open -- capture order violated (design decision h)")
 	}
-	if !m.filterOpen {
-		t.Fatal("filterOpen was cleared -- K must have been swallowed by keyFilterMenu, not routed to the palette")
+	if m.overlay != overlayFilterMenu {
+		t.Fatal("the filter menu closed -- K must have been swallowed by keyFilterMenu, not routed to the palette")
+	}
+}
+
+// TestDispatchPaletteFocusFilterJumpsToTypeField guards that the palette entry
+// "focus: filter" is the same jump f makes: Type field, filter layout.
+func TestDispatchPaletteFocusFilterJumpsToTypeField(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans()).setLayout(layoutRoadmap)
+	nm, _ := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "filter", label: "focus: filter"})
+	m2, ok := nm.(model)
+	if !ok {
+		t.Fatalf("dispatchPalette did not return a model, got %T", nm)
+	}
+	if m2.layout != layoutFilter || !m2.filterFocus || filterFields[m2.filterField] != "type" || m2.overlay != overlayNone {
+		t.Fatalf("focus: filter -> layout=%v filterFocus=%v field=%q overlay=%v, want filter layout, Type focused, no overlay",
+			m2.layout, m2.filterFocus, filterFields[m2.filterField], m2.overlay)
 	}
 }
 
 func TestHandleKeyPaletteOpensPaletteEvenWithOverlayOpen(t *testing.T) {
 	// Sanity: an E3 node-action overlay (e.g. Value-Menu) captures BEFORE
 	// the palette check -- K must NOT reach openPalette while overlay
-	// != overlayNone (same capture-order contract as filterOpen above).
+	// != overlayNone (same capture-order contract as the filter menu test above).
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2")
 	m = step(t, m, runeMsg('s')) // opens the value menu overlay

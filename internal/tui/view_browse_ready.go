@@ -331,8 +331,8 @@ func (m model) viewReady() string {
 		// Indicator -- a dezent (theme.Muted) suffix on the search line showing
 		// the active Sort-Toggle mode.
 		searchLine := m.treeSearchLine(lw-2, "sort "+readySortDisplayLabel(m.readySort))
-		rows := append([]string{searchLine}, m.readyRows(vis, !m.detailFocus, bodyH-1, lw-2)...)
-		listBox := renderPane(pane{rows: rows}, lw, bodyH, !m.detailFocus)
+		rows := append([]string{searchLine}, m.readyRows(vis, m.listFocus(), bodyH-1, lw-2)...)
+		listBox := renderPane(pane{rows: rows}, lw, bodyH, m.listFocus())
 		body = listBox
 		if rw > 0 {
 			detailBox := m.renderReadyDetailPane(vis, rw, bodyH, m.detailFocus)
@@ -354,7 +354,7 @@ func (m model) viewReady() string {
 // handled no-op (T6-Review B01: TAB is the ONLY detail-focus entry,
 // PO-Nachtrag 3 / D01 revidiert -- the flat list has no expand concept, so
 // enter is the analog of keyTree's leaf no-op), S cycles the sort mode,
-// `/`/`f` open the SAME shared search input/filter menu the Tree uses,
+// `/` opens the SAME shared search input the Tree uses (`f` is global),
 // `b`/esc return to Tree. Detail focus (once entered via tab) delegates to
 // keyDetailFocus verbatim (Task 2) -- focusedBean()'s viewReady case
 // (update.go) is what makes that reuse possible without a second
@@ -377,8 +377,6 @@ func (m model) keyReady(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case keybind.Matches(msg, keys.Search):
 		return m.openSearchInput()
-	case keybind.Matches(msg, keys.Filter):
-		return m.openFilterMenu()
 	case keybind.Matches(msg, keys.FilterClear):
 		// B01 (E2-Abschluss-Übernahme, Epic-Body bt-gzcu): X-Direct-Clear wirkte
 		// nur in keyTree (update.go) -- gleicher clearFacets()-Helper, danach
@@ -467,6 +465,6 @@ func readyClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok boo
 	// bean bt-f68z: Ready titles wrap too, so the clicked LINE is resolved
 	// through the same blockWindow the renderer used instead of by dividing
 	// screen rows by one.
-	_, rowElem := blockWindow(m.readyBlocks(vis, !m.detailFocus, lw-2), bodyH-1, m.readyList.cursor)
+	_, rowElem := blockWindow(m.readyBlocks(vis, m.listFocus(), lw-2), bodyH-1, m.readyList.cursor)
 	return blockWindowElemAt(rowElem, clickRow)
 }

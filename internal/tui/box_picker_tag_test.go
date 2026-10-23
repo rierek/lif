@@ -811,7 +811,7 @@ func TestTagPickerToggleOffThenOnYieldsEmptyDiffNoMutation(t *testing.T) {
 // --- capture-order guard (cheap follow-up from the T1 review, bt-8v69 body) ---
 
 // TestOverlayCaptureSwallowsQuitKeysWhileTagPickerOpen pins handleKey's
-// capture order (design decision a2/the overlay precedent m.filterOpen/
+// capture order (design decision a2/the overlay precedent
 // m.searchActive already established): q must never leak through to
 // a quit-request while ANY node-action overlay is open. Exercised against
 // the tag picker since that is what this task builds, but the guard itself

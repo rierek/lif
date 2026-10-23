@@ -4,7 +4,7 @@ package tui
 // Task 1, bean bt-dlgk, design decision a3): design-spec.md §7 reserves
 // exactly ONE key for this cluster (no separate Type/Priority key), so all
 // three beans enums render as ONE modalPanel with three group headers (the
-// SAME facetHead render pattern box_filter_facets.go's treeFilterBox already
+// SAME facetHead render pattern box_filter_facets.go's filterMenuBox already
 // established) instead of three separate picker overlays -- beans-src's
 // statuspicker.go/typepicker.go/prioritypicker.go are structurally
 // identical, consolidated here per design decision a3. Enter applies the
@@ -30,7 +30,7 @@ import (
 type valueMenuItem struct{ group, value string }
 
 // valueMenuGroupHead labels each group's sub-header -- same facetHead-style
-// render pattern as box_filter_facets.go's treeFilterBox.
+// render pattern as box_filter_facets.go's filterMenuBox.
 var valueMenuGroupHead = map[string]string{
 	"status":   "Status",
 	"type":     "Type",
@@ -341,7 +341,7 @@ func valueMenuItemRow(m model, i int) int {
 
 // valueMenuBox renders the floating (now single-group, B11/B12) value menu --
 // same modalPanel + facetHead-group-header render pattern as
-// box_filter_facets.go's treeFilterBox, "(current)" suffix (theme.Muted) on
+// box_filter_facets.go's filterMenuBox, "(current)" suffix (theme.Muted) on
 // the group's current value (port beans-src statuspicker.go isCurrent). The
 // per-row group-header line still renders (lastGroup bookkeeping) even though
 // exactly one group is present now -- harmless, keeps the render loop

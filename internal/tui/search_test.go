@@ -344,3 +344,28 @@ func TestSearchBleveResultAppliedWhenQueryStillCurrent(t *testing.T) {
 		t.Fatal("applying a (non-stale) result must clear searchBleveLoading")
 	}
 }
+
+// Bleve indexes whole words only. Once its response lands, a partial word
+// ("team") or a capitalised wildcard ("Bei*") must still show the item: the
+// local substring rule is unioned with the Bleve hits, not replaced by them.
+func TestSearchPartialWordAndWildcardSurviveBleveResponse(t *testing.T) {
+	beans := []*item.Item{
+		{ID: "tk-1", Title: "Teams und Rechte", Status: "todo", Type: "task", Priority: "normal"},
+		{ID: "tk-2", Title: "Beispiel-Plugin", Status: "todo", Type: "task", Priority: "normal"},
+	}
+	for query, id := range map[string]string{"team": "tk-1", "Bei*": "tk-2"} {
+		m := fixtureModel(t, beans)
+		m = setSearchQuery(m, query)
+		m = step(t, m, searchBleveResultMsg{query: query, ids: nil}) // Bleve finds neither
+		if !m.beanMatchesSearch(m.idx.ByID[id]) {
+			t.Errorf("%q must find %s after the Bleve response", query, id)
+		}
+		other := "tk-1"
+		if id == other {
+			other = "tk-2"
+		}
+		if m.beanMatchesSearch(m.idx.ByID[other]) {
+			t.Errorf("%q must not find %s", query, other)
+		}
+	}
+}

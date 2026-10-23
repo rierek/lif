@@ -16,8 +16,8 @@ package tui
 // / "enter: quit   esc: cancel") -- there is no base-view fallback to build
 // for either. The overlays covered below (Filter-Menu/Value-Menu/Tag-/
 // Parent-/Blocking-Picker) also already render their OWN inline hint line
-// at the top of their body (e.g. treeFilterBox's "space/x:toggle X:clear
-// enter/esc/f:done") -- that is a separate, pre-existing surface; this
+// at the top of their body (e.g. filterMenuBox's "space/x:toggle X:clear
+// esc:close") -- that is a separate, pre-existing surface; this
 // file's job is strictly the OUTER footer (Zone 3, visible around/below the
 // centered modal), which epic-E7-plan.md Task 7 Step 6 explicitly wants
 // synced to the same active context too (Q04's underlying complaint: the
@@ -25,33 +25,23 @@ package tui
 // different overlay had full input capture).
 import keybind "github.com/charmbracelet/bubbles/key"
 
-// filterMenuCategoryHint is the Filter-Menu's OWN local tab/shift+tab
-// binding (bt-nxuk, Reviewer-Finding B04 aus bt-2p9m-Review 2026-07-17):
-// inside the open filter menu, tab/shift+tab switch the active facet
-// category (keyFilterMenu, box_filter_facets.go) -- a DIFFERENT,
-// filter-menu-local meaning from keys.FocusIn/keys.FocusOut's global
-// Tree<->Detail focus-swap (keymap.go). filterMenuLocalBindings USED TO
-// reuse keys.FocusIn/keys.FocusOut directly here, which meant Footer Zone 3
-// rendered the stale global label ("tab focus in · shift+tab focus out")
-// even though the Filter-Menu's own inline hint (treeFilterBox,
-// box_filter_facets.go) already said "tab/shift+tab:category". This is a
-// deliberately standalone keybind.Binding (NOT a keyMap struct field --
-// see keymap_test.go's TestHelpGroupsCoverEveryBindingExactlyOnce, which
-// reflects ONLY over keyMap fields and would flag an unreferenced field;
-// staying local here keeps that guard, and
-// TestNoDuplicateBindingBetweenGlobalAndAnyLocalHintList (scoped to
-// browseRepoLocalBindings/readyLocalBindings only), both untouched)
-// mirroring treeFilterBox's own wording exactly.
-var filterMenuCategoryHint = keybind.NewBinding(keybind.WithKeys("tab", "shift+tab"), keybind.WithHelp("tab/shift+tab", "category"))
+// filterMenuApplyHint is enter's binding inside the filter value menu: enter
+// toggles the cursored value (the filter applies at once) and keeps the menu
+// open, so the global keys.Enter label ("open") would be a lie there. A
+// deliberately standalone keybind.Binding (NOT a keyMap struct field, see
+// keymap_test.go's TestHelpGroupsCoverEveryBindingExactlyOnce); the handler
+// (keyFilterMenu, box_filter_facets.go) matches THIS value, so bt-z4w7's
+// "the label IS the binding" holds literally.
+var filterMenuApplyHint = keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "apply"))
 
-// filterStripApplyHint is enter's Filter-Strip-local binding under bean
-// bt-8d35's Fokus-Modell: enter APPLIES the cursored
-// value and keeps the focus in the region instead of closing it, so the
-// global keys.Enter label ("open") would be a lie there. Same standalone-
-// binding construction as filterMenuCategoryHint above -- and here the
-// handler (keyFilterMenu, box_filter_facets.go) matches THIS value, so
-// bt-z4w7's "the label IS the binding" holds literally.
-var filterStripApplyHint = keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "apply"))
+// filterFieldMoveHint and filterFieldOpenHint label the focused filter
+// field's own keys (keyFilterField, layout.go): left/right pick the field,
+// enter opens its value menu. Standalone for the same reason as
+// filterMenuApplyHint; keyFilterField matches filterFieldOpenHint itself.
+var (
+	filterFieldMoveHint = keybind.NewBinding(keybind.WithKeys("left", "right"), keybind.WithHelp("←/→", "field"))
+	filterFieldOpenHint = keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "values"))
+)
 
 // --- bean bt-z4w7 (B7): footer labels DERIVED from the active binding ---
 //
@@ -151,16 +141,18 @@ func (m model) valueMenuGroup() string {
 	return m.menuItems[0].group
 }
 
-// filterMenuLocalBindings is the Facet-Filter-Menu's own footer set
-// (epic-E7-plan.md Task 7 Step 6, literal): keys.Toggle is exactly the
-// "space: select/toggle" hint Q04 asked for, at the concrete overlay (the
-// Filter-Menu) whose absence the PO actually noticed.
-//
-// bean bt-8d35: enter is the Strip-local "apply and
-// hold the focus" key (filterStripApplyHint), not the global close -- the
-// label follows the handler's own branch rather than restating keys.Enter.
+// filterMenuLocalBindings is the filter value menu's own footer set:
+// keys.Toggle is the "space: select/toggle" hint, enter applies the cursored
+// value and holds the menu open (filterMenuApplyHint).
 func filterMenuLocalBindings() []keybind.Binding {
-	return []keybind.Binding{keys.Up, keys.Down, filterMenuCategoryHint, keys.Toggle, keys.FilterClear, filterStripApplyHint, keys.Back}
+	return []keybind.Binding{keys.Up, keys.Down, keys.Toggle, filterMenuApplyHint, keys.FilterClear, keys.Back}
+}
+
+// filterFieldLocalBindings is the footer set while the focus is in a filter
+// field (keyFilterField, layout.go): left/right pick the field, enter opens
+// its value menu, X clears all facets, esc returns to the list.
+func filterFieldLocalBindings() []keybind.Binding {
+	return []keybind.Binding{filterFieldMoveHint, filterFieldOpenHint, keys.FilterClear, keys.Back}
 }
 
 // valueMenuLocalBindings is the Value-Menu overlay's own footer set
@@ -277,6 +269,8 @@ func helpLocalBindings() []keybind.Binding    { return []keybind.Binding{keys.Ba
 // knows (m.valueMenuGroup()).
 func (m model) overlayLocalBindings() []keybind.Binding {
 	switch m.overlay {
+	case overlayFilterMenu:
+		return filterMenuLocalBindings()
 	case overlayValueMenu:
 		return valueMenuLocalBindings(m.valueMenuGroup())
 	case overlayTagPicker:
@@ -298,18 +292,15 @@ func (m model) overlayLocalBindings() []keybind.Binding {
 // readyChrome/view_browse_ready.go): view-local (viewLocal) in the
 // normal state, but swaps to the active capture state's OWN bindings the
 // instant one fully captures input (Q04-Antwort, PO-Nachtrag 5). Priority
-// order (epic-E7-plan.md Task 7 Step 6): Filter-Menü > Overlay > Suche >
-// Palette > Help > view-local default -- this is its OWN independently
-// chosen order for footer display, NOT a mirror of handleKey's own
-// full-capture dispatch order (update.go), which checks m.searchActive
-// BEFORE m.filterOpen (the reverse of the order here). Harmless in
-// practice since the two states are mutually exclusive (only one capture
-// state is ever active at a time), but the two orderings must not be
+// order (epic-E7-plan.md Task 7 Step 6): Overlay > Suche >
+// Palette > Help > filter field > view-local default -- this is its OWN
+// independently chosen order for footer display, NOT a mirror of handleKey's
+// own full-capture dispatch order (update.go). Harmless in
+// practice since the capture states are mutually exclusive (only one is ever
+// active at a time), but the two orderings must not be
 // conflated (T7-Review I03, bean bt-dsog).
 func (m model) contextualLocalHint(viewLocal []keybind.Binding) string {
 	switch {
-	case m.filterOpen:
-		return renderBindings(filterMenuLocalBindings())
 	case m.overlay != overlayNone:
 		return renderBindings(m.overlayLocalBindings())
 	case m.searchActive:
@@ -318,6 +309,8 @@ func (m model) contextualLocalHint(viewLocal []keybind.Binding) string {
 		return renderBindings(paletteLocalBindings())
 	case m.helpOpen:
 		return renderBindings(helpLocalBindings())
+	case m.filterFocus:
+		return renderBindings(filterFieldLocalBindings())
 	}
 	return renderBindings(viewLocal)
 }

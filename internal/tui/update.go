@@ -194,7 +194,7 @@ func (m model) handleToastExpired(msg toastExpiredMsg) (tea.Model, tea.Cmd) {
 // searchQuery/facet filter from the old repo could silently show an EMPTY
 // tree for the new one with no visible reason, which is a genuine
 // usability bug, not just cosmetic drift -- same class of finding as this
-// file's own m.searchActive/m.filterOpen capture-order precedents).
+// file's own m.searchActive capture-order precedent).
 func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		var toastCmd tea.Cmd
@@ -237,7 +237,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.searchBleveIDs = nil
 	m.searchBleveFor = ""
 	m.searchBleveLoading = false
-	m.filterOpen = false
+	m.filterFocus = false
 	m = m.clearFacets()
 	m.showArchived = false // E5 Task 7 (bean bt-ggt2, T6-Note bug class, bt-zhwl "Notes for T7"): the archive-default toggle must not leak across a repo switch, same reset breadth as every other search/filter field here.
 	m.readyList = listState{}
@@ -852,7 +852,7 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 // keyOverlay routes to the currently open node-action overlay's own key
 // handler (design decision a2: exactly one overlayID is active at a time).
 // Checked in handleKey ahead of the global ctrl+c/q/tab switch (same
-// full-capture precedent as m.searchActive/m.filterOpen just above it) so
+// full-capture precedent as m.searchActive just above it) so
 // e.g. "q" cannot leak through to a quit-request while a menu/picker is
 // open. T1 wires overlayValueMenu; T2/T3/T4/T6 add their cases as their
 // overlays land.
@@ -872,6 +872,8 @@ func (m model) keyOverlay(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keyDeleteConfirm(msg)
 	case overlayTaskOutput:
 		return m.keyTaskOutput(msg)
+	case overlayFilterMenu:
+		return m.keyFilterMenu(msg)
 	}
 	return m, nil
 }
@@ -985,17 +987,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keySearchInput(msg)
 	}
 
-	// E2 Task 4 (bean bt-9ldr): the facet-filter menu is a floating overlay
-	// that fully captures input, same precedent as m.searchActive just above
-	// (and m.confirmQuit at the very top of this function) -- single-key
-	// shortcuts like `q`/`tab` must not leak through to the Tree underneath
-	// while the menu is open.
-	if m.filterOpen {
-		return m.keyFilterMenu(msg)
-	}
-
 	// E3 Task 4 (bean bt-y4ly): an open huh Form fully captures input too,
-	// same precedent as filterOpen/searchActive/confirmQuit above -- checked
+	// same precedent as searchActive/confirmQuit above -- checked
 	// BEFORE the node-action overlay switch below since m.form != nil is its
 	// own separate capture state, not one of the overlayID cases (design
 	// decision a2: "huh forms are not a menu overlay").
@@ -1005,7 +998,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// E3 (bean bt-dlgk): the open node-action overlay (Value-Menü T1, Tag-/
 	// Parent-/Blocking-Picker T2/T3, Create-/Delete-Confirm T4/T6) fully
-	// captures input, same precedent as m.filterOpen/m.searchActive just
+	// captures input, same precedent as m.searchActive just
 	// above -- checked ahead of the ctrl+c/q/tab switch so those single keys
 	// cannot leak through while a menu/picker is open.
 	if m.overlay != overlayNone {
@@ -1013,7 +1006,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// E5 Task 6 (bean bt-zhwl, design decision h): the Lobby fully captures
-	// input, same full-capture precedent as m.overlay/m.filterOpen above --
+	// input, same full-capture precedent as m.overlay above --
 	// but positioned HERE, AHEAD of the ctrl+k/`?`/keys.Picker bare MATCH
 	// checks below (an ERRATUM vs. bt-0l8c's own forward-looking Notes-für-
 	// T6 sketch, which listed keys.Picker's match check BEFORE the
@@ -1054,7 +1047,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// E4 Task 1 (bean bt-jpgn, design decision h): the Command-Center's own
-	// open state fully captures, same precedent as filterOpen/m.overlay
+	// open state fully captures, same precedent as m.overlay
 	// above.
 	if m.paletteOpen {
 		return m.keyPalette(msg)
@@ -1068,7 +1061,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Deviations) -- it would let `?`, typed as a literal query character
 	// into an open Command-Center filter, hijack input and open Help
 	// instead of reaching keyPalette. Keeping every full-capture STATE
-	// check (filterOpen/form/overlay/paletteOpen/helpOpen) ahead of every
+	// check (form/overlay/paletteOpen/helpOpen) ahead of every
 	// bare keybind MATCH check (keys.Palette/keys.Help) preserves the
 	// existing precedent this file already establishes end to end.
 	if m.helpOpen {
@@ -1106,15 +1099,25 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.toggleRegion(), nil
 	}
 
-	// M / L / R switch between the Roadmap, the flat list and Ready (keyView,
-	// layout.go); reachable from every list view.
-	if handled, nm := m.keyView(msg); handled {
-		return nm, nil
-	}
-
 	// v / shift+v cycle the layout (keyLayout, layout.go).
 	if handled, nm, cmd := m.keyLayout(msg); handled {
 		return nm, cmd
+	}
+
+	// f jumps to the filter bar's Type field (switching to a layout with a
+	// filter bar when needed); while the bar has focus it owns the keys.
+	if keybind.Matches(msg, keys.Filter) && (m.view == viewBrowseRepo || m.view == viewReady) {
+		return m.focusFilter(), nil
+	}
+	if m.filterFocus {
+		return m.keyFilterField(msg)
+	}
+
+	// M / L / R switch between the Roadmap, the flat list and Ready (keyView,
+	// layout.go); reachable from every list view, but not while the filter bar
+	// owns the keys.
+	if handled, nm := m.keyView(msg); handled {
+		return nm, nil
 	}
 
 	if keybind.Matches(msg, keys.Refresh) {
@@ -1204,6 +1207,10 @@ func (m model) focusedBean() *item.Item {
 // rather than just the index reuses boxFormEffectiveCursor's own derived
 // reset (box_nav_field.go).
 func (m model) toggleRegion() model {
+	if m.filterFocus { // leaving the filter bar returns to the list
+		m.filterFocus = false
+		return m
+	}
 	if m.layout != layoutFilterDetail {
 		return m
 	}
@@ -1285,56 +1292,11 @@ func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	return m, textinput.Blink
 }
 
-// openFilterMenu opens the shared facet-filter menu (E2 Task 4, bean
-// bt-9ldr), port devd openTreeFilter minus the loadAllIssues call. Factored
-// out of keyTree (E2 Task 5): keyReady (view_browse_ready.go) shares this
-// verbatim -- ONE filter menu for Tree AND Ready (design-spec.md US-05,
-// box_filter_facets.go doc comment).
-func (m model) openFilterMenu() (tea.Model, tea.Cmd) {
-	m.filterItems = m.buildFilterItems()
-	m.filterMenu = listState{}
-	m.filterMenu.setLen(len(m.filterItems))
-	// bt-2p9m (Querformat Tab-Kategorien): always reopen on tab 0 (Status)
-	// -- PO-Klickpfad step 1, "f für Filter, erster tab aktiviert". Combined
-	// with the listState{} reset above (cursor 0), this lands on Status'
-	// own first row -- the "erstes Element vorselektiert" half of the same
-	// step, since buildFilterItems always emits Status first.
-	m.filterTab = 0
-	m.filterOpen = true
-	return m, nil
-}
-
-// openFilterMenuAt is openFilterMenu (above) plus a SEED: after the same
-// reset, it jumps m.filterTab (and m.filterMenu.cursor) to the given facet's
-// own tab/first row instead of always landing on tab 0 (Status) -- bt-wtqs
-// (epic bt-vy1q): a click on one of the filter strip's four chips
-// (box_filter_bar.go) must open the menu already focused on THAT chip's own
-// facet, not force the PO to tab/shift+tab there manually. Mirrors
-// filterMenuSwitchTab's own "jump the cursor to the new tab's first element"
-// contract (box_filter_facets.go) -- it reuses filterFacetOrder/
-// filterFacetRange rather than duplicating that lookup. facet not found in
-// filterFacetOrder (cannot happen in practice: buildFilterItems always emits
-// all four chip facets) leaves tab 0 untouched, openFilterMenu's own default.
-func (m model) openFilterMenuAt(facet string) (tea.Model, tea.Cmd) {
-	tm, cmd := m.openFilterMenu()
-	mm := tm.(model)
-	facets := filterFacetOrder(mm.filterItems)
-	for i, f := range facets {
-		if f == facet {
-			mm.filterTab = i
-			start, _ := filterFacetRange(mm.filterItems, f)
-			mm.filterMenu.cursor = start
-			break
-		}
-	}
-	return mm, cmd
-}
-
 // keyTree drives the tree: up/down move the cursor, right/left expand/
-// collapse, enter toggles expand (no-op on a leaf, per task scope). `/`, `f`,
-// `X`, and the esc-cascade's search/filter-clearing rung (E2 Task 3+4) are
+// collapse, enter toggles expand (no-op on a leaf, per task scope). `/`, `X`,
+// and the esc-cascade's search/filter-clearing rung (E2 Task 3+4) are
 // checked FIRST, ahead of the len(nodes)==0 short-circuit below -- opening
-// the search box/filter menu or clearing an active query/facet must work
+// the search box or clearing an active query/facet must work
 // even on an empty/pre-load tree.
 func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
@@ -1343,16 +1305,12 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// minus loadAllIssues -- beans-tui already holds the full Index in
 		// memory (no separate "load everything for search" step needed).
 		return m.openSearchInput()
-	case keybind.Matches(msg, keys.Filter):
-		// E2 Task 4 (bean bt-9ldr), port devd openTreeFilter
-		// (view_browse_project.go:865-874) minus the loadAllIssues call --
-		// beans-tui already holds the full Index in memory.
-		return m.openFilterMenu()
+
 	case keybind.Matches(msg, keys.FilterClear):
-		// X as a direct top-level reset even with the menu closed (design-
+		// X as a direct top-level reset (design-
 		// spec.md, mirrors devd's esc-cascade also clearing filters below) --
-		// wired to the SAME clearFacets() helper keyFilterMenu's own X-case
-		// uses (box_filter_facets.go).
+		// wired to the SAME clearFacets() helper keyFilterField's and
+		// keyFilterMenu's X-cases use.
 		m = m.clearFacets()
 		return m.resetCursorToFirstVisible(), nil
 	case keybind.Matches(msg, keys.Back):

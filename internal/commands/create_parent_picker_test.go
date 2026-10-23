@@ -233,7 +233,7 @@ func TestParentPickerRowsFollowRoadmapOrder(t *testing.T) {
 	got := ppIDsInOrder(e.view(), []string{"m1", "m2", "e1", "e2", "e3", "f1", "f3", "f4"})
 	var want []string
 	inRoadmap := map[string]bool{}
-	for _, r := range roadmapRows(roadmap.Build(cfg, all, true, nil, nil)) {
+	for _, r := range ui.RoadmapRows(roadmap.Build(cfg, all, true, nil, nil)) {
 		id := strings.TrimPrefix(r.Item.ID, "pp-")
 		inRoadmap[id] = true
 		for _, g := range got {

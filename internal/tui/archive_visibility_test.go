@@ -46,37 +46,32 @@ func TestArchivedBeanHiddenFromTreeByDefault(t *testing.T) {
 	}
 }
 
-// TestArchivedBeanShownWhenShowArchivedToggled drives the REAL f-menu key
-// path (space on the "Show archived" row) end-to-end, not a direct
-// field write -- proves the facet wiring (buildFilterItems/facetOn/
-// toggleFacet) actually reaches m.showArchived, no new key involved.
+// TestArchivedBeanShownWhenShowArchivedToggled drives the REAL key path
+// (f, left to the Archive field, enter, space on the "Show archived" value)
+// end-to-end, not a direct field write -- proves the facet wiring
+// (buildFilterItems/facetOn/toggleFacet) actually reaches m.showArchived.
 func TestArchivedBeanShownWhenShowArchivedToggled(t *testing.T) {
 	m := fixtureModel(t, archiveFixtureBeans())
 	m.expanded["ms-1"] = true
 	m.expanded["ep-1"] = true
 
-	m = step(t, m, runeMsg('f'))
-	if !m.filterOpen {
-		t.Fatal("setup: f did not open the filter menu")
-	}
-	idx := -1
-	for i, it := range m.filterItems {
-		if it.facet == "archive" {
-			idx = i
-			break
+	openArchiveMenu := func(m model) model {
+		m = step(t, m, runeMsg('f'))
+		m = step(t, m, keyMsg(tea.KeyLeft)) // wraps from Type to the last field, Archive
+		m = step(t, m, keyMsg(tea.KeyEnter))
+		if m.overlay != overlayFilterMenu || m.filterItems[m.filterMenu.cursor].facet != "archive" {
+			t.Fatal("setup: the Archive field did not open its value menu")
 		}
+		return m
 	}
-	if idx < 0 {
-		t.Fatalf("setup: no \"archive\" facet row in filterItems, got %+v", m.filterItems)
-	}
-	m.filterMenu.cursor = idx
 
+	m = openArchiveMenu(m)
 	m = step(t, m, keyMsg(tea.KeySpace))
 	if !m.showArchived {
 		t.Fatal("space on the archive row did not set m.showArchived = true")
 	}
 	m = step(t, m, keyMsg(tea.KeyEsc))
-	if m.filterOpen {
+	if m.overlay != overlayNone {
 		t.Fatal("esc did not close the filter menu")
 	}
 
@@ -87,12 +82,11 @@ func TestArchivedBeanShownWhenShowArchivedToggled(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("tk-done not visible after toggling showArchived on via the real f-menu key path")
+		t.Fatal("tk-done not visible after toggling showArchived on via the real key path")
 	}
 
-	// Toggle back off (same row, still cursored) -- must hide it again.
-	m = step(t, m, runeMsg('f'))
-	m.filterMenu.cursor = idx
+	// Toggle back off (same value) -- must hide it again.
+	m = openArchiveMenu(m)
 	m = step(t, m, keyMsg(tea.KeySpace))
 	if m.showArchived {
 		t.Fatal("second space toggle did not flip m.showArchived back to false")

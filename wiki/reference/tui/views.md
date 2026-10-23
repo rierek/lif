@@ -18,13 +18,15 @@ There are four views. The item detail is a pane inside Browse and Ready; which p
 | Tag management | Tag definitions. | Command palette `K`, entry `view: tags`. |
 | Detail pane | Fields, relations, body of the selected item. Not shown at start. | `v` / `shift+v` change the [layout](#layouts). |
 
-The header reads `> <repo>: <View>`. The focused pane is marked by color only. Hidden by default in tree, flat and ready: `completed` and `scrapped` items. The filter menu category `Archive` shows them.
+The header reads `> <repo>: <View>`. The focused pane is marked by color only. Hidden by default in tree, flat and ready: `completed` and `scrapped` items. The filter field `Archive` shows them.
 
 ## Tree view
 
 - The tree is the roadmap (`lif roadmap`). At start only the milestones and the roots `Unscheduled` and `Not on roadmap` show, all collapsed. Every level is sorted like `lif roadmap`.
 - `Unscheduled` holds epics, features and items without a milestone. `Not on roadmap` holds every item the roadmap places nowhere: milestones without children, types with `roadmap: false`, items whose parent does not exist, and members of a parent cycle. Both roots come last.
 - The tree pane width is the larger of one third of the screen and `layout.tree_width` (default 36, 24 to 60). At 140 columns it is 46.
+- In the layouts Roadmap and Roadmap + filter the tree renders like `lif roadmap`: the same type and status words, wrapped titles, ID on the right, tree lines and colors, at the width of the pane. An item can use several lines; the cursor bar marks all of them, a click on any line selects the item, and scrolling keeps the whole item visible. `▾` and `▸` before the title show an open and a collapsed node. Only expanded nodes show. Beside the detail pane (layout Roadmap + filter + details) the rows stay compact: one glyph row per item.
+- Tree and flat lists have no column header.
 - Sorting and menus use the status, type and priority lists of `.lif.yml` in configured order. Values the config does not name sort last.
 
 Screenshot follows.
@@ -46,7 +48,7 @@ Screenshot follows.
 | Layout | Shows |
 |---|---|
 | Roadmap | The list at full width. No filter bar, no detail pane. This is the start layout. |
-| Roadmap + filter | The filter bar above the list. |
+| Roadmap + filter | The filter bar (Type, Status, Priority, Tags, Archive) above the list. |
 | Roadmap + filter + details | The filter bar above the list, the detail pane on the right. |
 | Details | The detail of the selected item at full width. No filter bar. |
 
@@ -65,7 +67,7 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 - Movement uses the `i/j/k/l` diamond (`i` up, `k` down, `j` left, `l` right) and the arrow keys, not vim keys.
 - `enter` opens, `esc` goes back. `ctrl+r` reloads. `K` opens the command palette.
 - The TUI watches the store: a change from another process appears without a key press.
-- Mouse: always on. Wheel scrolls the list (or the detail body). A left click selects a row; a second click within 500 ms expands or collapses an item with children. Clicking a detail box opens its editor or picker. A click on the filter chips opens the filter menu. The mouse is ignored in forms, overlays, the lobby and tag management. Without a detail pane, a click does not reach the former detail area.
+- Mouse: always on. Wheel scrolls the list (or the detail body). A left click selects a row; a second click within 500 ms expands or collapses an item with children. Clicking a detail box opens its editor or picker. A click on a filter field focuses it and opens its value menu; in the open menu a click on a value toggles it and a click outside closes the menu. The mouse is ignored in forms, other overlays, the lobby and tag management. Without a detail pane, a click does not reach the former detail area.
 
 ## Search and filters
 
@@ -73,5 +75,5 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 - Text of three or more bytes goes to `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`). Shorter text matches as a substring of title or ID. An ID substring always matches.
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, for example `lif list: exit status 1: Error: querying items: syntax error`. Incomplete queries such as `title:` flash this while you type.
-- `f` opens the facet menu with the categories Status, Type, Priority, Tags, Archive. `space` or `x` toggles a value, `X` clears all. Facets combine with AND across categories and OR within one.
+- The filter bar fields (Type, Status, Priority, Tags, Archive) are focus targets. `f` jumps to the Type field; from layout Roadmap or Details it first switches to layout Roadmap + filter. `←`/`→` (or `j`/`l`) move between the fields, `enter`, `space` or `↓` open the value menu of the focused field. In the menu `space`, `x` or `enter` toggles a value and the list filters at once; `esc` closes the menu, a second `esc` (or `tab`) returns to the list. `X` clears all facets and keeps the layout. A long Tags list scrolls inside the menu. Facets combine with AND across fields and OR within one.
 - The item pickers (`a` and `b`) have chips: `ctrl+t` type, `ctrl+n` status, `ctrl+p` priority, `ctrl+g` tags. They exist only in those two pickers.

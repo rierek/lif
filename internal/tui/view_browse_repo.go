@@ -538,11 +538,19 @@ func (m model) treeRows(nodes []treeNode, focused bool, bodyH, width int) []stri
 // down is width-1.
 func (m model) treeBlocks(nodes []treeNode, focused bool, width int) [][]string {
 	pos := m.cursorPos(nodes)
-	slug := m.beanIDPrefix()
-	blocks := make([][]string, len(nodes))
-	for i, n := range nodes {
-		lines := treeRowLines(n, slug, width-1)
-		blocks[i] = decorateRowBlock(lines, i == pos, focused)
+	var blocks [][]string
+	if m.layout.hasDetail() {
+		// Split view: the narrow list pane keeps one compact line per row.
+		slug := m.beanIDPrefix()
+		blocks = make([][]string, len(nodes))
+		for i, n := range nodes {
+			blocks[i] = treeRowLines(n, slug, width-1)
+		}
+	} else {
+		blocks = m.roadmapBlocks(nodes, width-1)
+	}
+	for i := range blocks {
+		blocks[i] = decorateRowBlock(blocks[i], i == pos, focused)
 	}
 	return blocks
 }
@@ -848,37 +856,9 @@ func (m model) searchHeadBox(width int) []string {
 	return []string{boxTopBorder("Search", width, frame), mid, boxBottomBorder("/", width, frame)}
 }
 
-// treeHeaderWideMin is the pane width from which the column header spells its
-// labels out instead of abbreviating them to the single letters (bean bt-f68z,
-// PO-Befund #12: "Master-Detail (schmal): Header auf die Keybindings kuerzen.
-// full-width list layouts (v): Header ausschreiben. Also breitenabhaengig, nicht zwei
-// getrennte Implementierungen"). The split's left pane is ~30 cells even on a
-// wide terminal (masterDetailWidths' 1fr:2fr, view.go), the full-width list pane is
-// the full inner width -- 48 separates the two cleanly at every terminal size
-// the app supports, without a second code path.
-const treeHeaderWideMin = 48
-
-// treeColumnHeader renders the Tree/flat pane's column legend (bean bt-f68z,
-// PO-Befund #12). One implementation, two label sets chosen by width.
-//
-// The NARROW form is column-aligned with the rows below it: one leading cell
-// for the cursor column, two for the expand marker, then the 1-cell status and
-// type glyph columns, the 4-cell short bean ID and the title. The WIDE form
-// deliberately drops that alignment for the two glyph columns -- they are ONE
-// cell wide by construction, so "Status" and "Type" cannot sit above them; it
-// reads as a spelled-out legend instead, which is what "ausschreiben" asks
-// for and what the extra full-width layout makes room for.
-func treeColumnHeader(width int) string {
-	label := "   S T ID   Title"
-	if width >= treeHeaderWideMin {
-		label = "   Status Type ID   Title"
-	}
-	return lipgloss.NewStyle().Foreground(theme.Subtext).Render(truncate(label, width))
-}
-
 // treePaneHeadRows builds the rows that precede the bean rows in the Browse
-// left pane: the boxed search head (3 lines, bean bt-f68z #11) followed by
-// the column header (#12).
+// left pane: the boxed search head (3 lines, bean bt-f68z #11). The list has
+// no column header (U4: the rows carry their own type, status and ID).
 //
 // This is the ONE place that decides how tall that head is. viewBrowseRepo
 // trades its length out of the row budget and treeClickRow/flatClickRow offset
@@ -886,8 +866,7 @@ func treeColumnHeader(width int) string {
 // the render from the mouse (the failure bt-vpvu was filed for: the filter bar
 // was reclaimed from bodyH by the renderer but not by the hit-test).
 func (m model) treePaneHeadRows(width int) []string {
-	out := m.searchHeadBox(width)
-	return append(out, treeColumnHeader(width))
+	return m.searchHeadBox(width)
 }
 
 // repoLabel is the breadcrumb `> repo` segment: the repo directory's base
@@ -903,17 +882,18 @@ func (m model) repoLabel() string {
 // composeOverlays layers every floating overlay onto out in a fixed
 // z-priority order (painter's algorithm, placeOverlay) -- E3 Task 1
 // extraction (bean bt-dlgk): viewBrowseRepo and viewReady used to
-// duplicate the filterOpen/confirmQuit block; a new overlay is now wired in
-// exactly ONE place instead of two. Order: filter menu first, then the
-// node-action overlay (design decision a2 -- EXACTLY one overlayID active
+// duplicate the overlay block; a new overlay is now wired in
+// exactly ONE place instead of two. Order: the node-action/menu overlay
+// (design decision a2 -- EXACTLY one overlayID active
 // at a time), then huh forms (T4/T5, m.form != nil is its own separate
 // capture state, not part of the overlayID enum), quit-confirm LAST (it can
 // interrupt anything, same as its pre-extraction position in both views).
 func (m model) composeOverlays(out string, w, h int) string {
-	if m.filterOpen {
-		out = placeOverlay(out, m.treeFilterBox(), w, h)
-	}
 	switch m.overlay {
+	case overlayFilterMenu:
+		// Anchored below the focused field of the filter bar.
+		x, y, _, _ := m.filterMenuRect()
+		out = placeOverlayAt(out, m.filterMenuBox(), w, h, x, y)
 	case overlayValueMenu:
 		// Slice C (bt-f0y9, D09 revidiert): field-anchored below the
 		// triggering Status/Type/Priority box (placeOverlayAt) --
@@ -1019,8 +999,9 @@ func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
 //
 //   - tab/shift+tab switch region only in layoutFilterDetail, the one layout
 //     with two regions.
-//   - / and f act on the list, so not while the detail has focus (which is
-//     always the case in layoutDetail).
+//   - / acts on the list, so not while the detail has focus (which is always
+//     the case in layoutDetail). f jumps to the filter bar from every layout
+//     (U3), so it is always listed.
 //   - M, L and R are listed for the views they leave, not for the current one.
 //   - Item keys need a focused item; c (create) does not.
 //   - bt-fy5d: e/s/a/g are dropped while the Detail pane shows their own (x)
@@ -1039,7 +1020,7 @@ func (m model) footerBindings() []keybind.Binding {
 		{keys.FocusIn, m.layout == layoutFilterDetail},
 		{keys.FocusOut, m.layout == layoutFilterDetail},
 		{keys.Search, !m.detailFocus},
-		{keys.Filter, !m.detailFocus},
+		{keys.Filter, true},
 		{keys.Status, hasBean},
 		{keys.Create, true},
 		{keys.Delete, hasBean},
@@ -1151,8 +1132,8 @@ func (m model) viewBrowseRepo() string {
 		// pre-existing golden depending on it, byte-for-byte untouched.
 		vis := m.flatVisible()
 		headRows := m.treePaneHeadRows(lw - 2) // D02 precedent: flat mode has no Sort-Toggle (unlike Ready), no suffix
-		flatRowsWithHead := append(headRows, m.flatRows(vis, !m.detailFocus, bodyH-len(headRows), lw-2)...)
-		flatBox := renderPane(pane{rows: flatRowsWithHead}, lw, bodyH, !m.detailFocus)
+		flatRowsWithHead := append(headRows, m.flatRows(vis, m.listFocus(), bodyH-len(headRows), lw-2)...)
+		flatBox := renderPane(pane{rows: flatRowsWithHead}, lw, bodyH, m.listFocus())
 		body = flatBox
 		if rw > 0 {
 			detailBox := m.renderFlatDetailPane(vis, rw, bodyH, m.detailFocus)
@@ -1166,8 +1147,8 @@ func (m model) viewBrowseRepo() string {
 		// so the combined [searchLine, ...treeRows] slice still fits renderPane's
 		// own Golden-Rule-#1 line cap.
 		headRows := m.treePaneHeadRows(lw - 2) // D02: Tree never shows a sort suffix
-		treeRowsWithHead := append(headRows, m.treeRows(nodes, !m.detailFocus, bodyH-len(headRows), lw-2)...)
-		treeBox := renderPane(pane{rows: treeRowsWithHead}, lw, bodyH, !m.detailFocus)
+		treeRowsWithHead := append(headRows, m.treeRows(nodes, m.listFocus(), bodyH-len(headRows), lw-2)...)
+		treeBox := renderPane(pane{rows: treeRowsWithHead}, lw, bodyH, m.listFocus())
 		body = treeBox
 		if rw > 0 {
 			detailBox := m.renderDetailPane(nodes, rw, bodyH, m.detailFocus)
@@ -1248,6 +1229,6 @@ func treeClickRow(m model, nodes []treeNode, msg tea.MouseMsg) (idx int, ok bool
 	// Rows are no longer 1:1 with beans (hanging-indent title wrapping, bean
 	// bt-f68z), so the clicked LINE is resolved through the very same
 	// blockWindow the renderer used -- not by dividing by one.
-	_, rowElem := blockWindow(m.treeBlocks(nodes, !m.detailFocus, lw-2), bodyH-len(headRows), m.cursorPos(nodes))
+	_, rowElem := blockWindow(m.treeBlocks(nodes, m.listFocus(), lw-2), bodyH-len(headRows), m.cursorPos(nodes))
 	return blockWindowElemAt(rowElem, clickRow)
 }

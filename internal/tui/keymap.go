@@ -159,8 +159,8 @@ func newKeyMap() keyMap {
 		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "focus in")),
 		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "focus out")),
 
-		Enter:   keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "open/confirm")),
-		Back:    keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "back")),
+		Enter: keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "open/confirm")),
+		Back:  keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "back")),
 		// Help shows only y/n: enter and esc are listed under Navigation.
 		Confirm: keybind.NewBinding(keybind.WithKeys("enter", "y"), keybind.WithHelp("y", "confirm dialog")),
 		Cancel:  keybind.NewBinding(keybind.WithKeys("esc", "n"), keybind.WithHelp("n", "cancel dialog")),

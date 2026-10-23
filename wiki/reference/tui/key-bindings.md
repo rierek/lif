@@ -15,7 +15,7 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `↓` / `k` | Down |
 | `←` / `j` | Back or out (collapse) |
 | `→` / `l` | In (expand) |
-| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout). The footer lists `tab` only there; `/` and `f` only while the list has focus |
+| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout). From a filter field, `tab` returns to the list. The footer lists `tab` only in that layout and `/` only while the list has focus |
 | `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |
 | `esc` | Back; leaves the detail pane and menus; in the flat list and Ready, see Views |
@@ -39,7 +39,7 @@ The Board view (`B`) is planned and not bound yet. `esc` in the flat list or Rea
 |---|---|
 | `K` / `:` | Command palette |
 | `/` | Search |
-| `f` | Facet filter menu |
+| `f` | Jump to the filter bar, Type field; from layout roadmap or details it first switches to roadmap + filter |
 | `X` | Clear all filters |
 | `S` | Cycle ready sort |
 | `ctrl+r` | Reload |
@@ -77,11 +77,17 @@ Title, settings and tag management have no key; use the palette (`K` or `:`).
 
 Moved or removed keys: type was `o`, priority was `u`, tags were `t`, blocking was `r`, Ready was `b`, repositories were `p`, nested or flat was `G`. The old keys do nothing now.
 
-## Pickers and facets
+## Pickers and filter fields
 
 | Key | Action | Where |
 |---|---|---|
-| `space` / `x` | Toggle a value | Facet menu, relations picker |
+| `←` / `→` | Previous or next filter field (Type, Status, Priority, Tags, Archive) | Focused filter field |
+| `enter` / `space` / `↓` | Open the value menu of the field | Focused filter field |
+| `↑` / `↓` | Move within the values | Filter value menu |
+| `space` / `x` / `enter` | Toggle a value; the list filters at once and the menu stays open | Filter value menu |
+| `X` | Clear all filters; layout and menu stay | Focused filter field, filter value menu, lists |
+| `esc` | Close the menu; a second `esc` returns to the list | Filter value menu, focused filter field |
+| `space` / `x` | Toggle a value | Relations picker |
 | `space` | Toggle a tag | Tag picker |
 | `ctrl+t`, `ctrl+n`, `ctrl+p`, `ctrl+g` | Chip: type, status, priority, tags | Parent picker and relations picker only |
 
@@ -92,6 +98,8 @@ In the tag picker `n` is ordinary text; create a tag by typing a new name and pr
 ## Lobby and palette
 
 In the lobby, `↑`/`↓` (or `i`/`k`) move, `enter` opens the repository, `/` opens the repository filter (the only way to type into it), `q` quits at once, and `esc` twice leaves the lobby (back to the open repository, or quit when none is open). In the filter `esc` closes it. Any other key between the two `esc` presses cancels the first. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
+
+The palette entry `open: documentation` opens this reference (`https://rierek.github.io/lif/reference/tui/views/`) in the default browser and shows the URL in a toast. If no opener exists, an error toast shows the URL instead.
 
 ## Outside the TUI
 

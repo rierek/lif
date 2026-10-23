@@ -368,9 +368,10 @@ func layoutName(l layoutMode) string {
 // AC16: keys that only work in some layouts or views are listed only there.
 func TestFooterRespectsLayoutAndView(t *testing.T) {
 	detail := footerKeys(u10Browse(t).setLayout(layoutDetail))
-	for _, k := range []string{"tab", "shift+tab", "/", "f"} {
+	for _, k := range []string{"tab", "shift+tab", "/"} {
 		mustHave(t, detail, k, false) // U1 review finding: dead in layoutDetail
 	}
+	mustHave(t, detail, "f", true) // U3: f jumps to the filter bar from every layout
 	split := footerKeys(u10Browse(t).setLayout(layoutFilterDetail))
 	mustHave(t, split, "tab", true)
 	mustHave(t, split, "/", true)

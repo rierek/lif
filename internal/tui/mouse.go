@@ -169,6 +169,10 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
 		return m.mouseValueMenuClick(msg)
 	}
+	if m.overlay == overlayFilterMenu &&
+		msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
+		return m.mouseFilterMenuClick(msg)
+	}
 
 	// Modale/Overlays sind tastaturgesteuert -- Maus ignorieren (kein
 	// Fehlklick-Fokus), devd precedent update.go:470-474. m.view ==
@@ -185,7 +189,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// but Defense-in-Depth: this list's own doc claim of completeness must
 	// hold, and a future T3-T6 change to either switch must not silently
 	// route stray clicks against the tag page's foreign geometry.
-	if m.form != nil || m.overlay != overlayNone || m.paletteOpen || m.filterOpen ||
+	if m.form != nil || m.overlay != overlayNone || m.paletteOpen ||
 		m.searchActive || m.helpOpen || m.confirmQuit || m.view == viewLobby ||
 		m.view == viewTagManagement {
 		return m, nil
@@ -210,7 +214,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		// view -- the existing switch below is reached completely unchanged
 		// whenever the strip is not even rendered.
 		if facet, ok := filterBarHit(m, msg); ok {
-			return m.openFilterMenuAt(facet)
+			return m.focusFilterField(facet).openFilterMenu(), nil
 		}
 		switch m.view {
 		case viewBrowseRepo:
@@ -239,13 +243,12 @@ func filterBarFieldAt(row, col, width int) (facet string, ok bool) {
 	if row < 0 || row >= filterBarHeight {
 		return "", false
 	}
-	widths := gridColWidths(4, width)
+	widths := gridColWidths(len(filterFields), width)
 	i := gridColAt(widths, col)
 	if i < 0 {
 		return "", false
 	}
-	facets := []string{"type", "status", "priority", "tag"}
-	return facets[i], true
+	return filterFields[i], true
 }
 
 // filterBarHit resolves msg against the persistent filter-chip strip
@@ -276,6 +279,15 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 	if !m.layout.hasFilter() || (m.view != viewBrowseRepo && m.view != viewReady) {
 		return "", false
 	}
+	x, y, innerW := filterBarOrigin(m)
+	return filterBarFieldAt(msg.Y-y, msg.X-x, innerW)
+}
+
+// filterBarOrigin is the screen position of the filter bar's top-left corner
+// (its top border row, its left edge) and the bar's width, derived from the
+// SAME clickPaneGeometry the click hit tests use. Only meaningful while the
+// layout shows the bar.
+func filterBarOrigin(m model) (x, y, innerW int) {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80
@@ -283,7 +295,7 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 	if h <= 0 {
 		h = 24
 	}
-	innerW := w - 2
+	innerW = w - 2
 	var head, localKeys string
 	if m.view == viewReady {
 		head, localKeys = m.readyChrome(innerW)
@@ -291,8 +303,7 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 	_, _, _, originX, rawOriginY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
-	stripTop := rawOriginY - 1
-	return filterBarFieldAt(msg.Y-stripTop, msg.X-originX, innerW)
+	return originX, rawOriginY - 1, innerW
 }
 
 // wheelMove dispatches a single wheel tick (delta = ±1) -- design decision f:

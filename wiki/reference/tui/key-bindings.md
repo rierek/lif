@@ -15,7 +15,7 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `↓` / `k` | Down |
 | `←` / `j` | Back or out (collapse) |
 | `→` / `l` | In (expand) |
-| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout) |
+| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout). From a filter field, `tab` returns to the list |
 | `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |
 | `esc` | Back; leaves the detail pane, menus |
@@ -29,7 +29,7 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `p` | Repository picker |
 | `b` | Ready |
 | `/` | Search |
-| `f` | Facet filter menu |
+| `f` | Jump to the filter bar, Type field; from layout roadmap or details it first switches to roadmap + filter |
 | `X` | Clear all filters |
 | `S` | Cycle ready sort |
 | `G` | Nested or flat |
@@ -58,11 +58,17 @@ All act on the selected item. Behavior: [Editing items](../editing-items/).
 
 Title, settings and tag management have no key; use the palette (`K`).
 
-## Pickers and facets
+## Pickers and filter fields
 
 | Key | Action | Where |
 |---|---|---|
-| `space` / `x` | Toggle a value | Facet menu, relations picker |
+| `←` / `→` | Previous or next filter field (Type, Status, Priority, Tags, Archive) | Focused filter field |
+| `enter` / `space` / `↓` | Open the value menu of the field | Focused filter field |
+| `↑` / `↓` | Move within the values | Filter value menu |
+| `space` / `x` / `enter` | Toggle a value; the list filters at once and the menu stays open | Filter value menu |
+| `X` | Clear all filters; layout and menu stay | Focused filter field, filter value menu, lists |
+| `esc` | Close the menu; a second `esc` returns to the list | Filter value menu, focused filter field |
+| `space` / `x` | Toggle a value | Relations picker |
 | `space` | Toggle a tag | Tag picker |
 | `ctrl+t`, `ctrl+n`, `ctrl+p`, `ctrl+g` | Chip: type, status, priority, tags | Parent picker and relations picker only |
 

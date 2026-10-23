@@ -54,8 +54,8 @@ const (
 // overlayID enumerates E3's node-action overlays (Value-Menü, Tag-/Parent-/
 // Blocking-Picker, Create-/Delete-Confirm) -- mutually exclusive by
 // construction (design decision a2, bean bt-dlgk): ONE model.overlay field
-// (iota-enum) instead of six more bool fields alongside filterOpen/
-// confirmQuit. The two E2 bools are NOT retrofitted into this enum
+// (iota-enum) instead of six more bool fields alongside
+// confirmQuit. confirmQuit is NOT retrofitted into this enum
 // (documented, deliberate coexistence) -- handleKey's capture order settles
 // precedence between them. m.form != nil (T4) is a third, separate capture
 // state (huh forms are not a menu overlay). T1 wires overlayValueMenu only;
@@ -73,6 +73,7 @@ const (
 	overlayCreateConfirm
 	overlayDeleteConfirm
 	overlayTaskOutput
+	overlayFilterMenu
 )
 
 // Picker-Stil-Divergenz (E3-T3-Review PFLICHT, carried into bean bt-ppzb/E3
@@ -190,38 +191,22 @@ type model struct {
 	searchPrefixFacets map[string][]string
 	searchPrefixRest   string
 
-	// Facetten-Filter `f`/`X` (E2 Task 4, bean bt-9ldr, design-spec.md §6
-	// US-05): ONE shared filter state for Tree (this task) AND Ready (Task
-	// 5 reuses it unchanged, same view-agnostic pattern as focusedBean()).
+	// Facet filter `f`/`X`: ONE shared filter state for Tree, flat and Ready.
 	// filterStatus/filterType/filterPriority/filterTag are COPY-ON-WRITE
 	// (I01 doc-stamp above) -- every toggle clones via cloneBoolMap before
-	// writing. filterItems is the flattened menu row list built fresh each
-	// time the menu opens (buildFilterItems, box_filter_facets.go);
-	// filterMenu is its cursor (listState, first non-test consumer since
-	// E1). filterOpen mirrors searchActive's "floating overlay fully
-	// captures input" precedent (handleKey).
+	// writing.
 	//
-	// filterTab (bt-2p9m, PO-Review E11 Runde 2, Plan-Konkretisierung E12
-	// Item 7) is the Querformat tab cursor -- WHICH facet group
-	// (Status/Type/Priority/Tags/Archive, facetHead order) currently has
-	// focus. Deliberately a SEPARATE field from filterMenu.cursor, not a
-	// second listState: filterMenu.cursor keeps its existing meaning (a
-	// GLOBAL index into the flattened filterItems slice, unchanged --
-	// TestFilterMenuUpDownMovesCursorSpaceTogglesRow and toggleFacet's own
-	// m.filterItems[m.filterMenu.cursor] lookup both rely on that), while
-	// filterTab only narrows which contiguous sub-range of filterItems
-	// up/down is allowed to move the cursor within (filterMenuMoveCursor,
-	// box_filter_facets.go). tab/shift+tab (keys.FocusIn/FocusOut, reused
-	// inside keyFilterMenu -- see that function's own doc comment for the
-	// verified Full-Capture precedence over the global FocusIn/FocusOut
-	// case in handleKey) change filterTab and jump filterMenu.cursor to the
-	// new tab's first element (PO-Klickpfad step 3, epic-E12-plan.md Item
-	// 7).
+	// The filter bar's fields (filterFields, box_filter_facets.go) are focus
+	// targets: filterFocus says the focus is in the bar, filterField is the
+	// focused field's index into filterFields. Activating a field opens its
+	// value menu (overlayFilterMenu); filterItems is the flattened row list
+	// built fresh each time the menu opens (buildFilterItems) and filterMenu
+	// is its cursor, a GLOBAL index into filterItems.
 	filterStatus, filterType, filterPriority, filterTag map[string]bool
-	filterOpen                                          bool
+	filterFocus                                         bool
+	filterField                                         int
 	filterItems                                         []ffItem
 	filterMenu                                          listState
-	filterTab                                           int
 
 	// Ready `b` (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3): readyList
 	// is the Ready master pane's cursor (index-based, listState -- unlike
@@ -291,8 +276,8 @@ type model struct {
 	confirmQuit bool
 
 	// E3 (bean bt-dlgk): node-action overlays -- mutually exclusive by
-	// construction (ONE enum field, not 6 bools; filterOpen/confirmQuit
-	// predate this and are deliberately not retrofitted, see overlayID's
+	// construction (ONE enum field, not 6 bools; confirmQuit
+	// predates this and is deliberately not retrofitted, see overlayID's
 	// doc-stamp above). mutTarget is the bean ID the open overlay acts on,
 	// captured at open time; the ETag is NEVER captured -- every submit
 	// re-reads m.idx.ByID[mutTarget].ETag (beanETag, update.go) so
@@ -421,7 +406,7 @@ type model struct {
 
 	// huh-Form-Hosting (E3 Task 4, bean bt-y4ly, Port devd forms_shared.go):
 	// form is the embedded huh sub-model (nil when no form is open, the
-	// THIRD separate capture state alongside filterOpen/m.overlay, design
+	// THIRD separate capture state alongside m.overlay, design
 	// decision a2 -- huh forms are not a menu overlay); formKind is "create"
 	// (T4; T5 adds "editTitle") and drives both submitForm's dispatch
 	// (box_confirm_create.go) and formTitle's label (forms_shared.go).
@@ -452,7 +437,7 @@ type model struct {
 	// sketch (which additionally lists a `createConfirm bool` field
 	// alongside these): design decision a2 is unambiguous that the E3
 	// overlays -- INCLUDING Create-Confirm -- are ONE model.overlay
-	// overlayID enum, not "6 weitere Bools neben filterOpen/confirmQuit";
+	// overlayID enum, not "6 weitere Bools neben confirmQuit";
 	// Task 4's own Step 4 pseudocode agrees verbatim (`overlay =
 	// overlayCreateConfirm`, never `createConfirm = true`). No separate bool
 	// is added here -- the Confirm-Gate's open/closed state IS
@@ -549,7 +534,7 @@ type model struct {
 
 	// Command-Center (E4 Task 1, bean bt-jpgn, design decisions a/b/h):
 	// paletteOpen is a full-capture floating-overlay state, same precedent
-	// as filterOpen (handleKey capture order, design decision h). palQuery
+	// as m.overlay (handleKey capture order, design decision h). palQuery
 	// drives the action candidate pool -- palList is the cursor over the
 	// filtered result list (palFiltered, rebuilt every keystroke). E4 Task 2
 	// (bean bt-yo60) had added a SECOND candidate pool (matching beans mixed
@@ -598,7 +583,7 @@ type model struct {
 
 	// Help-Overlay (E5 Task 2, bean bt-wpn9, Port devd overlay_shortcuts.go):
 	// helpOpen is a full-capture floating-overlay state, same precedent as
-	// filterOpen/paletteOpen above -- `?` (keys.Help) opens it from ANY
+	// paletteOpen above -- `?` (keys.Help) opens it from ANY
 	// view (design decision h, ctrl+k/Palette precedent), esc/?/q close it,
 	// every OTHER key is swallowed as a no-op while it stays open (a
 	// deliberate deviation from devd, which closes Help on any key --

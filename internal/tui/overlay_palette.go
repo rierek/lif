@@ -268,7 +268,7 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 			m.view = viewBrowseRepo
 			return m, nil
 		case "filter":
-			return m.openFilterMenu()
+			return m.focusFilter(), nil
 		case "search":
 			return m.openSearchInput()
 		case "reload":

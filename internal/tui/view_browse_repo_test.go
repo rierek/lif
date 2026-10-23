@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	keybind "github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/rierek/lif/internal/tui/theme"
@@ -95,14 +96,15 @@ func TestBrowseRepoLocalBindingsOmitsNavigation(t *testing.T) {
 
 func TestBrowseRepoChromeFooterIsContextSensitiveOnFilterOpen(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.filterOpen = true
+	m = step(t, m, runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEnter)) // value menu of the Type field
 	_, localKeys := m.browseRepoChrome(200)
 	plain := stripHint(localKeys)
 	if !strings.Contains(plain, "space/x Toggle facet") {
-		t.Errorf("browseRepoChrome footer while filterOpen = %q, want the Toggle hint (Q04)", plain)
+		t.Errorf("browseRepoChrome footer while the filter menu is open = %q, want the Toggle hint (Q04)", plain)
 	}
 	if strings.Contains(plain, "c Create") {
-		t.Errorf("browseRepoChrome footer while filterOpen = %q, must not leak the (now irrelevant) view-local Create hint", plain)
+		t.Errorf("browseRepoChrome footer while the filter menu is open = %q, must not leak the (now irrelevant) view-local Create hint", plain)
 	}
 }
 

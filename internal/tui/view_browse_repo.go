@@ -903,17 +903,18 @@ func (m model) repoLabel() string {
 // composeOverlays layers every floating overlay onto out in a fixed
 // z-priority order (painter's algorithm, placeOverlay) -- E3 Task 1
 // extraction (bean bt-dlgk): viewBrowseRepo and viewReady used to
-// duplicate the filterOpen/confirmQuit block; a new overlay is now wired in
-// exactly ONE place instead of two. Order: filter menu first, then the
-// node-action overlay (design decision a2 -- EXACTLY one overlayID active
+// duplicate the overlay block; a new overlay is now wired in
+// exactly ONE place instead of two. Order: the node-action/menu overlay
+// (design decision a2 -- EXACTLY one overlayID active
 // at a time), then huh forms (T4/T5, m.form != nil is its own separate
 // capture state, not part of the overlayID enum), quit-confirm LAST (it can
 // interrupt anything, same as its pre-extraction position in both views).
 func (m model) composeOverlays(out string, w, h int) string {
-	if m.filterOpen {
-		out = placeOverlay(out, m.treeFilterBox(), w, h)
-	}
 	switch m.overlay {
+	case overlayFilterMenu:
+		// Anchored below the focused field of the filter bar.
+		x, y, _, _ := m.filterMenuRect()
+		out = placeOverlayAt(out, m.filterMenuBox(), w, h, x, y)
 	case overlayValueMenu:
 		// Slice C (bt-f0y9, D09 revidiert): field-anchored below the
 		// triggering Status/Type/Priority box (placeOverlayAt) --
@@ -1138,8 +1139,8 @@ func (m model) viewBrowseRepo() string {
 		// pre-existing golden depending on it, byte-for-byte untouched.
 		vis := m.flatVisible()
 		headRows := m.treePaneHeadRows(lw - 2) // D02 precedent: flat mode has no Sort-Toggle (unlike Ready), no suffix
-		flatRowsWithHead := append(headRows, m.flatRows(vis, !m.detailFocus, bodyH-len(headRows), lw-2)...)
-		flatBox := renderPane(pane{rows: flatRowsWithHead}, lw, bodyH, !m.detailFocus)
+		flatRowsWithHead := append(headRows, m.flatRows(vis, m.listFocus(), bodyH-len(headRows), lw-2)...)
+		flatBox := renderPane(pane{rows: flatRowsWithHead}, lw, bodyH, m.listFocus())
 		body = flatBox
 		if rw > 0 {
 			detailBox := m.renderFlatDetailPane(vis, rw, bodyH, m.detailFocus)
@@ -1153,8 +1154,8 @@ func (m model) viewBrowseRepo() string {
 		// so the combined [searchLine, ...treeRows] slice still fits renderPane's
 		// own Golden-Rule-#1 line cap.
 		headRows := m.treePaneHeadRows(lw - 2) // D02: Tree never shows a sort suffix
-		treeRowsWithHead := append(headRows, m.treeRows(nodes, !m.detailFocus, bodyH-len(headRows), lw-2)...)
-		treeBox := renderPane(pane{rows: treeRowsWithHead}, lw, bodyH, !m.detailFocus)
+		treeRowsWithHead := append(headRows, m.treeRows(nodes, m.listFocus(), bodyH-len(headRows), lw-2)...)
+		treeBox := renderPane(pane{rows: treeRowsWithHead}, lw, bodyH, m.listFocus())
 		body = treeBox
 		if rw > 0 {
 			detailBox := m.renderDetailPane(nodes, rw, bodyH, m.detailFocus)
@@ -1235,6 +1236,6 @@ func treeClickRow(m model, nodes []treeNode, msg tea.MouseMsg) (idx int, ok bool
 	// Rows are no longer 1:1 with beans (hanging-indent title wrapping, bean
 	// bt-f68z), so the clicked LINE is resolved through the very same
 	// blockWindow the renderer used -- not by dividing by one.
-	_, rowElem := blockWindow(m.treeBlocks(nodes, !m.detailFocus, lw-2), bodyH-len(headRows), m.cursorPos(nodes))
+	_, rowElem := blockWindow(m.treeBlocks(nodes, m.listFocus(), lw-2), bodyH-len(headRows), m.cursorPos(nodes))
 	return blockWindowElemAt(rowElem, clickRow)
 }

@@ -37,7 +37,7 @@ func fixtureBeans() []*item.Item {
 // fixtureModel builds a model already past its initial load (mirrors what
 // Init()+the real beansLoadedMsg round-trip produces, without a live client).
 // The Detail pane is shown (a real model starts with it hidden, see
-// TestDetailHiddenAtStartAndToggle) so the split-layout tests keep their
+// TestStartLayoutShowsNoDetail) so the split-layout tests keep their
 // geometry. The synthetic "Unscheduled" and "Not on roadmap" roots are
 // expanded (a real model starts collapsed, see
 // TestRoadmapTreeStartsCollapsedAtMilestones) so fixture items outside a

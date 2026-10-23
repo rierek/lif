@@ -422,7 +422,7 @@ func valueMenuPopupY(anchorY, anchorH, fgH, canvasH, minY int) int {
 // above it, valueMenuPopupY) via placeOverlayAt (Slice B) instead of the
 // pre-existing CENTERED placeOverlay. Falls back to placeOverlay in every
 // other case: the Detail pane is hidden (no boxed fields on screen to
-// anchor to, except in the Vollbild-Detail), or a rect that fails to
+// anchor to, except in layoutDetail, which has the Detail), or a rect that fails to
 // resolve (nil mutTarget bean, out-of-range
 // anchor field -- defensive; should not happen in practice since
 // openValueMenu always seeds m.valueMenuAnchorField from the static

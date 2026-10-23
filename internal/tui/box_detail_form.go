@@ -111,7 +111,7 @@ func detailBoxForm(idx *data.Index, b *item.Item, width, cursor int) string {
 //
 // cursor is an index into boxFormFieldOrder (box_nav_field.go), or -1 for no
 // cursor at all -- which is the state EVERY pre-bt-1o4g call site is in
-// (unfocused Detail pane, fullscreen, the flag-on goldens), so the -1 render
+// (unfocused Detail pane, the flag-on goldens), so the -1 render
 // is exactly the previous output, every box focused=false.
 func boxFormBlocks(idx *data.Index, b *item.Item, width, cursor int) []string {
 	focusRow, focusCol := -1, -1

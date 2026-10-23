@@ -867,7 +867,7 @@ const treeHeaderWideMin = 48
 // deliberately drops that alignment for the two glyph columns -- they are ONE
 // cell wide by construction, so "Status" and "Type" cannot sit above them; it
 // reads as a spelled-out legend instead, which is what "ausschreiben" asks
-// for and what the extra Vollbild width makes room for.
+// for and what the extra full-width layout makes room for.
 func treeColumnHeader(width int) string {
 	label := "   S T ID   Title"
 	if width >= treeHeaderWideMin {

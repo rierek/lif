@@ -203,7 +203,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		// bt-wtqs (epic bt-vy1q): the persistent filter-chip strip
 		// (box_filter_bar.go) sits ABOVE the Tree/Detail split, spanning
 		// the full inner width -- checked BEFORE the m.view switch below
-		// (the same "earliest wins" precedent as the Toast/fullscreen/
+		// (the same "earliest wins" precedent as the Toast/
 		// overlay guards above), since a strip hit is never a Tree-or-
 		// Detail click. filterBarHit itself is a no-op unless
 		// m.view == viewBrowseRepo, so it is never true for every other
@@ -304,7 +304,7 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 // coordinates land inside the Detail pane (boxFormWheelHit, below), the tick
 // scrolls model.boxFormScroll instead of moving a cursor -- checked first so
 // it takes priority over the view switch, mirrors the Toast-Klick-Vorrang/
-// fullscreen/overlay guards above it in handleMouse (earliest-wins
+// overlay guards above it in handleMouse (earliest-wins
 // precedent). A wheel outside the Detail pane, e.g. over the Tree/Ready,
 // falls through to the original switch below.
 func (m model) wheelMove(msg tea.MouseMsg, delta int) model {

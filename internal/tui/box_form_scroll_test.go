@@ -48,7 +48,7 @@ func boxFormLongBodyBeans() []*item.Item {
 // expanded via focusBean, box_menu_value_test.go) -- detailFocus is left
 // false (Tree-focused default); callers that need Detail focus set
 // m.detailFocus = true themselves, mirroring update_test.go's own pattern
-// (e.g. TestActivateDetailFieldJumpStaysInFullscreenDetail).
+// (e.g. TestActivateDetailFieldJump).
 func boxFormScrollModel(t *testing.T) model {
 	t.Helper()
 	m := fixtureModel(t, boxFormLongBodyBeans())

@@ -319,7 +319,7 @@ func TestHandleMouseIgnoresFormerDetailAreaWithoutDetailPane(t *testing.T) {
 // TestHandleMouseIgnoredOnTagManagementPage guards F02 (E10 Task 2, bean
 // bt-r92i, T2-Review Fix-Runde 1): the Tag-Management page is a
 // keyboard-only full-capture state -- wheel and click must be no-ops there,
-// same contract as viewLobby (mirrors TestHandleMouseIgnoredWhenFullscreen
+// same contract as viewLobby (mirrors TestHandleMouseIgnoredWhileOverlay
 // Active's pattern). Honest scope note: this test pins the CONTRACT, not
 // the specific guard line -- today the guard is redundant in effect
 // (wheelMove's and the left-click dispatch's view switches have no

@@ -275,7 +275,7 @@ func (m model) viewTagManagement() string {
 	bodyH, _, _, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 	// paneW is the SINGLE pane's own CONTENT-width param passed to
-	// renderPane/tagManagementRows -- mirrors viewBrowseRepo's own Vollbild
+	// renderPane/tagManagementRows -- mirrors viewBrowseRepo's own single-pane
 	// single-pane precedent (view_browse_repo.go, F01, bean bt-13l7's own
 	// doc-stamp there): renderPane's `w` argument is a CONTENT width, its OWN
 	// RoundedBorder adds +2 more on top (masterDetailWidths' lw+rw+4==innerW

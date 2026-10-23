@@ -361,10 +361,10 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 //
 // ERRATUM (Grounding-Kultur, checked rather than assumed): the Grounding's
 // own "trivial from gridColWidths" note implicitly assumed the pane's
-// content starts at originX+lw (Split) / originX (fullscreen) -- the SAME
+// content starts at originX+lw (Split) / originX (layoutDetail) -- the SAME
 // boundary detailBoxFormClickRow's own `msg.X < originX+lw` gate uses. A
 // render-grounded probe (ansi-stripped m.View(), a real "╭" search) found
-// this is off by +3 columns in Split mode (+1 in fullscreen) from where
+// this is off by +3 columns in Split mode (+1 in layoutDetail) from where
 // detailBoxForm ACTUALLY draws: detailBoxFormClickRow's own X arithmetic
 // only ever gates a coarse "which pane" decision and, past that, buckets via
 // gridColAt against ~14-15-cell-wide columns -- a 3-cell systematic
@@ -391,7 +391,7 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 //
 // boxFormPaneContentLeft and boxFormPopupChromeFloor (below) factor the
 // pane-origin geometry this function's own X/Y math depends on out into
-// reusable, view/fullscreen-agnostic helpers -- placeValueMenuOverlay (Slice
+// reusable, view/layout-agnostic helpers -- placeValueMenuOverlay (Slice
 // C B02 fix, box_menu_value.go) needs the SAME left-edge column to clamp a
 // left-aligned popup against, and the SAME "row right after the divider" as
 // a hard floor no popup Y may ever cross (Slice C B01 fix) -- both MUST
@@ -436,7 +436,7 @@ func boxFormPaneContentLeft(m model) int {
 // already documents itself as "outer top border(1) + head(lines) +
 // divider(1) + the PANE'S OWN top border(1)" -- one row PAST the divider is
 // exactly originY minus that last "pane's own top border" term, i.e.
-// originY-1. View/fullscreen/filter-bar agnostic: none of those ever add
+// originY-1. View/layout/filter-bar agnostic: none of those ever add
 // rows ABOVE this point (the filter bar sits AT this
 // row and below -- it is body chrome, not app chrome, safe to place a popup
 // over), only below it.

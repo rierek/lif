@@ -430,7 +430,7 @@ func TestDispatchPaletteFocusFilterJumpsToTypeField(t *testing.T) {
 func TestHandleKeyPaletteOpensPaletteEvenWithOverlayOpen(t *testing.T) {
 	// Sanity: an E3 node-action overlay (e.g. Value-Menu) captures BEFORE
 	// the palette check -- K must NOT reach openPalette while overlay
-	// != overlayNone (same capture-order contract as filterOpen above).
+	// != overlayNone (same capture-order contract as the filter menu test above).
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2")
 	m = step(t, m, runeMsg('s')) // opens the value menu overlay

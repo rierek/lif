@@ -202,7 +202,7 @@ func (m model) treeActive() bool {
 }
 
 // facetOn reports whether item's value is currently set in its facet map --
-// the single lookup treeFilterBox's checkbox rendering and the menu-nav
+// the single lookup the value menu's checkbox rendering and the menu-nav
 // tests both need.
 func (m model) facetOn(it ffItem) bool {
 	switch it.facet {

@@ -16,8 +16,8 @@ package tui
 // / "enter: quit   esc: cancel") -- there is no base-view fallback to build
 // for either. The overlays covered below (Filter-Menu/Value-Menu/Tag-/
 // Parent-/Blocking-Picker) also already render their OWN inline hint line
-// at the top of their body (e.g. treeFilterBox's "space/x:toggle X:clear
-// enter/esc/f:done") -- that is a separate, pre-existing surface; this
+// at the top of their body (e.g. filterMenuBox's "space/x:toggle X:clear
+// esc:close") -- that is a separate, pre-existing surface; this
 // file's job is strictly the OUTER footer (Zone 3, visible around/below the
 // centered modal), which epic-E7-plan.md Task 7 Step 6 explicitly wants
 // synced to the same active context too (Q04's underlying complaint: the

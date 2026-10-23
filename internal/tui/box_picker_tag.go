@@ -434,7 +434,7 @@ func (m model) applyTagPickerDiff() (tea.Model, tea.Cmd) {
 // tagPickerBox renders the floating Tag-Picker overlay (bean bt-9ipw, D01):
 // an ALWAYS-visible, always-focused search field (m.tagInput.View()) sits
 // above the checkbox + usage-count row list (same modalPanel + [x]/[ ]
-// convention as treeFilterBox, box_filter_facets.go) -- the two former
+// convention as filterMenuBox, box_filter_facets.go) -- the two former
 // separate overlay renderings (this function + the old tagInputBox) are now
 // ONE. The row list is driven by tagInputFiltered (the live-filtered
 // subset), NOT the unfiltered tagItems, so typing visibly narrows exactly

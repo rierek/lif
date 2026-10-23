@@ -38,7 +38,7 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `y` | Copy (yank) item context |
 | `?` | Help |
 | `q` | Quit dialog |
-| `ctrl+c` | Quit at once, no confirmation |
+| `ctrl+c` | Quit at once from every state (lists, forms, menus, dialogs, lobby), no confirmation, no lobby |
 
 ## Item actions
 
@@ -68,11 +68,11 @@ Title, settings and tag management have no key; use the palette (`K`).
 
 ## Tag picker and tag management
 
-In the tag picker `n` is ordinary text; create a tag by typing a new name and pressing `enter`. In tag management (palette `go to tags`): `n` new, `e` rename, `d` delete a definition, `esc` back.
+In the tag picker `n` is ordinary text; create a tag by typing a new name and pressing `enter`. In tag management (palette `view: tags`): `n` new, `e` rename, `d` delete a definition, `esc` back.
 
 ## Lobby and palette
 
-In the lobby, `↑`/`↓` move; every other key edits the filter. In the palette, `↑`/`↓` select, `enter` runs, `esc` or `ctrl+c` closes.
+In the lobby, `↑`/`↓` move; every other key edits the filter. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
 
 ## Outside the TUI
 

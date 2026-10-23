@@ -44,7 +44,8 @@ type keyMap struct {
 	// Activation / return / global.
 	Enter   keybind.Binding // enter — open/confirm
 	Back    keybind.Binding // esc — back
-	Quit    keybind.Binding // q — quit (confirm); ctrl+c quits at once
+	Quit    keybind.Binding // q — quit (confirm)
+	QuitNow keybind.Binding // ctrl+c — quit at once, from every state (handled first in handleKey)
 	Help    keybind.Binding // ? — help overlay
 	Palette keybind.Binding // K — Command-Center
 	Picker  keybind.Binding // p — repo-picker
@@ -155,10 +156,11 @@ func newKeyMap() keyMap {
 		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "focus in")),
 		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "focus out")),
 
-		Enter: keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "open/confirm")),
-		Back:  keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "back")),
-		Quit:  keybind.NewBinding(keybind.WithKeys("q", "ctrl+c"), keybind.WithHelp("q", "quit")),
-		Help:  keybind.NewBinding(keybind.WithKeys("?"), keybind.WithHelp("?", "help")),
+		Enter:   keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "open/confirm")),
+		Back:    keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "back")),
+		Quit:    keybind.NewBinding(keybind.WithKeys("q"), keybind.WithHelp("q", "quit")),
+		QuitNow: keybind.NewBinding(keybind.WithKeys("ctrl+c"), keybind.WithHelp("ctrl+c", "quit at once")),
+		Help:    keybind.NewBinding(keybind.WithKeys("?"), keybind.WithHelp("?", "help")),
 		// bt-mx4k: ctrl+k retired -- K was long since bound and matches the
 		// D07 case convention (uppercase = view/global). One key, one
 		// function; the header gets six characters shorter, which counts at
@@ -224,7 +226,7 @@ type helpGroup struct {
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
 		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
-		{"Views & Global", []keybind.Binding{k.LayoutNext, k.LayoutPrev, k.Ready, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView}},
+		{"Views & Global", []keybind.Binding{k.LayoutNext, k.LayoutPrev, k.Ready, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow, k.FlatView}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are

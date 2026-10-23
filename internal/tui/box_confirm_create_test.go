@@ -565,31 +565,12 @@ func TestFormCapturesAllKeysWhileOpen(t *testing.T) {
 		}
 	})
 
-	t.Run("ctrl+c aborts the form, not the app", func(t *testing.T) {
+	t.Run("ctrl+c quits the app at once", func(t *testing.T) {
 		m := fixtureModel(t, fixtureBeans())
 		m = step(t, m, runeMsg('c'))
 		if m.form == nil {
 			t.Fatal("setup: c did not open the create form")
 		}
-
-		tm, cmd := m.Update(keyMsg(tea.KeyCtrlC))
-		nm, ok := tm.(model)
-		if !ok {
-			t.Fatalf("Update(ctrl+c) did not return a model, got %T", tm)
-		}
-		if nm.confirmQuit {
-			t.Fatal("ctrl+c while the create form is open must not open the quit-confirm")
-		}
-		if cmd != nil {
-			if _, isQuit := cmd().(tea.QuitMsg); isQuit {
-				t.Fatal("ctrl+c while the create form is open must NOT quit the app -- huh's own Quit binding aborts the form instead")
-			}
-		}
-		if nm.form != nil {
-			t.Fatal("ctrl+c must abort the open form (huh.StateAborted), form should be nil")
-		}
-		if nm.formKind != "" {
-			t.Error("formKind not cleared after ctrl+c aborted the form")
-		}
+		assertQuitsAtOnce(t, m)
 	})
 }

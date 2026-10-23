@@ -15,7 +15,7 @@ There are four views. The item detail is a pane inside Browse and Ready; which p
 | Browse, flat | All items in one list. | `G` toggles. |
 | Ready | Items `lif list --ready` lists, flat. | `b` |
 | Lobby | Repository picker. | `p` |
-| Tag management | Tag definitions. | Command palette `K`, entry `go to tags`. |
+| Tag management | Tag definitions. | Command palette `K`, entry `view: tags`. |
 | Detail pane | Fields, relations, body of the selected item. Not shown at start. | `v` / `shift+v` change the [layout](#layouts). |
 
 The header reads `> <repo>: <View>`. The focused pane is marked by color only. Hidden by default in tree, flat and ready: `completed` and `scrapped` items. The filter menu category `Archive` shows them.

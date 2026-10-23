@@ -59,7 +59,7 @@ func paletteActions(m model) []paletteItem {
 	var items []paletteItem
 	if b := m.focusedBean(); b != nil {
 		items = append(items,
-			paletteItem{kind: paletteKindAction, actionID: "status", label: "set status"},
+			paletteItem{kind: paletteKindAction, actionID: "status", label: "set: status"},
 			// B12 (design-spec.md §15 PF-16, bean bt-ntoz, E8 Task 6): the
 			// combined value menu split into three single-group overlays --
 			// "set type"/"set priority" are the Palette's new second entry
@@ -69,9 +69,9 @@ func paletteActions(m model) []paletteItem {
 			// exactly ONE key, `s`, for the whole cluster -- explicit
 			// clarification per the bean's own ERRATUM note, in case a future
 			// reader is tempted to add a dedicated Type/Priority key).
-			paletteItem{kind: paletteKindAction, actionID: "type", label: "set type"},
-			paletteItem{kind: paletteKindAction, actionID: "priority", label: "set priority"},
-			paletteItem{kind: paletteKindAction, actionID: "tags", label: "set tags"},
+			paletteItem{kind: paletteKindAction, actionID: "type", label: "set: type"},
+			paletteItem{kind: paletteKindAction, actionID: "priority", label: "set: priority"},
+			paletteItem{kind: paletteKindAction, actionID: "tags", label: "set: tags"},
 			// B14 (design-spec.md §15 PF-16, bean bt-ntoz, E8 Task 7, bean
 			// bt-yqdy): "create tag" is a Palette-only second entry point to
 			// the SAME Tag-Picker "set tags" opens (box_picker_tag.go) --
@@ -81,24 +81,24 @@ func paletteActions(m model) []paletteItem {
 			// own doc-stamp). Grouped directly after "set tags" (both
 			// tag-related). Node action, since its dispatchPalette handler
 			// needs a focused bean's ID as the mutation target.
-			paletteItem{kind: paletteKindAction, actionID: "create_tag", label: "create tag"},
-			paletteItem{kind: paletteKindAction, actionID: "parent", label: "set parent"},
-			paletteItem{kind: paletteKindAction, actionID: "blocking", label: "set blocking"},
-			paletteItem{kind: paletteKindAction, actionID: "edit_title", label: "set title"},
-			paletteItem{kind: paletteKindAction, actionID: "delete", label: "delete item"},
+			paletteItem{kind: paletteKindAction, actionID: "create_tag", label: "create: tag"},
+			paletteItem{kind: paletteKindAction, actionID: "parent", label: "set: parent"},
+			paletteItem{kind: paletteKindAction, actionID: "blocking", label: "set: blocking"},
+			paletteItem{kind: paletteKindAction, actionID: "edit_title", label: "set: title"},
+			paletteItem{kind: paletteKindAction, actionID: "delete", label: "delete: item"},
 		)
 	}
 	items = append(items,
-		paletteItem{kind: paletteKindAction, actionID: "create", label: "create item"},
-		paletteItem{kind: paletteKindAction, actionID: "go_ready", label: "go to ready"},
-		paletteItem{kind: paletteKindAction, actionID: "go_browse", label: "go to browse"},
-		paletteItem{kind: paletteKindAction, actionID: "filter", label: "filter facets"},
-		paletteItem{kind: paletteKindAction, actionID: "search", label: "search items"},
-		paletteItem{kind: paletteKindAction, actionID: "reload", label: "reload data"},
+		paletteItem{kind: paletteKindAction, actionID: "create", label: "create: item"},
+		paletteItem{kind: paletteKindAction, actionID: "go_ready", label: "view: ready lifs"},
+		paletteItem{kind: paletteKindAction, actionID: "go_browse", label: "view: roadmap"},
+		paletteItem{kind: paletteKindAction, actionID: "filter", label: "focus: filter"},
+		paletteItem{kind: paletteKindAction, actionID: "search", label: "search: items"},
+		paletteItem{kind: paletteKindAction, actionID: "reload", label: "reload: data"},
 		// E5 Task 6 (bean bt-zhwl): a second entry point to the SAME
 		// keys.Picker dispatch (openLobby, view_lobby.go) -- mirrors every
 		// other single-key binding's own Command-Center mirror above.
-		paletteItem{kind: paletteKindAction, actionID: "repo_picker", label: "go to repo picker"},
+		paletteItem{kind: paletteKindAction, actionID: "repo_picker", label: "view: repos"},
 		// bt-d3ps (epic-E13-plan.md Item 4, PO-Redefinition Grilling
 		// 2026-07-17, replaces the earlier discovery-scan design entirely --
 		// NO scan, NO discovery roots, NO find-persistence): registers the
@@ -106,18 +106,18 @@ func paletteActions(m model) []paletteItem {
 		// config.yaml register the Lobby itself reads (view_lobby.go) --
 		// grouped directly after "go to repo picker" (same repo-registry
 		// neighborhood, mirrors "create_tag" sitting directly after "tags").
-		paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register project"},
+		paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register: project"},
 		// E10 Task 2 (bean bt-r92i, epic bt-362n D05): the Tag-Management
 		// page has NO dedicated keybinding either (D05 mirrors the "go to
 		// settings" precedent immediately below -- Tastenraum bleibt knapp) --
 		// grouped directly BEFORE "settings" as the new last-but-one entry
 		// (Planner-Entscheidung, mirrors how "repo_picker" itself already
 		// sits directly before "settings").
-		paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "go to tags"},
+		paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "view: tags"},
 		// E5 Task 5 (bean bt-0l8c): the Settings-Form has NO dedicated
 		// keybinding (design-spec §7 knows none) -- reachable exclusively
 		// through the Command-Center, appended last.
-		paletteItem{kind: paletteKindAction, actionID: "settings", label: "go to settings"},
+		paletteItem{kind: paletteKindAction, actionID: "settings", label: "view: settings"},
 	)
 	for _, a := range m.taskActions {
 		if taskActionApplies(a, m.focusedBean()) {

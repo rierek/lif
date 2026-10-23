@@ -76,7 +76,7 @@ func TestBrowseRepoChromeFooterMatchesQ06List(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	_, localKeys := m.browseRepoChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · L List · R Ready · y Yank · b Blocking · v next layout · shift+v previous layout"
+	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · L List · R Ready · y Yank · b Relations · v next layout · shift+v previous layout"
 	if plain != want {
 		t.Errorf("browseRepoChrome footer = %q, want exactly %q", plain, want)
 	}

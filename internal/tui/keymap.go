@@ -190,7 +190,7 @@ func newKeyMap() keyMap {
 		Assign:   keybind.NewBinding(keybind.WithKeys("a"), keybind.WithHelp("a", "assign parent")),
 		// b opens the blocking picker (U10); the item-detail panel is still
 		// titled "Relations" and groups blocking/blocked-by inside it.
-		Blocking:  keybind.NewBinding(keybind.WithKeys("b"), keybind.WithHelp("b", "Blocking")),
+		Blocking:  keybind.NewBinding(keybind.WithKeys("b"), keybind.WithHelp("b", "Relations")),
 		Create:    keybind.NewBinding(keybind.WithKeys("c"), keybind.WithHelp("c", "Create")),
 		Delete:    keybind.NewBinding(keybind.WithKeys("d"), keybind.WithHelp("d", "Delete")),
 		TagAssign: keybind.NewBinding(keybind.WithKeys("g"), keybind.WithHelp("g", "Tags")),

@@ -581,7 +581,7 @@ func TestReadyChromeFooterMatchesQ06List(t *testing.T) {
 	m.view = viewReady
 	_, localKeys := m.readyChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · M Roadmap · L List · y Yank · b Blocking · v next layout · shift+v previous layout"
+	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · M Roadmap · L List · y Yank · b Relations · v next layout · shift+v previous layout"
 	if plain != want {
 		t.Errorf("readyChrome footer = %q, want exactly %q", plain, want)
 	}

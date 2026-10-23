@@ -85,10 +85,9 @@ func (m model) flatRows(vis []*item.Item, focused bool, bodyH, width int) []stri
 // titles wrap).
 func (m model) flatBlocks(vis []*item.Item, focused bool, width int) [][]string {
 	pos := m.flatList.cursor
-	slug := m.beanIDPrefix()
-	blocks := make([][]string, len(vis))
-	for i, b := range vis {
-		blocks[i] = decorateRowBlock(readyRowLines(b, slug, width-1), i == pos, focused)
+	blocks := m.flatListBlocks(vis, width-1)
+	for i := range blocks {
+		blocks[i] = decorateRowBlock(blocks[i], i == pos, focused)
 	}
 	return blocks
 }

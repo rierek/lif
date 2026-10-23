@@ -571,24 +571,26 @@ func TestTreeBlocksWrapIntoMoreLinesPerRow(t *testing.T) {
 	}
 }
 
-func TestMarkerTakesTheCellsBeforeTheTitleAndMovesNothing(t *testing.T) {
+func TestMarkerSitsLeftOfTheTypeAndTheTreeLinesAndMovesNothing(t *testing.T) {
 	cfg := config.Default()
-	plain := TreeBlocks(demoRows(), 80, false, cfg)
+	bare := demoRows()
 	marked := demoRows()
 	marked[0].Marker, marked[1].Marker = "▾", "▸"
-	titleCol := func(line string) int {
-		return DisplayWidth(line[:strings.Index(line, "0.5")])
-	}
-	for i, b := range TreeBlocks(marked, 80, false, cfg) {
-		got, want := stripANSI(b[0]), stripANSI(plain[i][0])
-		if i < 2 && !strings.Contains(got, marked[i].Marker) {
-			t.Errorf("row %d lacks its marker: %q", i, got)
+	want := TreeBlocksMeasured(bare, bare, 80, false, cfg)
+	got := TreeBlocksMeasured(marked, marked, 80, false, cfg)
+	for i := range got {
+		g, w := []rune(stripANSI(got[i][0])), []rune(stripANSI(want[i][0]))
+		if string(g[2:]) != string(w[2:]) {
+			t.Errorf("row %d: the marker moved something:\n got %q\nwant %q", i, string(g), string(w))
 		}
-		if DisplayWidth(got) != DisplayWidth(want) {
-			t.Errorf("row %d: marker changed the line width: %q vs %q", i, got, want)
+		if i < 2 && (string(g[0]) != marked[i].Marker || g[1] != ' ') {
+			t.Errorf("row %d: marker is not the first cell, followed by a gap: %q", i, string(g))
+		}
+		if i >= 2 && g[0] != ' ' || g[1] != ' ' {
+			t.Errorf("row %d: a row without marker must start with two blanks: %q", i, string(g))
 		}
 	}
-	if got, want := titleCol(stripANSI(TreeBlocks(marked, 80, false, cfg)[0][0])), titleCol(stripANSI(plain[0][0])); got != want {
-		t.Errorf("marker moved the title column from %d to %d", want, got)
+	if strings.Contains(stripANSI(TreeBlocks(marked, 80, false, cfg)[0][0]), "▾") {
+		t.Error("TreeBlocks (lif roadmap) must not draw markers")
 	}
 }

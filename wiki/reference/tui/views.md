@@ -27,7 +27,7 @@ The header reads `> <repo>: <View>`. The focused pane is marked by color only. H
 - The tree is the roadmap (`lif roadmap`). At start only the milestones and the roots `Unscheduled` and `Not on roadmap` show, all collapsed. Every level is sorted like `lif roadmap`.
 - `Unscheduled` holds epics, features and items without a milestone. `Not on roadmap` holds every item the roadmap places nowhere: milestones without children, types with `roadmap: false`, items whose parent does not exist, and members of a parent cycle. Both roots come last.
 - The tree pane width is the larger of one third of the screen and `layout.tree_width` (default 36, 24 to 60). At 140 columns it is 46.
-- In the layouts Roadmap and Roadmap + filter the tree renders like `lif roadmap`: the same type and status words, wrapped titles, ID on the right, tree lines and colors, at the width of the pane. An item can use several lines; the cursor bar marks all of them, a click on any line selects the item, and scrolling keeps the whole item visible. `▾` and `▸` before the title show an open and a collapsed node. Only expanded nodes show. Beside the detail pane (layout Roadmap + filter + details) the rows stay compact: one glyph row per item.
+- In the layouts Roadmap and Roadmap + filter the tree renders like `lif roadmap`: the same type and status words, wrapped titles, ID on the right, tree lines and colors, at the width of the pane. An item can use several lines; the cursor bar marks all of them, a click on any line selects the item, and scrolling keeps the whole item visible. `▾` and `▸` in the first cell of the line, followed by a gap, left of the tree lines and the type word, show an open and a collapsed node (two cells wider than `lif roadmap`, which has no markers). Only expanded nodes show. The columns are measured over every node, open or not, so opening or closing a node does not move them (`lif roadmap` measures only the rows it prints). Beside the detail pane (layout Roadmap + filter + details) the rows stay compact: one glyph row per item.
 - Tree and flat lists have no column header.
 - Sorting and menus use the status, type and priority lists of `.lif.yml` in configured order. Values the config does not name sort last.
 
@@ -35,11 +35,11 @@ Screenshot follows.
 
 ## Flat view
 
-`L` shows the flat list; `M` returns to the Roadmap (nested), and so does `esc` once no search or filter is active. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way.
+`L` shows the flat list; `M` returns to the Roadmap (nested), and so does `esc` once no search or filter is active. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way. Rows look like the roadmap rows without tree lines: type word, title, status word, priority, ID. Beside the detail pane they stay compact (one glyph row per item).
 
 ## Ready view
 
-`R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
+`R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
 Screenshot follows.
 

@@ -39,7 +39,7 @@ func cliRoadmapLines(items []*item.Item, width int) []string {
 
 // roadmapPaneLines are the list pane's content lines of the rendered screen in
 // a layout without a detail pane: frames and cursor column removed, expand
-// markers blanked (the CLI has none).
+// markers blanked (the CLI has none; the marker cells stay blank).
 func roadmapPaneLines(m model) []string {
 	var out []string
 	for _, l := range screenLines(m) {
@@ -79,7 +79,12 @@ func hasLines(got, want []string) bool {
 func TestRoadmapLayoutRendersTheRowsOfLifRoadmap(t *testing.T) {
 	m := longTitleModel(t)
 	m = m.setLayout(layoutRoadmap)
-	want := cliRoadmapLines(longTitleBeans(), listPaneWidth(m)-1)
+	// The TUI list spends two more cells on the marker column, left of the
+	// tree lines; blanked, it is two leading spaces on every line of lif roadmap.
+	want := cliRoadmapLines(longTitleBeans(), listPaneWidth(m)-3)
+	for i := range want {
+		want[i] = "  " + want[i]
+	}
 	if len(want) < 6 {
 		t.Fatalf("fixture too small for a parity check: %q", want)
 	}
@@ -153,5 +158,24 @@ func TestSplitLayoutKeepsCompactRows(t *testing.T) {
 	}
 	if !containsInOrder(screenLines(m), want) {
 		t.Errorf("split view lost the compact rows: want %q\n%s", want, strings.Join(screenLines(m), "\n"))
+	}
+}
+
+// Opening or closing a node must not move a column: the milestone row is the
+// same line with its children shown or hidden.
+func TestRoadmapColumnsStayPutWhenANodeOpens(t *testing.T) {
+	line := func(open bool) string {
+		m := longTitleModel(t).setLayout(layoutRoadmap)
+		m.expanded["ms-1"], m.expanded["ep-1"] = open, open
+		for _, l := range roadmapPaneLines(m) {
+			if strings.Contains(l, "ms-1") {
+				return l
+			}
+		}
+		t.Fatalf("ms-1 row missing (open=%v)", open)
+		return ""
+	}
+	if closed, open := line(false), line(true); closed != open {
+		t.Errorf("milestone row moved when it opened:\nclosed: %q\nopen:   %q", closed, open)
 	}
 }

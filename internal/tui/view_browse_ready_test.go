@@ -20,6 +20,7 @@ import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
 )
 
@@ -631,5 +632,33 @@ func TestReadyChromeFooterIsContextSensitiveOnOverlayOpen(t *testing.T) {
 	}
 	if strings.Contains(plain, "c Create") {
 		t.Errorf("readyChrome footer while overlayValueMenu = %q, must not leak the (now irrelevant) view-local Create hint", plain)
+	}
+}
+
+// Without a detail pane the flat lists show status word, type word and
+// priority like lif roadmap; beside the detail pane they stay compact.
+func TestFlatListBlocksFollowLayout(t *testing.T) {
+	m := goldenReadyModel(t)
+	vis := m.readyVisible()
+	join := func(blocks [][]string) string {
+		var sb strings.Builder
+		for _, b := range blocks {
+			sb.WriteString(ansi.Strip(strings.Join(b, "\n")) + "\n")
+		}
+		return sb.String()
+	}
+
+	m.layout = layoutRoadmap
+	full := join(m.flatListBlocks(vis, 90))
+	for _, want := range []string{"task", "bug", "draft", "critical"} {
+		if !strings.Contains(full, want) {
+			t.Errorf("full-width flat list lacks %q:\n%s", want, full)
+		}
+	}
+
+	m.layout = layoutFilterDetail
+	compact := join(m.flatListBlocks(vis, 40))
+	if strings.Contains(compact, "critical") || strings.Contains(compact, "draft") {
+		t.Errorf("flat list beside the detail pane must stay compact:\n%s", compact)
 	}
 }

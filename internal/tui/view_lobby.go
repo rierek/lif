@@ -397,13 +397,6 @@ func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// (m.view == viewLobby), so the confirm's hint reads "enter: quit"
 		// and enter resolves to tea.Quit -- stage 2 complete.
 		return m.requestQuit()
-	case "ctrl+c":
-		// B01 fix, same hole: ctrl+c stays the hard/immediate kill switch
-		// (bean bt-7jr8) inside the Lobby too -- the pre-fix "ctrl+c -> back
-		// to Browse" was the only place in the app where ctrl+c did NOT
-		// quit. Mirrors handleKey's own ctrl+c case (update.go), which the
-		// Lobby's full-capture positioning otherwise shadows.
-		return m, tea.Quit
 	}
 
 	// Port devd projFilterType's own Focus()-before-Update() precedent

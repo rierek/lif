@@ -58,17 +58,17 @@ func TestBrowseRepoChromeFooterShowsFocusInFocusOut(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	_, localKeys := m.browseRepoChrome(200)
 	plain := stripHint(localKeys)
-	if !strings.Contains(plain, "tab focus in") {
+	if !strings.Contains(plain, "tab next focus") {
 		t.Errorf("browseRepoChrome footer = %q, want FocusIn's real hint (not a hand-typed suffix)", plain)
 	}
-	if !strings.Contains(plain, "shift+tab focus out") {
+	if !strings.Contains(plain, "shift+tab prev focus") {
 		t.Errorf("browseRepoChrome footer = %q, want shift+tab visible for the first time (PF-13)", plain)
 	}
 }
 
 // TestBrowseRepoChromeFooterMatchesQ06List guards Q06's finale, PO-verbatim
 // Footer-Liste (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc): browseRepoLocalBindings()
-// renders EXACTLY "tab focus in · shift+tab focus out · / search · f Filter
+// renders EXACTLY "tab next focus · shift+tab prev focus · / search · f Filter
 // · s Status · c Create · d Delete · e Edit · b Ready · t Tags · y Yank ·
 // a Parent · r Relations" -- Navigation-Keys (Up/Down/Left/Right) are
 // entirely gone.
@@ -76,7 +76,7 @@ func TestBrowseRepoChromeFooterMatchesQ06List(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	_, localKeys := m.browseRepoChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · L List · R Ready · y Yank · b Blocking · v next layout · shift+v previous layout"
+	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · L List · R Ready · y Yank · b Blocking · v next layout · shift+v previous layout"
 	if plain != want {
 		t.Errorf("browseRepoChrome footer = %q, want exactly %q", plain, want)
 	}

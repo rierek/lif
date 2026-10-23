@@ -126,7 +126,7 @@ func TestRenderBindingsKeepsKeyAndDescTogetherAcrossWrap(t *testing.T) {
 }
 
 // TestRenderBindingsKeepsMultiWordDescTogether guards the same NBSP fix for
-// a multi-word Help().Desc (e.g. FocusIn's "focus in"): none of its own
+// a multi-word Help().Desc (e.g. FocusIn's "next focus"): none of its own
 // internal words may split across a wrap boundary either.
 func TestRenderBindingsKeepsMultiWordDescTogether(t *testing.T) {
 	bs := []keybind.Binding{

@@ -997,8 +997,8 @@ func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
 // 3): it lists exactly the keys that act in the current view, layout and
 // focus (beans-u4uu, AC16). The global four (K, P, ?, q) sit in the header.
 //
-//   - tab/shift+tab switch region only in layoutFilterDetail, the one layout
-//     with two regions.
+//   - tab/shift+tab are listed when the layout's focus ring has two or more
+//     targets (focusRing), so never in the roadmap.
 //   - / acts on the list, so not while the detail has focus (which is always
 //     the case in layoutDetail). f jumps to the filter bar from every layout
 //     (U3), so it is always listed.
@@ -1013,12 +1013,14 @@ func (m model) footerBindings() []keybind.Binding {
 	hasBean := m.focusedBean() != nil
 	inRoadmap := m.view == viewBrowseRepo && !m.flatView
 	inFlat := m.view == viewBrowseRepo && m.flatView
+	list, filter, detail := m.focusRing()
+	ring := list+filter+detail >= 2
 	cands := []struct {
 		b   keybind.Binding
 		act bool
 	}{
-		{keys.FocusIn, m.layout == layoutFilterDetail},
-		{keys.FocusOut, m.layout == layoutFilterDetail},
+		{keys.FocusIn, ring},
+		{keys.FocusOut, ring},
 		{keys.Search, !m.detailFocus},
 		{keys.Filter, true},
 		{keys.Status, hasBean},

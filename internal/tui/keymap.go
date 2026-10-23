@@ -34,12 +34,11 @@ type keyMap struct {
 	Left  keybind.Binding
 	Right keybind.Binding
 
-	// Detail-Focus pair (PF-13, design-spec.md §15, E7 T6): tab and
-	// shift+tab both toggle between the two regions, Tree and Detail, in
-	// both directions (toggleRegion, update.go). A hidden Detail pane is
-	// shown by the toggle.
-	FocusIn  keybind.Binding // tab — toggle focus Tree<->Detail
-	FocusOut keybind.Binding // shift+tab — toggle focus Tree<->Detail
+	// Focus-ring pair: tab and shift+tab step the focus to the next and
+	// previous target of the active layout's ring (stepFocus, layout.go),
+	// wrapping at both ends; they never change the layout.
+	FocusIn  keybind.Binding // tab — next focus target
+	FocusOut keybind.Binding // shift+tab — previous focus target
 
 	// Activation / return / global.
 	Enter   keybind.Binding // enter — open/confirm
@@ -156,8 +155,8 @@ func newKeyMap() keyMap {
 		Left:  keybind.NewBinding(keybind.WithKeys("left", "j"), keybind.WithHelp("←/j", "back/out")),
 		Right: keybind.NewBinding(keybind.WithKeys("right", "l"), keybind.WithHelp("→/l", "in/expand")),
 
-		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "focus in")),
-		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "focus out")),
+		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next focus")),
+		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "prev focus")),
 
 		Enter: keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "open/confirm")),
 		Back:  keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "back")),

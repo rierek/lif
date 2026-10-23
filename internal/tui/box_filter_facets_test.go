@@ -391,18 +391,23 @@ func TestFilterClearKeepsLayoutAndClearsAllFacets(t *testing.T) {
 	}
 }
 
-// TestFilterFieldEscAndTabReturnToList: esc and tab leave the bar; keys the
-// field does not own never reach the list underneath.
-func TestFilterFieldEscAndTabReturnToList(t *testing.T) {
-	for _, leave := range []tea.KeyMsg{keyMsg(tea.KeyEsc), keyMsg(tea.KeyTab)} {
-		m := step(t, filterTaggedModel(t), runeMsg('f'))
-		m = step(t, m, leave)
-		if m.filterFocus || m.detailFocus {
-			t.Fatalf("%v: filterFocus=%v detailFocus=%v, want focus on the list", leave, m.filterFocus, m.detailFocus)
-		}
+// TestFilterFieldEscReturnsToList: esc leaves the bar and tab steps to the
+// next field (the focus ring, TestFocusRingTabVisitsEveryTargetAndWraps);
+// keys the field does not own never reach the list underneath.
+func TestFilterFieldEscReturnsToList(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEsc))
+	if m.filterFocus || m.detailFocus {
+		t.Fatalf("esc: filterFocus=%v detailFocus=%v, want focus on the list", m.filterFocus, m.detailFocus)
 	}
 
-	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyTab))
+	if got := focusAt(m); got != "filter:"+filterFields[1] {
+		t.Fatalf("tab on the first field: focus %q, want the second field", got)
+	}
+
+	m = step(t, filterTaggedModel(t), runeMsg('f'))
 	before := m.cursorID
 	m = step(t, m, runeMsg('s')) // would open the status menu on the list
 	if m.overlay != overlayNone || m.cursorID != before {

@@ -142,9 +142,9 @@ type model struct {
 	expanded map[string]bool // node ID (item ID or a synthetic root ID) -> expanded
 	cursorID string          // currently selected node's ID (item ID or a synthetic root ID)
 
-	// detailFocus is the Tree<->Detail focus toggle (bean bt-7jr8 Q01):
-	// view-local `tab`/`shift+tab` handling (toggleRegion), deliberately NOT
-	// routed through keymap.Right (which stays the tree's expand key).
+	// detailFocus: the Detail pane holds the focus, one stop of the focus
+	// ring (stepFocus, layout.go); tab/shift+tab are deliberately NOT routed
+	// through keymap.Right (which stays the tree's expand key).
 	detailFocus bool
 
 	// taskActions are the tui.actions of the open repo's config that passed

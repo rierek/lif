@@ -282,8 +282,8 @@ func TestReadySortDisplayLabel(t *testing.T) {
 // --- Master-Detail focus reuse ---
 
 // TestReadyMasterDetailFocusSwapMatchesD03BorderColors guards that tab
-// while m.view == viewReady toggles m.detailFocus exactly like the Tree
-// view (existing renderPane focus-border machinery, no new border logic).
+// while m.view == viewReady reaches the detail and shift+tab leaves it again
+// (existing renderPane focus-border machinery, no new border logic).
 func TestReadyMasterDetailFocusSwapMatchesD03BorderColors(t *testing.T) {
 	m := readyBeansModel(t)
 	m.view = viewReady
@@ -291,13 +291,10 @@ func TestReadyMasterDetailFocusSwapMatchesD03BorderColors(t *testing.T) {
 	if m.detailFocus {
 		t.Fatal("detailFocus should start false")
 	}
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if !m.detailFocus {
-		t.Fatal("tab should have set detailFocus = true")
-	}
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = tabIntoDetail(t, m)
+	m = step(t, m, keyMsg(tea.KeyShiftTab)) // first detail field -> last filter field
 	if m.detailFocus {
-		t.Fatal("tab should have set detailFocus = false")
+		t.Fatal("shift+tab from the first detail field should have left the detail")
 	}
 }
 
@@ -321,7 +318,7 @@ func TestReadyAccordionReusesTask1SectionsViaFocusedBean(t *testing.T) {
 		t.Fatalf("focusedBean() = %v, want %s (the Ready list's selected bean)", got, want.ID)
 	}
 
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = tabIntoDetail(t, m)
 	if !m.detailFocus {
 		t.Fatal("tab on a focusable ready row must enter detail focus")
 	}
@@ -562,10 +559,10 @@ func TestReadyChromeFooterShowsFocusInFocusOut(t *testing.T) {
 	m := readyBeansModel(t)
 	_, localKeys := m.readyChrome(200)
 	plain := stripHint(localKeys)
-	if !strings.Contains(plain, "tab focus in") {
+	if !strings.Contains(plain, "tab next focus") {
 		t.Errorf("readyChrome footer = %q, want FocusIn's real hint (not a hand-typed suffix)", plain)
 	}
-	if !strings.Contains(plain, "shift+tab focus out") {
+	if !strings.Contains(plain, "shift+tab prev focus") {
 		t.Errorf("readyChrome footer = %q, want shift+tab visible for the first time (PF-13)", plain)
 	}
 }
@@ -584,7 +581,7 @@ func TestReadyChromeFooterMatchesQ06List(t *testing.T) {
 	m.view = viewReady
 	_, localKeys := m.readyChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · M Roadmap · L List · y Yank · b Blocking · v next layout · shift+v previous layout"
+	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · M Roadmap · L List · y Yank · b Blocking · v next layout · shift+v previous layout"
 	if plain != want {
 		t.Errorf("readyChrome footer = %q, want exactly %q", plain, want)
 	}

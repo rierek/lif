@@ -150,9 +150,11 @@ func filterMenuLocalBindings() []keybind.Binding {
 
 // filterFieldLocalBindings is the footer set while the focus is in a filter
 // field (keyFilterField, layout.go): left/right pick the field, enter opens
-// its value menu, X clears all facets, esc returns to the list.
+// its value menu, X clears all facets, esc returns to the list. A focused
+// field means a layout with a filter bar, whose ring always has two or more
+// targets, so tab and shift+tab are always listed (AC12).
 func filterFieldLocalBindings() []keybind.Binding {
-	return []keybind.Binding{filterFieldMoveHint, filterFieldOpenHint, keys.FilterClear, keys.Back}
+	return []keybind.Binding{filterFieldMoveHint, keys.FocusIn, keys.FocusOut, filterFieldOpenHint, keys.FilterClear, keys.Back}
 }
 
 // valueMenuLocalBindings is the Value-Menu overlay's own footer set

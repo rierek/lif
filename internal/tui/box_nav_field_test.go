@@ -160,7 +160,7 @@ func TestBoxFormTabRendersFieldCursorInRealView(t *testing.T) {
 		t.Fatal("setup: the Title box already renders focused while the TREE has focus -- the cursor must only show inside the Detail pane")
 	}
 
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = tabIntoDetail(t, m)
 	if !m.detailFocus {
 		t.Fatal("tab did not move focus into the Detail pane")
 	}
@@ -276,7 +276,7 @@ func TestBoxFormTabFromTreeEntersAtTheFirstField(t *testing.T) {
 	b := m.focusedBean()
 	m.boxFormCursor, m.boxFormCursorBean = fieldIdx(t, "tags"), b.ID
 
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = tabIntoDetail(t, m)
 	if !m.detailFocus {
 		t.Fatal("tab did not focus the Detail region")
 	}
@@ -295,7 +295,7 @@ func TestBoxFormDownWalksFieldsInTheReadyToo(t *testing.T) {
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.view = viewReady
 
-	m = step(t, m, keyMsg(tea.KeyTab)) // into the Detail region
+	m = tabIntoDetail(t, m) // into the Detail region
 	if !m.detailFocus {
 		t.Fatal("setup: tab did not focus the Ready's Detail pane")
 	}

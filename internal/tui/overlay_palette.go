@@ -23,6 +23,8 @@ package tui
 // standing in for devd's inline box chrome).
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -53,8 +55,9 @@ type paletteItem struct {
 }
 
 // paletteActions returns the context-aware action list (design decision b):
-// focused-bean node actions FIRST (only when m.focusedBean() != nil), global
-// actions after.
+// focused-bean node actions (only when m.focusedBean() != nil) and global
+// actions, grouped by verb: set:, view:, the rest, open: last; alphabetical by
+// label inside each group (beans-w2cc).
 func paletteActions(m model) []paletteItem {
 	var items []paletteItem
 	if b := m.focusedBean(); b != nil {
@@ -125,7 +128,23 @@ func paletteActions(m model) []paletteItem {
 			items = append(items, paletteItem{kind: paletteKindTask, taskName: a.Task, label: "run: " + a.Label})
 		}
 	}
+	slices.SortStableFunc(items, func(a, b paletteItem) int {
+		return cmp.Or(cmp.Compare(verbRank(a.label), verbRank(b.label)), strings.Compare(a.label, b.label))
+	})
 	return items
+}
+
+// verbRank orders the verb groups of palette labels: set, view, other, open.
+func verbRank(label string) int {
+	switch verb, _, _ := strings.Cut(label, ":"); verb {
+	case "set":
+		return 0
+	case "view":
+		return 1
+	case "open":
+		return 3
+	}
+	return 2
 }
 
 // palFiltered fuzzy-filters the action pool against m.palQuery. B13

@@ -316,3 +316,8 @@ func (m model) contextualLocalHint(viewLocal []keybind.Binding) string {
 	}
 	return renderBindings(viewLocal)
 }
+
+// toastDismissHint is the footer label for esc while a sticky toast is the
+// only thing esc could close (escDismissesToast); a standalone binding for the
+// same reason as the picker hints above.
+var toastDismissHint = keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "dismiss"))

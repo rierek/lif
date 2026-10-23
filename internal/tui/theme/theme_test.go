@@ -205,8 +205,8 @@ func TestThemeApplyLatteChangesBase(t *testing.T) {
 	if Base != "#eff1f5" {
 		t.Errorf("Base = %q, want #eff1f5", Base)
 	}
-	if got := Accent.GetForeground(); got != lipgloss.Color("#8839ef") {
-		t.Errorf("Accent foreground = %v, want latte mauve #8839ef", got)
+	if got := Accent.GetForeground(); got != lipgloss.Color("#7287fd") {
+		t.Errorf("Accent foreground = %v, want latte lavender #7287fd", got)
 	}
 	if got := Dim.GetForeground(); got != Overlay {
 		t.Errorf("Dim foreground = %v, want rebuilt Overlay %v", got, Overlay)

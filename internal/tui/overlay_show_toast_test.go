@@ -342,3 +342,28 @@ func TestConflictToastIsStickyAndSurvivesReload(t *testing.T) {
 		t.Error("toast.sticky flipped to false across the reload, want unchanged")
 	}
 }
+
+// --- esc dismisses a sticky toast (beans-qb4k) ---
+
+func TestEscDismissesStickyToastOnlyWhenEscIsIdle(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans())
+	m, _ = m.showWarn("hooks are not allowed")
+	nm, _ := m.handleKey(keyMsg(tea.KeyEsc))
+	if nm.(model).toast != nil {
+		t.Fatal("esc with no overlay must close the sticky toast")
+	}
+
+	// Palette open: esc closes the palette, the toast stays.
+	pm, _ := m.openPalette()
+	nm, _ = pm.(model).handleKey(keyMsg(tea.KeyEsc))
+	if got := nm.(model); got.paletteOpen || got.toast == nil {
+		t.Fatalf("esc with palette open: paletteOpen=%v toast=%v, want palette closed and toast kept", got.paletteOpen, got.toast)
+	}
+
+	// A non-sticky toast is left to its timer.
+	m.toast.sticky = false
+	nm, _ = m.handleKey(keyMsg(tea.KeyEsc))
+	if nm.(model).toast == nil {
+		t.Fatal("esc must not close a non-sticky toast")
+	}
+}

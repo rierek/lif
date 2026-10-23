@@ -1166,6 +1166,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return nm, cmd
 	}
 
+	if keybind.Matches(msg, keys.Back) && m.escDismissesToast() {
+		return m.dismissToast()
+	}
 	if m.detailFocus {
 		return m.keyDetailFocus(msg)
 	}

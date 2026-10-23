@@ -14,7 +14,7 @@ The TUI reads `~/.config/lif/tui/config.yaml`. A second file, `state.json` in th
 | `repos` | List of repository paths for the [repository picker](../start-and-repositories/). | empty |
 | `repo_store_paths` | Map from a `repos` entry (exact string) to a store path, passed as `--lif-path`. | empty |
 | `editor` | Command to edit items. | empty (`$VISUAL`, `$EDITOR`, `vi`) |
-| `theme.accent` | Accent color, `#rrggbb`. | empty (built-in mauve) |
+| `theme.accent` | Accent color, `#rrggbb`. | empty (built-in lavender) |
 | `layout.tree_width` | Minimum width of the tree pane, 24 to 60. | 36 |
 
 The file belongs to the TUI and applies per user. Project settings live in `.lif.yml` ([Configuration](../../configuration/)).

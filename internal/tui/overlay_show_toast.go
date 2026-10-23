@@ -296,3 +296,11 @@ func (m model) dismissToast() (tea.Model, tea.Cmd) {
 	m.toast = nil
 	return m, nil
 }
+
+// escDismissesToast reports whether esc closes the toast: a sticky toast is
+// visible and esc has no other job in the list views. Overlays, forms, the
+// palette and the help already captured esc before this is asked.
+func (m model) escDismissesToast() bool {
+	return m.toast != nil && m.toast.sticky &&
+		!m.detailFocus && !m.filterFocus && !m.treeActive() && !m.flatView && m.view != viewReady
+}

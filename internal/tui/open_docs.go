@@ -11,7 +11,7 @@ import (
 )
 
 // docsURL is the only place that names the documentation site.
-const docsURL = "https://rierek.github.io/lif/reference/tui/views/"
+const docsURL = "https://rierek.github.io/lif/reference/"
 
 // openURL starts the OS opener; a package variable so tests never launch a
 // browser.

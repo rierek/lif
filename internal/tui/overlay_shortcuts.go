@@ -144,7 +144,7 @@ func (m model) helpBox() string {
 		footer += fmt.Sprintf(" · %d-%d/%d", off+1, off+h, len(lines))
 		lines = lines[off : off+h]
 	}
-	search := theme.Dim.Render("/ press / to search")
+	search := theme.Dim.Render("press / to search")
 	switch {
 	case m.helpSearching:
 		search = theme.Accent.Render("/ ") + theme.Header.Render(m.helpQuery) + theme.Accent.Render("▏")

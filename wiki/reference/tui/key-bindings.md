@@ -114,7 +114,11 @@ In the tag picker `n` is ordinary text; create a tag by typing a new name and pr
 
 In the lobby, `↑`/`↓` (or `i`/`k`) move, `enter` opens the repository, `/` opens the repository filter (the only way to type into it), `q` opens the `Quit?` dialog (`y` quits, `n` or `esc` stays), and `esc` twice leaves the lobby (back to the open repository, or quit when none is open). In the filter `esc` closes it. Any other key between the two `esc` presses cancels the first. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
 
-The palette entry `open: documentation` opens this reference (`https://rierek.github.io/lif/reference/tui/views/`) in the default browser and shows the URL in a toast. If no opener exists, an error toast shows the URL instead.
+The palette entry `open: documentation` opens this reference (`https://rierek.github.io/lif/reference/`) in the default browser and shows the URL in a toast. If no opener exists, an error toast shows the URL instead.
+
+The palette lists its entries by verb: all `set:` entries first, then all `view:` entries, then the others (`create:`, `delete:`, `focus:`, `register:`, `reload:`, `run:`, `search:`), and `open:` last. Inside each group the entries are alphabetical. The `set:` and `delete:` entries and `create: tag` appear only when an item is selected.
+
+A sticky toast, such as a warning, has no timer. Click it, or press `esc`, to close it. `esc` closes the toast only when it has no other job: with an overlay, form, palette, search, filter, detail focus, flat list or Ready list open, `esc` keeps its own meaning. The footer shows `esc dismiss` while it applies.
 
 ## Outside the TUI
 

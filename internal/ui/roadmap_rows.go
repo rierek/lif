@@ -56,13 +56,6 @@ func RoadmapRows(data *roadmap.Data) []Row {
 // children and other leaf items in mg.Containers / mg.Other order, the
 // order roadmap.tmpl renders.
 func appendRoadmapMilestoneGroup(items *[]FlatItem, mg roadmap.MilestoneGroup) {
-	// Unreachable in production -- every construction site sets Milestone --
-	// but a hand-built roadmap.Data literal in a test would otherwise panic
-	// inside Render instead of producing an empty render (beans-dbph
-	// review F5).
-	if mg.Milestone == nil {
-		return
-	}
 	*items = append(*items, FlatItem{Item: mg.Milestone, Depth: 0, IsLast: true})
 
 	total := len(mg.Containers) + len(mg.Other)
@@ -106,12 +99,6 @@ func appendRoadmapUnscheduledGroup(items *[]FlatItem, ug roadmap.UnscheduledGrou
 // leaf items and nested feature groups at depth+1 -- items before features,
 // per roadmap.tmpl.
 func appendRoadmapEpicGroup(items *[]FlatItem, eg roadmap.EpicGroup, depth int, isLast bool) {
-	// Unreachable in production -- every construction site sets Epic -- but
-	// a hand-built roadmap.EpicGroup literal in a test would otherwise panic inside
-	// Render instead of producing an empty render (beans-dbph review F5).
-	if eg.Epic == nil {
-		return
-	}
 	*items = append(*items, FlatItem{Item: eg.Epic, Depth: depth, IsLast: isLast})
 
 	childDepth := depth + 1
@@ -130,13 +117,6 @@ func appendRoadmapEpicGroup(items *[]FlatItem, eg roadmap.EpicGroup, depth int, 
 // appendRoadmapFeatureGroup appends a feature at depth, followed by its
 // flattened leaf items at depth+1.
 func appendRoadmapFeatureGroup(items *[]FlatItem, fg roadmap.FeatureGroup, depth int, isLast bool) {
-	// Unreachable in production -- every construction site sets Feature --
-	// but a hand-built featureGroup literal in a test would otherwise panic
-	// inside Render instead of producing an empty render (beans-dbph
-	// review F5).
-	if fg.Feature == nil {
-		return
-	}
 	*items = append(*items, FlatItem{Item: fg.Feature, Depth: depth, IsLast: isLast})
 
 	childDepth := depth + 1

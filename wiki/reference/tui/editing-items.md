@@ -7,7 +7,7 @@ Measured on Lif 0.13 in a terminal session; the TUI code is unchanged in 0.14 (c
 
 ## Principles
 
-The TUI has no write logic of its own. Every change runs `lif update`, `lif create` or `lif delete` as a subprocess, so the same validation applies as in the CLI: rank rule and cycle check for `parent` ([Configuration](../../configuration/#types-ranks-and-hierarchy-rules)). Updates send the item's ETag (`--if-match`). If the item changed meanwhile, a sticky toast shows `Conflict: item changed externally`. After every change the TUI reloads. All actions work on the selected item.
+The TUI has no write logic of its own. Every change goes through the same item core as `lif update`, `lif create` and `lif delete`, so the same validation applies: rank rule and cycle check for `parent` ([Configuration](../../configuration/#types-ranks-and-hierarchy-rules)). Updates send the item's ETag as the `If-Match` precondition. If the item changed meanwhile, a sticky toast shows `Conflict: item changed externally`. After every change the TUI reloads. All actions work on the selected item.
 
 ## Create an item
 

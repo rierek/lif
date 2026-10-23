@@ -3,7 +3,7 @@ title: "Start and repositories"
 description: "Start lif tui and choose the repository to work in."
 ---
 
-`lif tui` is the terminal UI of Lif, built into the `lif` binary. It is a companion to the CLI: every read and write runs `lif` as a subprocess. The command page is [`lif tui`](../../commands/lif-tui/). Measured on Lif 0.13; the TUI code is unchanged in 0.14 (checked 2026-10-14).
+`lif tui` is the terminal UI of Lif, built into the `lif` binary. It is a companion to the CLI: it reads and writes the repository store in the same process; it does not run `lif` as a subprocess. The command page is [`lif tui`](../../commands/lif-tui/). Checked against Lif 0.17.
 
 ## Starting the TUI
 
@@ -11,10 +11,10 @@ description: "Start lif tui and choose the repository to work in."
 lif tui [repo-path]
 ```
 
-- At most one argument: the repository path. The command has no flags of its own.
+- At most one argument: the repository path. The command has no flags of its own; it honors the global flags `--config` and `--lif-path`.
 - The former separate `lif-tui` binary no longer exists.
-- The TUI starts without a loaded store. It does not read `.lif.yml`; it finds the repository itself.
-- The global flag `--lif-path` sets the store of the opened repository.
+- `lif tui` finds the repository, opens its store and reads its `.lif.yml`. With the Lobby first, no store is open until you pick a repository.
+- The global flag `--lif-path` sets the store, and `--config` sets the `.lif.yml`, of the repository opened at start. They do not apply to a repository you switch to later in the Lobby; that one resolves its own store and config.
 
 ## Which repository opens
 

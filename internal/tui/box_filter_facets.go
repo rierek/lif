@@ -384,7 +384,7 @@ func (m model) filterMenuBox() string {
 		}
 		b.WriteString(cursor + box + " " + label + "\n")
 	}
-	body := b.String()
+	body := strings.TrimSuffix(b.String(), "\n")
 	return modalPanel(title, body, "", clampModalWidth(valueMenuContentWidth(title, body), m.width), theme.Mauve)
 }
 

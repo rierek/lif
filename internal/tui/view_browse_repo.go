@@ -167,6 +167,11 @@ func appendBeanNode(nodes []treeNode, n *roadmap.Node, depth int, expanded map[s
 // Notes-für-T7 warned about, generalized from "Settings-Reload" to "any
 // silently-bypassed predicate").
 func (m model) visibleNodes() []treeNode {
+	return m.nodesFor(m.expanded)
+}
+
+// nodesFor is visibleNodes for an explicit expand state.
+func (m model) nodesFor(expanded map[string]bool) []treeNode {
 	if m.treeActive() || !m.showArchived {
 		// archiveOnly (D01, bean bt-39cl): true iff the filtered flattening
 		// is reached ONLY because of the archive default (no search/facet
@@ -177,9 +182,9 @@ func (m model) visibleNodes() []treeNode {
 		// Vorgabe, scope-guard against Scope-Creep into the search/facet
 		// case, which already has its own, unrelated "0 sichtbare
 		// Kinder"-story: the collapsed-context-row devd-DD2-178 parity).
-		return flattenTreeFiltered(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, m.expanded, m.beanMatches, !m.treeActive())
+		return flattenTreeFiltered(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, expanded, m.beanMatches, !m.treeActive())
 	}
-	return flattenTree(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, m.expanded)
+	return flattenTree(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, expanded)
 }
 
 // treeSearchActive reports whether a local/Bleve search query is currently

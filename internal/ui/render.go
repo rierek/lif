@@ -241,7 +241,7 @@ func renderTable(rows []Row, title string, width int, showTags bool, cfg *config
 }
 
 func renderTree(rows []Row, title string, width int, showTags bool, cfg *config.Config) string {
-	blocks, c := treeLayout(rows, width, showTags, cfg)
+	blocks, c := treeLayout(rows, rows, width, showTags, cfg)
 
 	var sb strings.Builder
 	sb.WriteString(lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true).Render(title))
@@ -270,14 +270,24 @@ func renderTree(rows []Row, title string, width int, showTags bool, cfg *config.
 // caller that needs a cursor or a hit test works on whole blocks. This is the
 // one row renderer of lif roadmap and the TUI list.
 func TreeBlocks(rows []Row, width int, showTags bool, cfg *config.Config) [][]string {
-	blocks, _ := treeLayout(rows, width, showTags, cfg)
+	blocks, _ := treeLayout(rows, rows, width, showTags, cfg)
+	return blocks
+}
+
+// TreeBlocksMeasured is TreeBlocks with the column widths measured over
+// measure instead of rows. An interactive list passes every row it could show,
+// so the columns do not move when a node opens or closes. rows are laid out
+// with the columns measure yields; measure must include them.
+func TreeBlocksMeasured(rows, measure []Row, width int, showTags bool, cfg *config.Config) [][]string {
+	blocks, _ := treeLayout(rows, measure, width, showTags, cfg)
 	return blocks
 }
 
 // treeLayout renders every row of the tree form into its block of lines and
 // returns the column layout it used (renderTree needs it for the legend).
-func treeLayout(rows []Row, width int, showTags bool, cfg *config.Config) ([][]string, Columns) {
-	c := NewColumns(rows, width, showTags, cfg)
+// Column widths come from measure.
+func treeLayout(rows, measure []Row, width int, showTags bool, cfg *config.Config) ([][]string, Columns) {
+	c := NewColumns(measure, width, showTags, cfg)
 
 	leadWidth := c.Indent + c.Type + c.Gap
 	rightWidth := func(tags int) int {
@@ -300,7 +310,7 @@ func treeLayout(rows []Row, width int, showTags bool, cfg *config.Config) ([][]s
 
 	// Same redistribution as the table: unclaimed title width goes to the tags.
 	tmp := Columns{Title: body, Tags: c.Tags, Gap: c.Gap}
-	tmp.Rebalance(rows)
+	tmp.Rebalance(measure)
 	body, c.Tags = tmp.Title, tmp.Tags
 
 	blocks := make([][]string, len(rows))

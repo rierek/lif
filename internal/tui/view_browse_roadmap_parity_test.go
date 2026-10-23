@@ -155,3 +155,22 @@ func TestSplitLayoutKeepsCompactRows(t *testing.T) {
 		t.Errorf("split view lost the compact rows: want %q\n%s", want, strings.Join(screenLines(m), "\n"))
 	}
 }
+
+// Opening or closing a node must not move a column: the milestone row is the
+// same line with its children shown or hidden.
+func TestRoadmapColumnsStayPutWhenANodeOpens(t *testing.T) {
+	line := func(open bool) string {
+		m := longTitleModel(t).setLayout(layoutRoadmap)
+		m.expanded["ms-1"], m.expanded["ep-1"] = open, open
+		for _, l := range roadmapPaneLines(m) {
+			if strings.Contains(l, "ms-1") {
+				return l
+			}
+		}
+		t.Fatalf("ms-1 row missing (open=%v)", open)
+		return ""
+	}
+	if closed, open := line(false), line(true); closed != open {
+		t.Errorf("milestone row moved when it opened:\nclosed: %q\nopen:   %q", closed, open)
+	}
+}

@@ -134,8 +134,8 @@ func TestAssignAndBlockingLabels(t *testing.T) {
 	if got := keys.Assign.Help().Desc; got != "assign parent" {
 		t.Errorf("a label = %q, want %q", got, "assign parent")
 	}
-	if got := keys.Blocking.Help().Desc; got != "Blocking" {
-		t.Errorf("b label = %q, want %q", got, "Blocking")
+	if got := keys.Blocking.Help().Desc; got != "Relations" {
+		t.Errorf("b label = %q, want %q", got, "Relations")
 	}
 }
 
@@ -259,15 +259,24 @@ func TestLobbyNeedsTwoEscToLeave(t *testing.T) {
 	}
 }
 
-// Lobby: q quits at once.
-func TestLobbyQQuitsAtOnce(t *testing.T) {
-	m := lobbyModel(t, true)
-	tm, cmd := m.Update(runeMsg('q'))
-	if tm.(model).confirmQuit || cmd == nil {
-		t.Fatal("q in the Lobby opened a confirm or returned no cmd")
+// Lobby: q opens the quit dialog; y quits, n/esc stay.
+func TestLobbyQOpensQuitDialog(t *testing.T) {
+	m := step(t, lobbyModel(t, true), runeMsg('q'))
+	if !m.confirmQuit {
+		t.Fatal("q in the Lobby did not open the quit dialog")
+	}
+	for _, k := range []tea.KeyMsg{runeMsg('n'), keyMsg(tea.KeyEsc)} {
+		m2 := step(t, m, k)
+		if m2.confirmQuit || m2.view != viewLobby {
+			t.Fatalf("%v: confirm=%v view=%v, want closed dialog in Lobby", k, m2.confirmQuit, m2.view)
+		}
+	}
+	_, cmd := m.Update(runeMsg('y'))
+	if cmd == nil {
+		t.Fatal("y returned no cmd")
 	}
 	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Fatal("q in the Lobby did not quit")
+		t.Fatal("y in the quit dialog did not quit")
 	}
 }
 

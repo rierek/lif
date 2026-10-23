@@ -394,7 +394,7 @@ func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.repoFilterOpen {
 		switch msg.String() {
 		case "q":
-			return m, tea.Quit
+			return m.requestQuit()
 		case "/":
 			m.repoFilterOpen = true
 			m.repoSearch.Focus()

@@ -69,7 +69,7 @@ Title, settings and tag management have no key; use the palette (`K`).
 
 ## Tag picker and tag management
 
-In the tag picker `n` is ordinary text; create a tag by typing a new name and pressing `enter`. In tag management (palette `go to tags`): `n` new, `e` rename, `d` delete a definition, `esc` back.
+In the tag picker `n` is ordinary text; create a tag by typing a new name and pressing `enter`. In tag management (palette `view: tags`): `n` new, `e` rename, `d` delete a definition, `esc` back.
 
 ## Lobby and palette
 

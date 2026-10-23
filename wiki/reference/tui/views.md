@@ -15,7 +15,7 @@ There are four views. The item detail is a pane inside Browse and Ready, and ful
 | Browse, flat | All items in one list. | `G` toggles. |
 | Ready | Items `lif list --ready` lists, flat. | `b` |
 | Lobby | Repository picker. | `p` |
-| Tag management | Tag definitions. | Command palette `K`, entry `go to tags`. |
+| Tag management | Tag definitions. | Command palette `K`, entry `view: tags`. |
 | Detail pane | Fields, relations, body of the selected item. Hidden at start. | `D` shows or hides it; `tab` from the tree shows and focuses it. |
 | Fullscreen | List or detail over the full width. | `v` |
 

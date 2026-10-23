@@ -23,7 +23,7 @@ CLI equivalent: [`lif create`](../../commands/lif-create/).
 
 - `s` status menu, `o` type menu, `u` priority menu. `enter` applies at once; `esc` closes.
 - The menus list the statuses, types and priorities of the project: the built-in ones plus those in `.lif.yml`, in configured order.
-- Title: there is no key. Use the command palette (`K`, `set title`). In the classic detail layout `enter` on `title:` also works. The form saves on `enter` without confirmation.
+- Title: there is no key. Use the command palette (`K`, `set: title`). In the classic detail layout `enter` on `title:` also works. The form saves on `enter` without confirmation.
 
 ## Pickers
 
@@ -47,7 +47,7 @@ CLI equivalent: [`lif create`](../../commands/lif-create/).
 
 ## Tag management
 
-Open it with the command palette entry `go to tags`; it has no key. It lists tag definitions from the repository file `.lif-tags.yml` and tags in use. Keys: `n` new definition (or register a free tag), `e` rename, `d` delete a definition, `esc` back.
+Open it with the command palette entry `view: tags`; it has no key. It lists tag definitions from the repository file `.lif-tags.yml` and tags in use. Keys: `n` new definition (or register a free tag), `e` rename, `d` delete a definition, `esc` back.
 
 - Rename rewrites the definition and runs one `lif update` for every item with the old tag. It continues after a failure and shows a summary toast.
 - Delete removes only the definition. Items keep the tag.

@@ -352,7 +352,7 @@ func TestFooterListsOnlyActingKeys(t *testing.T) {
 						continue // writes the real clipboard; context_test.go covers it
 					}
 					tm, cmd := m.Update(keyFromName(key))
-					if cmd == nil && tm.(model).View() == m.View() {
+					if cmd == nil && tm.(model).View() == m.View() && focusAt(tm.(model)) == focusAt(m) {
 						t.Errorf("footer lists %q (%s) but pressing it does nothing", key, b.Help().Key)
 					}
 				}
@@ -368,15 +368,21 @@ func layoutName(l layoutMode) string {
 // AC16: keys that only work in some layouts or views are listed only there.
 func TestFooterRespectsLayoutAndView(t *testing.T) {
 	detail := footerKeys(u10Browse(t).setLayout(layoutDetail))
-	for _, k := range []string{"tab", "shift+tab", "/"} {
-		mustHave(t, detail, k, false) // U1 review finding: dead in layoutDetail
+	mustHave(t, detail, "/", false) // U1 review finding: dead in layoutDetail
+	for _, k := range []string{"tab", "shift+tab"} {
+		mustHave(t, detail, k, true) // the detail fields are a ring of nine
 	}
 	mustHave(t, detail, "f", true) // U3: f jumps to the filter bar from every layout
+	filter := footerKeys(u10Browse(t).setLayout(layoutFilter))
+	mustHave(t, filter, "tab", true) // list + five filter fields
+	mustHave(t, filter, "shift+tab", true)
 	split := footerKeys(u10Browse(t).setLayout(layoutFilterDetail))
 	mustHave(t, split, "tab", true)
+	mustHave(t, split, "shift+tab", true)
 	mustHave(t, split, "/", true)
 	list := footerKeys(u10Browse(t).setLayout(layoutRoadmap))
-	mustHave(t, list, "tab", false)
+	mustHave(t, list, "tab", false) // AC11: a ring of one has no tab
+	mustHave(t, list, "shift+tab", false)
 	mustHave(t, list, "/", true)
 
 	road := footerKeys(u10Browse(t))

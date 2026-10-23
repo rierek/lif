@@ -451,7 +451,7 @@ func TestTabTogglesDetailFocusAndPaneAccent(t *testing.T) {
 		t.Error("Detail pane accented while Tree still has focus")
 	}
 
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = tabIntoDetail(t, m)
 	if !m.detailFocus {
 		t.Fatal("tab did not flip detailFocus to true")
 	}
@@ -587,23 +587,6 @@ func TestFocusedBeanDispatchesOnTreeCursorInBrowseView(t *testing.T) {
 // ---
 
 // --- E7 T6 (PF-2/PF-5/PF-13, bean bt-t1uy): shift+tab exit + enter-cascade. ---
-
-// TestKeyTabStillTogglesBothDirections is a regression guard (PF-13): tab
-// keeps its existing bidirectional toggle behavior after the raw
-// `msg.String()=="tab"` comparison is replaced by keybind.Matches(msg,
-// keys.FocusIn) -- same key, same effect, now routed through the typed
-// binding.
-func TestKeyTabStillTogglesBothDirections(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if !m.detailFocus {
-		t.Fatal("tab (1st press) did not enter detail focus")
-	}
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if m.detailFocus {
-		t.Fatal("tab (2nd press) did not exit detail focus")
-	}
-}
 
 // TestKeyNodeActionEditorAlwaysOpensBeanEditor is D01's core end-to-end
 // regression test (design-spec.md §15 PF-17, bean bt-z4b1, supersedet E8-

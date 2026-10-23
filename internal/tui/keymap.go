@@ -34,12 +34,11 @@ type keyMap struct {
 	Left  keybind.Binding
 	Right keybind.Binding
 
-	// Detail-Focus pair (PF-13, design-spec.md §15, E7 T6): tab and
-	// shift+tab both toggle between the two regions, Tree and Detail, in
-	// both directions (toggleRegion, update.go). A hidden Detail pane is
-	// shown by the toggle.
-	FocusIn  keybind.Binding // tab — toggle focus Tree<->Detail
-	FocusOut keybind.Binding // shift+tab — toggle focus Tree<->Detail
+	// Focus-ring pair: tab and shift+tab step the focus to the next and
+	// previous target of the active layout's ring (stepFocus, layout.go),
+	// wrapping at both ends; they never change the layout.
+	FocusIn  keybind.Binding // tab — next focus target
+	FocusOut keybind.Binding // shift+tab — previous focus target
 
 	// Activation / return / global.
 	Enter   keybind.Binding // enter — open/confirm

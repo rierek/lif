@@ -15,7 +15,7 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `↓` / `k` | Down |
 | `←` / `j` | Back or out (collapse) |
 | `→` / `l` | In (expand) |
-| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout). From a filter field, `tab` returns to the list. The footer lists `tab` only in that layout and `/` only while the list has focus |
+| `tab` / `shift+tab` | Move focus to the next or previous target of the layout's focus ring and wrap at the ends (see Views, Focus ring). Never changes the layout; does nothing in layout Roadmap. The footer lists them only when the ring has two or more targets, and `/` only while the list has focus |
 | `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |
 | `esc` | Back; leaves the detail pane and menus; in the flat list and Ready, see Views |

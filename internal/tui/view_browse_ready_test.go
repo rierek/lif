@@ -282,8 +282,8 @@ func TestReadySortDisplayLabel(t *testing.T) {
 // --- Master-Detail focus reuse ---
 
 // TestReadyMasterDetailFocusSwapMatchesD03BorderColors guards that tab
-// while m.view == viewReady toggles m.detailFocus exactly like the Tree
-// view (existing renderPane focus-border machinery, no new border logic).
+// while m.view == viewReady reaches the detail and shift+tab leaves it again
+// (existing renderPane focus-border machinery, no new border logic).
 func TestReadyMasterDetailFocusSwapMatchesD03BorderColors(t *testing.T) {
 	m := readyBeansModel(t)
 	m.view = viewReady
@@ -291,13 +291,10 @@ func TestReadyMasterDetailFocusSwapMatchesD03BorderColors(t *testing.T) {
 	if m.detailFocus {
 		t.Fatal("detailFocus should start false")
 	}
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if !m.detailFocus {
-		t.Fatal("tab should have set detailFocus = true")
-	}
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = tabIntoDetail(t, m)
+	m = step(t, m, keyMsg(tea.KeyShiftTab)) // first detail field -> last filter field
 	if m.detailFocus {
-		t.Fatal("tab should have set detailFocus = false")
+		t.Fatal("shift+tab from the first detail field should have left the detail")
 	}
 }
 
@@ -321,7 +318,7 @@ func TestReadyAccordionReusesTask1SectionsViaFocusedBean(t *testing.T) {
 		t.Fatalf("focusedBean() = %v, want %s (the Ready list's selected bean)", got, want.ID)
 	}
 
-	m = step(t, m, keyMsg(tea.KeyTab))
+	m = tabIntoDetail(t, m)
 	if !m.detailFocus {
 		t.Fatal("tab on a focusable ready row must enter detail focus")
 	}

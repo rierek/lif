@@ -1090,13 +1090,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.requestQuit()
 	}
 
-	// tab and shift+tab (keys.FocusIn/FocusOut) toggle between the two
-	// regions, Tree and Detail, in either region and in both directions --
-	// the field cursor inside Detail moves with up/down, not with tab.
-	// They sit AT THE SAME dispatch point the former raw `case "tab":` had
-	// (still ahead of keyNodeAction/keyDetailFocus/keyReady/keyTree below).
-	if keybind.Matches(msg, keys.FocusIn) || keybind.Matches(msg, keys.FocusOut) {
-		return m.toggleRegion(), nil
+	// tab and shift+tab (keys.FocusIn/FocusOut) step the focus along the ring
+	// of the active layout (stepFocus, layout.go). They sit ahead of
+	// keyNodeAction/keyDetailFocus/keyReady/keyTree below, and ahead of the
+	// focused filter field, so every region reacts the same.
+	if keybind.Matches(msg, keys.FocusIn) {
+		return m.stepFocus(1), nil
+	}
+	if keybind.Matches(msg, keys.FocusOut) {
+		return m.stepFocus(-1), nil
 	}
 
 	// v / shift+v cycle the layout (keyLayout, layout.go).
@@ -1197,30 +1199,6 @@ func (m model) focusedBean() *item.Item {
 		}
 		return nodes[pos].bean
 	}
-}
-
-// toggleRegion flips focus between the two regions, list and Detail. It only
-// acts in layoutFilterDetail, the one layout that shows both; tab and
-// shift+tab never change the layout. Entering Detail resets the box-form
-// field cursor, so a stale cursor from a previous visit (maybe on a
-// different bean) never leaks into the new one. Clearing the owning bean
-// rather than just the index reuses boxFormEffectiveCursor's own derived
-// reset (box_nav_field.go).
-func (m model) toggleRegion() model {
-	if m.filterFocus { // leaving the filter bar returns to the list
-		m.filterFocus = false
-		return m
-	}
-	if m.layout != layoutFilterDetail {
-		return m
-	}
-	if m.detailFocus {
-		m.detailFocus = false
-		return m
-	}
-	m.detailFocus = true
-	m.boxFormCursor, m.boxFormCursorBean = 0, ""
-	return m
 }
 
 // keyDetailFocus drives the Detail region. pgup/pgdn page the Body at

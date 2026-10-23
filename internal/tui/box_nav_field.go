@@ -253,11 +253,12 @@ func boxFormScrollIntoView(off, start, h, height int) int {
 //
 // Directions:
 //
-//   - "next"/"prev" (bean bt-8d35, the ONLY ones a key drives today:
-//     tab/shift+tab) step LINEARLY through boxFormFieldOrder and WRAP at both
-//     ends -- the PO's explicit "am Ende umbrechen, NICHT in den Tree
-//     zurueckfallen, sonst verliert man den Fokus versehentlich beim
-//     Durchsteppen".
+//   - "next"/"prev" step LINEARLY through boxFormFieldOrder and WRAP at both
+//     ends (bean bt-8d35). stepFocus (layout.go) drives them for tab inside
+//     the Detail ring; in layoutFilterDetail it leaves the Detail at the
+//     ends instead of wrapping.
+//   - "first"/"last" put the cursor on the first/last field: stepFocus
+//     enters the Detail from the list or the filter bar with them.
 //   - left/right move the cursor within its grid row.
 //   - up/down first REVEAL, then MOVE: while the cursored field still extends
 //     past the visible window in the pressed direction, the keypress scrolls
@@ -301,6 +302,10 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 		}
 		n := len(boxFormFieldOrder)
 		cur = ((cur+d)%n + n) % n // wrap at BOTH ends (bt-8d35)
+	case "first":
+		cur = 0
+	case "last":
+		cur = len(boxFormFieldOrder) - 1
 	case "left", "right":
 		cur = boxFormMoveField(cur, dir)
 	case "up", "down":

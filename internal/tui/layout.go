@@ -122,6 +122,75 @@ func (m model) escBack() model {
 // neither the detail pane nor the filter bar does.
 func (m model) listFocus() bool { return !m.detailFocus && !m.filterFocus }
 
+// focusRing sizes the focus ring of the active layout, in ring order: the
+// list, the filter fields, the detail data fields (one target each). A part
+// the layout does not show has size 0, and the detail fields need a focused
+// bean. The roadmap layout is the list alone, a ring of one.
+func (m model) focusRing() (list, filter, detail int) {
+	if m.layout.hasList() {
+		list = 1
+	}
+	if m.layout.hasFilter() {
+		filter = len(filterFields)
+	}
+	if m.layout.hasDetail() && m.focusedBean() != nil {
+		detail = len(boxFormFieldOrder)
+	}
+	return
+}
+
+// focusPos is the focus's index in the ring: derived from filterFocus,
+// filterField, detailFocus and the box-form cursor, so a click that sets
+// those moves tab's starting point too.
+func (m model) focusPos() int {
+	list, filter, _ := m.focusRing()
+	switch {
+	case m.filterFocus:
+		return list + m.filterField
+	case m.detailFocus:
+		return list + filter + boxFormEffectiveCursor(m, m.focusedBean())
+	}
+	return 0
+}
+
+// stepFocus is tab (d=1) and shift+tab (d=-1): it moves the focus one target
+// along the ring of the active layout, wrapping at both ends. It never
+// changes the layout. A ring of fewer than two targets (the roadmap) has
+// nowhere to go, so the key does nothing. Entering the detail from outside
+// puts the field cursor on its first (tab) or last (shift+tab) field;
+// inside the detail, boxFormNav steps the cursor and scrolls it into view.
+func (m model) stepFocus(d int) model {
+	if m.view != viewBrowseRepo && m.view != viewReady {
+		return m
+	}
+	list, filter, detail := m.focusRing()
+	n := list + filter + detail
+	if n < 2 {
+		return m
+	}
+	from := m.focusPos()
+	to := ((from+d)%n + n) % n
+	switch {
+	case to < list:
+		m.filterFocus, m.detailFocus = false, false
+	case to < list+filter:
+		return m.focusFilterField(filterFields[to-list])
+	default:
+		dir := "last" // shift+tab enters from outside at the last field
+		switch inside := from >= list+filter; {
+		case inside && d > 0:
+			dir = "next"
+		case inside:
+			dir = "prev"
+		case d > 0:
+			dir = "first"
+		}
+		m.filterFocus, m.detailFocus = false, true
+		return m.boxFormNav(m.focusedBean(), dir)
+	}
+	return m
+}
+
 // focusFilter is the f jump: it shows the filter bar when the layout has none
 // (roadmap and details switch to roadmap+filter), then focuses the Type
 // field. A no-op outside Browse and Ready, which have no layouts.

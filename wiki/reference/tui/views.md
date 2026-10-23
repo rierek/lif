@@ -54,12 +54,24 @@ Screenshot follows.
 
 When a layout change leaves the focused region out, focus moves to the list, or to the detail in layout Details. `tab` and `shift+tab` never change the layout.
 
+## Focus ring
+
+`tab` moves focus to the next target, `shift+tab` to the previous one. Both wrap at the ends and never change the layout. Each layout has its own ring:
+
+| Layout | Targets, in order |
+|---|---|
+| Roadmap | None. `tab` and `shift+tab` do nothing, and the footer does not list them. |
+| Roadmap + filter | The list, then the five filter fields. |
+| Roadmap + filter + details | The list, the five filter fields, then every detail box (Title to History), one target each. |
+| Details | The detail boxes only. |
+
+When focus moves to a detail box, the box cursor moves there and the detail scrolls to keep it visible. `enter` still opens the box. Ready uses the same layouts and rings.
+
 ## Detail view
 
 The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`, `Type (t)`, `Priority (p)`, `Parent (a)`, `Tags (g)`, `Body (e)`, `Relations (b)`, `History`. The letter is the key that edits the box.
 
-- In layout Roadmap + filter + details, `tab` and `shift+tab` switch focus between the list and the detail pane, in both directions. In the other layouts there is only one region and they do nothing.
-- While the detail has focus, `↑`/`↓` step through the boxes. `esc` returns to the list (not in layout Details, which has no list).
+- While the detail has focus, `↑`/`↓` step through the boxes. `esc` returns to the list (not in layout Details, which has no list). `tab` and `shift+tab` move between the boxes too (see Focus ring).
 - `enter` on a box opens its menu, picker or the editor.
 
 ## Moving around
@@ -75,5 +87,5 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 - Text of three or more bytes goes to `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`). Shorter text matches as a substring of title or ID. An ID substring always matches.
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, for example `lif list: exit status 1: Error: querying items: syntax error`. Incomplete queries such as `title:` flash this while you type.
-- The filter bar fields (Type, Status, Priority, Tags, Archive) are focus targets. `f` jumps to the Type field; from layout Roadmap or Details it first switches to layout Roadmap + filter. `←`/`→` (or `j`/`l`) move between the fields, `enter`, `space` or `↓` open the value menu of the focused field. In the menu `space`, `x` or `enter` toggles a value and the list filters at once; `esc` closes the menu, a second `esc` (or `tab`) returns to the list. `X` clears all facets and keeps the layout. A long Tags list scrolls inside the menu. Facets combine with AND across fields and OR within one.
+- The filter bar fields (Type, Status, Priority, Tags, Archive) are focus targets. `f` jumps to the Type field; from layout Roadmap or Details it first switches to layout Roadmap + filter. `←`/`→` (or `j`/`l`) or `tab`/`shift+tab` move between the fields, `enter`, `space` or `↓` open the value menu of the focused field. In the menu `space`, `x` or `enter` toggles a value and the list filters at once; `esc` closes the menu, a second `esc` returns to the list. `X` clears all facets and keeps the layout. A long Tags list scrolls inside the menu. Facets combine with AND across fields and OR within one.
 - The item pickers (`a` and `b`) have chips: `ctrl+t` type, `ctrl+n` status, `ctrl+p` priority, `ctrl+g` tags. They exist only in those two pickers.

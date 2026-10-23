@@ -609,7 +609,7 @@ func (m model) openTagMgmtDeleteConfirm() (tea.Model, tea.Cmd) {
 // already established one layer up).
 func (m model) keyTagMgmtDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Confirm):
 		target := m.tagMgmtDeleteTarget
 		m.tagMgmtDeleteConfirm = false
 		m.tagMgmtDeleteTarget = ""
@@ -621,7 +621,7 @@ func (m model) keyTagMgmtDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// the (esc-aborted, never-cleared) Create input can no longer
 		// redirect the cursor, since applyTagDefsSaved no longer reads it.
 		return m, saveTagDefsCmd(m.store, data.RemoveTagDefName(defs, target), target, "")
-	case keybind.Matches(msg, keys.Back), msg.String() == "n":
+	case keybind.Matches(msg, keys.Cancel):
 		m.tagMgmtDeleteConfirm = false
 		m.tagMgmtDeleteTarget = ""
 		return m, nil
@@ -662,6 +662,6 @@ func (m model) tagMgmtDeleteConfirmBox() string {
 	}
 
 	title := fmt.Sprintf("Delete tag definition '%s'?", m.tagMgmtDeleteTarget)
-	footer := "enter: delete   esc/n: cancel"
+	footer := "enter/y: delete   esc/n: cancel"
 	return modalPanel(title, body, footer, clampModalWidth(48, m.width), theme.Red)
 }

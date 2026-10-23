@@ -112,13 +112,13 @@ func TestBoxFormClickOnStatusBoxOpensValueMenuSeededToStatus(t *testing.T) {
 }
 
 // TestBoxFormClickOnTypeBoxOpensValueMenuSeededToType mirrors the Status
-// case for the Type box's own (o) hotkey badge -- proves the click-X column
+// case for the Type box's own (t) hotkey badge -- proves the click-X column
 // bucketing (gridColAt/gridColWidths, mouse.go/box_detail_form.go) resolves
 // to a DIFFERENT column than Status, not just "any click in rowA works".
 func TestBoxFormClickOnTypeBoxOpensValueMenuSeededToType(t *testing.T) {
 	m := boxFormFocusModel(t)
 
-	msg := boxFormClickAt(t, m, "(o)")
+	msg := boxFormClickAt(t, m, "(t)")
 	tm, _ := m.handleMouse(msg)
 	m2, ok := tm.(model)
 	if !ok {
@@ -138,7 +138,7 @@ func TestBoxFormClickOnTypeBoxOpensValueMenuSeededToType(t *testing.T) {
 func TestBoxFormClickOnTagsBoxOpensTagPicker(t *testing.T) {
 	m := boxFormFocusModel(t)
 
-	msg := boxFormClickAt(t, m, "(t)")
+	msg := boxFormClickAt(t, m, "(g)")
 	tm, _ := m.handleMouse(msg)
 	m2, ok := tm.(model)
 	if !ok {

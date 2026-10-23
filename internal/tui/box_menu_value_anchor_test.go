@@ -285,12 +285,12 @@ func TestValueMenuAnchoredViaFieldCursorEnter(t *testing.T) {
 
 // TestValueMenuAnchoredViaMouseClick guards the mouse-click trigger
 // (mouseBoxFormDetailClick -> detailBoxFormClickRow -> activateBoxFormTarget,
-// mouse.go): clicking Priority's own "(u)" hotkey badge anchors to Priority.
+// mouse.go): clicking Priority's own "(p)" hotkey badge anchors to Priority.
 func TestValueMenuAnchoredViaMouseClick(t *testing.T) {
 	for _, width := range []int{80, 120} {
 		t.Run(width2str(width), func(t *testing.T) {
 			m := anchorModel(t, width, 40)
-			msg := boxFormClickAt(t, m, "(u)")
+			msg := boxFormClickAt(t, m, "(p)")
 			tm, _ := m.handleMouse(msg)
 			m2, ok := tm.(model)
 			if !ok {
@@ -391,12 +391,12 @@ func TestValueMenuFlipStaysBelowWhenFullFitAboveIsImpossible(t *testing.T) {
 // render at visibly different, field-near columns.
 func TestValueMenuTypeAndPriorityPopupsSitAtDifferentFieldNearColumns(t *testing.T) {
 	mType := anchorModel(t, 80, 40)
-	mType = step(t, mType, runeMsg('o'))
+	mType = step(t, mType, runeMsg('t'))
 	assertValueMenuAnchoredBelowField(t, mType, "type")
 	typeX, _, _, _ := valueMenuPopupXY(t, mType, "type")
 
 	mPriority := anchorModel(t, 80, 40)
-	mPriority = step(t, mPriority, runeMsg('u'))
+	mPriority = step(t, mPriority, runeMsg('p'))
 	assertValueMenuAnchoredBelowField(t, mPriority, "priority")
 	priorityX, _, _, _ := valueMenuPopupXY(t, mPriority, "priority")
 

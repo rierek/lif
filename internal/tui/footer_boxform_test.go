@@ -38,11 +38,11 @@ func bindingKeys(bs []keybind.Binding) []string {
 // from the footer removed the only place the key was advertised at all. The
 // rule is now literal, and TestBoxFormInlineKeysAllHaveAnInlineBadge below
 // enforces it structurally instead of by hand.
-var boxFormInlineFooterKeys = []string{"s", "e", "t", "a"}
+var boxFormInlineFooterKeys = []string{"s", "e", "g", "a"}
 
 func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 
-	got := bindingKeys(browseRepoLocalBindings())
+	got := bindingKeys(u10Browse(t).setLayout(layoutFilterDetail).footerBindings())
 	for _, k := range boxFormInlineFooterKeys {
 		for _, have := range got {
 			if have == k {
@@ -53,7 +53,7 @@ func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 	// Everything that is NOT inline-visible must survive -- the point is to
 	// de-duplicate, not to strip the footer. `r` (bean bt-6nuz) is in this
 	// list precisely because the Relations panel gives it no badge.
-	for _, k := range []string{"tab", "shift+tab", "/", "f", "c", "d", "b", "y", "r", "v"} {
+	for _, k := range []string{"tab", "shift+tab", "/", "f", "c", "d", "b", "y", "v"} {
 		found := false
 		for _, have := range got {
 			if have == k {
@@ -68,11 +68,12 @@ func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 }
 
 // TestReadyFooterFollowsBrowseRepo: the Ready renders the SAME box-form
-// detail pane, so its footer must thin out identically (readyLocalBindings
-// delegates -- this pins that it keeps doing so).
+// detail pane, so its footer drops the inline keys identically; only the
+// view keys differ (M and L instead of R).
 func TestReadyFooterFollowsBrowseRepo(t *testing.T) {
-	if a, b := bindingKeys(readyLocalBindings()), bindingKeys(browseRepoLocalBindings()); strings.Join(a, "|") != strings.Join(b, "|") {
-		t.Fatalf("Ready footer diverged from Browse: %v vs %v", a, b)
+	got := footerKeys(u10Ready(t).setLayout(layoutFilterDetail))
+	for _, k := range boxFormInlineFooterKeys {
+		mustHave(t, got, k, false)
 	}
 }
 

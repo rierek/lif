@@ -238,44 +238,8 @@ func (m model) renderReadyDetailPane(vis []*item.Item, w, h int, focused bool) s
 // rationale, view_browse_repo.go).
 func (m model) readyChrome(innerW int) (head, localKeys string) {
 	head = breadcrumb(m.repoLabel(), "Ready", renderBindings(globalBindings()), innerW)
-	localKeys = footer(m.contextualLocalHint(readyLocalBindings()), innerW)
+	localKeys = footer(m.contextualLocalHint(m.footerBindings()), innerW)
 	return
-}
-
-// readyLocalBindings is the Ready view's own Footer Zone 3 local set --
-// D06+Q06 (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc) REBUILD this from
-// scratch, superseding PF-11's list, mirroring browseRepoLocalBindings'
-// exact Q06 order (view_browse_repo.go) verbatim.
-//
-// D02 (design-spec.md §15 PF-17, bean bt-tct9/bt-1e0t, PO-bestätigt Option b
-// + Präzisierung, 2026-07-16) SUPERSEDES the former ERRATUM below: the
-// Ready footer previously appended `keys.Sort` as a documented Ready-
-// exclusive addition (bean bt-d8kc) so the feature stayed discoverable
-// without a PO instruction to remove it. The PO has now given that
-// instruction explicitly: "'S Sort' fliegt aus dem Ready-Footer; die
-// S-Taste bleibt funktional, wird aber NUR im Help-Overlay ('?')
-// dokumentiert." `S` stays fully wired (keyReady's Sort case, unchanged,
-// below) and stays documented -- just Help-overlay-only now (helpGroups(),
-// keymap.go, already lists it under "Actions", untouched by this change).
-// The runtime state indicator (`· sort <modus>` search-line suffix,
-// treeSearchLine, view_browse_repo.go, E8/D02) is unaffected -- it was
-// always the primary visible surface for the active sort mode, the footer
-// entry was a secondary discoverability aid the PO judged unnecessary.
-// Trigger: at <82 columns the old 14-entry list (13 + Sort) wrapped to
-// THREE footer lines where the Tree's 13-entry list stayed at two (D06
-// permits at most two) -- removing Sort restores parity with
-// browseRepoLocalBindings, both lists are now IDENTICAL.
-//
-// Former ERRATUM text (historical, superseded by D02 above, kept for
-// audit trail): "Q06's PO-verbatim list is phrased once for BOTH Browse and
-// Ready and never mentions Sort (`S`) -- Sort has no Tree analog
-// (sortReady/nextReadySort are Ready-only), so the shared list simply
-// never had occasion to name it. Sort stays a Ready-EXCLUSIVE addition
-// here rather than being silently dropped: it is a pre-existing,
-// frequently-used, currently-visible feature, and no PO instruction asked
-// for its removal ('kein Entzug ohne PO-Anweisung')."
-func readyLocalBindings() []keybind.Binding {
-	return browseRepoLocalBindings()
 }
 
 // viewReady renders the two-pane master-detail Ready view -- mirrors
@@ -355,7 +319,7 @@ func (m model) viewReady() string {
 // PO-Nachtrag 3 / D01 revidiert -- the flat list has no expand concept, so
 // enter is the analog of keyTree's leaf no-op), S cycles the sort mode,
 // `/` opens the SAME shared search input the Tree uses (`f` is global),
-// `b`/esc return to Tree. Detail focus (once entered via tab) delegates to
+// esc clears an active search/filter, then returns to the Roadmap. Detail focus (once entered via tab) delegates to
 // keyDetailFocus verbatim (Task 2) -- focusedBean()'s viewReady case
 // (update.go) is what makes that reuse possible without a second
 // Accordion-navigation implementation.
@@ -384,9 +348,8 @@ func (m model) keyReady(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m = m.clearFacets()
 		m.readyList.setLen(len(m.readyVisible()))
 		return m, nil
-	case keybind.Matches(msg, keys.Ready), keybind.Matches(msg, keys.Back):
-		m.view = viewBrowseRepo
-		return m, nil
+	case keybind.Matches(msg, keys.Back):
+		return m.escBack(), nil
 	case keybind.Matches(msg, keys.Enter):
 		// T6-Review B01 (bean bt-t1uy, PO-Nachtrag 3 / D01 revidiert): enter
 		// is a handled no-op -- TAB is the ONLY detail-focus entry (handleKey,

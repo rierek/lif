@@ -119,10 +119,10 @@ func countLinkedBeans(idx *data.Index, id string) int {
 // bean.
 func (m model) keyDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case keybind.Matches(msg, keys.Back), msg.String() == "n":
+	case keybind.Matches(msg, keys.Cancel):
 		m.overlay = overlayNone
 		return m, nil
-	case keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Confirm):
 		m.overlay = overlayNone
 		id := m.mutTarget
 		if _, ok := m.beanETag(id); !ok {
@@ -182,6 +182,6 @@ func (m model) deleteBox() string {
 		b.WriteString(fmt.Sprintf("%d items lose their blocking/blocked-by link to this item\n", m.delLinks))
 	}
 	b.WriteString("\n" + lipgloss.NewStyle().Foreground(theme.Red).Render("Irreversible.") + "\n")
-	b.WriteString("\n" + theme.Dim.Render("enter: delete permanently   esc/n: cancel"))
+	b.WriteString("\n" + theme.Dim.Render("enter/y: delete permanently   esc/n: cancel"))
 	return modalBox(b.String(), clampModalWidth(48, m.width), theme.Red)
 }

@@ -157,12 +157,12 @@ func filterFieldLocalBindings() []keybind.Binding {
 
 // valueMenuLocalBindings is the Value-Menu overlay's own footer set
 // (epic-E7-plan.md Task 7 Step 6). The group's OWN key doubles as a close
-// alias here (keyValueMenu, box_menu_value.go: opened by s/o/u, ALSO closes
+// alias here (keyValueMenu, box_menu_value.go: opened by s/t/p, ALSO closes
 // on a second press of that same key, like Back) -- a genuine local binding
 // of this overlay, not a stray global leaking through.
 //
 // bean bt-z4w7: `group` is what makes the label true. This used to hardcode
-// keys.Status, so a Type-/Priority-Menu opened with o/u still told the PO to
+// keys.Status, so a Type-/Priority-Menu opened with the Type/Priority key still told the PO to
 // press `s` -- and, worse, keyValueMenu really did accept `s` there, because
 // it matched the same hardcoded binding. Both sides now read
 // valueMenuGroupKey(group).
@@ -242,7 +242,7 @@ func blockingPickerLocalBindings() []keybind.Binding {
 // the destructive/constructive verb, e.g. "enter: delete permanently" --
 // this base-view fallback intentionally stays generic).
 func confirmGateLocalBindings() []keybind.Binding {
-	return []keybind.Binding{keys.Enter, keys.Back}
+	return []keybind.Binding{keys.Confirm, keys.Cancel}
 }
 
 // searchLocalBindings is the inline Tree/Ready search input's own footer

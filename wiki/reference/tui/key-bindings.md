@@ -15,30 +15,47 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `↓` / `k` | Down |
 | `←` / `j` | Back or out (collapse) |
 | `→` / `l` | In (expand) |
-| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout). From a filter field, `tab` returns to the list |
+| `tab` / `shift+tab` | Switch focus between the list and the detail pane (only in layout roadmap + filter + details; never changes the layout). From a filter field, `tab` returns to the list. The footer lists `tab` only in that layout and `/` only while the list has focus |
 | `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |
-| `esc` | Back; leaves the detail pane, menus |
+| `esc` | Back; leaves the detail pane and menus; in the flat list and Ready, see Views |
 | `pgup` / `pgdown` | Page the detail body (not listed in `?`) |
+
+## Views
+
+| Key | Action |
+|---|---|
+| `M` | Roadmap |
+| `L` | Flat list |
+| `R` | Ready |
+| `P` | Repository picker (lobby) |
+| `v` / `shift+v` | Next or previous layout: roadmap, roadmap + filter, roadmap + filter + details, details; both wrap |
+
+The Board view (`B`) is planned and not bound yet. `esc` in the flat list or Ready first clears an active search or filter, then returns to the Roadmap.
 
 ## Global actions
 
 | Key | Action |
 |---|---|
-| `K` | Command palette |
-| `p` | Repository picker |
-| `b` | Ready |
+| `K` / `:` | Command palette |
 | `/` | Search |
 | `f` | Jump to the filter bar, Type field; from layout roadmap or details it first switches to roadmap + filter |
 | `X` | Clear all filters |
 | `S` | Cycle ready sort |
-| `G` | Nested or flat |
-| `v` / `shift+v` | Next or previous layout: roadmap, roadmap + filter, roadmap + filter + details, details; both wrap |
 | `ctrl+r` | Reload |
 | `y` | Copy (yank) item context |
 | `?` | Help |
 | `q` | Quit dialog |
 | `ctrl+c` | Quit at once from every state (lists, forms, menus, dialogs, lobby), no confirmation, no lobby |
+
+## Dialogs
+
+| Key | Action |
+|---|---|
+| `y` | Confirm (quit, create, delete, tag delete); `enter` confirms too |
+| `n` | Cancel; `esc` cancels too |
+
+In a dialog `y` confirms; everywhere else `y` copies the item context.
 
 ## Item actions
 
@@ -47,16 +64,18 @@ All act on the selected item. Behavior: [Editing items](../editing-items/).
 | Key | Action |
 |---|---|
 | `s` | Status menu |
-| `o` | Type menu |
-| `u` | Priority menu |
+| `t` | Type menu |
+| `p` | Priority menu |
 | `a` | Assign parent |
-| `r` | Relations (blocking picker) |
-| `t` | Tag picker |
+| `b` | Blocking (blocking picker) |
+| `g` | Tag picker |
 | `c` | Create item |
 | `d` | Delete (with confirmation, no cascade) |
 | `e` / `ctrl+e` | Edit the whole item in the editor |
 
-Title, settings and tag management have no key; use the palette (`K`).
+Title, settings and tag management have no key; use the palette (`K` or `:`).
+
+Moved or removed keys: type was `o`, priority was `u`, tags were `t`, blocking was `r`, Ready was `b`, repositories were `p`, nested or flat was `G`. The old keys do nothing now.
 
 ## Pickers and filter fields
 
@@ -78,7 +97,7 @@ In the tag picker `n` is ordinary text; create a tag by typing a new name and pr
 
 ## Lobby and palette
 
-In the lobby, `↑`/`↓` move; every other key edits the filter. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
+In the lobby, `↑`/`↓` (or `i`/`k`) move, `enter` opens the repository, `/` opens the repository filter (the only way to type into it), `q` quits at once, and `esc` twice leaves the lobby (back to the open repository, or quit when none is open). In the filter `esc` closes it. Any other key between the two `esc` presses cancels the first. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
 
 The palette entry `open: documentation` opens this reference (`https://rierek.github.io/lif/reference/tui/views/`) in the default browser and shows the URL in a toast. If no opener exists, an error toast shows the URL instead.
 

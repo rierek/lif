@@ -42,14 +42,14 @@ func (m model) quitBoxWillGoToLobby() bool {
 // quitBoxWillGoToLobby above.
 func (m model) keyConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Confirm):
 		goToLobby := m.quitBoxWillGoToLobby()
 		m.confirmQuit = false
 		if goToLobby {
 			return m.openLobby()
 		}
 		return m, tea.Quit
-	case keybind.Matches(msg, keys.Back):
+	case keybind.Matches(msg, keys.Cancel):
 		m.confirmQuit = false
 		return m, nil
 	}
@@ -66,11 +66,11 @@ func (m model) keyConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) quitBox() string {
 	body := "\n" + theme.Dim.Render("Really quit lif?") + "\n\n"
 	if m.quitBoxWillGoToLobby() {
-		body += theme.Accent.Render("enter") + theme.Dim.Render(": go to lobby   ") +
-			theme.Accent.Render("esc") + theme.Dim.Render(": cancel")
+		body += theme.Accent.Render("enter/y") + theme.Dim.Render(": go to lobby   ") +
+			theme.Accent.Render("esc/n") + theme.Dim.Render(": cancel")
 	} else {
-		body += theme.Accent.Render("enter") + theme.Dim.Render(": quit   ") +
-			theme.Accent.Render("esc") + theme.Dim.Render(": cancel")
+		body += theme.Accent.Render("enter/y") + theme.Dim.Render(": quit   ") +
+			theme.Accent.Render("esc/n") + theme.Dim.Render(": cancel")
 	}
 	return modalPanel("Quit?", body, "", 40, theme.Mauve)
 }

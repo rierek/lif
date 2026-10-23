@@ -360,43 +360,43 @@ func TestReadyEnterDoesNotEnterDetailFocus(t *testing.T) {
 
 // --- b open/close, shared filter state preserved ---
 
-// TestReadyOpenFromTreeAndBackPreservesSharedFilterState guards that `b`
+// TestReadyOpenFromTreeAndBackPreservesSharedFilterState guards that `R`
 // from Tree with an active facet filter shows the SAME filtered view in
-// Ready, and esc/b back to Tree leaves the filter active there too --
+// Ready, and M back to the Roadmap leaves the filter active there too --
 // ONE shared filter state (Task 4), never reset by a view switch.
 func TestReadyOpenFromTreeAndBackPreservesSharedFilterState(t *testing.T) {
 	m := readyBeansModel(t)
 	m.filterStatus = map[string]bool{"draft": true}
 
-	m = step(t, m, runeMsg('b'))
+	m = step(t, m, runeMsg('R'))
 	if m.view != viewReady {
-		t.Fatalf("b should open Ready, view = %v", m.view)
+		t.Fatalf("R should open Ready, view = %v", m.view)
 	}
 	vis := m.readyVisible()
 	if len(vis) != 1 || vis[0].ID != "bk-tsk2" {
 		t.Fatalf("Ready with filterStatus=draft carried over = %v, want [bk-tsk2]", vis)
 	}
 
-	m = step(t, m, runeMsg('b'))
+	m = step(t, m, runeMsg('M'))
 	if m.view != viewBrowseRepo {
-		t.Fatalf("b again should return to Tree, view = %v", m.view)
+		t.Fatalf("M should return to the Roadmap, view = %v", m.view)
 	}
 	if !m.filterStatus["draft"] {
 		t.Fatal("filterStatus must still be active back in Tree -- shared state, not reset by the view switch")
 	}
 }
 
-// TestReadyEscReturnsToTree guards the esc half of the "b open, esc/b
-// back" contract (design-spec.md, bean bt-gzu6 Akzeptanz).
-func TestReadyEscReturnsToTree(t *testing.T) {
+// TestReadyEscReturnsToRoadmap guards the esc half of the "R open, esc
+// back" contract.
+func TestReadyEscReturnsToRoadmap(t *testing.T) {
 	m := readyBeansModel(t)
-	m = step(t, m, runeMsg('b'))
+	m = step(t, m, runeMsg('R'))
 	if m.view != viewReady {
-		t.Fatalf("b should open Ready, view = %v", m.view)
+		t.Fatalf("R should open Ready, view = %v", m.view)
 	}
 	m = step(t, m, keyMsg(tea.KeyEsc))
-	if m.view != viewBrowseRepo {
-		t.Fatalf("esc should return to Tree, view = %v", m.view)
+	if m.view != viewBrowseRepo || m.flatView {
+		t.Fatalf("esc should return to the Roadmap, view = %v flat = %v", m.view, m.flatView)
 	}
 }
 
@@ -537,7 +537,7 @@ func TestReadyChromeHeaderShowsExactlyFourGlobals(t *testing.T) {
 	m := readyBeansModel(t)
 	head, _ := m.readyChrome(200) // wide enough to never trigger breadcrumb's narrow-stack fallback
 	plain := stripHint(head)
-	for _, want := range []string{"K commands", "p repos", "? help", "q quit"} {
+	for _, want := range []string{"K/: commands", "P repos", "? help", "q quit"} {
 		if !strings.Contains(plain, want) {
 			t.Errorf("readyChrome header = %q, want it to contain %q", plain, want)
 		}
@@ -581,9 +581,10 @@ func TestReadyChromeFooterShowsFocusInFocusOut(t *testing.T) {
 // verbatim, no per-view divergence left.
 func TestReadyChromeFooterMatchesQ06List(t *testing.T) {
 	m := readyBeansModel(t)
+	m.view = viewReady
 	_, localKeys := m.readyChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · b Ready · y Yank · r Relations · v next layout · shift+v previous layout"
+	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · M Roadmap · L List · y Yank · b Blocking · v next layout · shift+v previous layout"
 	if plain != want {
 		t.Errorf("readyChrome footer = %q, want exactly %q", plain, want)
 	}
@@ -603,18 +604,9 @@ func TestReadyChromeFooterMatchesQ06List(t *testing.T) {
 // single loop suffices (no split browseRepoLocalBindings() assertion left
 // to make, both lists are now identical on this point).
 func TestReadyLocalBindingsOmitsSort(t *testing.T) {
-	cases := []struct {
-		name string
-		list []keybind.Binding
-	}{
-		{"readyLocalBindings", readyLocalBindings()},
-		{"browseRepoLocalBindings", browseRepoLocalBindings()},
-	}
-	for _, c := range cases {
-		for _, b := range c.list {
-			if strings.Join(b.Keys(), ",") == strings.Join(keys.Sort.Keys(), ",") {
-				t.Errorf("%s() unexpectedly includes keys.Sort -- D02 moved Sort to Help-overlay-only (bean bt-1e0t)", c.name)
-			}
+	for _, b := range readyBeansModel(t).footerBindings() {
+		if strings.Join(b.Keys(), ",") == strings.Join(keys.Sort.Keys(), ",") {
+			t.Error("Ready footerBindings unexpectedly includes keys.Sort -- D02 moved Sort to Help-overlay-only (bean bt-1e0t)")
 		}
 	}
 }
@@ -624,9 +616,9 @@ func TestReadyLocalBindingsOmitsSort(t *testing.T) {
 // Q06 removes Up/Down from the Ready footer too.
 func TestReadyLocalBindingsOmitsNavigation(t *testing.T) {
 	for _, nav := range []keybind.Binding{keys.Up, keys.Down} {
-		for _, b := range readyLocalBindings() {
+		for _, b := range readyBeansModel(t).footerBindings() {
 			if strings.Join(b.Keys(), ",") == strings.Join(nav.Keys(), ",") {
-				t.Errorf("readyLocalBindings() still contains navigation binding %v, want it removed (Q06)", nav.Keys())
+				t.Errorf("Ready footerBindings still contains navigation binding %v, want it removed (Q06)", nav.Keys())
 			}
 		}
 	}

@@ -34,6 +34,11 @@ type keyMap struct {
 	Left  keybind.Binding
 	Right keybind.Binding
 
+	// Roadmap tree only (flat list and Ready ignore them): jump to the
+	// previous / next sibling (same parent, same depth).
+	PrevSibling keybind.Binding // [ — previous sibling
+	NextSibling keybind.Binding // ] — next sibling
+
 	// Focus-ring pair: tab and shift+tab step the focus to the next and
 	// previous target of the active layout's ring (stepFocus, layout.go),
 	// wrapping at both ends; they never change the layout.
@@ -155,6 +160,9 @@ func newKeyMap() keyMap {
 		Left:  keybind.NewBinding(keybind.WithKeys("left", "j"), keybind.WithHelp("←/j", "back/out")),
 		Right: keybind.NewBinding(keybind.WithKeys("right", "l"), keybind.WithHelp("→/l", "in/expand")),
 
+		PrevSibling: keybind.NewBinding(keybind.WithKeys("["), keybind.WithHelp("[", "previous sibling")),
+		NextSibling: keybind.NewBinding(keybind.WithKeys("]"), keybind.WithHelp("]", "next sibling")),
+
 		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next focus")),
 		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "prev focus")),
 
@@ -227,7 +235,7 @@ type helpGroup struct {
 // a later task — the help view itself is out of scope here).
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
-		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
+		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
 		{"Dialogs", []keybind.Binding{k.Confirm, k.Cancel}},
 		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},

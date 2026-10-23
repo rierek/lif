@@ -1314,6 +1314,18 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	pos := m.cursorPos(nodes)
 
+	switch {
+	case keybind.Matches(msg, keys.NextSibling), keybind.Matches(msg, keys.PrevSibling):
+		dir := 1
+		if keybind.Matches(msg, keys.PrevSibling) {
+			dir = -1
+		}
+		if i := siblingPos(nodes, pos, dir); i >= 0 {
+			m.cursorID = nodes[i].id
+		}
+		return m, nil
+	}
+
 	switch navKey(msg.String()) {
 	case "up":
 		// E5 Task 4 (bean bt-mne6): factored into treeCursorMove
@@ -1446,4 +1458,20 @@ func (m model) setExpanded(n treeNode, open bool) model {
 		delete(m.expanded, n.id)
 	}
 	return m
+}
+
+// siblingPos returns the index of the previous (dir<0) or next (dir>0) visible
+// sibling of nodes[pos]: same depth under the same parent, expanded children
+// skipped. -1 at the edge, where the cursor stays.
+func siblingPos(nodes []treeNode, pos, dir int) int {
+	d := nodes[pos].depth
+	for i := pos + dir; i >= 0 && i < len(nodes); i += dir {
+		if nodes[i].depth < d {
+			return -1 // left the parent: no further sibling
+		}
+		if nodes[i].depth == d && !nodes[i].placeholder {
+			return i
+		}
+	}
+	return -1
 }

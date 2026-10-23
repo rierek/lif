@@ -118,6 +118,7 @@ func paletteActions(m model) []paletteItem {
 		// keybinding (design-spec §7 knows none) -- reachable exclusively
 		// through the Command-Center, appended last.
 		paletteItem{kind: paletteKindAction, actionID: "settings", label: "view: settings"},
+		paletteItem{kind: paletteKindAction, actionID: "open_docs", label: "open: documentation"},
 	)
 	for _, a := range m.taskActions {
 		if taskActionApplies(a, m.focusedBean()) {
@@ -294,6 +295,8 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 			// (box_form_settings.go) -- same open-form shape as edit_title,
 			// no mutTarget (settings are repo-independent).
 			return m.openSettingsForm()
+		case "open_docs":
+			return m.openDocs()
 		}
 	}
 	return m, nil

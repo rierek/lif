@@ -184,7 +184,7 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 			t.Fatalf("paletteActions leaked node action %q with no focused bean", it.actionID)
 		}
 	}
-	wantGlobal := []string{"create", "go_ready", "go_browse", "filter", "search", "reload", "repo_picker", "register_project", "go_tags", "settings"}
+	wantGlobal := []string{"create", "go_ready", "go_browse", "filter", "search", "reload", "repo_picker", "register_project", "go_tags", "settings", "open_docs"}
 	if len(items) != len(wantGlobal) {
 		t.Fatalf("len(items) = %d, want %d (%v)", len(items), len(wantGlobal), wantGlobal)
 	}

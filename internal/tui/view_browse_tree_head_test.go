@@ -167,55 +167,13 @@ func TestClickBelowAWrappedBeanSelectsTheRightBean(t *testing.T) {
 	}
 }
 
-func TestClickOnColumnHeaderIsNoOp(t *testing.T) {
+func TestClickOnSearchHeadIsNoOp(t *testing.T) {
 	m := longTitleModel(t)
 	m.cursorID = "ep-1"
-	msg := treeClickAt(t, m, "S T ID")
+	msg := treeClickAt(t, m, "─ Search ")
 	tm, _ := m.handleMouse(msg)
 	if got := tm.(model).cursorID; got != "ep-1" {
-		t.Errorf("a click on the column header moved the cursor to %q — it is not a bean target", got)
-	}
-}
-
-// --- #12: column header ---
-
-func TestTreeColumnHeaderNarrowUsesKeyLetters(t *testing.T) {
-	got := ansi.Strip(treeColumnHeader(30))
-	if !strings.Contains(got, "S") || !strings.Contains(got, "Title") {
-		t.Errorf("narrow header must abbreviate to the key letters and keep Title: %q", got)
-	}
-	if strings.Contains(got, "Status") {
-		t.Errorf("narrow header must NOT spell Status out (PO: auf die Keybindings kuerzen): %q", got)
-	}
-}
-
-func TestTreeColumnHeaderWideSpellsOut(t *testing.T) {
-	got := ansi.Strip(treeColumnHeader(90))
-	if !strings.Contains(got, "Status") || !strings.Contains(got, "Title") {
-		t.Errorf("wide header must spell the labels out (PO: Header ausschreiben): %q", got)
-	}
-}
-
-func TestTreeColumnHeaderNeverExceedsWidth(t *testing.T) {
-	for _, w := range []int{4, 10, 17, 30, 47, 48, 90} {
-		if got := lipgloss.Width(treeColumnHeader(w)); got > w {
-			t.Errorf("treeColumnHeader(%d) is %d cells wide", w, got)
-		}
-	}
-}
-
-func TestTreeColumnHeaderIsRenderedInTheSplit(t *testing.T) {
-	m := longTitleModel(t)
-	lines := screenLines(m)
-	found := false
-	for _, l := range lines {
-		if strings.Contains(l, "S T ID") && strings.Contains(l, "Title") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("the Tree pane renders no column header (PO-Befund #12)")
+		t.Errorf("a click on the search head moved the cursor to %q — it is not a bean target", got)
 	}
 }
 

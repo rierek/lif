@@ -538,11 +538,19 @@ func (m model) treeRows(nodes []treeNode, focused bool, bodyH, width int) []stri
 // down is width-1.
 func (m model) treeBlocks(nodes []treeNode, focused bool, width int) [][]string {
 	pos := m.cursorPos(nodes)
-	slug := m.beanIDPrefix()
-	blocks := make([][]string, len(nodes))
-	for i, n := range nodes {
-		lines := treeRowLines(n, slug, width-1)
-		blocks[i] = decorateRowBlock(lines, i == pos, focused)
+	var blocks [][]string
+	if m.layout.hasDetail() {
+		// Split view: the narrow list pane keeps one compact line per row.
+		slug := m.beanIDPrefix()
+		blocks = make([][]string, len(nodes))
+		for i, n := range nodes {
+			blocks[i] = treeRowLines(n, slug, width-1)
+		}
+	} else {
+		blocks = m.roadmapBlocks(nodes, width-1)
+	}
+	for i := range blocks {
+		blocks[i] = decorateRowBlock(blocks[i], i == pos, focused)
 	}
 	return blocks
 }
@@ -848,37 +856,9 @@ func (m model) searchHeadBox(width int) []string {
 	return []string{boxTopBorder("Search", width, frame), mid, boxBottomBorder("/", width, frame)}
 }
 
-// treeHeaderWideMin is the pane width from which the column header spells its
-// labels out instead of abbreviating them to the single letters (bean bt-f68z,
-// PO-Befund #12: "Master-Detail (schmal): Header auf die Keybindings kuerzen.
-// full-width list layouts (v): Header ausschreiben. Also breitenabhaengig, nicht zwei
-// getrennte Implementierungen"). The split's left pane is ~30 cells even on a
-// wide terminal (masterDetailWidths' 1fr:2fr, view.go), the full-width list pane is
-// the full inner width -- 48 separates the two cleanly at every terminal size
-// the app supports, without a second code path.
-const treeHeaderWideMin = 48
-
-// treeColumnHeader renders the Tree/flat pane's column legend (bean bt-f68z,
-// PO-Befund #12). One implementation, two label sets chosen by width.
-//
-// The NARROW form is column-aligned with the rows below it: one leading cell
-// for the cursor column, two for the expand marker, then the 1-cell status and
-// type glyph columns, the 4-cell short bean ID and the title. The WIDE form
-// deliberately drops that alignment for the two glyph columns -- they are ONE
-// cell wide by construction, so "Status" and "Type" cannot sit above them; it
-// reads as a spelled-out legend instead, which is what "ausschreiben" asks
-// for and what the extra full-width layout makes room for.
-func treeColumnHeader(width int) string {
-	label := "   S T ID   Title"
-	if width >= treeHeaderWideMin {
-		label = "   Status Type ID   Title"
-	}
-	return lipgloss.NewStyle().Foreground(theme.Subtext).Render(truncate(label, width))
-}
-
 // treePaneHeadRows builds the rows that precede the bean rows in the Browse
-// left pane: the boxed search head (3 lines, bean bt-f68z #11) followed by
-// the column header (#12).
+// left pane: the boxed search head (3 lines, bean bt-f68z #11). The list has
+// no column header (U4: the rows carry their own type, status and ID).
 //
 // This is the ONE place that decides how tall that head is. viewBrowseRepo
 // trades its length out of the row budget and treeClickRow/flatClickRow offset
@@ -886,8 +866,7 @@ func treeColumnHeader(width int) string {
 // the render from the mouse (the failure bt-vpvu was filed for: the filter bar
 // was reclaimed from bodyH by the renderer but not by the hit-test).
 func (m model) treePaneHeadRows(width int) []string {
-	out := m.searchHeadBox(width)
-	return append(out, treeColumnHeader(width))
+	return m.searchHeadBox(width)
 }
 
 // repoLabel is the breadcrumb `> repo` segment: the repo directory's base

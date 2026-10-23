@@ -241,6 +241,42 @@ func renderTable(rows []Row, title string, width int, showTags bool, cfg *config
 }
 
 func renderTree(rows []Row, title string, width int, showTags bool, cfg *config.Config) string {
+	blocks, c := treeLayout(rows, width, showTags, cfg)
+
+	var sb strings.Builder
+	sb.WriteString(lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true).Render(title))
+	sb.WriteString("\n")
+	sb.WriteString(TreeLine.Render(strings.Repeat("─", width)))
+	sb.WriteString("\n")
+
+	for i, r := range rows {
+		if r.Section != "" {
+			sb.WriteString("\n" + Muted.Render(r.Section) + "\n")
+		}
+		for _, l := range blocks[i] {
+			sb.WriteString(l + "\n")
+		}
+	}
+
+	for _, l := range c.Legend(cfg) {
+		sb.WriteString(l + "\n")
+	}
+	return sb.String()
+}
+
+// TreeBlocks lays out rows exactly as the tree form of Render does and returns
+// the lines of each row, index-aligned with rows: no title, rule, section
+// heading or legend. An item can use several lines (wrapped title), so a
+// caller that needs a cursor or a hit test works on whole blocks. This is the
+// one row renderer of lif roadmap and the TUI list.
+func TreeBlocks(rows []Row, width int, showTags bool, cfg *config.Config) [][]string {
+	blocks, _ := treeLayout(rows, width, showTags, cfg)
+	return blocks
+}
+
+// treeLayout renders every row of the tree form into its block of lines and
+// returns the column layout it used (renderTree needs it for the legend).
+func treeLayout(rows []Row, width int, showTags bool, cfg *config.Config) ([][]string, Columns) {
 	c := NewColumns(rows, width, showTags, cfg)
 
 	leadWidth := c.Indent + c.Type + c.Gap
@@ -267,23 +303,22 @@ func renderTree(rows []Row, title string, width int, showTags bool, cfg *config.
 	tmp.Rebalance(rows)
 	body, c.Tags = tmp.Title, tmp.Tags
 
-	var sb strings.Builder
-	sb.WriteString(lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true).Render(title))
-	sb.WriteString("\n")
-	sb.WriteString(TreeLine.Render(strings.Repeat("─", width)))
-	sb.WriteString("\n")
+	blocks := make([][]string, len(rows))
 
 	gap := strings.Repeat(" ", c.Gap)
-	for _, r := range rows {
-		if r.Section != "" {
-			sb.WriteString("\n" + Muted.Render(r.Section) + "\n")
-		}
+	for i, r := range rows {
 		st := styleFor(r.Item, cfg)
 		conn := r.Connector()
 		word := c.TypeText(r.Item)
 
-		lead := TreeLine.Render(conn) + st.render(word) +
-			strings.Repeat(" ", max(0, leadWidth-DisplayWidth(conn)-DisplayWidth(word)))
+		// Marker takes the last cell before the title column: the title
+		// column and every other column stay where the CLI puts them.
+		pad := max(0, leadWidth-DisplayWidth(conn)-DisplayWidth(word))
+		padding := strings.Repeat(" ", pad)
+		if r.Marker != "" && pad >= 1 {
+			padding = strings.Repeat(" ", pad-1) + TreeLine.Render(r.Marker)
+		}
+		lead := TreeLine.Render(conn) + st.render(word) + padding
 
 		parts := WrapText(r.Item.Title, body)
 		// The ID is padded to c.ID, the width rightWidth() already charges
@@ -303,17 +338,14 @@ func renderTree(rows []Row, title string, width int, showTags bool, cfg *config.
 				line += gap + tc
 			}
 		}
-		sb.WriteString(strings.TrimRight(line, " ") + "\n")
+		lines := []string{strings.TrimRight(line, " ")}
 
 		stem := r.Stem()
 		hang := TreeLine.Render(stem) + strings.Repeat(" ", max(0, leadWidth-DisplayWidth(stem)))
 		for _, part := range parts[1:] {
-			sb.WriteString(strings.TrimRight(hang+st.render(part), " ") + "\n")
+			lines = append(lines, strings.TrimRight(hang+st.render(part), " "))
 		}
+		blocks[i] = lines
 	}
-
-	for _, l := range c.Legend(cfg) {
-		sb.WriteString(l + "\n")
-	}
-	return sb.String()
+	return blocks, c
 }

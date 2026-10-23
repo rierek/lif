@@ -539,3 +539,56 @@ func TestTreeIDColumnIsPaddedLikeTheTable(t *testing.T) {
 		t.Errorf("tag column starts at cell %d and %d: the ID cell is not padded\n%s", cols[0], cols[1], out)
 	}
 }
+
+// TreeBlocks is the row renderer of the tree form: Render's rows are exactly
+// its blocks, between the title/rule head and the legend.
+func TestTreeBlocksAreTheRowsOfTheTreeForm(t *testing.T) {
+	cfg := config.Default()
+	rows := demoRows()
+	blocks := TreeBlocks(rows, 80, false, cfg)
+	if len(blocks) != len(rows) {
+		t.Fatalf("got %d blocks for %d rows", len(blocks), len(rows))
+	}
+	var want []string
+	for _, b := range blocks {
+		want = append(want, b...)
+	}
+	lines := strings.Split(strings.TrimSuffix(Render(rows, FormTree, "Roadmap", 80, false, cfg), "\n"), "\n")
+	got := lines[2 : 2+len(want)] // title and rule come first
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("line %d of Render = %q, TreeBlocks says %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestTreeBlocksWrapIntoMoreLinesPerRow(t *testing.T) {
+	rows := demoRows()
+	rows[0].Item.Title = strings.Repeat("lang ", 30)
+	blocks := TreeBlocks(rows, 60, false, config.Default())
+	if len(blocks[0]) < 2 {
+		t.Errorf("a long title must wrap into a multi-line block, got %q", blocks[0])
+	}
+}
+
+func TestMarkerTakesTheCellsBeforeTheTitleAndMovesNothing(t *testing.T) {
+	cfg := config.Default()
+	plain := TreeBlocks(demoRows(), 80, false, cfg)
+	marked := demoRows()
+	marked[0].Marker, marked[1].Marker = "▾", "▸"
+	titleCol := func(line string) int {
+		return DisplayWidth(line[:strings.Index(line, "0.5")])
+	}
+	for i, b := range TreeBlocks(marked, 80, false, cfg) {
+		got, want := stripANSI(b[0]), stripANSI(plain[i][0])
+		if i < 2 && !strings.Contains(got, marked[i].Marker) {
+			t.Errorf("row %d lacks its marker: %q", i, got)
+		}
+		if DisplayWidth(got) != DisplayWidth(want) {
+			t.Errorf("row %d: marker changed the line width: %q vs %q", i, got, want)
+		}
+	}
+	if got, want := titleCol(stripANSI(TreeBlocks(marked, 80, false, cfg)[0][0])), titleCol(stripANSI(plain[0][0])); got != want {
+		t.Errorf("marker moved the title column from %d to %d", want, got)
+	}
+}

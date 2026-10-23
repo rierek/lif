@@ -160,7 +160,7 @@ func roadmapOutputFixture() *roadmap.Data {
 	}
 }
 
-// TestRoadmapRowsNestItemsUnderTheirEpic asserts roadmapRows' Depth mapping
+// TestRoadmapRowsNestItemsUnderTheirEpic asserts ui.RoadmapRows' Depth mapping
 // directly, on a four-level fixture (milestone -> epic -> feature -> task).
 // TestRoadmapCmdTreeViewRendersConnectors only checks that a "└─" connector
 // appears somewhere in rendered output, which stays green even if nesting
@@ -168,7 +168,7 @@ func roadmapOutputFixture() *roadmap.Data {
 // `childDepth := depth + 1` -> `childDepth := depth` in
 // appendRoadmapEpicGroup/appendRoadmapFeatureGroup flattens feature and task
 // onto depth 1/2 instead of 2/3, and a connector is still drawn. Asserting
-// Depth on roadmapRows' own output is the only thing that catches that.
+// Depth on ui.RoadmapRows' own output is the only thing that catches that.
 func TestRoadmapRowsNestItemsUnderTheirEpic(t *testing.T) {
 	now := time.Now()
 	m := &item.Item{ID: "beans-m1", Type: "milestone", Title: "v1.0", Status: "todo", CreatedAt: &now, Path: "m1--v10.md"}
@@ -186,7 +186,7 @@ func TestRoadmapRowsNestItemsUnderTheirEpic(t *testing.T) {
 		},
 	}
 
-	rows := roadmapRows(data)
+	rows := ui.RoadmapRows(data)
 
 	want := []struct {
 		id    string

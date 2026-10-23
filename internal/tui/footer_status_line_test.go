@@ -151,8 +151,12 @@ func TestTreeClickRowSurvivesStatusLineRemoval(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
-	for _, watchDown := range []bool{false, true} {
-		m := longTreeModel(t)
+	for _, tc := range []struct {
+		watchDown bool
+		layout    layoutMode
+	}{{false, layoutRoadmap}, {true, layoutRoadmap}, {false, layoutFilterDetail}, {true, layoutFilterDetail}} {
+		watchDown := tc.watchDown
+		m := longTreeModel(t).setLayout(tc.layout)
 		m.watchUnavailable = watchDown
 		nodes := m.visibleNodes()
 		lines := frameLines(m)
@@ -161,7 +165,7 @@ func TestTreeClickRowSurvivesStatusLineRemoval(t *testing.T) {
 		// Detail pane repeats the selected bean's ID in its header, which
 		// would otherwise match on the wrong screen row.
 		head, localKeys := m.browseRepoChrome(m.width - 2)
-		_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
+		_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, m.layout)
 
 		checked := 0
 		for want, n := range nodes {

@@ -75,6 +75,8 @@ In the tag picker `n` is ordinary text; create a tag by typing a new name and pr
 
 In the lobby, `↑`/`↓` move; every other key edits the filter. In the palette, `↑`/`↓` select, `enter` runs, `esc` closes.
 
+The palette entry `open: documentation` opens this reference (`https://rierek.github.io/lif/reference/tui/views/`) in the default browser and shows the URL in a toast. If no opener exists, an error toast shows the URL instead.
+
 ## Outside the TUI
 
 The zsh widget `extras/zsh/lif-pick.zsh` binds `Alt+i` (`^[i`) to [`lif pick`](../../commands/lif-pick/). It is not part of the TUI. Load it by sourcing the file from your `.zshrc`; that was not measured here.

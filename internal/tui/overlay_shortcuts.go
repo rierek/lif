@@ -1,19 +1,10 @@
 package tui
 
-// overlay_shortcuts.go — the `?` Help-Overlay (E5 Task 2, bean bt-wpn9, Port
-// devd overlay_shortcuts.go, ~/dev/DeveloperDashboard/apps/
-// cli-go/internal/tui/overlay_shortcuts.go): a floating, modalPanel-based
-// full-screen-ish overview rendered from keys.helpGroups() (keymap.go,
-// Single-Source, already Drift-Guarded since E1 Task 7's
-// TestHelpGroupsCoverEveryBindingExactlyOnce) -- the key labels/descriptions
-// come straight from key.Binding.Help(), so this view can never drift from
-// the real bindings the way a hand-maintained parallel doc could.
-//
-// devd also carries a shortcutMarkdown() sibling (external docs/shortcuts.md
-// generator, DD2-5) -- OUT OF SCOPE here: beans-tui has no external shortcut
-// doc to keep in sync (design-spec.md never asks for one), only the in-app
-// overlay itself. Port only what's asked for (YAGNI), same discipline as
-// keymap.go's own doc comment on the E1 Task 7 scope cut.
+// overlay_shortcuts.go — the `?` Help-Overlay: a floating, modalPanel-based
+// overview rendered from keys.helpGroups() (keymap.go, Single-Source,
+// Drift-Guarded by TestHelpGroupsCoverEveryBindingExactlyOnce) -- labels and
+// descriptions come straight from key.Binding.Help(), so it can never drift
+// from the real bindings.
 
 import (
 	"fmt"
@@ -177,15 +168,9 @@ func (m model) scrollHelp(delta int) model {
 	return m
 }
 
-// keyHelp handles input while the Help-Overlay is open (full capture, same
-// precedent as keyFilterMenu/keyPalette/keyForm/keyOverlay): nothing leaks
-// through to keyNodeAction/openPalette/the quit-confirm switch underneath.
-//
-// Search: `/` focuses the search field; while it has focus every printable
-// key is text (so q, ? and i/k do not close or scroll), enter keeps the term
-// and leaves the field, esc clears the term and leaves the field. Without
-// focus: a second esc (or ?/q) closes; ↑/↓/i/k/pgup/pgdn scroll. ↑/↓/pgup/
-// pgdn scroll in both states.
+// keyHelp handles input while the Help-Overlay is open (full capture). `/`
+// focuses search (printable keys are text, enter keeps the term, esc clears
+// it); otherwise esc/?/q closes and ↑/↓/i/k/pgup/pgdn scroll.
 func (m model) keyHelp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEsc:

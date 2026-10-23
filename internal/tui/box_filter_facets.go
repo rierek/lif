@@ -1,16 +1,9 @@
 package tui
 
 // box_filter_facets.go — the ONE shared facet filter for Tree, flat AND Ready
-// (E2 Task 5, bean bt-gzu6, reuses everything here unchanged). design-spec.md
-// §6 US-05: "Filter wirkt auf Tree UND Ready". The facet predicate, the facet
-// state helpers, and the value menu a focused filter field opens (the bar
-// itself is box_filter_bar.go, the focus jump layout.go). Port pattern: devd
-// view_browse_ready.go:89-136 (buildReadyFilterItems shape) --
-// consolidated into ONE implementation instead of devd's two parallel ones
-// (Tree-filter vs. Ready-filter), since beans-tui's filter state already
-// lives model-wide, not per-view. No "Art" facet (devd's Milestone/Sprint/
-// Issue split) -- beans' Type enum (milestone/epic/feature/task/bug) already
-// covers that distinction, so Status/Type/Priority/Tag is the complete set.
+// (design-spec.md §6 US-05): the facet predicate, the facet state helpers,
+// and the value menu a focused filter field opens (the bar itself is
+// box_filter_bar.go, the focus jump layout.go).
 
 import (
 	"fmt"
@@ -43,21 +36,10 @@ var facetHead = map[string]string{
 	"archive":  "Archive",
 }
 
-// buildFilterItems assembles the menu row list: fixed Status/Type/Priority
-// facets (the beans enums, design-spec.md §4 -- 5 values each) plus the
-// dynamic Tag facet collected from the currently loaded beans.
-//
-// Enum single source (design decision b, E3 Task 1, bean bt-dlgk): the
-// former 15 hardcoded rows are now three loops over data.StatusValues()/
-// TypeValues()/PriorityValues() -- the SAME canonical tier order
-// data/index.go's statusOrder/typeOrder/priorityOrder derive from, so the
-// menu still reads top-to-bottom in "most urgent first" order, and this menu
-// can never drift out of sync with box_menu_value.go's combined value menu
-// (E3), which consumes the exact same accessors. Type labels are lowercase
-// now (previously "Milestone"/"Epic"/... capitalized) -- a deliberate
-// consistency fix with status/priority's already-lowercase labels; no golden
-// test covers the filter box (box_filter_facets_test.go only asserts facet
-// counts/values, not label casing).
+// buildFilterItems assembles the menu row list: Status/Type/Priority facets
+// from data.StatusValues()/TypeValues()/PriorityValues() (the canonical tier
+// order, shared with box_menu_value.go's value menu) plus the dynamic Tag
+// facet collected from the currently loaded beans.
 func (m model) buildFilterItems() []ffItem {
 	var items []ffItem
 	for _, v := range data.StatusValues() {

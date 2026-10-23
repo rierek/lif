@@ -47,6 +47,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
+	"github.com/rierek/lif/internal/ui"
 )
 
 // readySortModes is the canonical 4-stop Sort-Toggle `S` cycle (bean
@@ -209,12 +210,32 @@ func (m model) readyRows(vis []*item.Item, focused bool, bodyH, width int) []str
 // readyClickRow below (bean bt-f68z -- rows are no longer 1:1 with beans).
 func (m model) readyBlocks(vis []*item.Item, focused bool, width int) [][]string {
 	pos := m.readyList.cursor
-	slug := m.beanIDPrefix()
-	blocks := make([][]string, len(vis))
-	for i, b := range vis {
-		blocks[i] = decorateRowBlock(readyRowLines(b, slug, width-1), i == pos, focused)
+	blocks := m.flatListBlocks(vis, width-1)
+	for i := range blocks {
+		blocks[i] = decorateRowBlock(blocks[i], i == pos, focused)
 	}
 	return blocks
+}
+
+// flatListBlocks renders the beans of a flat list (Ready, Browse-Flat) as one
+// line block each, width being the budget WITHOUT the cursor column. Beside
+// the detail pane the rows stay compact (glyphs, readyRowLines); without it
+// they go through the roadmap's row renderer (ui.TreeBlocks) minus the tree
+// lines, so status word, type word and priority show as in lif roadmap.
+func (m model) flatListBlocks(vis []*item.Item, width int) [][]string {
+	if m.layout.hasDetail() {
+		slug := m.beanIDPrefix()
+		blocks := make([][]string, len(vis))
+		for i, b := range vis {
+			blocks[i] = readyRowLines(b, slug, width)
+		}
+		return blocks
+	}
+	flat := make([]ui.FlatItem, len(vis))
+	for i, b := range vis {
+		flat[i] = ui.FlatItem{Item: b, IsLast: true}
+	}
+	return ui.TreeBlocks(ui.RowsFromFlatItems(flat), width, false, data.ActiveConfig())
 }
 
 // renderReadyDetailPane renders the Detail box-form for the Ready's

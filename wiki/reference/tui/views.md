@@ -35,11 +35,11 @@ Screenshot follows.
 
 ## Flat view
 
-`L` shows the flat list; `M` returns to the Roadmap (nested), and so does `esc` once no search or filter is active. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way.
+`L` shows the flat list; `M` returns to the Roadmap (nested), and so does `esc` once no search or filter is active. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way. Rows look like the roadmap rows without tree lines: type word, title, status word, priority, ID. Beside the detail pane they stay compact (one glyph row per item).
 
 ## Ready view
 
-`R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
+`R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
 Screenshot follows.
 

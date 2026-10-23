@@ -232,7 +232,7 @@ func TestRoadmapOutputFormatAutoPreservesDetection(t *testing.T) {
 	cfg := config.Default()
 
 	if got, want := roadmapOutput(data, true, roadmapFormatAuto, 80, true, "", false, ui.FormTree, cfg),
-		ui.Render(roadmapRows(data), ui.FormTree, "Roadmap", 80, false, cfg); got != want {
+		ui.Render(ui.RoadmapRows(data), ui.FormTree, "Roadmap", 80, false, cfg); got != want {
 		t.Errorf("roadmapFormatAuto with isTTY=true diverged from ui.Render:\ngot:  %q\nwant: %q", got, want)
 	}
 	if got, want := roadmapOutput(data, false, roadmapFormatAuto, 0, true, "", false, ui.FormTree, cfg),
@@ -270,9 +270,9 @@ func TestRoadmapCmdRejectsInvalidFormat(t *testing.T) {
 }
 
 // -- TTY branch through the shared layout engine (beans-dbph Step B):
-// roadmapOutput's TTY branch now calls ui.Render(roadmapRows(data), ...)
+// roadmapOutput's TTY branch now calls ui.Render(ui.RoadmapRows(data), ...)
 // instead of a bespoke roadmap-only renderer. These guard the bridge itself
-// (roadmapRows) and the two ui.Form outcomes it feeds.
+// (ui.RoadmapRows) and the two ui.Form outcomes it feeds.
 
 func TestRoadmapCmdTreeViewRendersConnectors(t *testing.T) {
 	data := roadmapOutputFixture()

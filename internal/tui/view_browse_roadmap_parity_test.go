@@ -39,7 +39,7 @@ func cliRoadmapLines(items []*item.Item, width int) []string {
 
 // roadmapPaneLines are the list pane's content lines of the rendered screen in
 // a layout without a detail pane: frames and cursor column removed, expand
-// markers blanked (the CLI has none).
+// markers blanked (the CLI has none; the marker cells stay blank).
 func roadmapPaneLines(m model) []string {
 	var out []string
 	for _, l := range screenLines(m) {
@@ -79,7 +79,12 @@ func hasLines(got, want []string) bool {
 func TestRoadmapLayoutRendersTheRowsOfLifRoadmap(t *testing.T) {
 	m := longTitleModel(t)
 	m = m.setLayout(layoutRoadmap)
-	want := cliRoadmapLines(longTitleBeans(), listPaneWidth(m)-1)
+	// The TUI list spends two more cells on the marker column, left of the
+	// tree lines; blanked, it is two leading spaces on every line of lif roadmap.
+	want := cliRoadmapLines(longTitleBeans(), listPaneWidth(m)-3)
+	for i := range want {
+		want[i] = "  " + want[i]
+	}
 	if len(want) < 6 {
 		t.Fatalf("fixture too small for a parity check: %q", want)
 	}

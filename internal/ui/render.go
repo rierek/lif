@@ -241,7 +241,7 @@ func renderTable(rows []Row, title string, width int, showTags bool, cfg *config
 }
 
 func renderTree(rows []Row, title string, width int, showTags bool, cfg *config.Config) string {
-	blocks, c := treeLayout(rows, rows, width, showTags, cfg)
+	blocks, c := treeLayout(rows, rows, 0, width, showTags, cfg)
 
 	var sb strings.Builder
 	sb.WriteString(lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true).Render(title))
@@ -270,24 +270,30 @@ func renderTree(rows []Row, title string, width int, showTags bool, cfg *config.
 // caller that needs a cursor or a hit test works on whole blocks. This is the
 // one row renderer of lif roadmap and the TUI list.
 func TreeBlocks(rows []Row, width int, showTags bool, cfg *config.Config) [][]string {
-	blocks, _ := treeLayout(rows, rows, width, showTags, cfg)
+	blocks, _ := treeLayout(rows, rows, 0, width, showTags, cfg)
 	return blocks
 }
 
-// TreeBlocksMeasured is TreeBlocks with the column widths measured over
-// measure instead of rows. An interactive list passes every row it could show,
-// so the columns do not move when a node opens or closes. rows are laid out
-// with the columns measure yields; measure must include them.
+// markerWidth is the marker column of an interactive list: the glyph and a gap.
+const markerWidth = 2
+
+// TreeBlocksMeasured is TreeBlocks for an interactive list. The column widths
+// are measured over measure instead of rows: a list passes every row it could
+// show, so the columns do not move when a node opens or closes. Every line
+// also starts with markerWidth cells for Row.Marker and a gap (blank without
+// a marker), left of the tree lines, so a marker never moves a tree line or a
+// column. rows must be a subset of measure.
 func TreeBlocksMeasured(rows, measure []Row, width int, showTags bool, cfg *config.Config) [][]string {
-	blocks, _ := treeLayout(rows, measure, width, showTags, cfg)
+	blocks, _ := treeLayout(rows, measure, markerWidth, width, showTags, cfg)
 	return blocks
 }
 
 // treeLayout renders every row of the tree form into its block of lines and
 // returns the column layout it used (renderTree needs it for the legend).
-// Column widths come from measure.
-func treeLayout(rows, measure []Row, width int, showTags bool, cfg *config.Config) ([][]string, Columns) {
-	c := NewColumns(measure, width, showTags, cfg)
+// Column widths come from measure. markerCells is the width of the leading
+// marker column (0, or markerWidth for the interactive list), taken from width.
+func treeLayout(rows, measure []Row, markerCells, width int, showTags bool, cfg *config.Config) ([][]string, Columns) {
+	c := NewColumns(measure, width-markerCells, showTags, cfg)
 
 	leadWidth := c.Indent + c.Type + c.Gap
 	rightWidth := func(tags int) int {
@@ -306,7 +312,7 @@ func treeLayout(rows, measure []Row, width int, showTags bool, cfg *config.Confi
 	// amounts for the same width. Below it the title cannot hold even a
 	// truncation ellipsis meaningfully; this is the one place this layout
 	// accepts overflow rather than guarding against it.
-	body := clampToMinRenderableTitle(width - leadWidth - rightWidth(c.Tags))
+	body := clampToMinRenderableTitle(width - markerCells - leadWidth - rightWidth(c.Tags))
 
 	// Same redistribution as the table: unclaimed title width goes to the tags.
 	tmp := Columns{Title: body, Tags: c.Tags, Gap: c.Gap}
@@ -321,14 +327,14 @@ func treeLayout(rows, measure []Row, width int, showTags bool, cfg *config.Confi
 		conn := r.Connector()
 		word := c.TypeText(r.Item)
 
-		// Marker takes the last cell before the title column: the title
-		// column and every other column stay where the CLI puts them.
-		pad := max(0, leadWidth-DisplayWidth(conn)-DisplayWidth(word))
-		padding := strings.Repeat(" ", pad)
-		if r.Marker != "" && pad >= 1 {
-			padding = strings.Repeat(" ", pad-1) + TreeLine.Render(r.Marker)
+		// The marker cell sits left of the tree lines; the lead keeps its
+		// CLI width, so every other column stays where the CLI puts it.
+		markerCell := strings.Repeat(" ", markerCells)
+		if markerCells > 0 && r.Marker != "" {
+			markerCell = TreeLine.Render(r.Marker) + strings.Repeat(" ", markerCells-1)
 		}
-		lead := TreeLine.Render(conn) + st.render(word) + padding
+		padding := strings.Repeat(" ", max(0, leadWidth-DisplayWidth(conn)-DisplayWidth(word)))
+		lead := markerCell + TreeLine.Render(conn) + st.render(word) + padding
 
 		parts := WrapText(r.Item.Title, body)
 		// The ID is padded to c.ID, the width rightWidth() already charges
@@ -351,7 +357,7 @@ func treeLayout(rows, measure []Row, width int, showTags bool, cfg *config.Confi
 		lines := []string{strings.TrimRight(line, " ")}
 
 		stem := r.Stem()
-		hang := TreeLine.Render(stem) + strings.Repeat(" ", max(0, leadWidth-DisplayWidth(stem)))
+		hang := strings.Repeat(" ", markerCells) + TreeLine.Render(stem) + strings.Repeat(" ", max(0, leadWidth-DisplayWidth(stem)))
 		for _, part := range parts[1:] {
 			lines = append(lines, strings.TrimRight(hang+st.render(part), " "))
 		}

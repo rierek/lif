@@ -36,8 +36,8 @@ type Row struct {
 	Section  string
 	Progress *Progress
 	// Marker, when set, is the one-cell expand/collapse glyph of an
-	// interactive list; the tree form draws it in the cell before the
-	// title column. lif roadmap leaves it empty.
+	// interactive list (TreeBlocksMeasured); the tree form draws it in the
+	// first cell of the line, left of the tree lines. lif roadmap leaves it empty.
 	Marker string
 }
 

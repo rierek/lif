@@ -107,7 +107,7 @@ func rebuildStyles() {
 	Header = lipgloss.NewStyle().Bold(true).Foreground(Mauve)
 	HeaderInactive = lipgloss.NewStyle().Foreground(Teal)
 	Key = lipgloss.NewStyle().Foreground(Sapphire)
-	Accent = lipgloss.NewStyle().Foreground(Mauve)
+	Accent = lipgloss.NewStyle().Foreground(Lavender) // no default type carries Lavender; Mauve is the milestone colour (beans-70ba)
 	BindingKey = lipgloss.NewStyle().Foreground(Teal)
 	BindingDesc = lipgloss.NewStyle().Foreground(Subtext)
 	Dim = lipgloss.NewStyle().Foreground(Overlay)
@@ -122,7 +122,7 @@ var accentHexRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // SetAccent überschreibt den Akzentstil (Cursor/Header) mit einer User-Farbe
 // (Settings.Theme.Accent, config.yaml, E5 Task 5). Ein leerer ODER
-// ungültiger Hex (nicht #rrggbb) ist ein No-Op — der eingebaute Mauve-Akzent
+// ungültiger Hex (nicht #rrggbb) ist ein No-Op — der eingebaute Lavender-Akzent
 // bleibt (Golden-Risiko: die 7 Golden-Snapshots rendern gegen den Default und
 // müssen byte-identisch bleiben, wenn config.yaml nie angefasst wurde bzw.
 // Settings.Theme.Accent auf seinem Zero-Value "" steht). Globale

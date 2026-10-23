@@ -971,6 +971,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.String() == "ctrl+c" {
 		return m, tea.Quit
 	}
+	// A buffered fold prefix lives for exactly one key press, whatever that key does.
+	foldPending := m.foldPrefix
+	m.foldPrefix = false
 	if m.confirmQuit {
 		return m.keyConfirmQuit(msg)
 	}
@@ -1066,6 +1069,21 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// existing precedent this file already establishes end to end.
 	if m.helpOpen {
 		return m.keyHelp(msg)
+	}
+	// Roadmap fold keys (zo/zc/zR/zM): intercepted AHEAD of every bare key
+	// below, whose letters (c, R, M, ...) would otherwise swallow the second
+	// key of the sequence.
+	if m.view == viewBrowseRepo && !m.flatView && !m.detailFocus && !m.filterFocus {
+		switch s := msg.String(); {
+		case foldPending:
+			return m.keyFold(foldPrefixKey + s), nil
+		case s == foldPrefixKey:
+			m.foldPrefix = true
+			return m, nil
+		case len(s) == 2 && s[:1] == foldPrefixKey && msg.Type == tea.KeyRunes:
+			// both keys arrived in one terminal read (fast typing, paste): bubbletea delivers them as one KeyRunes message
+			return m.keyFold(s), nil
+		}
 	}
 	// E4 Task 1 (design decision h): ctrl+k/K opens the palette from ANY
 	// view (design-spec §7: "von überall").
@@ -1314,6 +1332,18 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	pos := m.cursorPos(nodes)
 
+	switch {
+	case keybind.Matches(msg, keys.NextSibling), keybind.Matches(msg, keys.PrevSibling):
+		dir := 1
+		if keybind.Matches(msg, keys.PrevSibling) {
+			dir = -1
+		}
+		if i := siblingPos(nodes, pos, dir); i >= 0 {
+			m.cursorID = nodes[i].id
+		}
+		return m, nil
+	}
+
 	switch navKey(msg.String()) {
 	case "up":
 		// E5 Task 4 (bean bt-mne6): factored into treeCursorMove
@@ -1444,6 +1474,88 @@ func (m model) setExpanded(n treeNode, open bool) model {
 		m.expanded[n.id] = true
 	} else {
 		delete(m.expanded, n.id)
+	}
+	return m
+}
+
+// foldPrefixKey starts the roadmap fold sequences (zo/zc/zR/zM, keys.ExpandNode ...).
+const foldPrefixKey = "z"
+
+// siblingPos returns the index of the previous (dir<0) or next (dir>0) visible
+// sibling of nodes[pos]: same depth under the same parent, expanded children
+// skipped. -1 at the edge, where the cursor stays.
+func siblingPos(nodes []treeNode, pos, dir int) int {
+	d := nodes[pos].depth
+	for i := pos + dir; i >= 0 && i < len(nodes); i += dir {
+		if nodes[i].depth < d {
+			return -1 // left the parent: no further sibling
+		}
+		if nodes[i].depth == d && !nodes[i].placeholder {
+			return i
+		}
+	}
+	return -1
+}
+
+// foldTargets returns every node with children that is id or lies below id in
+// the tree ("" = every node), the set zo/zc/zR/zM expand or collapse.
+func (m model) foldTargets(id string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, p := range m.treeParent {
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		for x, n := p, 0; x != "" && n <= len(m.treeParent); x, n = m.treeParent[x], n+1 {
+			if id == "" || x == id {
+				out = append(out, p)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// keyFold runs a completed fold sequence on the roadmap tree. A collapse can
+// hide the cursor row; it then moves to the nearest visible ancestor.
+func (m model) keyFold(seq string) model {
+	nodes := m.visibleNodes()
+	if len(nodes) == 0 {
+		return m
+	}
+	var id string
+	open := true
+	switch {
+	case bindHas(keys.ExpandAll, seq):
+	case bindHas(keys.CollapseAll, seq):
+		open = false
+	case bindHas(keys.ExpandNode, seq), bindHas(keys.CollapseNode, seq):
+		n := nodes[m.cursorPos(nodes)]
+		if n.placeholder {
+			return m
+		}
+		id, open = n.id, bindHas(keys.ExpandNode, seq)
+	default:
+		return m
+	}
+	m.expanded = cloneBoolMap(m.expanded)
+	for _, t := range m.foldTargets(id) {
+		if open {
+			m.expanded[t] = true
+		} else {
+			delete(m.expanded, t)
+		}
+	}
+	visible := map[string]bool{}
+	for _, n := range m.visibleNodes() {
+		visible[n.id] = true
+	}
+	for x, n := m.cursorID, 0; x != "" && n <= len(m.treeParent); x, n = m.treeParent[x], n+1 {
+		if visible[x] {
+			m.cursorID = x
+			break
+		}
 	}
 	return m
 }

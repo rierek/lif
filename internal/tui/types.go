@@ -139,8 +139,9 @@ type model struct {
 	treeParent                           map[string]string
 	readyIDs                             map[string]bool
 
-	expanded map[string]bool // node ID (item ID or a synthetic root ID) -> expanded
-	cursorID string          // currently selected node's ID (item ID or a synthetic root ID)
+	expanded   map[string]bool // node ID (item ID or a synthetic root ID) -> expanded
+	cursorID   string          // currently selected node's ID (item ID or a synthetic root ID)
+	foldPrefix bool            // "z" was just pressed in the roadmap: the next key completes a fold sequence (update.go handleKey)
 
 	// detailFocus: the Detail pane holds the focus, one stop of the focus
 	// ring (stepFocus, layout.go); tab/shift+tab are deliberately NOT routed

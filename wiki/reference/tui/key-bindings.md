@@ -16,6 +16,8 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `←` / `j` | Back or out (collapse) |
 | `→` / `l` | In (expand) |
 | `[` / `]` | Previous or next item of the same level under the same parent (epic to epic, milestone to milestone); open children are skipped, the cursor stays at the first or last item. Roadmap only |
+| `zo` / `zc` | Open or close the cursor item with all its children. Roadmap only. `z` waits for the second key; any other second key cancels |
+| `zR` / `zM` | Open or close every item. `zM` returns to the start state: only milestones and the roots show. Roadmap only |
 | `tab` / `shift+tab` | Move focus to the next or previous target of the layout's focus ring and wrap at the ends (see Views, Focus ring). Never changes the layout; does nothing in layout Roadmap. The footer lists them only when the ring has two or more targets, and `/` only while the list has focus |
 | `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |

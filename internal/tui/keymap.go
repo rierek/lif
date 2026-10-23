@@ -34,10 +34,16 @@ type keyMap struct {
 	Left  keybind.Binding
 	Right keybind.Binding
 
-	// Roadmap tree only (flat list and Ready ignore them): jump to the
-	// previous / next sibling (same parent, same depth).
-	PrevSibling keybind.Binding // [ — previous sibling
-	NextSibling keybind.Binding // ] — next sibling
+	// Roadmap tree only (flat list and Ready ignore them). "[" / "]" jump to
+	// the previous / next sibling (same parent, same depth). The fold keys
+	// are two-key sequences with the vim prefix "z" (foldPrefixKey): the
+	// bindings hold the whole sequence, handleKey buffers the prefix.
+	PrevSibling  keybind.Binding // [ — previous sibling
+	NextSibling  keybind.Binding // ] — next sibling
+	ExpandNode   keybind.Binding // zo — expand the cursor node and all its descendants
+	CollapseNode keybind.Binding // zc — collapse the cursor node and all its descendants
+	ExpandAll    keybind.Binding // zR — expand every node
+	CollapseAll  keybind.Binding // zM — collapse every node (start state)
 
 	// Focus-ring pair: tab and shift+tab step the focus to the next and
 	// previous target of the active layout's ring (stepFocus, layout.go),
@@ -160,8 +166,12 @@ func newKeyMap() keyMap {
 		Left:  keybind.NewBinding(keybind.WithKeys("left", "j"), keybind.WithHelp("←/j", "back/out")),
 		Right: keybind.NewBinding(keybind.WithKeys("right", "l"), keybind.WithHelp("→/l", "in/expand")),
 
-		PrevSibling: keybind.NewBinding(keybind.WithKeys("["), keybind.WithHelp("[", "previous sibling")),
-		NextSibling: keybind.NewBinding(keybind.WithKeys("]"), keybind.WithHelp("]", "next sibling")),
+		PrevSibling:  keybind.NewBinding(keybind.WithKeys("["), keybind.WithHelp("[", "previous sibling")),
+		NextSibling:  keybind.NewBinding(keybind.WithKeys("]"), keybind.WithHelp("]", "next sibling")),
+		ExpandNode:   keybind.NewBinding(keybind.WithKeys("zo"), keybind.WithHelp("zo", "expand node and children")),
+		CollapseNode: keybind.NewBinding(keybind.WithKeys("zc"), keybind.WithHelp("zc", "collapse node and children")),
+		ExpandAll:    keybind.NewBinding(keybind.WithKeys("zR"), keybind.WithHelp("zR", "expand all")),
+		CollapseAll:  keybind.NewBinding(keybind.WithKeys("zM"), keybind.WithHelp("zM", "collapse all")),
 
 		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next focus")),
 		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "prev focus")),
@@ -235,7 +245,7 @@ type helpGroup struct {
 // a later task — the help view itself is out of scope here).
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
-		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
+		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
 		{"Dialogs", []keybind.Binding{k.Confirm, k.Cancel}},
 		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
@@ -323,5 +333,6 @@ func (k keyMap) boundKeys() map[string]bool {
 			}
 		}
 	}
+	bound[foldPrefixKey] = true // prefix of the fold sequences zo/zc/zR/zM
 	return bound
 }

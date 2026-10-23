@@ -79,7 +79,7 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 ## Moving around
 
 - Movement uses the `i/j/k/l` diamond (`i` up, `k` down, `j` left, `l` right) and the arrow keys, not vim keys.
-- In the roadmap, `[` and `]` jump to the previous or next item of the same level under the same parent (epic to epic, milestone to milestone), skipping open children; the cursor stays at the first or last one. They do nothing in the flat list and in Ready.
+- In the roadmap, `[` and `]` jump to the previous or next item of the same level under the same parent (epic to epic, milestone to milestone), skipping open children; the cursor stays at the first or last one. `zo`/`zc` open or close the cursor item with all its children, `zR`/`zM` open or close every item (`zM` returns to the start state: only milestones and the roots show). These keys do nothing in the flat list and in Ready.
 - `enter` opens, `esc` goes back. `ctrl+r` reloads. `K` opens the command palette.
 - The TUI watches the store: a change from another process appears without a key press.
 - Mouse: always on. Wheel scrolls the list (or the detail body). A left click selects a row; a second click within 500 ms expands or collapses an item with children. Clicking a detail box opens its editor or picker. A click on a filter field focuses it and opens its value menu; in the open menu a click on a value toggles it and a click outside closes the menu. The mouse is ignored in forms, other overlays, the lobby and tag management. Without a detail pane, a click does not reach the former detail area.

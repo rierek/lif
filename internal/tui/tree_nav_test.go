@@ -1,6 +1,7 @@
 package tui
 
 import (
+	tea "github.com/charmbracelet/bubbletea"
 	"testing"
 
 	"github.com/rierek/lif/pkg/item"
@@ -64,5 +65,62 @@ func TestSiblingJumpNoopInFlatList(t *testing.T) {
 	m.cursorID = "ep-1a"
 	if m = keys2(t, m, "]"); m.cursorID != "ep-1a" {
 		t.Fatalf("] in flat list moved cursor to %q", m.cursorID)
+	}
+}
+
+func TestFoldKeys(t *testing.T) {
+	m := navFixture(t)
+	rows := func(m model) int { return len(m.visibleNodes()) }
+	start := rows(m) // milestones (+ roots) only
+
+	m = keys2(t, m, "zR")
+	if got := rows(m); got != start+6 { // 3 epics + 3 tasks
+		t.Fatalf("zR: %d rows, want %d", got, start+6)
+	}
+	if !m.expanded["ep-1a"] || !m.expanded["ms-2"] {
+		t.Fatalf("zR left nodes closed: %v", m.expanded)
+	}
+
+	m = keys2(t, m, "zM")
+	if rows(m) != start || len(m.expanded) != 0 {
+		t.Fatalf("zM: %d rows, want start state %d; expanded=%v", rows(m), start, m.expanded)
+	}
+
+	m.cursorID = "ms-1"
+	m = keys2(t, m, "zo")
+	if !m.expanded["ms-1"] || !m.expanded["ep-1a"] || m.expanded["ms-2"] {
+		t.Fatalf("zo on ms-1 must open it and its subtree only: %v", m.expanded)
+	}
+	m = keys2(t, m, "zc")
+	if len(m.expanded) != 0 || m.cursorID != "ms-1" {
+		t.Fatalf("zc on ms-1 must close the whole subtree: %v cursor=%q", m.expanded, m.cursorID)
+	}
+}
+
+func TestFoldCollapseAllMovesHiddenCursorToAncestor(t *testing.T) {
+	m := navFixture(t)
+	m = keys2(t, m, "zR")
+	m.cursorID = "tk-1"
+	m = keys2(t, m, "zM")
+	if m.cursorID != "ms-1" {
+		t.Fatalf("cursor %q, want ms-1 (nearest visible ancestor)", m.cursorID)
+	}
+}
+
+func TestFoldPrefixLivesOneKey(t *testing.T) {
+	m := navFixture(t)
+	m.cursorID = "ms-1"
+	m = keys2(t, m, "zx") // unknown completion: discarded
+	m = keys2(t, m, "o")
+	if m.expanded["ms-1"] {
+		t.Fatal("stale z prefix completed a later o")
+	}
+}
+
+func TestFoldSequenceInOneRead(t *testing.T) {
+	m := navFixture(t)
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("zR")}) // terminals may deliver both keys at once
+	if !m.expanded["ms-1"] || !m.expanded["ep-1a"] {
+		t.Fatalf("zR in one read did not expand: %v", m.expanded)
 	}
 }

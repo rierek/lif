@@ -11,6 +11,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/internal/search"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/roadmap"
 	"path/filepath"
@@ -191,20 +192,13 @@ func (m model) treeSearchActive() bool {
 
 // beanMatchesSearch is the search half of the combined filter predicate
 // (Task 4 AND-combines this with facet criteria as beanMatches,
-// box_filter_facets.go). Below the Bleve threshold (<3 chars), or while a
-// Bleve response for THIS exact query hasn't arrived yet, it falls back to
-// an immediate local title+ID substring match (case-insensitive) -- once
-// searchBleveFor catches up to the current query, the Bleve result set
-// becomes authoritative (design-spec.md §6 V2: "Bleve-Modus ab 3 Zeichen").
-//
-// I01 (E2-T3-Review finding, PFLICHT carried into bean bt-9ldr/Task 4): the
-// authoritative-Bleve branch UNIONs the local ID-substring match back in
-// rather than replacing it outright. Rationale: data.Store.Search runs a
-// title+body full-text query (client.go doc comment) -- it does not
-// necessarily index an arbitrary ID substring as a token, so a bean that
-// only matched the query by ID would otherwise flicker OUT of the tree the
-// instant the async Bleve response for the same query lands, even though
-// the user's query still substring-matches its ID exactly as it did before.
+// box_filter_facets.go). A bean matches when the local title+ID substring
+// rule hits (search.LocalMatcher: case-insensitive, `*` and `?` wildcards,
+// the same rule as `lif list --search`) OR, from 3 chars once the Bleve
+// response for THIS exact query has arrived (searchBleveFor), when Bleve
+// found it. Union, never replacement: Bleve indexes whole words only, so
+// "team" would otherwise lose "Teams und Rechte" the moment the response
+// lands, and an ID-only hit would flicker out of the tree.
 //
 // bt-2kfl (D02/D03, search_prefix.go): the text half runs against
 // m.searchPrefixRest, NOT the raw m.searchQuery -- typed `st:`/`ty:`/`pr:`/
@@ -217,14 +211,14 @@ func (m model) beanMatchesSearch(b *item.Item) bool {
 	if !m.beanMatchesSearchPrefixFacets(b) {
 		return false
 	}
-	q := strings.ToLower(strings.TrimSpace(m.searchPrefixRest))
-	if q == "" {
+	if strings.TrimSpace(m.searchPrefixRest) == "" {
 		return true
 	}
-	if len(q) >= 3 && m.searchBleveFor == m.searchPrefixRest {
-		return m.searchBleveIDs[b.ID] || strings.Contains(strings.ToLower(b.ID), q)
+	// Same rule as the CLI: local substring/wildcard hit OR Bleve hit.
+	if search.LocalMatcher(m.searchPrefixRest)(b) {
+		return true
 	}
-	return strings.Contains(strings.ToLower(b.Title), q) || strings.Contains(strings.ToLower(b.ID), q)
+	return len(strings.TrimSpace(m.searchPrefixRest)) >= 3 && m.searchBleveFor == m.searchPrefixRest && m.searchBleveIDs[b.ID]
 }
 
 // flattenTreeFiltered mirrors flattenTree's depth-first walk but only shows

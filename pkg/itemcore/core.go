@@ -562,7 +562,9 @@ func (c *Core) ensureSearchIndexLocked() error {
 	return nil
 }
 
-// Search performs full-text search and returns matching items. The search
+// Search performs full-text search and returns matching items: the Bleve hits
+// (whole words, phrases, fields, fuzzy) followed by items whose title or ID
+// contains the query as a substring (see search.LocalMatcher). The search
 // index is created lazily on first use; Create, Update, Delete, the file
 // watcher and loadFromDisk keep it current afterwards.
 func (c *Core) Search(query string) ([]*item.Item, error) {
@@ -586,11 +588,25 @@ func (c *Core) Search(query string) ([]*item.Item, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+	match := search.LocalMatcher(query)
+	seen := make(map[string]bool, len(ids))
 	result := make([]*item.Item, 0, len(ids))
 	for _, id := range ids {
 		if b, ok := c.items[id]; ok {
+			seen[id] = true
 			result = append(result, b.Clone())
 		}
+	}
+	// Substring/wildcard hits Bleve's whole-word index misses, in ID order.
+	var extra []string
+	for id, b := range c.items {
+		if !seen[id] && match(b) {
+			extra = append(extra, id)
+		}
+	}
+	slices.Sort(extra)
+	for _, id := range extra {
+		result = append(result, c.items[id].Clone())
 	}
 	return result, nil
 }

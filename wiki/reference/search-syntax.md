@@ -35,7 +35,7 @@ Status, type, priority, tags, parent, links and extra front matter keys are **no
 
 Details that matter:
 
-- Matching is case-insensitive and whole-word. There is no stemming: `user` does not find `users`.
+- Matching in the word index is case-insensitive and whole-word. There is no stemming: `user` does not find `users`. Partial words are found by the separate [substring rule](#partial-words).
 - Umlauts are kept as letters but not folded: `ärger` matches, `arger` does not.
 - English stop words (`and`, `or`, `not`, `the`, `a`, `of`, ...) are dropped at index time and query time and can never match.
 - A hyphen separates words: `well-known` is `well` OR `known`. Quote it (`"well-known"`) for a phrase.
@@ -59,7 +59,11 @@ lif list -S '"user login"'
 | `*gin`, `l*n` | Wildcard anywhere in the term. |
 | `/log.*/` | Regular expression (Go syntax), whole-term match. |
 
-Wildcards and regular expressions are **not** lowercased: `LOG*` finds nothing, `log*` does. Fuzzy and phrase cannot be combined (`"a b"~2` is a syntax error). A lone `*` matches every item.
+Wildcards and regular expressions inside the Bleve query are **not** lowercased: `LOG*` finds nothing there, `log*` does. Fuzzy and phrase cannot be combined (`"a b"~2` is a syntax error). A lone `*` matches every item.
+
+## Partial words
+
+On top of the word index, `lif list --search` (and the TUI search) also matches the query as a case-insensitive substring of an item's title or ID. `team` finds `Teams und Rechte`; `Bei*` finds `Beispiel-Plugin` despite the capital; `Plug*` finds every title containing `Plug`. `*` is any run of characters, `?` exactly one. The substring rule sees only title and ID, never the body, and takes the query as one literal string (no `+`/`-`, no phrases, no field scopes). Results: word-index hits first, then the substring-only hits in ID order.
 
 ## Field scopes
 

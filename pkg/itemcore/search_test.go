@@ -277,3 +277,48 @@ func TestClose_ClosesSearchIndex(t *testing.T) {
 func writeTestFile(dir, name, content string) error {
 	return os.WriteFile(dir+"/"+name, []byte(content), 0644)
 }
+
+// Partial words and wildcards: the word index alone finds neither "team" in
+// "Teams" nor "Bei*" (capital) in "Beispiel-Plugin".
+func TestSearch_PartialWordAndWildcard(t *testing.T) {
+	core, _ := setupTestCore(t)
+	defer core.Close()
+
+	for _, b := range []*item.Item{
+		{ID: "aaa1", Title: "Teams und Rechte"},
+		{ID: "bbb2", Title: "Beispiel-Plugin"},
+		{ID: "ccc3", Title: "Plugin-Sandbox"},
+	} {
+		if err := core.Create(b); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+	}
+
+	for query, want := range map[string][]string{
+		"team":      {"aaa1"},
+		"Teams":     {"aaa1"},
+		"Bei*":      {"bbb2"},
+		"beispiel":  {"bbb2"},
+		"Plug*":     {"bbb2", "ccc3"},
+		"Te?ms":     {"aaa1"},
+		"nomatch*x": nil,
+	} {
+		results, err := core.Search(query)
+		if err != nil {
+			t.Fatalf("Search(%q) error = %v", query, err)
+		}
+		got := map[string]bool{}
+		for _, r := range results {
+			got[r.ID] = true
+		}
+		if len(got) != len(want) {
+			t.Errorf("Search(%q) = %v, want %v", query, got, want)
+			continue
+		}
+		for _, id := range want {
+			if !got[id] {
+				t.Errorf("Search(%q) = %v, want %v", query, got, want)
+			}
+		}
+	}
+}

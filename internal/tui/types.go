@@ -591,6 +591,13 @@ type model struct {
 	// Help has existed since E1 Task 7 and is already covered by the
 	// Drift-Guard test TestHelpGroupsCoverEveryBindingExactlyOnce.
 	helpOpen bool
+	// U6 (bean beans-rbwc): helpQuery is the search term (live, case-
+	// insensitive); helpSearching is true while the search field takes text
+	// (entered with `/`, left with enter or esc); helpScroll is the first
+	// visible content row. All three reset when the help closes.
+	helpQuery     string
+	helpSearching bool
+	helpScroll    int
 
 	// Maus (E5 Task 4, bean bt-mne6, design decision f): lastClickIdx/
 	// lastClickAt back the Tree's Doppelklick detection (Port devd

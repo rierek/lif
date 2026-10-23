@@ -9,6 +9,8 @@ Measured on Lif 0.13 with a test repository of 17 items; the TUI code is unchang
 
 There are four views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
 
+The in-app help (`?`) has a Views section with one line per view and layout and the keys that reach it. This page is the long form. In the help, `/` searches the lines.
+
 | View | Purpose | How to reach it |
 |---|---|---|
 | Browse, tree | The roadmap: milestones, epics, features, tasks. | Default after start; `M` |

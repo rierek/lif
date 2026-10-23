@@ -3,7 +3,7 @@ title: "Key bindings"
 description: "All TUI key bindings, from the key map."
 ---
 
-Measured on Lif 0.13, code unchanged in 0.14 (checked 2026-10-14). The in-app help (`?`) is generated from the same key map (`keyMap` in `internal/tui/keymap.go`). This page is written by hand; no generator or test ties it to the key map yet, so it can drift. Press `?` in the TUI for the keys of your version. The help panel is 54 rows high; on a shorter terminal it is cut and cannot be scrolled.
+Measured on Lif 0.13, code unchanged in 0.14 (checked 2026-10-14). The in-app help (`?`) is generated from the same key map (`keyMap` in `internal/tui/keymap.go`). This page is written by hand; no generator or test ties it to the key map yet, so it can drift. Press `?` in the TUI for the keys of your version. See [Help](#help) for search and scrolling.
 
 Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by `/`. Navigation uses the `i/j/k/l` diamond, not vim `h/j/k/l`.
 
@@ -44,9 +44,24 @@ The Board view (`B`) is planned and not bound yet. `esc` in the flat list or Rea
 | `S` | Cycle ready sort |
 | `ctrl+r` | Reload |
 | `y` | Copy (yank) item context |
-| `?` | Help |
+| `?` | Help ([search and scroll](#help)) |
 | `q` | Quit dialog |
 | `ctrl+c` | Quit at once from every state (lists, forms, menus, dialogs, lobby), no confirmation, no lobby |
+
+## Help
+
+`?` opens the help: a search field, a Views section that describes every view and layout in one line with the keys that reach it, and the key groups (the Tasks group shows when `tui.actions` exist).
+
+| Key | Action |
+|---|---|
+| `/` | Focus the search field. Every printable key is text while it has focus, so `q`, `?`, `i` and `k` do not close or scroll |
+| `enter` | Keep the term and leave the search field |
+| `esc` | Clear the term; a second `esc` closes the help |
+| `?` / `q` | Close the help (outside the search field) |
+| `↑` / `↓` | Scroll one row (`i` / `k` too outside the search field) |
+| `pgup` / `pgdown` | Scroll one page |
+
+The search matches the key, the description and the group name, ignoring case; a group header shows only for groups with matches. No match shows `No matching key bindings`. The help scrolls, so every row is reachable on a 24-row terminal; the footer shows the visible rows.
 
 ## Dialogs
 

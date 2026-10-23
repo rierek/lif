@@ -24,7 +24,7 @@ import (
 // can't (same generation the Drift-Guard test TestHelpGroupsCoverEvery
 // BindingExactlyOnce, keymap_test.go, already protects upstream of it).
 func TestHelpBoxRendersEveryGroup(t *testing.T) {
-	m := model{width: 90, height: 24}
+	m := model{width: 90} // height 0: no scroll window, so the box shows every row
 	out := m.helpBox()
 	if !strings.Contains(out, "Keyboard shortcuts") {
 		t.Errorf("helpBox() missing title %q", "Keyboard shortcuts")

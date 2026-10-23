@@ -19,7 +19,7 @@ The TUI reads `~/.config/lif/tui/config.yaml`. A second file, `state.json` in th
 
 The file belongs to the TUI and applies per user. Project settings live in `.lif.yml` ([Configuration](../../configuration/)).
 
-The settings form opens from the command palette: `K`, then `go to settings`. It has no key. It shows `repos`, `editor`, `accent` and `tree_width`, rejects invalid values with a message, and applies `editor` and `accent` at once. Saving rewrites the whole file from these keys: comments and unknown keys are lost; `repo_store_paths` is kept.
+The settings form opens from the command palette: `K`, then `view: settings`. It has no key. It shows `repos`, `editor`, `accent` and `tree_width`, rejects invalid values with a message, and applies `editor` and `accent` at once. Saving rewrites the whole file from these keys: comments and unknown keys are lost; `repo_store_paths` is kept.
 
 ## Example settings file
 

@@ -60,8 +60,8 @@ Two keys in `~/.config/lif/tui/config.yaml`:
 A repository enters `repos` in one of three ways. There is no automatic discovery.
 
 - By hand in the file.
-- Command palette (`K`), entry `register project`: adds the current repository. A duplicate shows `already registered`.
-- Settings form (palette entry `go to settings`), field `repos`, one path per line.
+- Command palette (`K`), entry `register: project`: adds the current repository. A duplicate shows `already registered`.
+- Settings form (palette entry `view: settings`), field `repos`, one path per line.
 
 All keys: [Settings and themes](../settings-and-themes/).
 

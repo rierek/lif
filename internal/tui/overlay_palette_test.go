@@ -76,7 +76,7 @@ func TestPaletteActionsIncludesSetTypeAndSetPriority(t *testing.T) {
 	m = focusBean(m, "tk-2")
 
 	items := paletteActions(m)
-	wantLabels := map[string]string{"status": "set status", "type": "set type", "priority": "set priority"}
+	wantLabels := map[string]string{"status": "set: status", "type": "set: type", "priority": "set: priority"}
 	for actionID, label := range wantLabels {
 		found := false
 		for _, it := range items {
@@ -151,8 +151,8 @@ func TestPaletteActionsIncludesCreateTag(t *testing.T) {
 	for _, it := range items {
 		if it.actionID == "create_tag" {
 			found = true
-			if it.label != "create tag" {
-				t.Fatalf("action %q label = %q, want %q", "create_tag", it.label, "create tag")
+			if it.label != "create: tag" {
+				t.Fatalf("action %q label = %q, want %q", "create_tag", it.label, "create: tag")
 			}
 		}
 	}
@@ -252,29 +252,15 @@ func TestPalFilteredActionsFuzzyStatMatchesSetStatusAndSetParent(t *testing.T) {
 	}
 }
 
-// TestPalFilteredActionsFuzzyGoMatchesAllGoToEntriesPlusRegisterProject
-// guards T3-review I01 (bean bt-kyj5 Prelude): the "go to <entity>" entries
-// (ready/browse/repo picker/tags/settings) share PF-8's UNCHANGED "go to
-// X" shape -- a plain "go" query must still fuzzy-match every one of them
-// (not fewer), in declaration order, with no bean leaking in. E10 Task 2
-// (bean bt-r92i) added a 5th such entry ("go to tags", go_tags) -- widening
-// this guard from 4 to 5. bt-d3ps (epic-E13-plan.md Item 4) ERRATUM: the new
-// "register project" label ALSO fuzzy-matches "go" as a subsequence (r-e-
-// "g"-ister project, g before the "o" in "project") -- not a "go to X" entry
-// conceptually, but fuzzyMatch (fuzzy.go) is a plain subsequence matcher
-// with no phrase-boundary awareness, so it matches anyway. Widening this
-// guard to 6 (not renaming its scope away from "go to") is the honest fix --
-// asserting 5 here would just be wrong, not a tighter guard. (T5-mini, bean
-// bt-uyzf, optional T4-review I01): none of fixtureBeans' titles ("Milestone
-// One"/"Epic One"/"Task One"/"Task Two") contain a 'g' at all, so no bean
-// item could ever fuzzy-match "go" and silently inflate the count above --
-// the exact-length assertion below implicitly guards that absence too.
-func TestPalFilteredActionsFuzzyGoMatchesAllGoToEntriesPlusRegisterProject(t *testing.T) {
+// TestPalFilteredVerbPrefixNarrowsToVerbEntries guards AC6 (beans-z646):
+// typing the verb prefix "set:" narrows the list to the set: entries.
+func TestPalFilteredVerbPrefixNarrowsToVerbEntries(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.palQuery = "go"
+	m = focusBean(m, "tk-2")
+	m.palQuery = "set:"
 
 	items := m.palFiltered()
-	wantIDs := []string{"go_ready", "go_browse", "repo_picker", "register_project", "go_tags", "settings"}
+	wantIDs := []string{"status", "type", "priority", "tags", "parent", "blocking", "edit_title"}
 	if len(items) != len(wantIDs) {
 		t.Fatalf("len(palFiltered) = %d, want %d (%v) for query %q", len(items), len(wantIDs), wantIDs, m.palQuery)
 	}
@@ -558,8 +544,8 @@ func TestPaletteActionsIncludesRegisterProject(t *testing.T) {
 	for i, it := range items {
 		if it.actionID == "register_project" {
 			idx = i
-			if it.label != "register project" {
-				t.Fatalf("register_project label = %q, want %q", it.label, "register project")
+			if it.label != "register: project" {
+				t.Fatalf("register_project label = %q, want %q", it.label, "register: project")
 			}
 		}
 	}
@@ -709,7 +695,7 @@ func TestDispatchPaletteRegisterProjectRoutesToRegisterProject(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.paletteOpen = true
 
-	nm, cmd := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register project"})
+	nm, cmd := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register: project"})
 	mm, ok := nm.(model)
 	if !ok {
 		t.Fatalf("dispatchPalette did not return a model, got %T", nm)

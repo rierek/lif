@@ -383,8 +383,8 @@ func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
 		switch it.actionID {
 		case "go_tags":
 			gotIdx = i
-			if it.label != "go to tags" {
-				t.Fatalf(`go_tags label = %q, want "go to tags"`, it.label)
+			if it.label != "view: tags" {
+				t.Fatalf(`go_tags label = %q, want "view: tags"`, it.label)
 			}
 		case "settings":
 			settingsIdx = i
@@ -408,7 +408,7 @@ func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
 // (box_form_settings_test.go).
 func TestDispatchPaletteGoTagsOpensTagManagementPage(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	nm, _ := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "go to tags"})
+	nm, _ := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "view: tags"})
 	mm, ok := nm.(model)
 	if !ok {
 		t.Fatalf("dispatchPalette did not return a model, got %T", nm)

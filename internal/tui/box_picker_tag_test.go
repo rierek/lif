@@ -812,7 +812,7 @@ func TestTagPickerToggleOffThenOnYieldsEmptyDiffNoMutation(t *testing.T) {
 
 // TestOverlayCaptureSwallowsQuitKeysWhileTagPickerOpen pins handleKey's
 // capture order (design decision a2/the overlay precedent m.filterOpen/
-// m.searchActive already established): q/ctrl+c must never leak through to
+// m.searchActive already established): q must never leak through to
 // a quit-request while ANY node-action overlay is open. Exercised against
 // the tag picker since that is what this task builds, but the guard itself
 // (m.overlay != overlayNone routes to keyOverlay BEFORE the global
@@ -829,17 +829,10 @@ func TestOverlayCaptureSwallowsQuitKeysWhileTagPickerOpen(t *testing.T) {
 		t.Fatal("setup: t did not open the tag picker")
 	}
 
-	tm, cmd := m.Update(keyMsg(tea.KeyCtrlC))
-	nm := tm.(model)
-	if cmd != nil {
-		t.Fatal("ctrl+c while an overlay is open must not fire tea.Quit (capture-order guard)")
-	}
-	if nm.overlay != overlayTagPicker {
-		t.Fatal("ctrl+c must not close the open overlay either")
-	}
+	assertQuitsAtOnce(t, m)
 
-	tm, cmd = nm.Update(runeMsg('q'))
-	nm = tm.(model)
+	tm, cmd := m.Update(runeMsg('q'))
+	nm := tm.(model)
 	// D01 (bean bt-9ipw): "q" now lands in the always-focused search field
 	// like any other letter -- textinput.Update legitimately returns a
 	// non-nil Cmd here (its own blink-restart tick), so a bare cmd!=nil

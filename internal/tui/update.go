@@ -963,6 +963,12 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 // view-global keys (ctrl+c hard-quit, tab focus-swap -- Q01, deliberately
 // NOT part of keymap.go's Right binding); then the tree/detail handlers.
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// ctrl+c quits at once from every state (bean beans-zata): checked before
+	// every capture (confirm, search, filter, form, overlay, lobby). tui.Run
+	// closes the store after the program ends.
+	if msg.String() == "ctrl+c" {
+		return m, tea.Quit
+	}
 	if m.confirmQuit {
 		return m.keyConfirmQuit(msg)
 	}
@@ -1087,8 +1093,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "ctrl+c": // immediate quit, no confirm (bean bt-7jr8: distinct from `q`)
-		return m, tea.Quit
 	case "q":
 		return m.requestQuit()
 	}

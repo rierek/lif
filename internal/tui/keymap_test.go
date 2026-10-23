@@ -147,15 +147,12 @@ func TestGlobalBindingsFitIn80Columns(t *testing.T) {
 	}
 }
 
-// TestBlockingKeyIsR guards Q06's Blocking-Remap (design-spec.md §15 PF-16,
-// bean bt-ntoz/bt-d8kc): keys.Blocking moves from "B" to "r" ("r" free since
-// PF-14's Review-Cockpit removal, verified -- no other keyMap field binds
-// it; "B" becomes free, verified -- no other keyMap field/raw string
-// reference used it either).
-func TestBlockingKeyIsR(t *testing.T) {
+// TestBlockingKeyIsB guards beans-u4uu: keys.Blocking is "b" (was "r", Q06;
+// "B" stays free). "r" is bound to nothing.
+func TestBlockingKeyIsB(t *testing.T) {
 	k := newKeyMap()
-	if !bindHas(k.Blocking, "r") {
-		t.Errorf("Blocking.Keys() = %v, want to contain %q", k.Blocking.Keys(), "r")
+	if !bindHas(k.Blocking, "b") {
+		t.Errorf("Blocking.Keys() = %v, want to contain %q", k.Blocking.Keys(), "b")
 	}
 	if bindHas(k.Blocking, "B") {
 		t.Errorf("Blocking.Keys() = %v, must NOT still contain %q (Q06 remap frees it)", k.Blocking.Keys(), "B")
@@ -200,7 +197,7 @@ func TestGlobalBindingHelpTextsShortened(t *testing.T) {
 // binding may appear in BOTH globalBindings() (Header Zone 1, always
 // visible) AND either Chrome-calling view's own local-footer list --
 // duplication is exactly what PF-11 removes. Scoped to the two VIEW-local
-// lists only (browseRepoLocalBindings/readyLocalBindings) -- the
+// lists only (footerBindings per view) -- the
 // overlay-/search-/palette-/help-context footer sets (footer_context.go)
 // are a DIFFERENT axis (Q04-Antwort) and deliberately restate Enter/Back
 // for local reinforcement while a modal has full input capture (see that
@@ -211,8 +208,8 @@ func TestNoDuplicateBindingBetweenGlobalAndAnyLocalHintList(t *testing.T) {
 		global[strings.Join(b.Keys(), ",")] = true
 	}
 	lists := map[string][]keybind.Binding{
-		"browseRepoLocalBindings": browseRepoLocalBindings(),
-		"readyLocalBindings":      readyLocalBindings(),
+		"footerBindings (roadmap)": u10Browse(t).footerBindings(),
+		"footerBindings (ready)":   u10Ready(t).footerBindings(),
 	}
 	for name, list := range lists {
 		for _, b := range list {

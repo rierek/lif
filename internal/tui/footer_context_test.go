@@ -183,8 +183,8 @@ func TestContextualLocalHintOverlayCreateConfirm(t *testing.T) {
 	if strings.Contains(got, "stub-view-local") {
 		t.Errorf("overlayCreateConfirm: contextualLocalHint = %q, must not contain the viewLocal stub", got)
 	}
-	if !strings.Contains(got, "enter open/confirm") || !strings.Contains(got, "esc back") {
-		t.Errorf("overlayCreateConfirm: contextualLocalHint = %q, want enter+back", got)
+	if !strings.Contains(got, "enter/y confirm") || !strings.Contains(got, "esc/n cancel") {
+		t.Errorf("overlayCreateConfirm: contextualLocalHint = %q, want confirm+cancel", got)
 	}
 }
 
@@ -195,8 +195,8 @@ func TestContextualLocalHintOverlayDeleteConfirm(t *testing.T) {
 	if strings.Contains(got, "stub-view-local") {
 		t.Errorf("overlayDeleteConfirm: contextualLocalHint = %q, must not contain the viewLocal stub", got)
 	}
-	if !strings.Contains(got, "enter open/confirm") || !strings.Contains(got, "esc back") {
-		t.Errorf("overlayDeleteConfirm: contextualLocalHint = %q, want enter+back", got)
+	if !strings.Contains(got, "enter/y confirm") || !strings.Contains(got, "esc/n cancel") {
+		t.Errorf("overlayDeleteConfirm: contextualLocalHint = %q, want confirm+cancel", got)
 	}
 }
 

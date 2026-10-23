@@ -456,8 +456,8 @@ func TestBoxFormFieldRectMatchesRenderedBoxCorners(t *testing.T) {
 		field, hotkey, target string
 	}{
 		{"status", "(s)", boxFormTargetStatus},
-		{"type", "(o)", boxFormTargetType},
-		{"priority", "(u)", boxFormTargetPriority},
+		{"type", "(t)", boxFormTargetType},
+		{"priority", "(p)", boxFormTargetPriority},
 	}
 	widths := []int{80, 120}
 

@@ -147,7 +147,7 @@ func createConfirmLabel(d beanDraft) string {
 // DD2-190).
 func (m model) keyCreateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Confirm):
 		cmd := m.pendingCreate
 		m.overlay = overlayNone
 		// F1 (Review-Runde 2, Async-Gap-Clobbering, Finding 1b): pendingCreate
@@ -168,7 +168,7 @@ func (m model) keyCreateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// instead of routing through the draft-agnostic
 		// applyMutationResult tail.
 		return m, cmd
-	case keybind.Matches(msg, keys.Back), msg.String() == "n":
+	case keybind.Matches(msg, keys.Cancel):
 		m.overlay = overlayNone
 		m.pendingCreate = nil
 		m.createLabel = ""
@@ -188,6 +188,6 @@ func (m model) createConfirmBox() string {
 	var b strings.Builder
 	b.WriteString(theme.Header.Render("Create?") + "\n\n")
 	b.WriteString(theme.Accent.Render(m.createLabel) + "\n\n")
-	b.WriteString(theme.Dim.Render("enter: create   esc/n: back"))
+	b.WriteString(theme.Dim.Render("enter/y: create   esc/n: back"))
 	return modalBox(b.String(), clampModalWidth(54, m.width), theme.Mauve)
 }

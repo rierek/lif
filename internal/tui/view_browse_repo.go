@@ -1009,45 +1009,58 @@ func (m model) View() string {
 // could drift apart, mirrors windowStart's own shared-geometry rationale).
 func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
 	head = breadcrumb(m.repoLabel(), "Browse", renderBindings(globalBindings()), innerW)
-	localKeys = footer(m.contextualLocalHint(browseRepoLocalBindings()), innerW)
+	localKeys = footer(m.contextualLocalHint(m.footerBindings()), innerW)
 	return
 }
 
-// browseRepoLocalBindings is the Tree view's own Footer Zone 3 local set --
-// D06+Q06 (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc) REBUILD this from
-// scratch, superseding PF-11's list: Navigation (Up/Down/Left/Right) is
-// removed entirely ("intuitiv genug", PO-Begruendung), FocusIn/FocusOut come
-// FIRST, then the PO-verbatim action order -- `tab focus in · shift+tab
-// focus out · / search · f Filter · s Status · c Create · d Delete · e Edit
-// · b Ready · t Tags · y Yank · a Parent · r Blocking`. Ready (`b`) is
-// NEW here (a sensible Tree->Ready entry point that PF-11's list never
-// carried); Filter/Tags/Yank/Parent/Blocking close the pre-existing gap
-// PF-11's own doc comment flagged (f/X/b/t/a/B/y were handled by
-// keyNodeAction/keyTree but never shown in the footer). X (FilterClear)
-// stays deliberately OUT (Q06's list omits it too, same as before).
+// footerBindings is the Browse and Ready footer's local key set (Footer Zone
+// 3): it lists exactly the keys that act in the current view, layout and
+// focus (beans-u4uu, AC16). The global four (K, P, ?, q) sit in the header.
 //
-// bt-fy5d (Nebenbefund N2, epic bt-vy1q): the Detail pane renders each
-// scalar field as a titled box carrying its own hotkey badge in the bottom
-// border ((e) (s) (o) (u) (a) (t), box_detail_form.go) -- the footer repeated
-// all of them, which at 80 columns cost a whole third footer line for
-// information already on screen. Those keys are therefore dropped from the
-// footer DISPLAY. This is display-only: the bindings stay registered in
-// keymap.go (single source) and keep their Help-overlay entry, so
-// TestHelpGroupsCoverEveryBindingExactlyOnce's drift guard is untouched.
-func browseRepoLocalBindings() []keybind.Binding {
-	bs := []keybind.Binding{
-		keys.FocusIn, keys.FocusOut,
-		keys.Search, keys.Filter, keys.Status, keys.Create, keys.Delete, keys.Editor,
-		keys.Ready, keys.TagAssign, keys.Yank, keys.Assign, keys.Blocking,
+//   - tab/shift+tab switch region only in layoutFilterDetail, the one layout
+//     with two regions.
+//   - / and f act on the list, so not while the detail has focus (which is
+//     always the case in layoutDetail).
+//   - M, L and R are listed for the views they leave, not for the current one.
+//   - Item keys need a focused item; c (create) does not.
+//   - bt-fy5d: e/s/a/g are dropped while the Detail pane shows their own (x)
+//     badge (boxFormInlineKeys), so only when the layout has a detail.
+//
+// X (FilterClear) and S (Sort) stay out of the footer on purpose; the help
+// overlay lists them.
+func (m model) footerBindings() []keybind.Binding {
+	hasBean := m.focusedBean() != nil
+	inRoadmap := m.view == viewBrowseRepo && !m.flatView
+	inFlat := m.view == viewBrowseRepo && m.flatView
+	cands := []struct {
+		b   keybind.Binding
+		act bool
+	}{
+		{keys.FocusIn, m.layout == layoutFilterDetail},
+		{keys.FocusOut, m.layout == layoutFilterDetail},
+		{keys.Search, !m.detailFocus},
+		{keys.Filter, !m.detailFocus},
+		{keys.Status, hasBean},
+		{keys.Create, true},
+		{keys.Delete, hasBean},
+		{keys.Editor, hasBean},
+		{keys.Roadmap, !inRoadmap},
+		{keys.FlatList, !inFlat},
+		{keys.Ready, m.view != viewReady},
+		{keys.TagAssign, hasBean},
+		{keys.Yank, hasBean},
+		{keys.Assign, hasBean},
+		{keys.Blocking, hasBean},
+		{keys.LayoutNext, true},
+		{keys.LayoutPrev, true},
 	}
-	out := bs[:0:0]
-	for _, b := range bs {
-		if boxFormInlineKeys[b.Help().Key] {
-			continue
+	var out []keybind.Binding
+	for _, c := range cands {
+		if c.act && !(m.layout.hasDetail() && boxFormInlineKeys[c.b.Help().Key]) {
+			out = append(out, c.b)
 		}
-		out = append(out, b)
 	}
-	return append(out, keys.LayoutNext, keys.LayoutPrev)
+	return out
 }
 
 // boxFormInlineKeys are the footer keys the box-form Detail pane already
@@ -1066,7 +1079,7 @@ func browseRepoLocalBindings() []keybind.Binding {
 // dropping one is a net loss of information rather than a de-duplication.
 // TestBoxFormInlineKeysAllHaveAnInlineBadge (footer_boxform_test.go) now
 // holds this rule structurally against the real detailBoxForm render.
-var boxFormInlineKeys = map[string]bool{"e": true, "s": true, "a": true, "t": true}
+var boxFormInlineKeys = map[string]bool{"e": true, "s": true, "a": true, "g": true}
 
 // viewBrowseRepo renders the two-pane master-detail Browse view. Mirrors
 // Chrome()'s own algebra exactly (view.go) so the frame always fills

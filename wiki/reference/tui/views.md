@@ -11,10 +11,10 @@ There are four views. The item detail is a pane inside Browse and Ready; which p
 
 | View | Purpose | How to reach it |
 |---|---|---|
-| Browse, tree | The roadmap: milestones, epics, features, tasks. | Default after start. |
-| Browse, flat | All items in one list. | `G` toggles. |
-| Ready | Items `lif list --ready` lists, flat. | `b` |
-| Lobby | Repository picker. | `p` |
+| Browse, tree | The roadmap: milestones, epics, features, tasks. | Default after start; `M` |
+| Browse, flat | All items in one list. | `L` |
+| Ready | Items `lif list --ready` lists, flat. | `R` |
+| Lobby | Repository picker. | `P` |
 | Tag management | Tag definitions. | Command palette `K`, entry `view: tags`. |
 | Detail pane | Fields, relations, body of the selected item. Not shown at start. | `v` / `shift+v` change the [layout](#layouts). |
 
@@ -31,11 +31,11 @@ Screenshot follows.
 
 ## Flat view
 
-`G` switches between nested and flat. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way.
+`L` shows the flat list; `M` returns to the Roadmap (nested), and so does `esc` once no search or filter is active. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way.
 
 ## Ready view
 
-`b` opens it; `esc` returns to Browse. It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
+`R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
 Screenshot follows.
 
@@ -74,4 +74,4 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, for example `lif list: exit status 1: Error: querying items: syntax error`. Incomplete queries such as `title:` flash this while you type.
 - `f` opens the facet menu with the categories Status, Type, Priority, Tags, Archive. `space` or `x` toggles a value, `X` clears all. Facets combine with AND across categories and OR within one.
-- The item pickers (`a` and `r`) have chips: `ctrl+t` type, `ctrl+n` status, `ctrl+p` priority, `ctrl+g` tags. They exist only in those two pickers.
+- The item pickers (`a` and `b`) have chips: `ctrl+t` type, `ctrl+n` status, `ctrl+p` priority, `ctrl+g` tags. They exist only in those two pickers.

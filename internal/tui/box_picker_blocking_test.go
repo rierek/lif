@@ -1,6 +1,6 @@
 package tui
 
-// box_picker_blocking_test.go — TDD coverage for the Blocking-Picker (`r`,
+// box_picker_blocking_test.go — TDD coverage for the Blocking-Picker (`b`,
 // remapped from `B` by Q06, design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc;
 // E3 Task 3, bean bt-p1uz): toggle-multi-select over every OTHER bean
 // (design decision g: deliberately NO cycle/descendant exclusion, port-
@@ -48,7 +48,7 @@ func TestBlockingPickerExcludesOnlySelf(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans()) // ms-1 -> ep-1 -> tk-1, tk-2
 	m = focusBean(m, "ep-1")
 
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	if m.overlay != overlayBlockingPicker {
 		t.Fatalf("overlay = %v, want overlayBlockingPicker", m.overlay)
@@ -76,7 +76,7 @@ func TestBlockingPickerSeedsPendingFromFocusedBean(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansWithBlocking()) // bean-a Blocking: [bean-b]
 	m = focusBeanFull(m, "bean-a")
 
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	if m.overlay != overlayBlockingPicker {
 		t.Fatalf("overlay = %v, want overlayBlockingPicker", m.overlay)
@@ -102,7 +102,7 @@ func TestBlockingPickerSeedsPendingFromFocusedBean(t *testing.T) {
 func TestBlockingPickerToggleFlipsPendingOnly(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansWithBlocking())
 	m = focusBeanFull(m, "bean-a") // Blocking: [bean-b]
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	// bean bt-a3a8: the cursor addresses blockFiltered (what is on screen),
 	// not the unfiltered blockItems -- with no query typed the two lists are
@@ -154,7 +154,7 @@ func TestBlockingPickerEnterDiffsViaSetBlocking(t *testing.T) {
 	store := newTestStore(t, fixtureBeansWithBlocking()...)
 	m.store = store
 	m = focusBeanFull(m, "bean-a") // Blocking: [bean-b]
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	for i, it := range m.blockItems {
 		switch it.id {
@@ -198,7 +198,7 @@ func TestBlockingPickerEnterDiffsViaSetBlocking(t *testing.T) {
 func TestBlockingPickerEnterNoChangesNoMutation(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansWithBlocking())
 	m = focusBeanFull(m, "bean-a")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
 	nm := tm.(model)
@@ -215,7 +215,7 @@ func TestBlockingPickerEnterNoChangesNoMutation(t *testing.T) {
 func TestBlockingPickerEscDiscards(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansWithBlocking())
 	m = focusBeanFull(m, "bean-a")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 	for i, it := range m.blockItems {
 		if it.id == "ep-1" {
 			m.menu.cursor = i
@@ -244,7 +244,7 @@ func TestBlockingPickerBoxUsesWideModalWidth(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.width = 120
 	m = focusBean(m, "ep-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	out := m.blockingPickerBox()
 	lines := strings.Split(out, "\n")
@@ -289,7 +289,7 @@ func TestBlockingPickerBoxLongTitleWrapsWithHangingIndent(t *testing.T) {
 	m := fixtureModel(t, beans)
 	m.width = 70 // narrow enough that wideModalWidth(70)=60 forces the long title to wrap
 	m = focusBean(m, "ep-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	out := ansi.Strip(m.blockingPickerBox())
 	lines := strings.Split(out, "\n")
@@ -347,7 +347,7 @@ func TestBlockingPickerRowIndentJitterParityCursorVsNonCursor(t *testing.T) {
 		m := fixtureModel(t, beans)
 		m.width = 70 // wideModalWidth(70)=60, forces the long title to wrap (mirrors TestBlockingPickerBoxLongTitleWrapsWithHangingIndent)
 		m = focusBean(m, "ep-1")
-		return step(t, m, runeMsg('r'))
+		return step(t, m, runeMsg('b'))
 	}
 
 	// Locate the target row's index by content, not a hardcoded position --
@@ -419,7 +419,7 @@ func TestBlockingPickerEnterTargetVanishedClosesGracefully(t *testing.T) {
 	beans := fixtureBeansWithBlocking()
 	m := fixtureModel(t, beans)
 	m = focusBeanFull(m, "bean-a") // Blocking: [bean-b]
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 	if m.overlay != overlayBlockingPicker {
 		t.Fatal("setup: r did not open the blocking picker")
 	}

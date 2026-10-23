@@ -199,7 +199,7 @@ func TestDetailBoxFormRelationsHotkeyIsInBottomBorder(t *testing.T) {
 	if relationsBot == "" {
 		t.Fatalf("no Relations panel bottom border found:\n%s", out)
 	}
-	if !strings.Contains(relationsBot, "(r)") {
-		t.Errorf("Relations panel bottom border carries no (r) badge: %q", relationsBot)
+	if !strings.Contains(relationsBot, "(b)") {
+		t.Errorf("Relations panel bottom border carries no (b) badge: %q", relationsBot)
 	}
 }

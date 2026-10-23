@@ -37,8 +37,8 @@ var valueMenuGroupCases = []struct {
 	label   string
 }{
 	{"status", 's', "s Status"},
-	{"type", 'o', "o Type"},
-	{"priority", 'u', "u Priority"},
+	{"type", 't', "t Type"},
+	{"priority", 'p', "p Priority"},
 }
 
 // TestValueMenuFooterFollowsOpenGroup: the footer must name the key that
@@ -174,9 +174,9 @@ func TestPickerFooterKeysAreReservedNotTyped(t *testing.T) {
 		bindings []keybind.Binding
 		query    func(model) string
 	}{
-		{"blocking", 'r', blockingPickerLocalBindings(), func(m model) string { return m.blockFilter.input.Value() }},
+		{"blocking", 'b', blockingPickerLocalBindings(), func(m model) string { return m.blockFilter.input.Value() }},
 		{"parent", 'a', parentPickerLocalBindings(), func(m model) string { return m.parentFilter.input.Value() }},
-		{"tag", 't', tagPickerLocalBindings(), func(m model) string { return m.tagInput.Value() }},
+		{"tag", 'g', tagPickerLocalBindings(), func(m model) string { return m.tagInput.Value() }},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestPickerFooterKeysAreReservedNotTyped(t *testing.T) {
 func TestBlockingToggleStillWorksOnSpace(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "ep-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 	if m.overlay != overlayBlockingPicker {
 		t.Fatalf("r did not open the blocking picker (overlay = %v)", m.overlay)
 	}

@@ -353,7 +353,7 @@ func TestKeyNodeActionRequiresFocusedBeanExceptCreate(t *testing.T) {
 		t.Fatal("setup: expected focusedBean() == nil with zero beans loaded")
 	}
 
-	for _, k := range []tea.KeyMsg{runeMsg('s'), runeMsg('t'), runeMsg('a'), runeMsg('r'), runeMsg('d'), runeMsg('e')} {
+	for _, k := range []tea.KeyMsg{runeMsg('s'), runeMsg('g'), runeMsg('a'), runeMsg('b'), runeMsg('d'), runeMsg('e')} {
 		handled, nm, cmd := m.keyNodeAction(k)
 		if !handled {
 			t.Fatalf("key %v: handled = false, want true (handled-but-silent no-op)", k)
@@ -407,7 +407,7 @@ func TestKeyNodeActionTypeOpensMenuSeededToType(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2") // status=todo, type=task, priority=normal (fixtureBeans, ms-1 -> ep-1 -> tk-2)
 
-	handled, nm, cmd := m.keyNodeAction(runeMsg('o'))
+	handled, nm, cmd := m.keyNodeAction(runeMsg('t'))
 	if !handled {
 		t.Fatal("o must be handled")
 	}
@@ -433,7 +433,7 @@ func TestKeyNodeActionPriorityOpensMenuSeededToPriority(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2") // status=todo, type=task, priority=normal (fixtureBeans, ms-1 -> ep-1 -> tk-2)
 
-	handled, nm, cmd := m.keyNodeAction(runeMsg('u'))
+	handled, nm, cmd := m.keyNodeAction(runeMsg('p'))
 	if !handled {
 		t.Fatal("u must be handled")
 	}
@@ -461,7 +461,7 @@ func TestKeyNodeActionTypeAndPriorityNoFocusedBeanIsSilentNoOp(t *testing.T) {
 		t.Fatal("setup: expected focusedBean() == nil with zero beans loaded")
 	}
 
-	for _, k := range []tea.KeyMsg{runeMsg('o'), runeMsg('u')} {
+	for _, k := range []tea.KeyMsg{runeMsg('t'), runeMsg('p')} {
 		handled, nm, cmd := m.keyNodeAction(k)
 		if !handled {
 			t.Fatalf("key %v: handled = false, want true (handled-but-silent no-op)", k)

@@ -158,13 +158,13 @@ func boxFormBlocks(idx *data.Index, b *item.Item, width, cursor int) []string {
 	}
 
 	rowA := gridRow([]scalarCell{
-		{"Status", theme.StatusStyle(b.Status).Render(b.Status), "s"},
-		{"Type", theme.TypeStyle(b.Type).Render(b.Type), "o"},
-		{"Priority", theme.Priority(priority), "u"},
+		{"Status", theme.StatusStyle(b.Status).Render(b.Status), keys.Status.Help().Key},
+		{"Type", theme.TypeStyle(b.Type).Render(b.Type), keys.Type.Help().Key},
+		{"Priority", theme.Priority(priority), keys.Priority.Help().Key},
 	}, width, colIn(boxFormRowScalarsA))
 	rowB := gridRow([]scalarCell{
-		{"Parent", parent, "a"},
-		{"Tags", tags, "t"},
+		{"Parent", parent, keys.Assign.Help().Key},
+		{"Tags", tags, keys.TagAssign.Help().Key},
 	}, width, colIn(boxFormRowScalarsB))
 
 	relationsBody, _, _ := relationsSectionBody(idx, b, width-4, false, 0)
@@ -177,7 +177,7 @@ func boxFormBlocks(idx *data.Index, b *item.Item, width, cursor int) []string {
 		// follows its content, so its bottom border can scroll out of the
 		// pane -- its (e) badge rides in the TOP border instead.
 		panelBoxTopHotkey("Body", bodySectionBody(b, width-4), "e", width, on(boxFormRowBody)),
-		panelBox("Relations", relationsBody, "r", width, on(boxFormRowRelations)),
+		panelBox("Relations", relationsBody, keys.Blocking.Help().Key, width, on(boxFormRowRelations)),
 		panelBox("History", historieSectionBody(b, width-4), "", width, on(boxFormRowHistory)),
 	}
 }

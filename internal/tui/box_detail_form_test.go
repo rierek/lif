@@ -69,7 +69,7 @@ func TestDetailBoxFormStructure(t *testing.T) {
 		"Priority",
 		"Parent", "gld-epic",
 		"Tags",
-		"(e)", "(s)", "(o)", "(u)", "(a)", "(t)",
+		"(e)", "(s)", "(t)", "(p)", "(a)", "(g)",
 		"Body", "Relations", "History",
 	} {
 		if !strings.Contains(plain, want) {
@@ -113,7 +113,7 @@ func TestDetailBoxFormFixedGridNoCollapse(t *testing.T) {
 	if n := strings.Count(rowAMid, "▾"); n != 3 {
 		t.Errorf("Row A mid line must have 3 ▾ arrows (no 1-up collapse), got %d: %q", n, rowAMid)
 	}
-	for _, hk := range []string{"(s)", "(o)", "(u)"} {
+	for _, hk := range []string{"(s)", "(t)", "(p)"} {
 		if !strings.Contains(rowABot, hk) {
 			t.Errorf("Row A bottom border missing hotkey %q (no 1-up collapse): %q", hk, rowABot)
 		}
@@ -124,7 +124,7 @@ func TestDetailBoxFormFixedGridNoCollapse(t *testing.T) {
 	if n := strings.Count(rowBMid, "▾"); n != 2 {
 		t.Errorf("Row B mid line must have 2 ▾ arrows (no 1-up collapse), got %d: %q", n, rowBMid)
 	}
-	for _, hk := range []string{"(a)", "(t)"} {
+	for _, hk := range []string{"(a)", "(g)"} {
 		if !strings.Contains(rowBBot, hk) {
 			t.Errorf("Row B bottom border missing hotkey %q (no 1-up collapse): %q", hk, rowBBot)
 		}

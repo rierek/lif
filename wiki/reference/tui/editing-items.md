@@ -21,15 +21,15 @@ CLI equivalent: [`lif create`](../../commands/lif-create/).
 
 ## Quick changes
 
-- `s` status menu, `o` type menu, `u` priority menu. `enter` applies at once; `esc` closes.
+- `s` status menu, `t` type menu, `p` priority menu. `enter` applies at once; `esc` closes.
 - The menus list the statuses, types and priorities of the project: the built-in ones plus those in `.lif.yml`, in configured order.
 - Title: there is no key. Use the command palette (`K`, `set: title`). In the classic detail layout `enter` on `title:` also works. The form saves on `enter` without confirmation.
 
 ## Pickers
 
 - `a` parent picker: first row `(No parent)`, then candidates. A type may hang under every type of a lower rank, using the ranks of the project config, the same rule the CLI enforces.
-- `r` relations picker: toggles `blocking` for the selected item. `space` toggles, `enter` saves. It does not exclude cycles; the check happens on save.
-- `t` tag picker: type to filter, `space` toggles, `enter` saves. To create a tag, type a name that matches nothing and press `enter`, then `enter` again to save. Tag names are lowercase, hyphen-separated.
+- `b` blocking picker: toggles `blocking` for the selected item. `space` toggles, `enter` saves. It does not exclude cycles; the check happens on save.
+- `g` tag picker: type to filter, `space` toggles, `enter` saves. To create a tag, type a name that matches nothing and press `enter`, then `enter` again to save. Tag names are lowercase, hyphen-separated.
 - The parent and relations pickers offer the chips `ctrl+t`, `ctrl+n`, `ctrl+p`, `ctrl+g`.
 
 ## Edit the whole item

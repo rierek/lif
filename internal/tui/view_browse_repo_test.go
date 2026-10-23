@@ -29,7 +29,7 @@ func TestBrowseRepoChromeHeaderShowsExactlyFourGlobals(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	head, _ := m.browseRepoChrome(200) // wide enough to never trigger breadcrumb's narrow-stack fallback
 	plain := stripHint(head)
-	for _, want := range []string{"K commands", "p repos", "? help", "q quit"} {
+	for _, want := range []string{"K/: commands", "P repos", "? help", "q quit"} {
 		if !strings.Contains(plain, want) {
 			t.Errorf("browseRepoChrome header = %q, want it to contain %q", plain, want)
 		}
@@ -75,7 +75,7 @@ func TestBrowseRepoChromeFooterMatchesQ06List(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	_, localKeys := m.browseRepoChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
-	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · b Ready · y Yank · r Relations · v next layout · shift+v previous layout"
+	want := "tab focus in · shift+tab focus out · / search · f Filter · c Create · d Delete · L List · R Ready · y Yank · b Blocking · v next layout · shift+v previous layout"
 	if plain != want {
 		t.Errorf("browseRepoChrome footer = %q, want exactly %q", plain, want)
 	}
@@ -85,9 +85,9 @@ func TestBrowseRepoChromeFooterMatchesQ06List(t *testing.T) {
 // of Up/Down/Left/Right ("intuitiv genug", PO-Begruendung) from the Footer.
 func TestBrowseRepoLocalBindingsOmitsNavigation(t *testing.T) {
 	for _, nav := range []keybind.Binding{keys.Up, keys.Down, keys.Left, keys.Right} {
-		for _, b := range browseRepoLocalBindings() {
+		for _, b := range fixtureModel(t, fixtureBeans()).footerBindings() {
 			if strings.Join(b.Keys(), ",") == strings.Join(nav.Keys(), ",") {
-				t.Errorf("browseRepoLocalBindings() still contains navigation binding %v, want it removed (Q06)", nav.Keys())
+				t.Errorf("footerBindings still contains navigation binding %v, want it removed (Q06)", nav.Keys())
 			}
 		}
 	}

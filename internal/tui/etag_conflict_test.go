@@ -103,7 +103,7 @@ func TestEtagConflictSweep(t *testing.T) {
 		m := fixtureModel(t, fixtureBeansTagged())
 		m.store = conflictingStore(t)
 		m = focusBean(m, "tk-2")
-		m = step(t, m, runeMsg('t'))
+		m = step(t, m, runeMsg('g'))
 		if m.overlay != overlayTagPicker {
 			t.Fatal("setup: t did not open the tag picker")
 		}
@@ -141,7 +141,7 @@ func TestEtagConflictSweep(t *testing.T) {
 		m := fixtureModel(t, fixtureBeansWithBlocking())
 		m.store = conflictingStoreOf(t, fixtureBeansWithBlocking())
 		m = focusBeanFull(m, "bean-a")
-		m = step(t, m, runeMsg('r'))
+		m = step(t, m, runeMsg('b'))
 		if m.overlay != overlayBlockingPicker {
 			t.Fatal("setup: r did not open the blocking picker")
 		}

@@ -250,7 +250,7 @@ func blockingPickerLocalBindings() []keybind.Binding {
 // the destructive/constructive verb, e.g. "enter: delete permanently" --
 // this base-view fallback intentionally stays generic).
 func confirmGateLocalBindings() []keybind.Binding {
-	return []keybind.Binding{keys.Enter, keys.Back}
+	return []keybind.Binding{keys.Confirm, keys.Cancel}
 }
 
 // searchLocalBindings is the inline Tree/Ready search input's own footer

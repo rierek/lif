@@ -654,6 +654,11 @@ type model struct {
 	repoSearch  textinput.Model
 	repoList    listState
 	storeEvents <-chan []itemcore.ItemEvent
+	// repoFilterOpen: the Lobby filter takes typed text; it opens with / only
+	// (beans-u4uu), so q and the other keys stay commands. lobbyEscArmed: the
+	// first esc in the Lobby; the second leaves it.
+	repoFilterOpen bool
+	lobbyEscArmed  bool
 
 	// Archiv-Sicht (E5 Task 7, bean bt-ggt2, design decision e): showArchived
 	// is a PROGRAM DEFAULT (false = completed/scrapped hidden), toggled via

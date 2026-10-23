@@ -1106,18 +1106,10 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.toggleRegion(), nil
 	}
 
-	// S5 (jira-style-ui experiment, bean/slice: Nested/Flat Browse toggle):
-	// `G` flips m.flatView -- checked at the SAME "fokus-/Ansichts-Modus-
-	// Familie" checkpoint as FocusIn/FocusOut/the layout keys just above/below
-	// (global reach, view-agnostic dispatch). Only viewBrowseRepo's render
-	// path (viewBrowseRepo, view_browse_repo.go) actually branches on
-	// flatView -- toggling it while e.g. the Ready view is active is a
-	// harmless no-visible-effect state change (Ready is already its own
-	// flat, full-screen list), symmetric with how `v` is also globally
-	// reachable without every view rendering differently for it.
-	if keybind.Matches(msg, keys.FlatView) {
-		m.flatView = !m.flatView
-		return m, nil
+	// M / L / R switch between the Roadmap, the flat list and Ready (keyView,
+	// layout.go); reachable from every list view.
+	if handled, nm := m.keyView(msg); handled {
+		return nm, nil
 	}
 
 	// v / shift+v cycle the layout (keyLayout, layout.go).
@@ -1231,8 +1223,16 @@ func (m model) toggleRegion() model {
 // linear with wrap, dragging the scroll offset along so the cursored field
 // is always in the viewport); enter opens the cursored field's editor
 // (boxFormActivateCursor, the same dispatch a click takes); left/right do
-// nothing; esc leaves the region (not in layoutDetail, which has no other).
+// nothing; esc leaves the region (in layoutDetail, which has no other, it is
+// the list views' esc: escBack).
 func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if keybind.Matches(msg, keys.Back) {
+		if m.layout == layoutDetail {
+			return m.escBack(), nil
+		}
+		m.detailFocus = false
+		return m, nil
+	}
 	b := m.focusedBean()
 	if b == nil { // defensive guard: orphan-root cursor, no focusable bean
 		if m.layout != layoutDetail { // layoutDetail keeps focus: it shows no other region
@@ -1253,10 +1253,6 @@ func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.boxFormActivateCursor(b)
 	}
 
-	if keybind.Matches(msg, keys.Back) && m.layout != layoutDetail { // layoutDetail has no other region to leave to
-		m.detailFocus = false
-		return m, nil
-	}
 	return m, nil
 }
 
@@ -1352,14 +1348,6 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// (view_browse_project.go:865-874) minus the loadAllIssues call --
 		// beans-tui already holds the full Index in memory.
 		return m.openFilterMenu()
-	case keybind.Matches(msg, keys.Ready):
-		// E2 Task 5 (bean bt-gzu6): `b` opens the Ready view -- search/
-		// filter state carries over unchanged (ONE shared m.beanMatches
-		// predicate, Task 3/4), only the master list's data source and
-		// cursor representation (readyList) differ from the Tree.
-		m.view = viewReady
-		m.readyList.setLen(len(m.readyVisible()))
-		return m, nil
 	case keybind.Matches(msg, keys.FilterClear):
 		// X as a direct top-level reset even with the menu closed (design-
 		// spec.md, mirrors devd's esc-cascade also clearing filters below) --
@@ -1368,27 +1356,15 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m = m.clearFacets()
 		return m.resetCursorToFirstVisible(), nil
 	case keybind.Matches(msg, keys.Back):
-		if m.treeActive() { // esc-cascade Rung 2: committed query AND/OR active facets -> clear both in one step (Task 4 generalizes Task 3's search-only rung, devd parity view_browse_project.go:725-736)
-			m.searchQuery = ""
-			m.searchPrefixFacets = nil // bt-2kfl D02: typed prefixes are part of the query being cleared here
-			m.searchPrefixRest = ""
-			m.searchBleveIDs = nil
-			m.searchBleveFor = ""
-			m = m.clearFacets()
-			return m.resetCursorToFirstVisible(), nil
-		}
-		// Rung 3 (existing behavior): no-op -- no Lobby fallback in E2
-		// (design-spec.md §12 E5, plan Task 3 Port-Referenzen: the cascade
-		// ends here, a documented Scope-Cut rather than a TBD).
-		return m, nil
+		// esc-cascade: clear a committed query and active facets, else leave the
+		// flat list for the Roadmap (escBack, layout.go); no-op in the Roadmap.
+		return m.escBack(), nil
 	}
 
-	// S5 (jira-style-ui experiment, Nested/Flat Browse toggle `G`,
-	// keymap.go/view_browse_flat.go): once the shared search/filter/Ready/
-	// FilterClear/Back handling above has run (identical in both modes --
-	// flat mode narrows/widens the SAME m.beanMatches-filtered set the Tree
-	// does), flat mode's own up/down-only cursor takes over instead of the
-	// Tree's node walk below.
+	// Flat list mode: once the shared search/filter/FilterClear/Back handling
+	// above has run (identical in both modes -- flat mode narrows/widens the
+	// SAME m.beanMatches-filtered set the Tree does), flat mode's own
+	// up/down-only cursor takes over instead of the Tree's node walk below.
 	if m.flatView {
 		return m.keyFlat(msg)
 	}

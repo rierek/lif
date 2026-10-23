@@ -58,31 +58,25 @@ func TestDetailEscLeavesDetailRegion(t *testing.T) {
 	}
 }
 
-// TestDetailHiddenAtStartAndToggle: a new model renders no Detail pane, `D`
-// shows it, and tab on a hidden Detail shows and focuses it.
-func TestDetailHiddenAtStartAndToggle(t *testing.T) {
+// TestStartLayoutShowsNoDetailAndTabNeverChangesLayout: a new model starts in
+// layoutRoadmap with no Detail pane; tab and shift+tab only move focus, so
+// with no Detail pane they change neither layout nor focus.
+func TestStartLayoutShowsNoDetailAndTabNeverChangesLayout(t *testing.T) {
 	m := step(t, newModel(nil, "/tmp/bt-fixture-repo"), beansLoadedMsg{beans: fixtureBeans()})
 	m = step(t, m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = focusBean(m, "tk-2")
 	const detailFrame = "─ Title" // top border of the box-form Title box
-	if !m.detailHidden {
-		t.Fatal("a new model must start with the Detail pane hidden")
+	if m.layout != layoutRoadmap {
+		t.Fatalf("a new model must start in layoutRoadmap, got %v", m.layout)
 	}
 	if strings.Contains(m.View(), detailFrame) {
-		t.Fatal("hidden Detail pane still renders the Title box")
+		t.Fatal("start layout still renders the Title box of the Detail pane")
 	}
 
-	m = step(t, m, runeMsg('D'))
-	if m.detailHidden || !strings.Contains(m.View(), detailFrame) {
-		t.Fatal("D must show the Detail pane")
-	}
-	m = step(t, m, runeMsg('D'))
-	if !m.detailHidden || strings.Contains(m.View(), detailFrame) {
-		t.Fatal("second D must hide the Detail pane again")
-	}
-
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if m.detailHidden || !m.detailFocus {
-		t.Fatalf("tab on a hidden Detail: detailHidden=%v detailFocus=%v, want false/true", m.detailHidden, m.detailFocus)
+	for _, k := range []tea.KeyType{tea.KeyTab, tea.KeyShiftTab} {
+		m = step(t, m, keyMsg(k))
+		if m.layout != layoutRoadmap || m.detailFocus {
+			t.Fatalf("%v: layout=%v detailFocus=%v, want layoutRoadmap/false", k, m.layout, m.detailFocus)
+		}
 	}
 }

@@ -46,7 +46,7 @@ func screenLines(m model) []string {
 // the boundary matches the real render exactly.
 func leftPaneClickAt(t *testing.T, m model, head, localKeys, substr string) tea.MouseMsg {
 	t.Helper()
-	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
+	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	boundary := originX + lw
 	for y, l := range screenLines(m) {
 		i := strings.Index(l, substr)
@@ -77,7 +77,7 @@ func treeClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 // mouseDetailClick dispatch path.
 func rightPaneClickAt(t *testing.T, m model, head, localKeys, substr string) tea.MouseMsg {
 	t.Helper()
-	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
+	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	boundary := originX + lw
 	for y, l := range screenLines(m) {
 		i := strings.Index(l, substr)
@@ -287,26 +287,32 @@ func TestMouseIgnoredWhileOverlayOpen(t *testing.T) {
 	}
 }
 
-// TestHandleMouseIgnoredWhenFullscreenActive guards F01's own documented
-// Scope-Cut (design-spec.md §15, E9 Task 7, bean bt-13l7): a click/wheel
-// against the fullscreen single-pane geometry would otherwise be
-// misinterpreted against the (wrong) Split-Geometry clickPaneGeometry/
-// treeClickRow/etc. still compute -- the guard turns it into a safe no-op,
-// mirroring TestMouseIgnoredWhileOverlayOpen's own pattern.
-func TestHandleMouseIgnoredWhenFullscreenActive(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.expanded["ms-1"] = true
-	m.cursorID = "ms-1"
-	m.fullscreen = fullscreenList
-
-	tm, _ := m.handleMouse(wheelMsg(tea.MouseButtonWheelDown))
-	m2, ok := tm.(model)
+// TestHandleMouseIgnoresFormerDetailAreaWithoutDetailPane: in layouts without
+// a Detail pane a click where the split would draw a field (here Status)
+// opens no value menu.
+func TestHandleMouseIgnoresFormerDetailAreaWithoutDetailPane(t *testing.T) {
+	split := fixtureModel(t, fixtureBeans())
+	split = step(t, split, tea.WindowSizeMsg{Width: 100, Height: 30})
+	split = focusBean(split, "tk-2")
+	split.layout = layoutFilterDetail
+	x, y, w, h, ok := boxFormFieldRect(split, split.focusedBean(), fieldIdx(t, "status"))
 	if !ok {
-		t.Fatalf("handleMouse(wheel) did not return a model, got %T", tm)
+		t.Fatal("setup: no Status field rect in the split")
 	}
-	if m2.cursorID != "ms-1" {
-		t.Fatalf("wheel while fullscreen is active moved the cursor: cursorID = %q, want unchanged (ms-1)", m2.cursorID)
+	click := tea.MouseMsg{Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: x + w/2, Y: y + h/2}
+
+	for _, l := range []layoutMode{layoutRoadmap, layoutFilter} {
+		m := split
+		m.layout = l
+		tm, _ := m.handleMouse(click)
+		if got := tm.(model); got.overlay != overlayNone {
+			t.Fatalf("layout %v: click in the former Detail area opened overlay %v", l, got.overlay)
+		}
+	}
+
+	tm, _ := split.handleMouse(click) // control: the split itself reacts
+	if got := tm.(model); got.overlay != overlayValueMenu {
+		t.Fatalf("control: click on Status in the split gave overlay %v, want overlayValueMenu", got.overlay)
 	}
 }
 
@@ -404,7 +410,7 @@ func TestToastClickDismissesEvenWithFormOpen(t *testing.T) {
 // the SAME value this file hardcoded before T6b, so the seven Golden
 // snapshot tests stay byte-identical.
 func TestTreeWidthZeroFallsBackToDefault(t *testing.T) {
-	_, lw, _, _, _ := clickPaneGeometry(72, 30, "head", "footer", "", 0, false)
+	_, lw, _, _, _ := clickPaneGeometry(72, 30, "head", "footer", "", 0, layoutFilterDetail)
 	if lw != 24 {
 		t.Fatalf("clickPaneGeometry(treeWidth=0): lw = %d, want 24 (fallback, byte-identical to the pre-T6b hardcoded floor)", lw)
 	}
@@ -416,8 +422,8 @@ func TestTreeWidthZeroFallsBackToDefault(t *testing.T) {
 // this task, the Settings-Form's tree_width field was persisted/validated
 // but had NO effect on the render, a silent no-op for the PO).
 func TestTreeWidthFromSettingsAffectsGeometry(t *testing.T) {
-	_, lwDefault, _, _, _ := clickPaneGeometry(72, 30, "head", "footer", "", 0, false)
-	_, lwConfigured, _, _, _ := clickPaneGeometry(72, 30, "head", "footer", "", 28, false)
+	_, lwDefault, _, _, _ := clickPaneGeometry(72, 30, "head", "footer", "", 0, layoutFilterDetail)
+	_, lwConfigured, _, _, _ := clickPaneGeometry(72, 30, "head", "footer", "", 28, layoutFilterDetail)
 	if lwConfigured != 28 {
 		t.Fatalf("clickPaneGeometry(treeWidth=28): lw = %d, want 28", lwConfigured)
 	}
@@ -436,7 +442,7 @@ func TestTreeWidthFromSettingsAffectsGeometry(t *testing.T) {
 // after.
 func TestClickPaneGeometryOriginYExcludesTitleAndSeparator(t *testing.T) {
 	head := "head"
-	_, _, _, _, originY := clickPaneGeometry(80, 24, head, "footer", "", 0, false)
+	_, _, _, _, originY := clickPaneGeometry(80, 24, head, "footer", "", 0, layoutFilterDetail)
 	want := 1 + lipgloss.Height(head) + 1 + 1
 	if originY != want {
 		t.Fatalf("originY = %d, want %d (outer border(1) + head(%d) + divider(1) + pane's own top border(1) -- PF-10 drops only the pane's title+separator lines)", originY, want, lipgloss.Height(head))
@@ -477,7 +483,7 @@ func TestClickPaneGeometryMultiLineFooterHeightPin(t *testing.T) {
 	head := "H"
 	localKeys := "line one\nline two\nline three" // 3 lines -- the bean's own ">=3-Zeilen" requirement
 
-	bodyH, _, _, _, originY := clickPaneGeometry(80, 40, head, localKeys, "", 0, false)
+	bodyH, _, _, _, originY := clickPaneGeometry(80, 40, head, localKeys, "", 0, layoutFilterDetail)
 	if bodyH != 30 {
 		t.Fatalf("bodyH (no status line) = %d, want 30 (innerH 38 - head 1 - footH 4 - divider 1 = avail 32, bodyH = avail-2)", bodyH)
 	}
@@ -488,7 +494,7 @@ func TestClickPaneGeometryMultiLineFooterHeightPin(t *testing.T) {
 		t.Fatalf("footerY (no status line) = %d, want 36 (originY 4 + bodyH 30 + pane-bottom-border/divider 2)", footerY)
 	}
 
-	bodyHStatus, _, _, _, originYStatus := clickPaneGeometry(80, 40, head, localKeys, "watch unavailable", 0, false)
+	bodyHStatus, _, _, _, originYStatus := clickPaneGeometry(80, 40, head, localKeys, "watch unavailable", 0, layoutFilterDetail)
 	if bodyHStatus != 29 {
 		t.Fatalf("bodyH (status line present) = %d, want 29 (footH 5: 3 localKeys + 1 divider + 1 status)", bodyHStatus)
 	}

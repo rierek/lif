@@ -84,8 +84,8 @@ func TestBrowseRepoPanesGainTheFreedLine(t *testing.T) {
 	m := goldenTreeModel(t)
 	head, localKeys := m.browseRepoChrome(m.width - 2)
 
-	withStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "indicator", m.settings.Layout.TreeWidth, false)
-	withoutStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "", m.settings.Layout.TreeWidth, false)
+	withStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "indicator", m.settings.Layout.TreeWidth, layoutFilterDetail)
+	withoutStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "", m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 	if withoutStatus != withStatus+1 {
 		t.Fatalf("bodyH without status line = %d, want %d (exactly one row more than with it: %d)", withoutStatus, withStatus+1, withStatus)
@@ -109,7 +109,7 @@ func TestClickPaneGeometryBodyHMatchesRenderedPane(t *testing.T) {
 		m.watchUnavailable = watchDown
 
 		head, localKeys := m.browseRepoChrome(m.width - 2)
-		bodyH, _, _, _, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
+		bodyH, _, _, _, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 		bodyH -= filterBarHeight // the filter bar is reclaimed from bodyH
 		originY += filterBarHeight
 
@@ -161,7 +161,7 @@ func TestTreeClickRowSurvivesStatusLineRemoval(t *testing.T) {
 		// Detail pane repeats the selected bean's ID in its header, which
 		// would otherwise match on the wrong screen row.
 		head, localKeys := m.browseRepoChrome(m.width - 2)
-		_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
+		_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 		checked := 0
 		for want, n := range nodes {

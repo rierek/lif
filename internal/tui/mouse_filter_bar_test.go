@@ -33,7 +33,7 @@ import (
 func filterBarClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, _, _, originX, rawOriginY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, false)
+	_, _, _, originX, rawOriginY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	// clickPaneGeometry's raw originY assumes content starts 1 row after a
 	// bordered box's own top border sitting directly below the divider --
 	// the bordered box IS the filter bar itself

@@ -455,7 +455,7 @@ func (m model) placeValueMenuOverlay(out string, w, h int) string {
 // the anchor field's rect fails to resolve (same defensive fallback
 // placeValueMenuOverlay itself has, e.g. a vanished mutTarget bean).
 func (m model) valueMenuPopupRect() (x, y, w, h int, ok bool) {
-	if m.detailHidden && m.fullscreen != fullscreenDetail {
+	if !m.layout.hasDetail() {
 		return 0, 0, 0, 0, false
 	}
 	b := m.idx.ByID[m.mutTarget] // nil-safe: a nil map / missing key both yield nil

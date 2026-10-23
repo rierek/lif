@@ -42,18 +42,17 @@ type keyMap struct {
 	FocusOut keybind.Binding // shift+tab — toggle focus Tree<->Detail
 
 	// Activation / return / global.
-	Enter        keybind.Binding // enter — open/confirm
-	Back         keybind.Binding // esc — back
-	Quit         keybind.Binding // q — quit (confirm); ctrl+c quits at once
-	Help         keybind.Binding // ? — help overlay
-	Palette      keybind.Binding // K — Command-Center
-	Picker       keybind.Binding // p — repo-picker
-	Ready        keybind.Binding // b — Ready
-	Search       keybind.Binding // / — search
-	Filter       keybind.Binding // f — facet filter
-	Yank         keybind.Binding // y — copy context (OSC52 + native)
-	Refresh      keybind.Binding // ctrl+r — manual data reload
-	DetailToggle keybind.Binding // D — show/hide the Detail pane
+	Enter   keybind.Binding // enter — open/confirm
+	Back    keybind.Binding // esc — back
+	Quit    keybind.Binding // q — quit (confirm); ctrl+c quits at once
+	Help    keybind.Binding // ? — help overlay
+	Palette keybind.Binding // K — Command-Center
+	Picker  keybind.Binding // p — repo-picker
+	Ready   keybind.Binding // b — Ready
+	Search  keybind.Binding // / — search
+	Filter  keybind.Binding // f — facet filter
+	Yank    keybind.Binding // y — copy context (OSC52 + native)
+	Refresh keybind.Binding // ctrl+r — manual data reload
 
 	FilterClear keybind.Binding // X — reset filters
 	Toggle      keybind.Binding // space/x — toggle facet checkbox (E2 Task 4, bean bt-9ldr)
@@ -133,12 +132,10 @@ type keyMap struct {
 	// coexist without tripping that drift guard.
 	RenameTag keybind.Binding // e — rename tag (Tag-Management page)
 
-	// Fullscreen (F01 Kernmechanik, E9 Task 7, bean bt-13l7, design-spec.md
-	// §15): `v` (view) -- verified free against every OTHER binding above
-	// before wiring (no collision). Dispatch: keyFullscreen
-	// (view_fullscreen.go), handleKey's checkpoint NACH FocusIn/FocusOut, VOR
-	// keyNodeAction (update.go).
-	Fullscreen keybind.Binding // v — fullscreen
+	// Layout cycle: v steps forward, shift+v (the key "V") backward;
+	// dispatch is keyLayout (layout.go).
+	LayoutNext keybind.Binding // v — next layout
+	LayoutPrev keybind.Binding // shift+v — previous layout
 
 }
 
@@ -206,8 +203,8 @@ func newKeyMap() keyMap {
 
 		RenameTag: keybind.NewBinding(keybind.WithKeys("e"), keybind.WithHelp("e", "Rename")),
 
-		Fullscreen:   keybind.NewBinding(keybind.WithKeys("v"), keybind.WithHelp("v", "fullscreen")),
-		DetailToggle: keybind.NewBinding(keybind.WithKeys("D"), keybind.WithHelp("D", "toggle detail")),
+		LayoutNext: keybind.NewBinding(keybind.WithKeys("v"), keybind.WithHelp("v", "next layout")),
+		LayoutPrev: keybind.NewBinding(keybind.WithKeys("V"), keybind.WithHelp("shift+v", "previous layout")),
 	}
 }
 
@@ -226,8 +223,8 @@ type helpGroup struct {
 // a later task — the help view itself is out of scope here).
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
-		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.FocusIn, k.FocusOut, k.Fullscreen}},
-		{"Views & Global", []keybind.Binding{k.Ready, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView, k.DetailToggle}},
+		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
+		{"Views & Global", []keybind.Binding{k.LayoutNext, k.LayoutPrev, k.Ready, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are

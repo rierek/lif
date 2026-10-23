@@ -108,7 +108,7 @@ func treeWidthFloor(configured int) int {
 // indicator. It therefore has to be an INPUT here -- the old hardcoded "+2"
 // silently assumed the row was always present, and keeping it after the
 // reservation was dropped would offset every mouse click by exactly one row.
-func clickPaneGeometry(w, h int, head, localKeys, status string, treeWidth int, detailHidden bool) (bodyH, lw, rw, originX, originY int) {
+func clickPaneGeometry(w, h int, head, localKeys, status string, treeWidth int, layout layoutMode) (bodyH, lw, rw, originX, originY int) {
 	if w <= 0 {
 		w = 80
 	}
@@ -127,10 +127,13 @@ func clickPaneGeometry(w, h int, head, localKeys, status string, treeWidth int, 
 		bodyH = 1
 	}
 	lw, rw = masterDetailWidths(innerW, treeWidthFloor(treeWidth))
-	if detailHidden {
-		// Detail pane hidden: the tree pane takes the full width, same
-		// accounting as the Vollbild's paneW (innerW-2 content + 2 border).
+	switch {
+	case !layout.hasDetail():
+		// No Detail pane: the list takes the full width, same accounting as
+		// a single pane's paneW (innerW-2 content + 2 border).
 		lw, rw = innerW-2, 0
+	case !layout.hasList():
+		lw, rw = 0, innerW-2 // Detail alone at full width
 	}
 	// originY: outer top border(1) + head line(s) + divider(1) + the pane's
 	// OWN top border(1) -- its title line + separator line no longer exist
@@ -153,19 +156,6 @@ func clickPaneGeometry(w, h int, head, localKeys, status string, treeWidth int, 
 func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress && m.toastHit(msg.X, msg.Y) {
 		return m.dismissToast()
-	}
-
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): Maus im Vollbild --
-	// explizites Nicht-Ziel (v1, dokumentierter Scope-Cut). A click/wheel
-	// against the fullscreen single-pane geometry would otherwise be
-	// interpreted against the (WRONG) Split-Geometry clickPaneGeometry/
-	// treeClickRow/readyClickRow/detailClickRow still compute -- this guard
-	// turns that into a safe no-op instead of a false hit against the wrong
-	// row/section. Placed directly after the Toast-Klick-Vorrang (that stays
-	// unconditional, design decision a) and BEFORE the pre-existing overlay
-	// guard below (same full-capture precedent).
-	if m.fullscreen != fullscreenNone {
-		return m, nil
 	}
 
 	// Slice D (bt-f0y9, "feld-verankertes Inline-Dropdown", D09 revidiert):
@@ -260,10 +250,10 @@ func filterBarFieldAt(row, col, width int) (facet string, ok bool) {
 
 // filterBarHit resolves msg against the persistent filter-chip strip
 // (box_filter_bar.go, bt-wtqs) -- the strip only ever
-// renders in Browse (viewBrowseRepo, view_browse_repo.go's ONE call site;
-// Ready never shows it, the SAME B6 precedent detailBoxFormClickRow/
-// treeClickRow's own doc comments already establish), so a non-Browse view
-// short-circuits false here without reconstructing any geometry at all.
+// renders in Browse and Ready (view_browse_repo.go/view_browse_ready.go)
+// only in layouts roadmap+filter and roadmap+filter+details (layoutMode.
+// hasFilter), so any other layout or view short-circuits false here without
+// reconstructing any geometry at all.
 //
 // Reconstructs the SAME clickPaneGeometry geometry treeClickRow/
 // detailBoxFormClickRow do (Golden-Rule-Drift-Schutz) -- but, deliberately,
@@ -283,7 +273,7 @@ func filterBarFieldAt(row, col, width int) (facet string, ok bool) {
 // windows on the SAME originY-1 anchor, verified against a real View()
 // render (mouse_filter_bar_test.go's filterBarClickAt).
 func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
-	if m.view != viewBrowseRepo {
+	if !m.layout.hasFilter() || (m.view != viewBrowseRepo && m.view != viewReady) {
 		return "", false
 	}
 	w, h := m.width, m.height
@@ -294,8 +284,13 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 		h = 24
 	}
 	innerW := w - 2
-	head, localKeys := m.browseRepoChrome(innerW)
-	_, _, _, originX, rawOriginY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	var head, localKeys string
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
+	} else {
+		head, localKeys = m.browseRepoChrome(innerW)
+	}
+	_, _, _, originX, rawOriginY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	stripTop := rawOriginY - 1
 	return filterBarFieldAt(msg.Y-stripTop, msg.X-originX, innerW)
 }
@@ -519,17 +514,9 @@ func boxFormEffectiveScroll(m model, b *item.Item) int {
 // ultimately reaches renderDetailBox as its `h` param at render time, so
 // this must match it or the stored offset and the actual render disagree.
 //
-// bt-s90e (epic bt-vy1q) added the fullscreenDetail WIDTH branch below. F1
-// (bean bt-ze10) had guarded the Vollbild off entirely rather than clamp
-// against the wrong geometry; the fix turned out to be width-ONLY. Height
-// needs no branch: bodyH is already read off the CURRENT model's own chrome
-// (browseRepoChrome/readyChrome are footer-context-aware, so the Vollbild
-// yields its own correct value here for free) via the SAME clickPaneGeometry
-// call viewBrowseRepo makes BEFORE its fullscreen branch, filter-bar reclaim
-// included. The Vollbild renders ONE full-width pane instead of the split's
-// right half, so accW comes from paneW (innerW-2, view_browse_repo.go's own
-// border-accounting comment) minus renderDetailBox's own w-2, i.e.
-// innerW-4 -- NOT rw-2.
+// The layouts need no branch of their own: clickPaneGeometry returns the
+// Detail pane's width for each (full width in layoutDetail), and the filter
+// row is reclaimed only where the layout shows it (m.filterRows).
 func boxFormScrollBounds(m model, b *item.Item) (total, height int) {
 	if b == nil {
 		return 0, 0
@@ -566,20 +553,13 @@ func boxFormPaneMetrics(m model, b *item.Item) (accW, height int) {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	bodyH, _, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewReady {
-		bodyH -= filterBarHeight // B6 precedent: only viewBrowseRepo shows the filter bar
-		if bodyH < 1 {
-			bodyH = 1
-		}
+	bodyH, _, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	bodyH -= m.filterRows()
+	if bodyH < 1 {
+		bodyH = 1
 	}
 
-	accW = rw - 2
-	if m.fullscreen == fullscreenDetail {
-		// bt-s90e: Vollbild-Detail is ONE full-width pane, not the lw/rw split --
-		// paneW is innerW-2, minus renderDetailBox's own w-2.
-		accW = innerW - 4
-	}
+	accW = rw - 2 // layoutDetail: rw is the full width, so no separate branch
 	if accW < 1 {
 		accW = 1
 	}
@@ -631,10 +611,8 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewReady {
-		originY += filterBarHeight // B6 precedent, detailBoxFormClickRow below
-	}
+	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	originY += m.filterRows() // B6 precedent, detailBoxFormClickRow below
 
 	if msg.X < originX+lw || msg.X >= originX+lw+rw {
 		return false
@@ -645,11 +623,10 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 
 // detailBoxFormClickRow maps a Detail-Pane click to a box-form field target
 // (S6): reconstructs the SAME clickPaneGeometry geometry
-// (Golden-Rule-Drift-Schutz), corrected by the B6 filter-bar offset (this
-// file's treeClickRow doc comment, view_browse_repo.go) -- ONLY viewBrowseRepo
-// ever shows the filter bar (box_filter_bar.go's one call site), so the
-// offset is guarded on `m.view != viewReady` here. With the Detail pane
-// hidden (rw == 0) no X coordinate falls inside it, so every click is inert.
+// corrected by the B6 filter-bar offset (this file's treeClickRow doc
+// comment, view_browse_repo.go), which m.filterRows is 0 for in layouts
+// without the bar. With the Detail pane hidden (rw == 0) no X coordinate
+// falls inside it, so every click is inert.
 //
 // detailBoxForm's OWN fixed row order (box_detail_form.go doc comment:
 // Title(3 lines) -> rowA Status|Type|Priority(3 lines) -> rowB Parent|Tags
@@ -664,15 +641,8 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 // be, it is the exact same action a real `e` press already fires from
 // anywhere in the pane today.
 //
-// NO fullscreenDetail branch here, deliberately (bt-hd42, checked rather than
-// assumed): boxFormScrollBounds/boxFormPaneMetrics need their own accW branch
-// because the KEYBOARD reaches the Vollbild (bt-s90e), but handleMouse (above)
-// returns a flat no-op for `m.fullscreen != fullscreenNone` BEFORE the wheel
-// and left-click dispatch -- F01's documented v1 scope cut, "Maus im Vollbild".
-// Every caller of this function is downstream of that guard, so a Vollbild
-// click can never arrive here. A width branch would be code for a dead path;
-// if F01 is ever lifted, the accW below must gain boxFormPaneMetrics' own
-// innerW-4 branch in the same change.
+// layoutDetail needs no branch either: clickPaneGeometry returns lw == 0 and
+// rw == the full width there.
 func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 	w, h := m.width, m.height
 	if w <= 0 {
@@ -690,10 +660,8 @@ func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewReady {
-		originY += filterBarHeight // B6: viewReady never shows the filter bar
-	}
+	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	originY += m.filterRows() // B6 precedent
 
 	if msg.X < originX+lw || msg.X >= originX+lw+rw {
 		return "", false // left pane, or off-screen -- no Detail target

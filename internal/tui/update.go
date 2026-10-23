@@ -227,7 +227,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	// Port devd selectProject's reset-on-switch breadth (view_home.go).
 	m.expanded = map[string]bool{}
 	m.cursorID = ""
-	m.detailFocus = false
+	m.detailFocus = m.layout == layoutDetail // layoutDetail always holds Detail focus
 	m.boxFormCursor, m.boxFormCursorBean = 0, ""
 	m.searchActive = false
 	m.searchInput.SetValue("")
@@ -1099,45 +1099,25 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// They sit AT THE SAME dispatch point the former raw `case "tab":` had
 	// (still ahead of keyNodeAction/keyDetailFocus/keyReady/keyTree below).
 	if keybind.Matches(msg, keys.FocusIn) || keybind.Matches(msg, keys.FocusOut) {
-		return m.toggleRegion(keybind.Matches(msg, keys.FocusOut)), nil
+		return m.toggleRegion(), nil
 	}
 
 	// S5 (jira-style-ui experiment, bean/slice: Nested/Flat Browse toggle):
 	// `G` flips m.flatView -- checked at the SAME "fokus-/Ansichts-Modus-
-	// Familie" checkpoint as FocusIn/FocusOut/Fullscreen just above/below
+	// Familie" checkpoint as FocusIn/FocusOut/the layout keys just above/below
 	// (global reach, view-agnostic dispatch). Only viewBrowseRepo's render
 	// path (viewBrowseRepo, view_browse_repo.go) actually branches on
 	// flatView -- toggling it while e.g. the Ready view is active is a
 	// harmless no-visible-effect state change (Ready is already its own
-	// flat, full-screen list), symmetric with how Fullscreen's `v` is also
-	// globally reachable without every view rendering differently for it.
+	// flat, full-screen list), symmetric with how `v` is also globally
+	// reachable without every view rendering differently for it.
 	if keybind.Matches(msg, keys.FlatView) {
 		m.flatView = !m.flatView
 		return m, nil
 	}
 
-	// `D` shows/hides the Detail pane of the Browse/Ready split. Hiding it
-	// drops Detail focus (a hidden pane cannot hold focus); in the
-	// Vollbild there is no split to toggle.
-	if keybind.Matches(msg, keys.DetailToggle) {
-		if m.fullscreen == fullscreenNone {
-			m.detailHidden = !m.detailHidden
-			if m.detailHidden {
-				m.detailFocus = false
-			}
-		}
-		return m, nil
-	}
-
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): keyFullscreen's own
-	// dispatch checkpoint -- NACH FocusIn/FocusOut (same fokus-/Ansichts-
-	// Modus-Familie), VOR keyNodeAction (below). Handles `v` (entry/no-op),
-	// `enter` while m.fullscreen == fullscreenList (Listen-Vollbild ->
-	// Detail-Vollbild), and `esc` while m.fullscreen == fullscreenList
-	// (direct exit -- the fullscreenDetail esc-exit lives in
-	// keyDetailFocus's own Back-case instead, reached via the m.detailFocus
-	// routing line below).
-	if handled, nm, cmd := m.keyFullscreen(msg); handled {
+	// v / shift+v cycle the layout (keyLayout, layout.go).
+	if handled, nm, cmd := m.keyLayout(msg); handled {
 		return nm, cmd
 	}
 
@@ -1158,13 +1138,10 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// focusedBean() regardless of focus, through the SAME adjustBoxFormScroll
 	// mutation point line-wise up/down and the wheel use (one clamp/reset path,
 	// no drift -- SSTD load-bearing constraint). One page == the pane's own
-	// visible line budget (boxFormScrollBounds' height, fullscreen-aware).
+	// visible line budget (boxFormScrollBounds' height).
 	//
-	// fullscreenList is excluded: it renders the Master list full-width with no
-	// Detail-Body to page. fullscreenDetail is INCLUDED (focusedBean() resolves
-	// the fullscreen bean, keyDetailFocus's own doc comment) so paging works in
-	// Vollbild-Detail too. A hidden Detail pane has no Body to page.
-	if (!m.detailHidden || m.fullscreen == fullscreenDetail) && m.fullscreen != fullscreenList {
+	// A layout without a Detail pane has no Body to page.
+	if m.layout.hasDetail() {
 		if b := m.focusedBean(); b != nil {
 			switch {
 			case keybind.Matches(msg, boxFormPageUp):
@@ -1188,16 +1165,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return nm, cmd
 	}
 
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): m.fullscreen ==
-	// fullscreenDetail routes here TOO, not just m.detailFocus -- inside the
-	// Vollbild-Detail, m.detailFocuss truth value is irrelevant to the
-	// dispatch decision, the Vollbild state itself is the signal-giver (the
-	// entry point via listen-Vollbild `enter`, or a Relations-Sprung inside
-	// fullscreenDetail, never touches m.detailFocus at all). focusedBean()'s
-	// own new fullscreenDetail case (above) is what makes this reuse
-	// VERBATIM-safe: every field-kaskade already resolves against the
-	// correct (fullscreen) bean.
-	if m.detailFocus || m.fullscreen == fullscreenDetail {
+	if m.detailFocus {
 		return m.keyDetailFocus(msg)
 	}
 	if m.view == viewReady {
@@ -1211,23 +1179,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // view_detail_issue.go:20-35) -- view-agnostic so Task 5's Ready view
 // (viewReady case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
 func (m model) focusedBean() *item.Item {
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): fullscreenDetail's
-	// target is a VOLLBREITE, view-agnostic single bean (m.fullscreenBeanID),
-	// UNABHÄNGIG vom Tree-/Ready-Cursor -- checked BEFORE the m.view switch
-	// below so keyDetailFocus (every Feld-Kaskade, PF-5) works VERBATIM in
-	// the Vollbild-Detail without a second, duplicated navigation
-	// implementation (same "one view-agnostic dispatcher" principle the
-	// m.view switch itself already establishes for Tree vs. Ready).
-	if m.fullscreen == fullscreenDetail {
-		if m.idx == nil {
-			return nil
-		}
-		b, ok := m.idx.ByID[m.fullscreenBeanID]
-		if !ok {
-			return nil
-		}
-		return b
-	}
 	switch m.view {
 	case viewReady: // E2 Task 5: the Ready list's own selection, NOT the (possibly stale/irrelevant) tree cursor
 		return m.readySelected()
@@ -1249,121 +1200,56 @@ func (m model) focusedBean() *item.Item {
 	}
 }
 
-// toggleRegion flips focus between the two regions, Tree and Detail.
-// Entering Detail from the Tree shows a hidden Detail pane first and resets
-// the box-form field cursor, so a stale cursor from a previous visit (maybe
-// on a different bean) never leaks into the new one. Clearing the owning
-// bean rather than just the index reuses boxFormEffectiveCursor's own
-// derived reset (box_nav_field.go). The Vollbild keeps the former
-// semantics: tab (back=false) toggles, shift+tab (back=true) only leaves.
-func (m model) toggleRegion(back bool) model {
-	if m.fullscreen != fullscreenNone {
-		if back {
-			m.detailFocus = false
-		} else {
-			m.detailFocus = !m.detailFocus
-		}
+// toggleRegion flips focus between the two regions, list and Detail. It only
+// acts in layoutFilterDetail, the one layout that shows both; tab and
+// shift+tab never change the layout. Entering Detail resets the box-form
+// field cursor, so a stale cursor from a previous visit (maybe on a
+// different bean) never leaks into the new one. Clearing the owning bean
+// rather than just the index reuses boxFormEffectiveCursor's own derived
+// reset (box_nav_field.go).
+func (m model) toggleRegion() model {
+	if m.layout != layoutFilterDetail {
 		return m
 	}
 	if m.detailFocus {
 		m.detailFocus = false
 		return m
 	}
-	m.detailHidden = false
 	m.detailFocus = true
 	m.boxFormCursor, m.boxFormCursorBean = 0, ""
 	return m
 }
 
-// keyDetailFocus drives the Detail region (split pane or Vollbild-Detail).
-// pgup/pgdn page the Body at handleKey's global checkpoint, never here.
+// keyDetailFocus drives the Detail region. pgup/pgdn page the Body at
+// handleKey's global checkpoint, never here.
 //
-// Split pane: up/down walk the box-form field cursor (boxFormNav,
-// box_nav_field.go, linear with wrap, dragging the scroll offset along so
-// the cursored field is always in the viewport); enter opens the cursored
-// field's editor (boxFormActivateCursor, the same dispatch a click takes);
-// left/right do nothing; esc leaves the region.
-//
-// Vollbild-Detail: renderFullscreenBody passes cursor -1 on purpose, so
-// there is no cursor to walk -- up/down scroll the viewport and enter does
-// nothing; esc leaves the Vollbild.
+// up/down walk the box-form field cursor (boxFormNav, box_nav_field.go,
+// linear with wrap, dragging the scroll offset along so the cursored field
+// is always in the viewport); enter opens the cursored field's editor
+// (boxFormActivateCursor, the same dispatch a click takes); left/right do
+// nothing; esc leaves the region (not in layoutDetail, which has no other).
 func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	b := m.focusedBean()
 	if b == nil { // defensive guard: orphan-root cursor, no focusable bean
-		// F01 (Review Fix-Runde 1, bean bt-13l7): inside fullscreenDetail
-		// this guard is ALSO the landing spot when fullscreenBeanID vanished
-		// externally (live watch-reload, repo switch, parallel-agent
-		// delete). Clearing only detailFocus left m.fullscreen stuck: every
-		// subsequent key (esc included) routed right back here via
-		// handleKey's fullscreenDetail condition and died in this same
-		// guard -- Quit was the only escape. Leaving the Vollbild here
-		// rescues EVERY trigger at the single choke point they all pass
-		// through.
-		if m.fullscreen == fullscreenDetail {
-			m.fullscreen = fullscreenNone
+		if m.layout != layoutDetail { // layoutDetail keeps focus: it shows no other region
+			m.detailFocus = false
 		}
-		m.detailFocus = false
 		return m, nil
 	}
 
-	if m.fullscreen == fullscreenDetail {
-		switch navKey(msg.String()) {
-		case "up":
-			return m.adjustBoxFormScroll(b, -1), nil
-		case "down":
-			return m.adjustBoxFormScroll(b, 1), nil
-		}
-	} else {
-		switch navKey(msg.String()) {
-		case "up":
-			return m.boxFormNav(b, "prev"), nil
-		case "down":
-			return m.boxFormNav(b, "next"), nil
-		case "left", "right":
-			return m, nil
-		}
-		if keybind.Matches(msg, keys.Enter) {
-			return m.boxFormActivateCursor(b)
-		}
+	switch navKey(msg.String()) {
+	case "up":
+		return m.boxFormNav(b, "prev"), nil
+	case "down":
+		return m.boxFormNav(b, "next"), nil
+	case "left", "right":
+		return m, nil
+	}
+	if keybind.Matches(msg, keys.Enter) {
+		return m.boxFormActivateCursor(b)
 	}
 
-	if keybind.Matches(msg, keys.Back) {
-		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): esc inside
-		// fullscreenDetail leaves the Vollbild ENTIRELY. The Split-Detail
-		// stays focused afterward (PO: "mit dem AKTUELLEN Bean selektiert"),
-		// and the Tree-/Ready-cursor syncs onto m.fullscreenBeanID so
-		// Split-Modus shows the SAME bean the PO was just looking at.
-		if m.fullscreen == fullscreenDetail {
-			id := m.fullscreenBeanID
-			m.fullscreen = fullscreenNone
-			m.detailFocus = true
-			m.detailHidden = false
-			if m.view == viewReady {
-				// F02 (Review Fix-Runde 1, bean bt-13l7, SUPERVISOR-
-				// ENTSCHEID "Fallback = View-Wechsel"): the exit target is
-				// not necessarily readyVisible() any more. Fallback:
-				// switch to Browse/Tree, which can show EVERY bean --
-				// cursor on the target + ancestors expanded. Only a
-				// still-readyVisible target keeps the Ready sync.
-				found := false
-				for i, bb := range m.readyVisible() {
-					if bb.ID == id {
-						m.readyList.cursor = i
-						found = true
-						break
-					}
-				}
-				if !found {
-					m.view = viewBrowseRepo
-					m.expanded = expandAncestorsOf(m.treeParent, m.expanded, id)
-					m.cursorID = id
-				}
-			} else {
-				m.expanded = expandAncestorsOf(m.treeParent, m.expanded, id)
-				m.cursorID = id
-			}
-			return m, nil
-		}
+	if keybind.Matches(msg, keys.Back) && m.layout != layoutDetail { // layoutDetail has no other region to leave to
 		m.detailFocus = false
 		return m, nil
 	}

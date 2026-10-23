@@ -37,7 +37,7 @@ func fixtureBeans() []*item.Item {
 // fixtureModel builds a model already past its initial load (mirrors what
 // Init()+the real beansLoadedMsg round-trip produces, without a live client).
 // The Detail pane is shown (a real model starts with it hidden, see
-// TestDetailHiddenAtStartAndToggle) so the split-layout tests keep their
+// TestStartLayoutShowsNoDetail) so the split-layout tests keep their
 // geometry. The synthetic "Unscheduled" and "Not on roadmap" roots are
 // expanded (a real model starts collapsed, see
 // TestRoadmapTreeStartsCollapsedAtMilestones) so fixture items outside a
@@ -45,7 +45,7 @@ func fixtureBeans() []*item.Item {
 func fixtureModel(t *testing.T, beans []*item.Item) model {
 	t.Helper()
 	m := step(t, newModel(nil, "/tmp/bt-fixture-repo"), beansLoadedMsg{beans: beans})
-	m.detailHidden = false
+	m.layout = layoutFilterDetail
 	m.expanded = map[string]bool{unscheduledRootID: true, notOnRoadmapRootID: true}
 	return m
 }
@@ -586,41 +586,6 @@ func TestFocusedBeanDispatchesOnTreeCursorInBrowseView(t *testing.T) {
 // cascade's ONLY multi-step back path now that B01 removed it from left/j.
 // ---
 
-// --- F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): fullscreenDetail
-// integration with the EXISTING Detail-Fokus-Maschine (focusedBean's new
-// fullscreenDetail case, activateDetailField's new Relations-Sprung case,
-// keyDetailFocus's Back-case esc-exit rung). keyFullscreen itself + the
-// fullscreenList side are covered in view_fullscreen_test.go instead. ---
-
-// TestFocusedBeanResolvesFullscreenBeanID guards focusedBean()'s NEW,
-// vorrangig geprüften fullscreenDetail case: m.fullscreenBeanID wins over
-// whatever the Tree cursor currently points at (the two are deliberately
-// INDEPENDENT, design-spec.md §15).
-func TestFocusedBeanResolvesFullscreenBeanID(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m.cursorID = "ms-1" // deliberately a DIFFERENT bean than fullscreenBeanID
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "tk-2"
-
-	b := m.focusedBean()
-	if b == nil || b.ID != "tk-2" {
-		t.Fatalf("focusedBean() = %v, want tk-2 (fullscreenBeanID takes precedence over the Tree cursor)", b)
-	}
-}
-
-// TestFocusedBeanFullscreenDetailUnknownBeanIDReturnsNil is a defensive
-// nil-safety guard: an unresolved fullscreenBeanID (e.g. a bean deleted
-// externally while the Vollbild was open) must not panic.
-func TestFocusedBeanFullscreenDetailUnknownBeanIDReturnsNil(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m.fullscreen = fullscreenDetail
-	m.fullscreenBeanID = "does-not-exist"
-
-	if b := m.focusedBean(); b != nil {
-		t.Fatalf("focusedBean() = %v, want nil for an unresolved fullscreenBeanID", b)
-	}
-}
-
 // --- E7 T6 (PF-2/PF-5/PF-13, bean bt-t1uy): shift+tab exit + enter-cascade. ---
 
 // TestKeyTabStillTogglesBothDirections is a regression guard (PF-13): tab
@@ -666,11 +631,11 @@ func TestKeyNodeActionEditorAlwaysOpensBeanEditor(t *testing.T) {
 	}{
 		{"tree, no detail focus", func(m model) model { return m }},
 		{"detail focus, first field", func(m model) model {
-			m.detailHidden, m.detailFocus = false, true
+			m.layout, m.detailFocus = layoutFilterDetail, true
 			return m
 		}},
 		{"detail focus, field cursor on status", func(m model) model {
-			m.detailHidden, m.detailFocus = false, true
+			m.layout, m.detailFocus = layoutFilterDetail, true
 			m.boxFormCursor, m.boxFormCursorBean = 1, "tk-1"
 			return m
 		}},

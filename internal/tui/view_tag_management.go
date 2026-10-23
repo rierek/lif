@@ -272,10 +272,10 @@ func (m model) viewTagManagement() string {
 	// Same shared geometry source viewBrowseRepo/viewReady use (mouse.go
 	// clickPaneGeometry) -- lw/rw are the SPLIT master-detail widths neither
 	// of THIS page's single pane needs (D08), only bodyH is consumed.
-	bodyH, _, _, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, false)
+	bodyH, _, _, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 	// paneW is the SINGLE pane's own CONTENT-width param passed to
-	// renderPane/tagManagementRows -- mirrors viewBrowseRepo's own Vollbild
+	// renderPane/tagManagementRows -- mirrors viewBrowseRepo's own single-pane
 	// single-pane precedent (view_browse_repo.go, F01, bean bt-13l7's own
 	// doc-stamp there): renderPane's `w` argument is a CONTENT width, its OWN
 	// RoundedBorder adds +2 more on top (masterDetailWidths' lw+rw+4==innerW

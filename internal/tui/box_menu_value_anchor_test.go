@@ -425,21 +425,17 @@ func TestValueMenuTypeAndPriorityPopupsSitAtDifferentFieldNearColumns(t *testing
 	}
 }
 
-// --- Fullscreen (Q01) ---
+// --- layoutDetail ---
 
-// TestValueMenuAnchoredInFullscreenDetail guards the fullscreenDetail case
-// (bt-s90e's own Vollbild-Geometrie, which boxFormFieldRect already handles,
-// Slice A): entering Vollbild-Detail via a real `v` keypress (mirrors
-// box_form_scroll_fullscreen_test.go's own fullscreenBoxFormModel
-// precedent), then `s` opens Status' menu anchored to the SAME field-rect
-// geometry as the Split view -- click is dead in Vollbild (F01), but
-// keyboard/Palette are not, so this path is real and must not silently fall
-// back to centered.
-func TestValueMenuAnchoredInFullscreenDetail(t *testing.T) {
+// TestValueMenuAnchoredInLayoutDetail guards layoutDetail's full-width
+// geometry, which boxFormFieldRect handles (lw == 0): `v` from the split
+// reaches layoutDetail, then `s` opens Status' menu anchored to the field
+// rect, not centered.
+func TestValueMenuAnchoredInLayoutDetail(t *testing.T) {
 	m := anchorModel(t, 100, 30)
 	m = step(t, m, runeMsg('v'))
-	if m.fullscreen != fullscreenDetail {
-		t.Fatalf("setup: fullscreen = %v after `v`, want fullscreenDetail", m.fullscreen)
+	if m.layout != layoutDetail {
+		t.Fatalf("setup: layout = %v after `v`, want layoutDetail", m.layout)
 	}
 
 	m = step(t, m, runeMsg('s'))

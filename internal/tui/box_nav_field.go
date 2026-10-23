@@ -338,35 +338,33 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 //   - Row span (Y): boxFormFieldSpan (box_detail_form.go) minus
 //     boxFormEffectiveScroll (mouse.go), against clickPaneGeometry's originY
 //     corrected for the box-form filter bar the SAME way detailBoxFormClickRow
-//     is (B6, filterBarHeight, ONLY viewBrowseRepo ever shows the bar). This
+//     is (B6, m.filterRows: the bar is shown only in the filter layouts). This
 //     half matches detailBoxFormClickRow's own contentRow = clickRow +
 //     offset exactly, just inverted (screenRow = contentRow - offset) --
 //     confirmed render-grounded, no deviation here.
-//   - Pane accW: boxFormPaneMetrics (mouse.go) already branches on
-//     m.fullscreen == fullscreenDetail (bt-s90e) -- reused verbatim so this
+//   - Pane accW: boxFormPaneMetrics (mouse.go) -- reused verbatim so this
 //     function and boxFormPaneMetrics' own callers (boxFormNav,
 //     boxFormScrollBounds) can never disagree about the pane's width.
 //   - Column span within the field's grid row: gridColWidths (box_detail_
 //     form.go) + detailBoxFormGap, walked forward (colX = Σwidths[0:col] +
 //     col*gap) -- gridColAt (mouse.go) is the SAME table's inverse direction.
 //   - Pane left edge (X): NOT originX+lw (detailBoxFormClickRow's own click
-//     boundary, mouse.go) -- see ERRATUM below. Instead: Split mode (m.
-//     fullscreen != fullscreenDetail), the Detail pane's own left border sits
-//     at originX+lw+2 (the Tree/Ready/Flat pane occupies lw+2 columns:
+//     boundary, mouse.go) -- see ERRATUM below. Instead: with a list pane
+//     shown, the Detail pane's own left border sits at originX+lw+2 (the
+//     Tree/Ready/Flat pane occupies lw+2 columns:
 //     border+lw content+border, JoinHorizontal butts the Detail pane directly
 //     against it with no gap), and detailBoxForm's own content -- the
 //     accW-wide string dropdownBox/panelBox draw, which begins with its own
 //     "╭"/"│" -- starts ONE column further right of that, at originX+lw+3.
-//     fullscreenDetail (bt-s90e): there is no preceding Tree/Ready pane at
-//     all (renderFullscreenBody's ONE full-width pane), so content starts at
-//     originX+1.
+//     layoutDetail: there is no preceding Tree/Ready pane at all (ONE
+//     full-width pane), so content starts at originX+1.
 //
 // ERRATUM (Grounding-Kultur, checked rather than assumed): the Grounding's
 // own "trivial from gridColWidths" note implicitly assumed the pane's
-// content starts at originX+lw (Split) / originX (fullscreen) -- the SAME
+// content starts at originX+lw (Split) / originX (layoutDetail) -- the SAME
 // boundary detailBoxFormClickRow's own `msg.X < originX+lw` gate uses. A
 // render-grounded probe (ansi-stripped m.View(), a real "╭" search) found
-// this is off by +3 columns in Split mode (+1 in fullscreen) from where
+// this is off by +3 columns in Split mode (+1 in layoutDetail) from where
 // detailBoxForm ACTUALLY draws: detailBoxFormClickRow's own X arithmetic
 // only ever gates a coarse "which pane" decision and, past that, buckets via
 // gridColAt against ~14-15-cell-wide columns -- a 3-cell systematic
@@ -393,7 +391,7 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 //
 // boxFormPaneContentLeft and boxFormPopupChromeFloor (below) factor the
 // pane-origin geometry this function's own X/Y math depends on out into
-// reusable, view/fullscreen-agnostic helpers -- placeValueMenuOverlay (Slice
+// reusable, view/layout-agnostic helpers -- placeValueMenuOverlay (Slice
 // C B02 fix, box_menu_value.go) needs the SAME left-edge column to clamp a
 // left-aligned popup against, and the SAME "row right after the divider" as
 // a hard floor no popup Y may ever cross (Slice C B01 fix) -- both MUST
@@ -404,7 +402,7 @@ func (m model) boxFormNav(b *item.Item, dir string) model {
 // start drawing at (the SAME value boxFormFieldRect's own col=0 resolves
 // to, see the ERRATUM above): Split mode butts the Detail pane directly
 // against the Tree/Ready/Flat pane's own lw+2-wide box (border+lw
-// content+border, no gap), fullscreenDetail has no preceding pane at all.
+// content+border, no gap), layoutDetail has no preceding pane at all.
 func boxFormPaneContentLeft(m model) int {
 	ww, hh := m.width, m.height
 	if ww <= 0 {
@@ -422,9 +420,9 @@ func boxFormPaneContentLeft(m model) int {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, lw, _, originX, _ := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	_, lw, _, originX, _ := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	paneLeftBorder := originX
-	if m.fullscreen != fullscreenDetail {
+	if m.layout.hasList() {
 		paneLeftBorder = originX + lw + 2
 	}
 	return paneLeftBorder + 1 // one column past the pane's own left border/corner
@@ -438,7 +436,7 @@ func boxFormPaneContentLeft(m model) int {
 // already documents itself as "outer top border(1) + head(lines) +
 // divider(1) + the PANE'S OWN top border(1)" -- one row PAST the divider is
 // exactly originY minus that last "pane's own top border" term, i.e.
-// originY-1. View/fullscreen/filter-bar agnostic: none of those ever add
+// originY-1. View/layout/filter-bar agnostic: none of those ever add
 // rows ABOVE this point (the filter bar sits AT this
 // row and below -- it is body chrome, not app chrome, safe to place a popup
 // over), only below it.
@@ -459,7 +457,7 @@ func boxFormPopupChromeFloor(m model) int {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	return originY - 1
 }
 
@@ -484,12 +482,10 @@ func boxFormFieldRect(m model, b *item.Item, field int) (x, y, w, h int, ok bool
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
-	if m.view != viewReady {
-		originY += filterBarHeight // B6: same correction detailBoxFormClickRow applies (mouse.go)
-	}
+	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	originY += m.filterRows() // B6: same correction detailBoxFormClickRow applies (mouse.go)
 
-	accW, _ := boxFormPaneMetrics(m, b) // fullscreenDetail-aware accW (bt-s90e)
+	accW, _ := boxFormPaneMetrics(m, b)
 	contentX := boxFormPaneContentLeft(m)
 
 	f := boxFormFieldOrder[field]

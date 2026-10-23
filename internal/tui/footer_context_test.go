@@ -244,7 +244,6 @@ func TestContextualLocalHintPriority(t *testing.T) {
 		{"filter beats overlay", model{filterOpen: true, overlay: overlayValueMenu}, "X Clear filters"},
 		{"overlay beats search", model{overlay: overlayValueMenu, searchActive: true}, "s Status"},
 		{"palette beats help", model{paletteOpen: true, helpOpen: true}, "enter open/confirm"},
-		{"help beats fullscreenDetail", model{helpOpen: true, fullscreen: fullscreenDetail}, "esc back"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -253,52 +252,5 @@ func TestContextualLocalHintPriority(t *testing.T) {
 				t.Errorf("%s: contextualLocalHint = %q, want it to contain %q", c.name, got, c.want)
 			}
 		})
-	}
-}
-
-// TestFullscreenListLocalBindingsOmitsHistoryKeys is the bean's own
-// explicitly-named TDD step: the Listen-Vollbild's own footer set shows
-// Back+Enter but MUST NOT show the History keys (wirkungslos there --
-// design-spec.md §15 Scope-Entscheidung: the Stack only tracks jumps
-// INSIDE fullscreenDetail).
-func TestFullscreenListLocalBindingsOmitsHistoryKeys(t *testing.T) {
-	got := stripHint(renderBindings(fullscreenListLocalBindings()))
-	if strings.Contains(got, "history") {
-		t.Errorf("fullscreenListLocalBindings() rendered = %q, must NOT contain a history hint (wirkungslos in fullscreenList)", got)
-	}
-	for _, want := range []string{"esc back", "enter open/confirm"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("fullscreenListLocalBindings() rendered = %q, want it to contain %q", got, want)
-		}
-	}
-}
-
-// TestContextualLocalHintFullscreenDetail is
-// TestFullscreenDetailLocalBindingsShowsHistoryKeys' counterpart at the
-// Footer Zone 3 rendering layer (contextualLocalHint) -- the PO-facing
-// surface actually rendered around/below the Vollbild-Detail body. Must NOT
-// fall through to the (irrelevant) Tree/Ready viewLocal stub.
-func TestContextualLocalHintFullscreenDetail(t *testing.T) {
-	m := model{fullscreen: fullscreenDetail}
-	got := stripHint(m.contextualLocalHint(viewLocalStub()))
-	if strings.Contains(got, "stub-view-local") {
-		t.Errorf("fullscreenDetail: contextualLocalHint = %q, must not contain the viewLocal stub", got)
-	}
-	if !strings.Contains(got, "esc back") || strings.Contains(got, "history") {
-		t.Errorf("fullscreenDetail: contextualLocalHint = %q, want just the esc hint", got)
-	}
-}
-
-// TestContextualLocalHintFullscreenList mirrors the above for fullscreenList
-// -- must also not fall through to the viewLocal stub, and must not show
-// the (wirkungslos) History hints either.
-func TestContextualLocalHintFullscreenList(t *testing.T) {
-	m := model{fullscreen: fullscreenList}
-	got := stripHint(m.contextualLocalHint(viewLocalStub()))
-	if strings.Contains(got, "stub-view-local") {
-		t.Errorf("fullscreenList: contextualLocalHint = %q, must not contain the viewLocal stub", got)
-	}
-	if strings.Contains(got, "history") {
-		t.Errorf("fullscreenList: contextualLocalHint = %q, must NOT contain a history hint", got)
 	}
 }

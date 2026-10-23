@@ -303,28 +303,24 @@ func (m model) viewReady() string {
 	// E5 Task 4 (bean bt-mne6): bodyH/lw/rw now come from the SAME
 	// clickPaneGeometry helper readyClickRow (below) uses -- single source
 	// for the numeric pane geometry (Golden-Rule-Drift-Schutz).
-	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	vis := m.readyVisible()
 
+	// Same filter-bar reclaim as viewBrowseRepo: the Ready list shares the
+	// Browse facet filter (readyVisible -> beanMatches), so the bar shows in
+	// the filter layouts.
+	var filterBarRow string
+	if m.layout.hasFilter() {
+		filterBarRow = m.filterBar(innerW)
+		bodyH -= lipgloss.Height(filterBarRow)
+		if bodyH < 1 {
+			bodyH = 1
+		}
+	}
+
 	var body string
-	if m.fullscreen != fullscreenNone {
-		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): Vollbild -- mirrors
-		// viewBrowseRepo's own new branch (view_browse_repo.go), symmetric for
-		// Ready (m.view stays viewReady throughout, PO-Wortlaut: Vollbild
-		// is orthogonal to which view is active). paneW: see viewBrowseRepo's
-		// own doc comment for the full border-accounting rationale (ONE pane's
-		// content width is innerW-2, not innerW -- caught live via tmux smoke).
-		paneW := innerW - 2
-		var listRows []string
-		if m.fullscreen == fullscreenList {
-			searchLine := m.treeSearchLine(paneW-2, "sort "+readySortDisplayLabel(m.readySort))
-			listRows = append([]string{searchLine}, m.readyRows(vis, true, bodyH-1, paneW-2)...)
-		}
-		var detailBean *item.Item
-		if m.fullscreen == fullscreenDetail {
-			detailBean = m.focusedBean()
-		}
-		body = renderFullscreenBody(m.fullscreen, paneW, bodyH, listRows, true, m.idx, detailBean, boxFormEffectiveScroll(m, detailBean))
+	if m.layout == layoutDetail {
+		body = m.renderReadyDetailPane(vis, rw, bodyH, true) // Detail alone at full width
 	} else {
 		// Same 1-header-row budget trade as the Tree's search head (Task 3):
 		// the search/filter summary line costs 1 line of the list pane's bodyH
@@ -344,7 +340,11 @@ func (m model) viewReady() string {
 		}
 	}
 
-	content := appendStatusLine(head+"\n"+div+"\n"+body+"\n"+div+"\n"+localKeys, status)
+	content := head + "\n" + div
+	if filterBarRow != "" {
+		content += "\n" + filterBarRow
+	}
+	content = appendStatusLine(content+"\n"+body+"\n"+div+"\n"+localKeys, status)
 	out := outerBorder(content, innerW, true)
 
 	return m.composeOverlays(out, w, h)
@@ -449,7 +449,12 @@ func readyClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok boo
 	innerW := w - 2
 	head, localKeys := m.readyChrome(innerW)
 
-	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.detailHidden)
+	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	originY += m.filterRows() // same B6 correction as treeClickRow
+	bodyH -= m.filterRows()
+	if bodyH < 1 {
+		bodyH = 1
+	}
 
 	if msg.X < originX || msg.X >= originX+lw {
 		return 0, false

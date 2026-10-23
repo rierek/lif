@@ -1064,9 +1064,9 @@ func (m model) footerBindings() []keybind.Binding {
 }
 
 // boxFormInlineKeys are the footer keys the box-form Detail pane already
-// shows itself (bt-fy5d). e/s/a/t are literal (x) badges rendered by
+// shows itself (bt-fy5d). e/s/a/g are literal (x) badges rendered by
 // detailBoxForm's Title/Status/Parent/Tags boxes and panelBox("Body") --
-// o (Type) and u (Priority) are badges too but were never in the footer set
+// t (Type) and p (Priority) are badges too but were never in the footer set
 // to begin with.
 //
 // The membership rule is exactly "this key is rendered as an inline (x)

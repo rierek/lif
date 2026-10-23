@@ -54,7 +54,7 @@ When a layout change leaves the focused region out, focus moves to the list, or 
 
 ## Detail view
 
-The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`, `Type (o)`, `Priority (u)`, `Parent (a)`, `Tags (t)`, `Body (e)`, `Relations (r)`, `History`. The letter is the key that edits the box.
+The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`, `Type (t)`, `Priority (p)`, `Parent (a)`, `Tags (g)`, `Body (e)`, `Relations (b)`, `History`. The letter is the key that edits the box.
 
 - In layout Roadmap + filter + details, `tab` and `shift+tab` switch focus between the list and the detail pane, in both directions. In the other layouts there is only one region and they do nothing.
 - While the detail has focus, `↑`/`↓` step through the boxes. `esc` returns to the list (not in layout Details, which has no list).

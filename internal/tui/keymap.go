@@ -161,8 +161,9 @@ func newKeyMap() keyMap {
 
 		Enter:   keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "open/confirm")),
 		Back:    keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "back")),
-		Confirm: keybind.NewBinding(keybind.WithKeys("enter", "y"), keybind.WithHelp("enter/y", "confirm")),
-		Cancel:  keybind.NewBinding(keybind.WithKeys("esc", "n"), keybind.WithHelp("esc/n", "cancel")),
+		// Help shows only y/n: enter and esc are listed under Navigation.
+		Confirm: keybind.NewBinding(keybind.WithKeys("enter", "y"), keybind.WithHelp("y", "confirm dialog")),
+		Cancel:  keybind.NewBinding(keybind.WithKeys("esc", "n"), keybind.WithHelp("n", "cancel dialog")),
 		Quit:    keybind.NewBinding(keybind.WithKeys("q"), keybind.WithHelp("q", "quit")),
 		QuitNow: keybind.NewBinding(keybind.WithKeys("ctrl+c"), keybind.WithHelp("ctrl+c", "quit at once")),
 		Help:    keybind.NewBinding(keybind.WithKeys("?"), keybind.WithHelp("?", "help")),
@@ -267,7 +268,7 @@ func (k keyMap) helpGroups() []helpGroup {
 //
 // PF-11 precedent (superseded, kept for history): the original 7-item set
 // was `{Refresh, Palette, Picker, Help, Back, Enter, Quit}`, rendered
-// `ctrl+r:reload · ctrl+k:commands · p:repos · ?:help · esc:back ·
+// `ctrl+r:reload · ctrl+k:commands · p:repos (now P) · ?:help · esc:back ·
 // enter:open/confirm · q:quit` -- the PO's own Grilling feedback found this
 // too noisy; D04 is the direct fast-follow.
 func globalBindings() []keybind.Binding {

@@ -52,8 +52,8 @@ The Board view (`B`) is planned and not bound yet. `esc` in the flat list or Rea
 
 | Key | Action |
 |---|---|
-| `enter` / `y` | Confirm (quit, create, delete, tag delete) |
-| `esc` / `n` | Cancel |
+| `y` | Confirm (quit, create, delete, tag delete); `enter` confirms too |
+| `n` | Cancel; `esc` cancels too |
 
 In a dialog `y` confirms; everywhere else `y` copies the item context.
 

@@ -7,7 +7,7 @@ Measured on Lif 0.13 with a test repository of 17 items; the TUI code is unchang
 
 ## Overview of the views
 
-There are four views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
+There are five views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
 
 The in-app help (`?`) has a Views section with one line per view and layout and the keys that reach it. This page is the long form. In the help, `/` searches the lines.
 
@@ -16,6 +16,7 @@ The in-app help (`?`) has a Views section with one line per view and layout and 
 | Browse, tree | The roadmap: milestones, epics, features, tasks. | Default after start; `M` |
 | Browse, flat | All items in one list. | `L` |
 | Ready | Items `lif list --ready` lists, flat. | `R` |
+| Waves | The children of one item as cards in columns that follow `blocked_by`. | `W` on the focused item; command palette `K`, entry `view: waves (graph)`. |
 | Lobby | Repository picker. | `P` |
 | Tag management | Tag definitions. | Command palette `K`, entry `view: tags`. |
 | Detail pane | Fields, relations, body of the selected item. Not shown at start. | `v` / `shift+v` change the [layout](#layouts). |
@@ -42,6 +43,23 @@ Screenshot follows.
 `R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
 Screenshot follows.
+
+## Waves view
+
+`W` on the focused item of the Roadmap, the flat list or Ready opens the Waves view with that item as root. The command palette lists the same action as `view: waves (graph)`. The view shows the direct children of the root (`scrapped` ones are hidden) as fixed-size cards. A card stands in the column after its last blocker; lines with an arrow `▶` connect blocker and waiter. Cards without edges and without `order` stand in a loose column at the left. The view has no filter. The view reads items only; the single write is a second `b` (see below).
+
+| Key | Action |
+|---|---|
+| `i` `k` `j` `l`, arrows | Move the focus: up and down inside the column, left and right to the card of the next column at the nearest row. `[` and `]` do nothing. |
+| `Enter` | Detail panel of the focus item; `esc` returns to the board. |
+| `o` | Go into the focus card: it becomes the root. Needs visible children. |
+| `Backspace` | Root becomes its parent; the former root has the focus. |
+| `Tab` | Level picker: the root and its siblings that have visible children. |
+| `b` | Edge mode. First `b` marks the focus card (teal frame) as blocker. Second `b` on another card writes "this card waits on the mark" into its `blocked_by`, or removes it when it is there. `b` on the mark or `esc` cancels. Cards that would form a cycle are dimmed and refuse the key. |
+| `c` | Show or hide the critical path (shown when the view opens). |
+| `esc` | Cancels edge mode; without a mark, back to the view the Waves view was opened from. |
+
+The footer shows `column n/m` for the focus column and `n redundant` when the focus card has redundant `blocked_by` edges (not drawn). `?`, `K`/`:` and `q` keep their global meaning. The mouse is ignored. After every reload the board is rebuilt; root and focus stay, a vanished root returns to the origin view.
 
 ## Layouts
 

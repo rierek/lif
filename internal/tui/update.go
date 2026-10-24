@@ -929,6 +929,9 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	}
 
 	m = m.setItems(msg.beans, msg.ready)
+	if m.view == viewWaves {
+		m = m.wavesReload()
+	}
 	nodes := m.visibleNodes()
 
 	if len(nodes) == 0 {
@@ -1070,6 +1073,12 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.helpOpen {
 		return m.keyHelp(msg)
 	}
+	// Waves (bean beans-wrj0): full-capture view like the Lobby, but the global
+	// keys wavesPassthrough lists keep their meaning, so it sits BELOW the
+	// palette/help full-capture states and ABOVE their bare key matches.
+	if m.view == viewWaves && !m.wavesPassthrough(msg) {
+		return m.keyWaves(msg)
+	}
 	// Roadmap fold keys (zo/zc/zR/zM): intercepted AHEAD of every bare key
 	// below, whose letters (c, R, M, ...) would otherwise swallow the second
 	// key of the sequence.
@@ -1202,6 +1211,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // (viewReady case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
 func (m model) focusedBean() *item.Item {
 	switch m.view {
+	case viewWaves: // beans-wrj0: the Waves focus card
+		return m.wavesFocusItem()
 	case viewReady: // E2 Task 5: the Ready list's own selection, NOT the (possibly stale/irrelevant) tree cursor
 		return m.readySelected()
 	default: // viewBrowseRepo (T8)

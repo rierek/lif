@@ -89,6 +89,7 @@ func paletteActions(m model) []paletteItem {
 			paletteItem{kind: paletteKindAction, actionID: "blocking", label: "set: blocking"},
 			paletteItem{kind: paletteKindAction, actionID: "edit_title", label: "set: title"},
 			paletteItem{kind: paletteKindAction, actionID: "delete", label: "delete: item"},
+			paletteItem{kind: paletteKindAction, actionID: "go_waves", label: "view: waves (graph)"},
 		)
 	}
 	items = append(items,
@@ -286,6 +287,13 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "go_browse":
 			m.view = viewBrowseRepo
+			return m, nil
+		case "go_waves":
+			// beans-wrj0 (R-10): the SAME entry as keys.Waves (keyView); the
+			// focused item (inside Waves: the focus card) becomes the root.
+			if b := m.focusedBean(); b != nil {
+				return m.openWaves(b.ID), nil
+			}
 			return m, nil
 		case "filter":
 			return m.focusFilter(), nil

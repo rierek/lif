@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/rierek/lif/pkg/itemgraph"
@@ -34,11 +35,5 @@ func withoutRedundantBlocks(edges, fullEdges []graphEdge) []graphEdge {
 	for _, r := range itemgraph.RedundantEdges(blockingEdges(fullEdges)) {
 		redundant[graphEdge{From: r.From, To: r.To, Relation: relBlocks}] = true
 	}
-	var out []graphEdge
-	for _, e := range edges {
-		if !redundant[e] {
-			out = append(out, e)
-		}
-	}
-	return out
+	return slices.DeleteFunc(slices.Clone(edges), func(e graphEdge) bool { return redundant[e] })
 }

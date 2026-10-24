@@ -336,7 +336,6 @@ func (b *Board) findCritical() {
 // pass-through.
 func (b *Board) assignVias() {
 	b.via = make([][]int, len(b.edges))
-	b.nRows = 0
 	cardRows := make([]map[int]bool, len(b.Columns))
 	lastCard := make([]int, len(b.Columns))
 	for i := range cardRows {
@@ -345,7 +344,6 @@ func (b *Board) assignVias() {
 	for _, c := range b.byRank {
 		cardRows[c.col][c.row] = true
 		lastCard[c.col] = max(lastCard[c.col], c.row)
-		b.nRows = max(b.nRows, c.row+1)
 	}
 
 	type key struct {
@@ -372,7 +370,6 @@ func (b *Board) assignVias() {
 				}
 				cardRows[col][r] = true
 				shared[k] = r
-				b.nRows = max(b.nRows, r+1)
 			}
 			b.via[i] = append(b.via[i], r)
 			prev = r

@@ -67,7 +67,6 @@ type Board struct {
 	routes []*route
 	colX   []int // left cell of every display column
 	gaps   [][]*laneGroup
-	nRows  int // canvas rows in card-row units, pass-through rows included
 }
 
 // Build lays out and routes the board of rootID's direct children. An unknown

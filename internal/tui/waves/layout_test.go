@@ -299,7 +299,4 @@ func TestViaRowBelowCardsWhenHeightIsTaken(t *testing.T) {
 	if got := viaOf(t, b, "x", "t"); !reflect.DeepEqual(got, []int{2}) {
 		t.Errorf("via rows = %v, want [2]", got)
 	}
-	if b.nRows != 3 {
-		t.Errorf("rows = %d, want 3 (the pass-through row counts)", b.nRows)
-	}
 }

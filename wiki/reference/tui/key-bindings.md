@@ -31,6 +31,7 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `M` | Roadmap |
 | `L` | Flat list |
 | `R` | Ready |
+| `W` | Waves of the focused item (Roadmap, flat list, Ready); keys inside the view: see [Waves view](views.md#waves-view) |
 | `P` | Repository picker (lobby) |
 | `v` / `shift+v` | Next or previous layout: roadmap, roadmap + filter, roadmap + filter + details, details; both wrap |
 

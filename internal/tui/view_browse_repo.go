@@ -974,6 +974,8 @@ func (m model) View() string {
 		// E10 Task 2 (bean bt-r92i): the Tag-Management page -- a full
 		// top-level view (view_tag_management.go), not an overlay.
 		out = m.viewTagManagement()
+	case viewWaves:
+		out = m.viewWaves()
 	default:
 		out = m.viewBrowseRepo()
 	}

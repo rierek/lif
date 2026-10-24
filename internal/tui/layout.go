@@ -30,7 +30,7 @@ func (l layoutMode) hasFilter() bool { return l == layoutFilter || l == layoutFi
 
 // filterRows is the height the filter bar takes in the current layout.
 func (m model) filterRows() int {
-	if m.layout.hasFilter() {
+	if m.view != viewWaves && m.layout.hasFilter() {
 		return filterBarHeight
 	}
 	return 0
@@ -91,6 +91,11 @@ func (m model) keyView(msg tea.KeyMsg) (bool, model) {
 		return true, m.showView(viewBrowseRepo, true)
 	case keybind.Matches(msg, keys.Ready):
 		return true, m.showView(viewReady, false)
+	case keybind.Matches(msg, keys.Waves):
+		if b := m.focusedBean(); b != nil {
+			return true, m.openWaves(b.ID)
+		}
+		return true, m
 	}
 	return false, m
 }

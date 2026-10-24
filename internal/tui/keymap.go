@@ -62,6 +62,7 @@ type keyMap struct {
 	Palette keybind.Binding // K or : — Command-Center
 	Picker  keybind.Binding // P — repo-picker (Lobby)
 	Ready   keybind.Binding // R — Ready
+	Waves   keybind.Binding // W — Waves view of the focused item
 	Search  keybind.Binding // / — search
 	Filter  keybind.Binding // f — facet filter
 	Yank    keybind.Binding // y — copy context (OSC52 + native)
@@ -191,6 +192,7 @@ func newKeyMap() keyMap {
 		Palette: keybind.NewBinding(keybind.WithKeys("K", ":"), keybind.WithHelp("K/:", "commands")),
 		Picker:  keybind.NewBinding(keybind.WithKeys("P"), keybind.WithHelp("P", "repos")),
 		Ready:   keybind.NewBinding(keybind.WithKeys("R"), keybind.WithHelp("R", "Ready")),
+		Waves:   keybind.NewBinding(keybind.WithKeys("W"), keybind.WithHelp("W", "Waves")),
 		Search:  keybind.NewBinding(keybind.WithKeys("/"), keybind.WithHelp("/", "search")),
 		Filter:  keybind.NewBinding(keybind.WithKeys("f"), keybind.WithHelp("f", "Filter")),
 		Yank:    keybind.NewBinding(keybind.WithKeys("y"), keybind.WithHelp("y", "Yank")),
@@ -247,7 +249,7 @@ func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
 		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
 		{"Dialogs", []keybind.Binding{k.Confirm, k.Cancel}},
-		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
+		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Waves, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are

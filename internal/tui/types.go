@@ -35,6 +35,7 @@ const (
 	// Tag-Management page -- ALWAYS appended LAST (never resort the values
 	// above), see this const block's own doc comment above.
 	viewTagManagement
+	viewWaves // Waves board of one root item (view_waves.go), appended last again
 )
 
 // Synthetic root node IDs below the roadmap tree. "Unscheduled" holds the
@@ -736,6 +737,10 @@ type model struct {
 	// doc-stamp above) -- applyRepoMetrics (update.go) clones before adding
 	// an entry, same convention as every other model map field.
 	repoMetrics map[string]repoMetric
+
+	// waves is the Waves view's own state (view_waves.go); meaningful only
+	// while m.view == viewWaves.
+	waves wavesState
 }
 
 // newModel builds the initial (pre-load) App-Shell state.

@@ -264,6 +264,27 @@ func (s *Store) SetBlocking(id string, add, remove []string, etag string) error 
 	return s.update(id, etag, model.UpdateItemInput{AddBlocking: add, RemoveBlocking: remove})
 }
 
+// RemoveBlockingEdge removes the edge "waiting waits on blocker" from every
+// side that declares it (waiting.blocked_by and blocker.blocking), through
+// the shared two-sided removal of itemcore. Both ETags are the caller's view;
+// if either item changed on disk since, nothing is written and the result
+// wraps ErrConflict.
+func (s *Store) RemoveBlockingEdge(blocker, waiting, blockerETag, waitingETag string) error {
+	for _, c := range []struct{ id, etag string }{{blocker, blockerETag}, {waiting, waitingETag}} {
+		cur, err := s.Core.Get(c.id)
+		if err != nil {
+			return wrapErr(c.id, err)
+		}
+		if cur.ETag() != c.etag {
+			return wrapErr(c.id, &itemcore.ETagMismatchError{Provided: c.etag, Current: cur.ETag()})
+		}
+	}
+	if err := s.Core.RemoveBlockingEdges([]itemcore.BlockingEdge{{Blocker: blocker, Waiting: waiting}}); err != nil {
+		return fmt.Errorf("remove edge %s -> %s: %w", blocker, waiting, err)
+	}
+	return nil
+}
+
 // WholeEditDiff is the field-level diff between a whole-item $EDITOR
 // session's original snapshot and its edited return. nil or empty means
 // unchanged. ParentChanged is a separate bool because "" is a valid target

@@ -185,12 +185,18 @@ func wavesMove(b *waves.Board, focus, dir string) string {
 	switch dir {
 	case "up", "down":
 		ids := b.Columns[col]
-		i := slices.Index(ids, focus) + map[string]int{"up": -1, "down": 1}[dir]
+		i := slices.Index(ids, focus) + 1
+		if dir == "up" {
+			i -= 2
+		}
 		if i >= 0 && i < len(ids) {
 			return ids[i]
 		}
 	case "left", "right":
-		c := col + map[string]int{"left": -1, "right": 1}[dir]
+		c := col + 1
+		if dir == "left" {
+			c -= 2
+		}
 		if c < 0 || c >= len(b.Columns) {
 			return focus
 		}
@@ -295,17 +301,25 @@ func (m model) keyWavesPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // keyWavesDetail drives the detail panel opened with Enter: esc returns to
-// the board with root and focus unchanged, everything else is the existing
-// detail handling (item actions and the box form of the focus item).
+// the board with root and focus unchanged, up/down move the box cursor to
+// scroll the panel. Every other key is a handled no-op: the panel is read-only
+// here, so no node action (b, c, s, a, ...) and no field edit can fire.
 func (m model) keyWavesDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if keybind.Matches(msg, keys.Back) {
 		m.waves.detail = false
 		return m, nil
 	}
-	if handled, nm, cmd := m.keyNodeAction(msg); handled {
-		return nm, cmd
+	f := m.wavesFocusItem()
+	if f == nil {
+		return m, nil
 	}
-	return m.keyDetailFocus(msg)
+	switch navKey(msg.String()) {
+	case "up":
+		return m.boxFormNav(f, "prev"), nil
+	case "down":
+		return m.boxFormNav(f, "next"), nil
+	}
+	return m, nil
 }
 
 // wavesNonSelectable is the set of cards a target must not be while mark is
@@ -324,6 +338,13 @@ func wavesNonSelectable(b *waves.Board, mark string) map[string]bool {
 		}
 	}
 	return out
+}
+
+// wavesEdgeExists reports whether "waiting waits on blocker" is declared on
+// either side, the same edge notion as the board layout and pkg/itemgraph.
+func wavesEdgeExists(idx *data.Index, blocker, waiting string) bool {
+	w, b := idx.ByID[waiting], idx.ByID[blocker]
+	return (w != nil && w.IsBlockedBy(blocker)) || (b != nil && b.IsBlocking(waiting))
 }
 
 // wavesEdge is `b`: set the mark, cancel on the mark, or write the edge
@@ -349,14 +370,17 @@ func (m model) wavesEdge(focus *item.Item) (tea.Model, tea.Cmd) {
 		m.err = "Item no longer exists — selection discarded"
 		return m.showToast(toastError, m.err, "", nil, false)
 	}
-	var diff data.WholeEditDiff
-	if focus.IsBlockedBy(mark) {
-		diff.BlockedByRemove = []string{mark}
-	} else {
-		diff.BlockedByAdd = []string{mark}
-	}
 	m.waves.mark = ""
 	store, id := m.store, focus.ID
+	if wavesEdgeExists(m.idx, mark, id) {
+		markETag, ok := m.beanETag(mark)
+		if !ok {
+			m.err = "Item no longer exists — selection discarded"
+			return m.showToast(toastError, m.err, "", nil, false)
+		}
+		return m, mutateCmd(store, func() error { return store.RemoveBlockingEdge(mark, id, markETag, etag) })
+	}
+	diff := data.WholeEditDiff{BlockedByAdd: []string{mark}}
 	return m, mutateCmd(store, func() error { return store.UpdateWhole(id, diff, etag) })
 }
 

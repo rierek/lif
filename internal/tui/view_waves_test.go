@@ -6,6 +6,7 @@ package tui
 // the production waves.Build for every board fact.
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
 	"github.com/rierek/lif/pkg/item"
 )
@@ -618,6 +620,75 @@ func TestWavesIgnoresMouse(t *testing.T) {
 		got := step(t, m, msg)
 		if got.view != viewWaves || got.waves.focus != m.waves.focus || got.waves.root != m.waves.root {
 			t.Fatalf("mouse %v changed the Waves view", msg)
+		}
+	}
+}
+
+// blockingOnlyFixture declares the edge k-a -> k-b only on the blocker side:
+// k-a.blocking = [k-b], k-b.blocked_by is empty.
+func blockingOnlyFixture() []*item.Item {
+	task := func(id string) *item.Item {
+		return &item.Item{ID: id, Title: "Card " + id, Status: "todo", Type: "task", Priority: "normal", Parent: "ms-w"}
+	}
+	a := task("k-a")
+	a.Blocking = []string{"k-b"}
+	return []*item.Item{
+		{ID: "ms-w", Title: "Milestone W", Status: "todo", Type: "epic", Priority: "normal"},
+		a, task("k-b"),
+	}
+}
+
+func TestWavesSecondBRemovesABlockingOnlyEdge(t *testing.T) {
+	m := fixtureModel(t, blockingOnlyFixture())
+	m.width, m.height = 120, 40
+	m.store = newTestStore(t, blockingOnlyFixture()...)
+	m = openWavesOn(t, m, "ms-w")
+	if len(m.waves.board.Columns) != 2 {
+		t.Fatalf("the blocking-only edge must place k-b right of k-a: %v", m.waves.board.Columns)
+	}
+	m = focusOn(t, m, "k-a")
+	m = wavesKeys(t, m, "b")
+	m = focusOn(t, m, "k-b")
+	tm, cmd := m.Update(runeMsg('b'))
+	m = settle(t, tm.(model), cmd)
+	a, b := storeItem(t, m.store, "k-a"), storeItem(t, m.store, "k-b")
+	if len(a.Blocking) != 0 || len(b.BlockedBy) != 0 {
+		t.Fatalf("both declaration sides must be cleared: k-a.blocking=%v k-b.blocked_by=%v", a.Blocking, b.BlockedBy)
+	}
+	if len(m.waves.board.Edges()) != 0 {
+		t.Fatalf("the arrow must be gone after the reload: %v", m.waves.board.Edges())
+	}
+}
+
+func TestWavesEdgeRemovalWithStaleETagConflicts(t *testing.T) {
+	m := fixtureModel(t, blockingOnlyFixture())
+	m.store = newTestStore(t, blockingOnlyFixture()...)
+	m = openWavesOn(t, m, "ms-w")
+	a := storeItem(t, m.store, "k-a")
+	if err := m.store.SetTitle("k-a", "Renamed elsewhere", a.ETag()); err != nil {
+		t.Fatal(err)
+	}
+	m = focusOn(t, m, "k-a")
+	m = wavesKeys(t, m, "b")
+	m = focusOn(t, m, "k-b")
+	_, cmd := m.Update(runeMsg('b'))
+	if done := cmd().(mutationDoneMsg); !errors.Is(done.err, data.ErrConflict) {
+		t.Fatalf("removal with a stale ETag must be a conflict, got %v", done.err)
+	}
+	if got := storeItem(t, m.store, "k-a"); len(got.Blocking) != 1 {
+		t.Fatalf("a refused removal must leave the file unchanged: %v", got.Blocking)
+	}
+}
+
+func TestWavesDetailPanelKeepsWavesKeysOnly(t *testing.T) {
+	m := openWavesOn(t, wavesModel(t), "ms-w")
+	m = focusOn(t, m, "k-a")
+	m = wavesKeys(t, m, "enter")
+	for _, k := range []rune{'b', 'c', 's', 'a', 't', 'd', 'e', 'y'} {
+		tm, cmd := m.Update(runeMsg(k))
+		got := tm.(model)
+		if got.overlay != overlayNone || got.form != nil || got.view != viewWaves || cmd != nil || got.waves.mark != "" || got.toast != nil {
+			t.Fatalf("%c in the Waves detail panel must do nothing: overlay=%v form=%v mark=%q cmd=%v", k, got.overlay, got.form != nil, got.waves.mark, cmd != nil)
 		}
 	}
 }

@@ -184,3 +184,11 @@ docs-build: docs-gen
 # Serve the docs site with live reload
 docs-dev: docs-gen
     cd site && npm run dev
+
+# Wurzel des Wegwerf-Verzeichnisses für die Doku-Medien. Einzige Quelle
+# dieses Werts: doc-media.sh führt keinen eigenen Default (steht hinter rm -rf).
+doc_media_root := env_var_or_default("LIF_DOC_MEDIA_ROOT", "/tmp/lif-doc-media")
+
+# Screenshots und GIFs der TUI per VHS neu erzeugen (beans-wy2o); SEL: png, gif oder Tape-Name
+doc-media SEL='':
+    bash scripts/doc-media.sh "{{ doc_media_root }}" "{{ SEL }}"

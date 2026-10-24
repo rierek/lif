@@ -1,0 +1,12 @@
+Source common.tape
+Type "zR"
+Sleep 300ms
+Down 5
+Sleep 500ms
+Type "v"
+Sleep 500ms
+Type "v"
+Sleep 500ms
+Type "v"
+Sleep 1s
+Screenshot "tui-detail.png"

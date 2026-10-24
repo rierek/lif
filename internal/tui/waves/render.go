@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 
 	"github.com/rierek/lif/internal/tui/theme"
@@ -396,9 +397,6 @@ func (cv *canvas) card(c *card, x int, o RenderOpts, critical bool) {
 	}
 }
 
-// width is the cell width of s without control and zero-width runes.
-func width(s string) int { return runewidth.StringWidth(clean(s)) }
-
 func clean(s string) string {
 	return strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) || runewidth.RuneWidth(r) == 0 {
@@ -408,53 +406,16 @@ func clean(s string) string {
 	}, s)
 }
 
-// cut splits s after at most w cells.
-func cut(s string, w int) (head, rest string) {
-	n := 0
-	for i, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if n+rw > w {
-			return s[:i], s[i:]
-		}
-		n += rw
-	}
-	return s, ""
-}
-
 // fit shortens s to w cells and ends it with an ellipsis when it was cut.
-func fit(s string, w int) string {
-	s = clean(s)
-	if width(s) <= w {
-		return s
-	}
-	head, _ := cut(s, max(w-1, 0))
-	return head + "…"
-}
+func fit(s string, w int) string { return ansi.Truncate(clean(s), w, "…") }
 
 // wrap breaks a title into at most lines rows of w cells. Words that are
 // longer than a row break hard; a title that needs more rows is cut after the
 // last row with an ellipsis.
 func wrap(title string, w, lines int) []string {
-	var out []string
-	cur := ""
-	for _, word := range strings.Fields(clean(title)) {
-		for word != "" {
-			switch {
-			case cur == "" && width(word) <= w:
-				cur, word = word, ""
-			case cur != "" && width(cur)+1+width(word) <= w:
-				cur, word = cur+" "+word, ""
-			case cur != "":
-				out, cur = append(out, cur), ""
-			default:
-				var head string
-				head, word = cut(word, w)
-				out = append(out, head)
-			}
-		}
-	}
-	if cur != "" {
-		out = append(out, cur)
+	out := strings.Split(ansi.Wrap(strings.Join(strings.Fields(clean(title)), " "), w, ""), "\n")
+	if out[0] == "" {
+		return nil
 	}
 	if len(out) > lines {
 		out = out[:lines]

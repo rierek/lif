@@ -225,19 +225,6 @@ func crossing(a, b *laneGroup) int {
 	return n
 }
 
-// crossings counts the line crossings that lane order causes on the board.
-func (b *Board) crossings() int {
-	n := 0
-	for _, groups := range b.gaps {
-		for i, a := range groups {
-			for _, c := range groups[i+1:] {
-				n += crossing(a, c)
-			}
-		}
-	}
-	return n
-}
-
 // laneX is the cell of lane l in gap g.
 func (b *Board) laneX(g, l int) int { return b.colX[g] + cardW + 2 + 2*l }
 

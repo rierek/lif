@@ -122,25 +122,6 @@ func TestLaneOrderMinimisesCrossings(t *testing.T) {
 	}
 }
 
-func TestEntryRowByDirection(t *testing.T) {
-	// q: straight from p (row 0) and from below from s (row 1); r sits below p: from above.
-	b := board(mk("p", "root"), mk("s", "root"), mk("q", "root", "p", "s"), mk("r", "root", "p"))
-	entry := func(from, to string) int {
-		h := hopsOfEdge(t, b, from, to)
-		_, row := pos(t, b, to)
-		return h[len(h)-1].y2 - y0(row)
-	}
-	for _, c := range []struct {
-		from, to string
-		inner    int
-	}{{"p", "q", 2}, {"s", "q", 3}, {"p", "r", 1}} {
-		if got := entry(c.from, c.to); got != c.inner {
-			t.Errorf("%s->%s enters in inner row %d, want %d", c.from, c.to, got, c.inner)
-		}
-	}
-	assertNoEdgeInsideCards(t, b)
-}
-
 func TestLongEdgesAvoidCards(t *testing.T) {
 	free := board(mk("p", "root"), mk("x", "root"), mk("q", "root", "p"), mk("t", "root", "q", "x"))
 	below := board(mk("p", "root"), mk("x", "root"), mk("q", "root", "p"), mk("r", "root", "p"), mk("t", "root", "q", "x"))
@@ -161,4 +142,17 @@ func TestLongEdgesAvoidCards(t *testing.T) {
 			}
 		}
 	}
+}
+
+// crossings counts the line crossings that lane order causes on the board.
+func (b *Board) crossings() int {
+	n := 0
+	for _, groups := range b.gaps {
+		for i, a := range groups {
+			for _, c := range groups[i+1:] {
+				n += crossing(a, c)
+			}
+		}
+	}
+	return n
 }

@@ -32,6 +32,15 @@ The header reads `> <repo>: <View>`. The focused pane is marked by color only. H
 - Tree and flat lists have no column header.
 - Sorting and menus use the status, type and priority lists of `.lif.yml` in configured order. Values the config does not name sort last.
 
+Closed at start, opened with `zR`:
+
+![The roadmap with every milestone, epic and task open](../../screenshots/tui-roadmap-expanded.png)
+
+Moving through the roadmap: `l` opens, `zo` opens a node with its children, `]` and `[` jump between siblings, `zc` closes, `zR` and `zM` open and close everything.
+
+![Roadmap navigation: open, jump between siblings, close, open all, close all](../../assets/tui-roadmap-navigation.gif)
+
+
 
 ## Flat view
 
@@ -40,6 +49,12 @@ The header reads `> <repo>: <View>`. The focused pane is marked by color only. H
 ## Ready view
 
 `R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
+![The Ready view: items that can be started now](../../screenshots/tui-ready.png)
+
+Switching between the views with `L`, `R` and `M`:
+
+![Roadmap, flat list and Ready one after the other](../../assets/tui-views.gif)
+
 
 
 ## Waves view

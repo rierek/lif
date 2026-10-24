@@ -1425,7 +1425,7 @@ func (m model) resetCursorToFirstVisible() model {
 		m.cursorID = ""
 		return m
 	}
-	m.cursorID = nodes[0].id
+	m.cursorID = nodes[skipPlaceholder(nodes, 0, 1)].id
 	return m
 }
 
@@ -1490,7 +1490,7 @@ func siblingPos(nodes []treeNode, pos, dir int) int {
 		if nodes[i].depth < d {
 			return -1 // left the parent: no further sibling
 		}
-		if nodes[i].depth == d && !nodes[i].placeholder {
+		if nodes[i].depth == d && !nodes[i].unselectable() {
 			return i
 		}
 	}

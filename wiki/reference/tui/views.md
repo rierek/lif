@@ -88,6 +88,7 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 ## Search and filters
 
 - `/` starts the search in tree, flat and ready. Each keystroke can trigger a search.
+- In the roadmap an active search opens every ancestor of a hit without changing the open and closed state you set; clearing the search brings that state back. Ancestors without a hit of their own are shown muted. The cursor, `[` and `]`, and the mouse only land on hits. `zo`, `zc`, `zR`, `zM` and `←` `→` change the saved state and show their effect once the search is cleared.
 - Text of three or more bytes also goes to the same full-text search as `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`). The result is always the union with a local substring match on title and ID: `team` finds `Teams und Rechte`, `Bei*` finds `Beispiel-Plugin` (`*` any run, `?` one character, case-insensitive). An ID substring always matches.
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, with the error text of the search, for example a syntax error. Incomplete queries such as `title:` flash this while you type.

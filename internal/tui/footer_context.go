@@ -23,7 +23,12 @@ package tui
 // synced to the same active context too (Q04's underlying complaint: the
 // outer footer kept showing STALE Tree/Ready hints while a totally
 // different overlay had full input capture).
-import keybind "github.com/charmbracelet/bubbles/key"
+import (
+	"strings"
+
+	keybind "github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/x/ansi"
+)
 
 // filterMenuApplyHint is enter's binding inside the filter value menu: enter
 // toggles the cursored value (the filter applies at once) and keeps the menu
@@ -321,3 +326,46 @@ func (m model) contextualLocalHint(viewLocal []keybind.Binding) string {
 // only thing esc could close (escDismissesToast); a standalone binding for the
 // same reason as the picker hints above.
 var toastDismissHint = keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "dismiss"))
+
+// roadmapNavMinGap is the least blank run between the left footer list and
+// the right-aligned roadmap navigation hint; below it the hint is dropped.
+const roadmapNavMinGap = 3
+
+// roadmapNavHint is the right-aligned footer block of the roadmap tree: the
+// sibling and fold keys (beans-clfo). Keys come from the real bindings
+// (keys.PrevSibling ... keys.CollapseAll), only the short labels are local.
+// Empty outside the Browse tree (flat, Ready) and while any capture state
+// owns the left footer (same cases as contextualLocalHint).
+func (m model) roadmapNavHint() string {
+	if m.view != viewBrowseRepo || m.flatView || m.overlay != overlayNone ||
+		m.searchActive || m.paletteOpen || m.helpOpen || m.filterFocus {
+		return ""
+	}
+	pair := func(a, b keybind.Binding, desc string) keybind.Binding {
+		return keybind.NewBinding(keybind.WithKeys(append(a.Keys(), b.Keys()...)...),
+			keybind.WithHelp(a.Help().Key+" "+b.Help().Key, desc))
+	}
+	return renderBindings([]keybind.Binding{
+		pair(keys.PrevSibling, keys.NextSibling, "sibling"),
+		pair(keys.ExpandNode, keys.CollapseNode, "open/close"),
+		pair(keys.ExpandAll, keys.CollapseAll, "all open/close"),
+	})
+}
+
+// withRoadmapNavHint right-aligns roadmapNavHint on the LAST footer line (the
+// footer wraps when the left list is long). It only pads: footer height and
+// the left text stay as browseRepoChrome built them (clickPaneGeometry sees
+// the same height). No room on that line: the block is dropped, never the
+// left list.
+func (m model) withRoadmapNavHint(localKeys string, innerW int) string {
+	right := m.roadmapNavHint()
+	if right == "" {
+		return localKeys
+	}
+	cut := strings.LastIndex(localKeys, "\n") + 1
+	gap := innerW - ansi.StringWidth(localKeys[cut:]) - ansi.StringWidth(right)
+	if gap < roadmapNavMinGap {
+		return localKeys
+	}
+	return localKeys + strings.Repeat(" ", gap) + right
+}

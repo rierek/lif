@@ -48,6 +48,10 @@ type treeNode struct {
 	// relying on a sentinel ID nobody could accidentally collide with).
 	placeholder bool
 	hiddenCount int // N = count of direct children hidden by the archive default (D01 "Zählwert N")
+
+	// context (bean beans-leh5): an ancestor kept visible during a search only
+	// because a descendant matches. Rendered fully muted, never a cursor target.
+	context bool
 }
 
 // setItems installs a fresh item snapshot: the flat Index, the roadmap tree
@@ -94,8 +98,8 @@ func (m model) setItems(items []*item.Item, ready map[string]bool) model {
 
 // sectionNode is the synthetic, bean-less root row of the "Unscheduled" and
 // "Not on roadmap" sections.
-func sectionNode(id, label string, open bool) treeNode {
-	return treeNode{id: id, depth: 0, hasKids: true, open: open, section: label}
+func sectionNode(id, label string, open, context bool) treeNode {
+	return treeNode{id: id, depth: 0, hasKids: true, open: open, section: label, context: context}
 }
 
 // flattenTree walks the roadmap tree depth-first (expand-state from
@@ -110,7 +114,7 @@ func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, exp
 	}
 	if len(unscheduled) > 0 {
 		open := expanded[unscheduledRootID]
-		nodes = append(nodes, sectionNode(unscheduledRootID, sectionUnscheduled, open))
+		nodes = append(nodes, sectionNode(unscheduledRootID, sectionUnscheduled, open, false))
 		if open {
 			for _, n := range unscheduled {
 				nodes = appendBeanNode(nodes, n, 1, expanded)
@@ -119,7 +123,7 @@ func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, exp
 	}
 	if len(notOn) > 0 {
 		open := expanded[notOnRoadmapRootID]
-		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open))
+		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open, false))
 		if open {
 			for _, b := range notOn {
 				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1})
@@ -183,7 +187,7 @@ func (m model) nodesFor(expanded map[string]bool) []treeNode {
 		// Vorgabe, scope-guard against Scope-Creep into the search/facet
 		// case, which already has its own, unrelated "0 sichtbare
 		// Kinder"-story: the collapsed-context-row devd-DD2-178 parity).
-		return flattenTreeFiltered(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, expanded, m.beanMatches, !m.treeActive())
+		return flattenTreeFiltered(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, expanded, m.beanMatches, !m.treeActive(), m.treeSearchActive())
 	}
 	return flattenTree(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, expanded)
 }
@@ -234,23 +238,23 @@ func (m model) beanMatchesSearch(b *item.Item) bool {
 // Every scheduled root, the Unscheduled bucket AND the Not-on-roadmap bucket
 // go through the SAME predicate: a bucket with zero matches is omitted
 // entirely, matching entries render exactly like the unfiltered tree.
-func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, expanded map[string]bool, match func(*item.Item) bool, archiveOnly bool) []treeNode {
+func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, expanded map[string]bool, match func(*item.Item) bool, archiveOnly, searching bool) []treeNode {
 	var nodes []treeNode
 	for _, n := range scheduled {
-		if ns, hit := filteredBeanNode(n, 0, expanded, match, archiveOnly); hit {
+		if ns, hit := filteredBeanNode(n, 0, expanded, match, archiveOnly, searching); hit {
 			nodes = append(nodes, ns...)
 		}
 	}
 
 	var unscheduledNodes []treeNode
 	for _, n := range unscheduled {
-		if ns, hit := filteredBeanNode(n, 1, expanded, match, archiveOnly); hit {
+		if ns, hit := filteredBeanNode(n, 1, expanded, match, archiveOnly, searching); hit {
 			unscheduledNodes = append(unscheduledNodes, ns...)
 		}
 	}
 	if len(unscheduledNodes) > 0 {
-		open := expanded[unscheduledRootID]
-		nodes = append(nodes, sectionNode(unscheduledRootID, sectionUnscheduled, open))
+		open := expanded[unscheduledRootID] || searching
+		nodes = append(nodes, sectionNode(unscheduledRootID, sectionUnscheduled, open, searching))
 		if open {
 			nodes = append(nodes, unscheduledNodes...)
 		}
@@ -263,8 +267,8 @@ func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*item.I
 		}
 	}
 	if len(flatHits) > 0 {
-		open := expanded[notOnRoadmapRootID]
-		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open))
+		open := expanded[notOnRoadmapRootID] || searching
+		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open, searching))
 		if open {
 			for _, b := range flatHits {
 				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1})
@@ -282,23 +286,26 @@ func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*item.I
 // as ONE collapsed context row when a match exists somewhere beneath it,
 // without ever being force-expanded (devd DD2-178 parity, see
 // flattenTreeFiltered's own doc comment).
-func filteredBeanNode(n *roadmap.Node, depth int, expanded map[string]bool, match func(*item.Item) bool, archiveOnly bool) ([]treeNode, bool) {
+func filteredBeanNode(n *roadmap.Node, depth int, expanded map[string]bool, match func(*item.Item) bool, archiveOnly, searching bool) ([]treeNode, bool) {
 	b := n.Item
 	children := n.Children
-	open := expanded[b.ID]
 	self := match(b)
+	// While searching, every ancestor of a hit is shown open (beans-leh5)
+	// without touching m.expanded, so clearing the search restores the old state.
+	open := expanded[b.ID] || (searching && subtreeHasMatch(children, match))
+	ctx := searching && !self
 
 	if !open {
 		if !self && !subtreeHasMatch(children, match) {
 			return nil, false
 		}
-		return []treeNode{{id: b.ID, bean: b, depth: depth, hasKids: len(children) > 0, open: false}}, true
+		return []treeNode{{id: b.ID, bean: b, depth: depth, hasKids: len(children) > 0, open: false, context: ctx}}, true
 	}
 
 	var childNodes []treeNode
 	anyChildHit := false
 	for _, c := range children {
-		if ns, hit := filteredBeanNode(c, depth+1, expanded, match, archiveOnly); hit {
+		if ns, hit := filteredBeanNode(c, depth+1, expanded, match, archiveOnly, searching); hit {
 			anyChildHit = true
 			childNodes = append(childNodes, ns...)
 		}
@@ -307,7 +314,7 @@ func filteredBeanNode(n *roadmap.Node, depth int, expanded map[string]bool, matc
 	if !self && !anyChildHit {
 		return nil, false
 	}
-	nodes := []treeNode{{id: b.ID, bean: b, depth: depth, hasKids: len(children) > 0, open: true}}
+	nodes := []treeNode{{id: b.ID, bean: b, depth: depth, hasKids: len(children) > 0, open: true, context: ctx}}
 
 	// D01 (bean bt-39cl) Voll-Verdeckungs-Fall: node is open, HAS children
 	// structurally, but every single one of them was filtered out (anyChildHit
@@ -379,6 +386,9 @@ func (m model) treeCursorMove(nodes []treeNode, delta int) model {
 	return m
 }
 
+// unselectable: rows the cursor never rests on (archive hint, search context).
+func (n treeNode) unselectable() bool { return n.placeholder || n.context }
+
 // skipPlaceholder (D01, bean bt-39cl -- Implementer-Entscheidung: NICHT
 // selektierbar, Cursor überspringt statt No-Op, siehe bean Notes) advances
 // pos in delta's own direction past any archive-hint placeholder row
@@ -394,9 +404,12 @@ func skipPlaceholder(nodes []treeNode, pos, delta int) int {
 		delta = 1
 	}
 	step := delta
-	for nodes[pos].placeholder {
+	for turns := 0; nodes[pos].unselectable(); {
 		next := pos + step
 		if next < 0 || next >= len(nodes) {
+			if turns++; turns > 1 {
+				return pos // nothing selectable at all
+			}
 			step = -step
 			next = pos + step
 		}
@@ -549,6 +562,11 @@ func (m model) treeBlocks(nodes []treeNode, focused bool, width int) [][]string 
 		blocks = m.roadmapBlocks(nodes, width-1)
 	}
 	for i := range blocks {
+		if nodes[i].context {
+			for j, l := range blocks[i] {
+				blocks[i][j] = theme.Muted.Render(ansi.Strip(l))
+			}
+		}
 		blocks[i] = decorateRowBlock(blocks[i], i == pos, focused)
 	}
 	return blocks

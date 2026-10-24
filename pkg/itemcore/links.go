@@ -951,38 +951,11 @@ func (c *Core) RemoveBlockingEdges(edges []BlockingEdge) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	waitsFor := make(map[string]map[string]bool) // waiting ID -> blocker IDs to drop from blocked_by
-	blocks := make(map[string]map[string]bool)   // blocker ID -> waiting IDs to drop from blocking
+	drop := make(map[BlockingEdge]bool, len(edges))
+	touched := make([]string, 0, 2*len(edges))
 	for _, e := range edges {
-		if waitsFor[e.Waiting] == nil {
-			waitsFor[e.Waiting] = make(map[string]bool)
-		}
-		waitsFor[e.Waiting][e.Blocker] = true
-		if blocks[e.Blocker] == nil {
-			blocks[e.Blocker] = make(map[string]bool)
-		}
-		blocks[e.Blocker][e.Waiting] = true
-	}
-
-	drop := func(list []string, ids map[string]bool) ([]string, bool) {
-		if !slices.ContainsFunc(list, func(id string) bool { return ids[id] }) {
-			return list, false
-		}
-		var kept []string
-		for _, id := range list {
-			if !ids[id] {
-				kept = append(kept, id)
-			}
-		}
-		return kept, true
-	}
-
-	touched := make([]string, 0, len(waitsFor)+len(blocks))
-	for id := range waitsFor {
-		touched = append(touched, id)
-	}
-	for id := range blocks {
-		touched = append(touched, id)
+		drop[e] = true
+		touched = append(touched, e.Blocker, e.Waiting)
 	}
 	slices.Sort(touched)
 	touched = slices.Compact(touched)
@@ -992,10 +965,10 @@ func (c *Core) RemoveBlockingEdges(edges []BlockingEdge) error {
 		if !ok {
 			continue
 		}
-		var blockedByChanged, blockingChanged bool
-		b.BlockedBy, blockedByChanged = drop(b.BlockedBy, waitsFor[id])
-		b.Blocking, blockingChanged = drop(b.Blocking, blocks[id])
-		if !blockedByChanged && !blockingChanged {
+		blockedBy, blocking := len(b.BlockedBy), len(b.Blocking)
+		b.BlockedBy = slices.DeleteFunc(b.BlockedBy, func(x string) bool { return drop[BlockingEdge{Blocker: x, Waiting: id}] })
+		b.Blocking = slices.DeleteFunc(b.Blocking, func(x string) bool { return drop[BlockingEdge{Blocker: id, Waiting: x}] })
+		if len(b.BlockedBy) == blockedBy && len(b.Blocking) == blocking {
 			continue
 		}
 		c.invalidateIncomingLocked()

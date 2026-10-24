@@ -33,7 +33,7 @@ Lif is a lightweight work tracker. Every item is one Markdown file, a Liff, that
 
 | | |
 | --- | --- |
-| **CLI**<br>Create, query and update items from the shell. Most commands take `--json`.<br>[→ Commands](https://rierek.github.io/lif/reference/commands/)<br><br>![lif show detail view](wiki/assets/show.webp) | **TUI**<br>Browse the item tree, filter by type, status, priority or tag, and edit without leaving the terminal.<br>[→ TUI reference](https://rierek.github.io/lif/reference/tui/views/)<br><br>![lif tui browse view](wiki/screenshots/browse.png) |
+| **CLI**<br>Create, query and update items from the shell. Most commands take `--json`.<br>[→ Commands](https://rierek.github.io/lif/reference/commands/)<br><br>![lif show detail view](wiki/assets/show.webp) | **TUI**<br>Browse the roadmap, Ready items and Waves dependency flow; filter, inspect and edit without leaving the terminal.<br>[→ TUI reference](https://rierek.github.io/lif/reference/tui/views/)<br><br>![lif tui roadmap and detail view](wiki/screenshots/tui-roadmap-detail.png) |
 | **Web**<br>Run `lif-serve` and open `localhost:8080` for the same items as a board in your browser.<br>[→ Web server](https://rierek.github.io/lif/reference/web-server/)<br><br><picture><source media="(prefers-color-scheme: dark)" srcset="site/public/media/web-board-dark.webp"><img src="site/public/media/web-board-light.webp" alt="Lif web board"></picture> | **Markdown**<br>Every item is one Markdown file with YAML front matter. Read it, edit it by hand, diff it like code.<br>[→ Item file format](https://rierek.github.io/lif/reference/item-file-format/)<br><br>`.lif/app-pgha--password-reset.md`<pre>---<br># app-pgha<br>title: Password reset<br>status: in-progress<br>type: feature<br>priority: high<br>tags:<br>    - backend<br>    - security<br>parent: app-dbg0<br>---<br><br>Let users reset a forgotten<br>password with a one-time link.</pre> |
 
 ## Install
@@ -64,7 +64,7 @@ Lif creates `.lif.yml` plus a `.lif/` directory. Commit both with the repository
 
 - **Files in your repo.** Your backlog is a folder of files; everything that reads files already speaks Lif. → [Files in your repo](https://rierek.github.io/lif/features/files-in-your-repo/)
 - **Flexible planning.** Types, ranks, statuses and presets shape the plan to your project. → [Flexible planning](https://rierek.github.io/lif/features/project-planning/)
-- **Dependencies.** Blocking links, ready work and the dependency graph show what you can start now. → [Dependencies](https://rierek.github.io/lif/features/dependencies/)
+- **Dependencies.** Blocking links, redundant-link checks, ready work and the dependency graph show what you can start now. → [Dependencies](https://rierek.github.io/lif/features/dependencies/)
 - **Automation and agents.** JSON output, GraphQL and `lif prime`, with no server. → [Automation](https://rierek.github.io/lif/features/automation/)
 - **Surface independence.** Terminal, board or editor: all of them work on the same files. → [Surface independence](https://rierek.github.io/lif/features/surface-independence/)
 

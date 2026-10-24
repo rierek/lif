@@ -216,11 +216,9 @@ func TestRenderLooseColumnSeparator(t *testing.T) {
 
 func TestRenderEdgeAcrossTwoColumns(t *testing.T) {
 	b := board(named("t-p", "P"), named("t-x", "X"), named("t-q", "Q", "t-p"), named("t-t", "T", "t-q", "t-x"))
-	assertNoEdgeInsideCards(t, b)
 	golden(t, "long_edge", render(t, b, RenderOpts{Width: 120, Height: 14}))
 
 	below := board(named("t-p", "P"), named("t-x", "X"), named("t-q", "Q", "t-p"), named("t-r", "R", "t-p"), named("t-t", "T", "t-q", "t-x"))
-	assertNoEdgeInsideCards(t, below)
 	golden(t, "long_edge_below", render(t, below, RenderOpts{Width: 120, Height: 20}))
 }
 

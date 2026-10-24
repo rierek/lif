@@ -661,22 +661,27 @@ func TestWavesSecondBRemovesABlockingOnlyEdge(t *testing.T) {
 }
 
 func TestWavesEdgeRemovalWithStaleETagConflicts(t *testing.T) {
-	m := fixtureModel(t, blockingOnlyFixture())
-	m.store = newTestStore(t, blockingOnlyFixture()...)
-	m = openWavesOn(t, m, "ms-w")
-	a := storeItem(t, m.store, "k-a")
-	if err := m.store.SetTitle("k-a", "Renamed elsewhere", a.ETag()); err != nil {
-		t.Fatal(err)
-	}
-	m = focusOn(t, m, "k-a")
-	m = wavesKeys(t, m, "b")
-	m = focusOn(t, m, "k-b")
-	_, cmd := m.Update(runeMsg('b'))
-	if done := cmd().(mutationDoneMsg); !errors.Is(done.err, data.ErrConflict) {
-		t.Fatalf("removal with a stale ETag must be a conflict, got %v", done.err)
-	}
-	if got := storeItem(t, m.store, "k-a"); len(got.Blocking) != 1 {
-		t.Fatalf("a refused removal must leave the file unchanged: %v", got.Blocking)
+	// k-a blocks k-b; either side changing on disk behind the view refuses the removal.
+	for _, stale := range []string{"k-a", "k-b"} {
+		t.Run(stale, func(t *testing.T) {
+			m := fixtureModel(t, blockingOnlyFixture())
+			m.store = newTestStore(t, blockingOnlyFixture()...)
+			m = openWavesOn(t, m, "ms-w")
+			it := storeItem(t, m.store, stale)
+			if err := m.store.SetTitle(stale, "Renamed elsewhere", it.ETag()); err != nil {
+				t.Fatal(err)
+			}
+			m = focusOn(t, m, "k-a")
+			m = wavesKeys(t, m, "b")
+			m = focusOn(t, m, "k-b")
+			_, cmd := m.Update(runeMsg('b'))
+			if done := cmd().(mutationDoneMsg); !errors.Is(done.err, data.ErrConflict) {
+				t.Fatalf("removal with a stale ETag must be a conflict, got %v", done.err)
+			}
+			if got := storeItem(t, m.store, "k-a"); len(got.Blocking) != 1 {
+				t.Fatalf("a refused removal must leave the file unchanged: %v", got.Blocking)
+			}
+		})
 	}
 }
 

@@ -24,6 +24,8 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `esc` | Back; leaves the detail pane and menus; in the flat list and Ready, see Views |
 | `pgup` / `pgdown` | Page the detail body (not listed in `?`) |
 
+The roadmap footer shows the sibling and open/close keys above at its right edge when the terminal is wide enough. Not in the flat list, Ready or open menus.
+
 ## Views
 
 | Key | Action |

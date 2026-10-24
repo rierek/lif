@@ -1162,7 +1162,7 @@ func (m model) viewBrowseRepo() string {
 	if filterBarRow != "" {
 		content += "\n" + filterBarRow
 	}
-	content = appendStatusLine(content+"\n"+body+"\n"+div+"\n"+localKeys, status)
+	content = appendStatusLine(content+"\n"+body+"\n"+div+"\n"+m.withRoadmapNavHint(localKeys, innerW), status)
 	out := outerBorder(content, innerW, true)
 
 	return m.composeOverlays(out, w, h)

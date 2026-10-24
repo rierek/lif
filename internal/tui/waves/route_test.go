@@ -143,3 +143,16 @@ func TestLongEdgesAvoidCards(t *testing.T) {
 		}
 	}
 }
+
+// crossings counts the line crossings that lane order causes on the board.
+func (b *Board) crossings() int {
+	n := 0
+	for _, groups := range b.gaps {
+		for i, a := range groups {
+			for _, c := range groups[i+1:] {
+				n += crossing(a, c)
+			}
+		}
+	}
+	return n
+}

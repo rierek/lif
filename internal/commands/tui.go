@@ -12,6 +12,8 @@ var tuiCmd = &cobra.Command{
 	Short: "Open the interactive terminal UI",
 	Long: `Opens the interactive terminal UI.
 
+Use ` + "`M`" + ` for the roadmap, ` + "`L`" + ` for the flat list, ` + "`R`" + ` for Ready, and ` + "`W`" + ` for Waves of the focused item. Waves lays direct children out by blocking dependencies and lets you edit their ` + "`blocked_by`" + ` edges.
+
 Without an argument, the TUI opens the repository found upward from the
 current directory. Outside a repository, it shows the repository picker when
 ~/.config/lif/tui/config.yaml lists at least two repositories.

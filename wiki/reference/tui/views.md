@@ -1,9 +1,9 @@
 ---
 title: "Views"
-description: "Roadmap tree, flat, ready and detail views of the TUI."
+description: "Roadmap, flat, Ready and Waves views of the TUI."
 ---
 
-Measured on Lif 0.13 with a test repository of 17 items; the TUI code is unchanged in 0.14 (checked 2026-10-14). Key names: [Key bindings](../key-bindings/).
+Checked against the v0.17.0 release candidate on 2026-10-24. Key names: [Key bindings](../key-bindings/).
 
 ## Overview of the views
 
@@ -32,7 +32,6 @@ The header reads `> <repo>: <View>`. The focused pane is marked by color only. H
 - Tree and flat lists have no column header.
 - Sorting and menus use the status, type and priority lists of `.lif.yml` in configured order. Values the config does not name sort last.
 
-Screenshot follows.
 
 ## Flat view
 
@@ -42,7 +41,6 @@ Screenshot follows.
 
 `R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
-Screenshot follows.
 
 ## Waves view
 

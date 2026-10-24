@@ -3,7 +3,7 @@ title: "Settings and themes"
 description: "TUI settings file, editor, accent colour and themes."
 ---
 
-Measured on Lif 0.13, code unchanged in 0.14 (checked 2026-10-14).
+Checked against the v0.17.0 release candidate on 2026-10-24.
 
 ## Settings file
 

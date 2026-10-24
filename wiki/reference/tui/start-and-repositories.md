@@ -48,7 +48,6 @@ Repo-Picker
 - Config edits made while the TUI runs appear the next time you press `P`.
 - After each switch the TUI writes `last_repo` to `state.json`. Nothing reads it back.
 
-Screenshot follows.
 
 ## Settings that matter at start
 

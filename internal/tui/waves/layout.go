@@ -1,6 +1,7 @@
 package waves
 
 import (
+	"cmp"
 	"slices"
 	"sort"
 
@@ -9,16 +10,14 @@ import (
 	"github.com/rierek/lif/pkg/itemgraph"
 )
 
-// lessOrder sorts cards by their order key. Items without an order key come
-// after all items with one; the ID breaks ties so the result is stable.
-func lessOrder(a, b *item.Item) bool {
-	if (a.Order == "") != (b.Order == "") {
-		return a.Order != ""
-	}
-	if a.Order != b.Order {
-		return a.Order < b.Order
-	}
-	return a.ID < b.ID
+// cmpOrder sorts cards by their order key. Items without an order key come
+// after all items with one; the ID breaks ties so the order is total.
+func cmpOrder(a, b *item.Item) int {
+	return cmp.Or(
+		cmp.Compare(min(len(b.Order), 1), min(len(a.Order), 1)), // keyed first
+		cmp.Compare(a.Order, b.Order),
+		cmp.Compare(a.ID, b.ID),
+	)
 }
 
 // collectCards makes the direct children of the root that are not scrapped
@@ -30,7 +29,7 @@ func (b *Board) collectCards(idx *data.Index, rootID string) {
 			kids = append(kids, it)
 		}
 	}
-	sort.SliceStable(kids, func(i, j int) bool { return lessOrder(kids[i], kids[j]) })
+	slices.SortFunc(kids, cmpOrder)
 	for i, it := range kids {
 		c := &card{id: it.ID, it: it, rank: i}
 		b.cards[it.ID] = c

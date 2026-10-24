@@ -48,7 +48,7 @@ Repo-Picker
 - Config edits made while the TUI runs appear the next time you press `P`.
 - After each switch the TUI writes `last_repo` to `state.json`. Nothing reads it back.
 
-Screenshot follows.
+![The repository picker with three repositories](../../screenshots/tui-lobby.png)
 
 ## Settings that matter at start
 
@@ -70,4 +70,8 @@ All keys: [Settings and themes](../settings-and-themes/).
 - `q` opens a `Quit?` dialog. `enter` or `y` goes to the lobby first when a repository is configured; in the lobby it quits. `esc` or `n` cancels.
 - `ctrl+c` quits at once, without confirmation.
 - `?` opens the help overlay, generated from the same key map as [Key bindings](../key-bindings/). The overlay is 54 rows high and is clipped on shorter terminals.
-- `K` opens the command palette.
+- `K` opens the command palette. Entries are sorted by verb: `set`, `view`, the rest alphabetically, then `open`.
+
+![The help overlay with all key bindings](../../screenshots/tui-help.png)
+
+![The command palette](../../screenshots/tui-palette.png)

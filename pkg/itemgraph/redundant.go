@@ -1,6 +1,9 @@
 package itemgraph
 
-import "sort"
+import (
+	"maps"
+	"slices"
+)
 
 // Edge is one directed ordering edge between two IDs: To waits for From.
 type Edge struct {
@@ -43,11 +46,7 @@ func RedundantEdges(edges []Edge) []RedundantEdge {
 	if len(uniq) == 0 {
 		return nil
 	}
-	ids := make([]string, 0, len(idSet))
-	for id := range idSet {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
+	ids := slices.Sorted(maps.Keys(idSet))
 	index := make(map[string]int, len(ids))
 	for i, id := range ids {
 		index[id] = i
@@ -57,7 +56,7 @@ func RedundantEdges(edges []Edge) []RedundantEdge {
 		adj[index[e.From]] = append(adj[index[e.From]], index[e.To])
 	}
 	for _, out := range adj {
-		sort.Ints(out) // indexes follow the ID order
+		slices.Sort(out) // indexes follow the ID order
 	}
 
 	comp, nComp := stronglyConnected(adj)
@@ -204,8 +203,6 @@ func shortestPath(adj [][]int, src, dst int) []int {
 		path = append(path, n)
 	}
 	path = append(path, src)
-	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
-		path[i], path[j] = path[j], path[i]
-	}
+	slices.Reverse(path)
 	return path
 }

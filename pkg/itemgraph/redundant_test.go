@@ -43,6 +43,12 @@ func TestRedundantEdges(t *testing.T) {
 			},
 		},
 		{
+			// No shortcut: a→e holds only through the three-hop chain.
+			name:  "long chain without shortcut",
+			edges: []Edge{e("a", "b"), e("b", "c"), e("c", "d"), e("d", "e"), e("a", "e")},
+			want:  []RedundantEdge{red("a", "e", "b", "c", "d")},
+		},
+		{
 			name:  "diamond keeps both arms",
 			edges: []Edge{e("a", "b"), e("a", "c"), e("b", "d"), e("c", "d")},
 			want:  nil,

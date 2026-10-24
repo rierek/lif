@@ -1,6 +1,7 @@
 package waves
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/rierek/lif/internal/tui/data"
@@ -276,12 +277,6 @@ func (b *Board) placeRows() {
 // Every chain of the maximal length is marked.
 func (b *Board) findCritical() {
 	b.critEdge = make([]bool, len(b.edges))
-	open := func(id string) int {
-		if b.cards[id].it.Status == "completed" {
-			return 0
-		}
-		return 1
-	}
 	preds := map[string][]string{}
 	succs := map[string][]string{}
 	for i, e := range b.edges {
@@ -290,40 +285,35 @@ func (b *Board) findCritical() {
 			succs[e.From] = append(succs[e.From], e.To)
 		}
 	}
+	// chain[id]: best weight of a chain from a card that is not completed up
+	// to id along next, visiting the cards in dependency order; -1 means
+	// there is none.
+	chain := func(order []*card, next map[string][]string) map[string]int {
+		best := map[string]int{}
+		for _, c := range order {
+			w := 1
+			if c.it.Status == "completed" {
+				w = 0
+			}
+			top := -1
+			if w == 1 {
+				top = 1
+			}
+			for _, n := range next[c.id] {
+				if best[n] >= 0 {
+					top = max(top, best[n]+w)
+				}
+			}
+			best[c.id] = top
+		}
+		return best
+	}
 	// Drawn edges run to a higher column, so column order is topological.
 	order := append([]*card(nil), b.byRank...)
 	sort.SliceStable(order, func(i, j int) bool { return order[i].col < order[j].col })
-
-	// ending[id]: best weight of a chain from a card that is not completed up
-	// to id; starting[id]: best weight of a chain from id to such a card.
-	// -1 means there is none.
-	ending := map[string]int{}
-	for _, c := range order {
-		best := -1
-		if open(c.id) == 1 {
-			best = 1
-		}
-		for _, p := range preds[c.id] {
-			if ending[p] >= 0 {
-				best = max(best, ending[p]+open(c.id))
-			}
-		}
-		ending[c.id] = best
-	}
-	starting := map[string]int{}
-	for i := len(order) - 1; i >= 0; i-- {
-		c := order[i]
-		best := -1
-		if open(c.id) == 1 {
-			best = 1
-		}
-		for _, s := range succs[c.id] {
-			if starting[s] >= 0 {
-				best = max(best, open(c.id)+starting[s])
-			}
-		}
-		starting[c.id] = best
-	}
+	ending := chain(order, preds)
+	slices.Reverse(order)
+	starting := chain(order, succs)
 
 	longest := 0
 	for i, e := range b.edges {

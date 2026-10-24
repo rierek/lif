@@ -182,6 +182,7 @@ var (
 	graphFormat   string
 	graphRelation []string
 	graphDepth    int
+	graphReduce   bool
 )
 
 var graphCmd = &cobra.Command{
@@ -201,7 +202,11 @@ depth widens it by that many hops, and --depth 0 walks the whole connected
 component.
 
 Links pointing at an item that does not exist, and self-references, are left
-out here; ` + "`lif check`" + ` is what reports them.`,
+out here; ` + "`lif check`" + ` is what reports them.
+
+--reduce leaves out every blocks edge that already holds through other blocks
+edges, in all formats. The nodes shown stay the same, and nothing is written;
+` + "`lif check --fix`" + ` removes such edges from the items.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if graphFormat != "dot" && graphFormat != "ascii" && graphFormat != "json" && graphFormat != "mermaid" {
@@ -224,7 +229,8 @@ out here; ` + "`lif check`" + ` is what reports them.`,
 		all := core.All()
 		item.SortByStatusPriorityAndType(all, cfg.StatusNames(), cfg.PriorityNames(), cfg.TypeNames())
 
-		edges := filterGraphEdges(buildGraphEdges(all), graphRelation)
+		fullEdges := buildGraphEdges(all)
+		edges := filterGraphEdges(fullEdges, graphRelation)
 
 		var rootID string
 		if len(args) == 1 {
@@ -243,6 +249,10 @@ out here; ` + "`lif check`" + ` is what reports them.`,
 				}
 			}
 			all = filtered
+		}
+
+		if graphReduce {
+			edges = withoutRedundantBlocks(edges, fullEdges)
 		}
 
 		switch graphFormat {
@@ -439,6 +449,7 @@ func RegisterGraphCmd(root *cobra.Command) {
 		graphCmd.Flags().StringVar(&graphFormat, "format", "dot", `Output format: "dot", "ascii", "mermaid" or "json"`)
 		graphCmd.Flags().StringArrayVar(&graphRelation, "relation", nil, `Only this relation kind: "parent" or "blocks" (can be repeated)`)
 		graphCmd.Flags().IntVar(&graphDepth, "depth", 1, "Hops from the named item; 0 walks the whole connected component (requires an item id)")
+		graphCmd.Flags().BoolVar(&graphReduce, "reduce", false, "Omit every blocks edge that already holds through other blocks edges (read-only; see lif check --fix)")
 	}
 	graphCmd.ValidArgsFunction = completionUpTo(1)
 	root.AddCommand(graphCmd)

@@ -235,10 +235,7 @@ func (m model) wavesGoInto(focus *item.Item) (tea.Model, tea.Cmd) {
 // (`Backspace`); a root without a parent stays.
 func (m model) wavesGoUp() model {
 	root := m.idx.ByID[m.waves.root]
-	if root == nil || root.Parent == "" {
-		return m
-	}
-	if _, ok := m.idx.ByID[root.Parent]; !ok {
+	if root == nil || m.idx.ByID[root.Parent] == nil {
 		return m
 	}
 	return m.wavesSetRoot(root.Parent, root.ID)
@@ -365,19 +362,15 @@ func (m model) wavesEdge(focus *item.Item) (tea.Model, tea.Cmd) {
 	case wavesNonSelectable(m.waves.board, mark)[focus.ID]:
 		return m.showToast(toastInfo, "Not selectable: would form a cycle", "", nil, false)
 	}
+	m.waves.mark = ""
 	etag, ok := m.beanETag(focus.ID)
-	if !ok {
+	markETag, markOK := m.beanETag(mark)
+	if !ok || !markOK {
 		m.err = "Item no longer exists — selection discarded"
 		return m.showToast(toastError, m.err, "", nil, false)
 	}
-	m.waves.mark = ""
 	store, id := m.store, focus.ID
 	if wavesEdgeExists(m.idx, mark, id) {
-		markETag, ok := m.beanETag(mark)
-		if !ok {
-			m.err = "Item no longer exists — selection discarded"
-			return m.showToast(toastError, m.err, "", nil, false)
-		}
 		return m, mutateCmd(store, func() error { return store.RemoveBlockingEdge(mark, id, markETag, etag) })
 	}
 	diff := data.WholeEditDiff{BlockedByAdd: []string{mark}}
@@ -462,7 +455,7 @@ func (m model) wavesLocalBindings() []keybind.Binding {
 	case m.waves.picking:
 		return []keybind.Binding{keys.Up, keys.Down, wavesHint("enter", "open level"), keys.Back}
 	case m.waves.detail:
-		return []keybind.Binding{keys.Up, keys.Down, keys.Enter, wavesHint("esc", "back to board")}
+		return []keybind.Binding{keys.Up, keys.Down, wavesHint("esc", "back to board")}
 	case m.waves.mark != "":
 		return []keybind.Binding{wavesHint("b", "set/remove edge on this card"), wavesHint("b", "on mark: cancel"), wavesHint("esc", "cancel")}
 	}

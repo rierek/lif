@@ -935,3 +935,73 @@ func (c *Core) implicitStatusLocked(itemID string) (status, fromID string) {
 
 	return result.status, result.fromID
 }
+
+// BlockingEdge is one ordering edge between two items: Waiting waits for Blocker.
+type BlockingEdge struct {
+	Blocker string
+	Waiting string
+}
+
+// RemoveBlockingEdges removes every given edge from the item that declares it:
+// from the blocked_by list of the waiting item and from the blocking list of
+// the blocker, wherever the edge is declared (one or both). Every other link,
+// including parent, stays. Each changed item is saved once, through the same
+// path as FixBrokenLinks. An edge nobody declares is ignored.
+func (c *Core) RemoveBlockingEdges(edges []BlockingEdge) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	waitsFor := make(map[string]map[string]bool) // waiting ID -> blocker IDs to drop from blocked_by
+	blocks := make(map[string]map[string]bool)   // blocker ID -> waiting IDs to drop from blocking
+	for _, e := range edges {
+		if waitsFor[e.Waiting] == nil {
+			waitsFor[e.Waiting] = make(map[string]bool)
+		}
+		waitsFor[e.Waiting][e.Blocker] = true
+		if blocks[e.Blocker] == nil {
+			blocks[e.Blocker] = make(map[string]bool)
+		}
+		blocks[e.Blocker][e.Waiting] = true
+	}
+
+	drop := func(list []string, ids map[string]bool) ([]string, bool) {
+		if !slices.ContainsFunc(list, func(id string) bool { return ids[id] }) {
+			return list, false
+		}
+		var kept []string
+		for _, id := range list {
+			if !ids[id] {
+				kept = append(kept, id)
+			}
+		}
+		return kept, true
+	}
+
+	touched := make([]string, 0, len(waitsFor)+len(blocks))
+	for id := range waitsFor {
+		touched = append(touched, id)
+	}
+	for id := range blocks {
+		touched = append(touched, id)
+	}
+	slices.Sort(touched)
+	touched = slices.Compact(touched)
+
+	for _, id := range touched {
+		b, ok := c.items[id]
+		if !ok {
+			continue
+		}
+		var blockedByChanged, blockingChanged bool
+		b.BlockedBy, blockedByChanged = drop(b.BlockedBy, waitsFor[id])
+		b.Blocking, blockingChanged = drop(b.Blocking, blocks[id])
+		if !blockedByChanged && !blockingChanged {
+			continue
+		}
+		c.invalidateIncomingLocked()
+		if err := c.saveToDisk(b); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/spf13/cobra"
 )
 
@@ -241,10 +242,16 @@ var checkCmd = &cobra.Command{
 - Broken links (links to non-existent items)
 - Self-references (items linking to themselves)
 - Circular dependencies (cycles of blocking links, whichever field stores them, and of parent links; a blocker below or above the item it blocks)
+- Redundant blocking edges (an edge A → B whose order already holds through other blocking links; a policy warning, exit 1 under --strict)
 
-Use --fix to automatically remove broken links and self-references. A link to
-the ID that a file renamed by hand still records is kept and reported as kept:
-it works again when the file has its ID back (lif rename <id> <recorded-id>).
+Use --fix to automatically remove broken links, self-references and redundant
+blocking edges. A redundant edge is a blocked_by or blocking link that already
+holds through other blocking links; --fix names the path through which each
+removed edge still holds.
+
+A link to the ID that a file renamed by hand still records is kept and reported
+as kept: it works again when the file has its ID back
+(lif rename <id> <recorded-id>).
 Note: Cycles cannot be auto-fixed and require manual intervention.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var configErrors []string
@@ -458,6 +465,29 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			}
 		}
 
+		// Redundant blocking edges: a policy warning, removed by --fix.
+		var redundantWarnings []string
+		redundant := itemgraph.RedundantEdges(blockingEdges(buildGraphEdges(allItems)))
+		if checkFix && len(redundant) > 0 {
+			remove := make([]itemcore.BlockingEdge, 0, len(redundant))
+			for _, r := range redundant {
+				remove = append(remove, itemcore.BlockingEdge{Blocker: r.From, Waiting: r.To})
+			}
+			if err := core.RemoveBlockingEdges(remove); err != nil {
+				return fmt.Errorf("fixing redundant blocking edges: %w", err)
+			}
+			fixed += len(redundant)
+			if !checkJSON {
+				for _, r := range redundant {
+					fmt.Printf("  %s removed redundant edge %s\n", ui.Success.Render("✓"), formatRedundantEdge(r))
+				}
+			}
+		} else {
+			for _, r := range redundant {
+				redundantWarnings = append(redundantWarnings, "redundant edge "+formatRedundantEdge(r))
+			}
+		}
+
 		// Show success if no issues
 		if !checkJSON && !linkResult.HasIssues() && fixed == 0 {
 			fmt.Printf("  %s No link issues found\n", ui.Success.Render("✓"))
@@ -540,6 +570,21 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 			}
 		}
 
+		// Redundant blocking edges are policy warnings too. They print without
+		// require_fields_on; with it they continue the section above.
+		if len(redundantWarnings) > 0 {
+			policyWarnings = append(policyWarnings, redundantWarnings...)
+			if !checkJSON {
+				if len(cfg.Items.RequireFieldsOn) == 0 {
+					fmt.Println()
+					fmt.Println(ui.Bold.Render("Policy"))
+				}
+				for _, w := range redundantWarnings {
+					fmt.Printf("  %s %s\n", ui.Warning.Render("!"), w)
+				}
+			}
+		}
+
 		// === Legacy names ===
 		// Reported by check only (D06). They never count as issues: not in
 		// totalIssues, with or without --strict.
@@ -598,7 +643,7 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 
 func RegisterCheckCmd(root *cobra.Command) {
 	checkCmd.Flags().BoolVar(&checkJSON, "json", false, "Output as JSON")
-	checkCmd.Flags().BoolVar(&checkFix, "fix", false, "Automatically fix broken links and self-references")
+	checkCmd.Flags().BoolVar(&checkFix, "fix", false, "Automatically fix broken links and self-references, and remove redundant blocking edges")
 	checkCmd.Flags().BoolVar(&checkStrict, "strict", false, "Count policy warnings as issues (exit 1)")
 	root.AddCommand(checkCmd)
 }

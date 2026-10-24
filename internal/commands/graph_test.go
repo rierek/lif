@@ -72,10 +72,10 @@ func seedGraphFixtures(t *testing.T) {
 // defaults and restores the previous values afterwards.
 func resetGraphFlags(t *testing.T) {
 	t.Helper()
-	oldFormat, oldRelation, oldDepth := graphFormat, graphRelation, graphDepth
-	graphFormat, graphRelation, graphDepth = "dot", nil, 1
+	oldFormat, oldRelation, oldDepth, oldReduce := graphFormat, graphRelation, graphDepth, graphReduce
+	graphFormat, graphRelation, graphDepth, graphReduce = "dot", nil, 1, false
 	t.Cleanup(func() {
-		graphFormat, graphRelation, graphDepth = oldFormat, oldRelation, oldDepth
+		graphFormat, graphRelation, graphDepth, graphReduce = oldFormat, oldRelation, oldDepth, oldReduce
 	})
 }
 
@@ -89,6 +89,7 @@ func graphCmdWithFlags() *cobra.Command {
 	c.Flags().StringVar(&graphFormat, "format", "dot", "")
 	c.Flags().StringArrayVar(&graphRelation, "relation", nil, "")
 	c.Flags().IntVar(&graphDepth, "depth", 1, "")
+	c.Flags().BoolVar(&graphReduce, "reduce", false, "")
 	return c
 }
 

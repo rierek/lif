@@ -5,3 +5,9 @@ Configuration checks cover: that `default_type` names an entry that actually exi
 ### Item file names
 
 An item gets its ID from its file name. `lif check` also reads the `# <id>` comment on the first front matter line, which Lif writes with the ID it knows. When the two differ, the file was renamed by hand (or copied): the check reports the file name, both IDs and, when the recorded ID belongs to no loaded item, the links that now dangle. A file without that comment is not checked, and neither is one whose comment is a note: only a one-word comment that starts with the project prefix, or that some item links to, counts as a recorded ID (`# WIP` does not). `--fix` does not repair this finding. It also does not remove the links that dangle because of it: it prints each of them as `kept broken link`, they stay findings and the exit code stays 1, while every other broken link is removed as before. Rename the file back, or run `lif rename <id> <recorded-id>`, which changes the file name, the comment and the links together; the kept links then work again.
+
+### Redundant blocking edges
+
+A blocking edge A → B is redundant when B already waits for A through other blocking edges. `lif check` prints one policy warning per redundant edge, in the form `A → B (holds via X)`, where X names the items of the alternative path in order (`mh3z → at7v (holds via rs0a)`). The warning also appears under `policy_warnings` in `--json` output, and it counts as an issue (exit 1) only with `--strict`. Parent links never count as blocking edges. Edges inside a cycle are never reported.
+
+`--fix` removes each redundant edge from every item that declares it (the `blocked_by` list of the waiting item and the `blocking` list of the blocker), prints `removed redundant edge A → B (holds via X)` per edge, and counts each removal in `fixed`. The order of every item stays the same. `lif graph --reduce` shows the graph without these edges and writes nothing.

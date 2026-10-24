@@ -172,6 +172,8 @@ Use `--format json`, not `--json`.
 
 (Compacted here; Lif prints one field per line.) `relation` is `parent` (parent to child) or `blocks` (blocking to blocked item); `blocking` and `blocked_by` merge into one edge. `type` is absent for an empty type, `edges` is `[]` without edges. Invalid `--format`, `--relation` or `--depth` produce the JSON error object.
 
+With `--reduce`, `edges` leaves out every `blocks` edge that already holds through other `blocks` edges. The shape is the same, and `nodes` and the `parent` edges do not change.
+
 ## GraphQL output
 
 `lif graphql --json` prints the `data` object without the envelope:

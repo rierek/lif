@@ -5,4 +5,4 @@ cache="$(mktemp -d)"
 trap 'rm -rf "$cache"' EXIT
 
 mise run build:embed
-GOCACHE="$cache" mise exec goreleaser@latest -- goreleaser release --snapshot --clean --skip=publish
+GOTOOLCHAIN=local GOCACHE="$cache" mise exec goreleaser@latest -- goreleaser release --snapshot --clean --skip=publish

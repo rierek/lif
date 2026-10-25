@@ -7,7 +7,7 @@
 
   outputs = { self, nixpkgs }:
     let
-      version = "0.16.0";
+      version = "0.17.0";
 
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
@@ -55,7 +55,7 @@
 
             src = ./.;
 
-            vendorHash = "sha256-Ov35bPj6LpBsRSNcM0o9BCMHOdVQ3R4lcpZ1yI/D/nE=";
+            vendorHash = "sha256-zB2K2JXnxOYKoklEG/Bf776x4+oJqVC+Bq4sqOGIap8=";
 
             preBuild = ''
               rm -rf internal/web/dist

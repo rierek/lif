@@ -287,6 +287,59 @@ func TestReloadKeepsCursorOnID(t *testing.T) {
 	}
 }
 
+// TestReloadCursorClampUsesFilteredRowPositions guards the "cursor jumps to
+// the wrong row after an edit" bug: when the edited item drops out of the
+// visible tree (here: completed, hidden by the archive default), the cursor
+// must land on the row that now sits at its old VISIBLE position -- the next
+// item. The old position was taken from the unfiltered tree, so every hidden
+// row above the cursor (tk-done) shifted the clamp further down.
+func TestReloadCursorClampUsesFilteredRowPositions(t *testing.T) {
+	mk := func(id, status, parent string) *item.Item {
+		typ := "task"
+		if parent == "" {
+			typ = "milestone"
+		}
+		return &item.Item{ID: id, Title: id, Status: status, Type: typ, Priority: "normal", Parent: parent}
+	}
+	beans := func(bStatus string) []*item.Item {
+		return []*item.Item{
+			mk("ms-1", "todo", ""), mk("tk-a", "todo", "ms-1"), mk("tk-done", "completed", "ms-1"),
+			mk("ms-2", "todo", ""), mk("tk-b", bStatus, "ms-2"), mk("tk-c", "todo", "ms-2"), mk("tk-d", "todo", "ms-2"),
+		}
+	}
+	m := fixtureModel(t, beans("todo"))
+	m.expanded["ms-1"], m.expanded["ms-2"] = true, true
+	m.cursorID = "tk-b"
+
+	m = step(t, m, beansLoadedMsg{beans: beans("completed")}) // tk-b edited -> hidden
+	if m.cursorID != "tk-c" {
+		t.Fatalf("cursorID after tk-b left the visible tree = %q, want tk-c (the next row)", m.cursorID)
+	}
+}
+
+// TestReloadKeepsFlatAndReadyCursorOnID: Flat/Ready cursors are indexes; a
+// reload that re-sorts must keep the selection on the same bean.
+func TestReloadKeepsFlatAndReadyCursorOnID(t *testing.T) {
+	beans := fixtureBeans()
+	m := fixtureModel(t, beans)
+	m.flatList.setLen(len(m.flatVisible()))
+	vis := m.flatVisible()
+	m.flatList.cursor = len(vis) - 1
+	want := vis[m.flatList.cursor].ID
+
+	// Re-sort: promote the last bean to in-progress/critical so it moves up.
+	re := fixtureBeans()
+	for _, b := range re {
+		if b.ID == want {
+			b.Status, b.Priority = "in-progress", "critical"
+		}
+	}
+	m = step(t, m, beansLoadedMsg{beans: re})
+	if got := m.flatSelected(); got == nil || got.ID != want {
+		t.Fatalf("flat selection after re-sorting reload = %v, want %s", got, want)
+	}
+}
+
 // errBoom is a minimal error fixture for TestBeansLoadedErrorSurfacesInStatusLine.
 type errBoom struct{}
 

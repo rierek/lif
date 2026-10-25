@@ -113,6 +113,15 @@ release-snapshot: release-check
     mise run build:embed
     mise exec goreleaser@latest -- goreleaser release --snapshot --clean --skip=publish
 
+# Validate canonical wiki release prose without contacting GitHub.
+release-notes-check TAG:
+    bash scripts/release-github-notes.sh check "{{TAG}}"
+
+# Replace an existing GitHub release body with canonical wiki prose.
+# Run only after the release Action succeeds and PO authorizes publication.
+release-notes-publish TAG:
+    bash scripts/release-github-notes.sh publish "{{TAG}}" "{{release_repo}}"
+
 # Recompute flake.nix dependency hashes (local nix or Docker), optionally set its version
 nix-hashes VERSION='':
     bash scripts/nix-hashes.sh {{VERSION}}

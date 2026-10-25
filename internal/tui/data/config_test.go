@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/rierek/lif/pkg/config"
 )
 
 const customCfg = `items:
@@ -25,12 +27,12 @@ func applyCustom(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(dir, ".lif.yml"), []byte(customCfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ApplyRepoConfig(dir)
+	applyRepoConfig(dir)
 	t.Cleanup(func() { SetConfig(nil) })
 	return dir
 }
 
-func TestApplyRepoConfigUsesConfiguredLists(t *testing.T) {
+func TestRepoConfigUsesConfiguredLists(t *testing.T) {
 	applyCustom(t)
 	for name, got := range map[string][]string{"status": StatusValues(), "type": TypeValues(), "priority": PriorityValues()} {
 		want := map[string]string{"status": "review", "type": "story", "priority": "urgent"}[name]
@@ -43,8 +45,8 @@ func TestApplyRepoConfigUsesConfiguredLists(t *testing.T) {
 	}
 }
 
-func TestApplyRepoConfigFallsBackToDefaults(t *testing.T) {
-	ApplyRepoConfig(t.TempDir())
+func TestRepoConfigFallsBackToDefaults(t *testing.T) {
+	applyRepoConfig(t.TempDir())
 	t.Cleanup(func() { SetConfig(nil) })
 	if !contains(StatusValues(), "scrapped") || contains(StatusValues(), "review") {
 		t.Errorf("no config must give built-in statuses, got %v", StatusValues())
@@ -75,7 +77,7 @@ func TestDefaultsFallBackToFirstEntryWhenBuiltinDefaultMissing(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".lif.yml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ApplyRepoConfig(dir)
+	applyRepoConfig(dir)
 	t.Cleanup(func() { SetConfig(nil) })
 	if got := DefaultType(); got != "story" {
 		t.Errorf("DefaultType() = %q, want story (task is not configured)", got)
@@ -83,4 +85,14 @@ func TestDefaultsFallBackToFirstEntryWhenBuiltinDefaultMissing(t *testing.T) {
 	if got := DefaultStatus(); got != "todo" {
 		t.Errorf("DefaultStatus() = %q, want todo", got)
 	}
+}
+
+// applyRepoConfig makes the config found at dir the active one, the way the
+// TUI does for an opened Store.
+func applyRepoConfig(dir string) {
+	cfg, err := config.LoadFromDirectory(dir)
+	if err != nil {
+		cfg = nil
+	}
+	SetConfig(cfg)
 }

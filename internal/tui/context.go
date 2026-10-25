@@ -3,11 +3,11 @@ package tui
 // context.go — Yank `y`'s Markdown-Kontext-Generator (E5 Task 3, bean
 // bt-e4a6, epic-E5-plan.md »Task 3«, design decision b): ONE view-agnostic
 // beanContext(idx, b) instead of devd's three separate milestoneClip/
-// sprintClip/backlogClip functions (internal/tui/context.go in devd's own
+// sprintClip/readyClip functions (internal/tui/context.go in devd's own
 // cli-go) -- beans has no devd Milestone/Sprint/Issue three-way split, so a
 // single generator covers both a leaf Issue (no "## Children" section) and
 // an Epic/Milestone (idx.Children[b.ID] non-empty -> "## Children" table)
-// via the same code path. `y` always acts on m.focusedBean() (Tree/Backlog
+// via the same code path. `y` always acts on m.focusedBean() (Tree/Ready
 // identical, update.go's keyNodeAction) -- the Review-Cockpit used to be a
 // view-local exception here (its own reviewStandMarkdown override instead of
 // beanContext), removed by E7 T1 (PF-14, bean bt-wmtb, 2026-07-15).
@@ -20,6 +20,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	"github.com/rierek/lif/internal/tui/data"
@@ -30,7 +31,7 @@ import (
 // "## Children" table when idx.Children[b.ID] is non-empty. nil b returns
 // an empty string (defensive -- callers already guard the orphan-root
 // cursor before reaching here, update.go keyNodeAction Plan Step 6).
-func beanContext(idx *data.Index, b *data.Bean) string {
+func beanContext(idx *data.Index, b *item.Item) string {
 	if b == nil {
 		return ""
 	}
@@ -93,7 +94,7 @@ func contextRelLabel(idx *data.Index, id string) string {
 // (data.SortBeans, mirrors resolveSorted), unresolved IDs appended last in
 // their input order.
 func contextRelLabels(idx *data.Index, ids []string) string {
-	var resolved []*data.Bean
+	var resolved []*item.Item
 	var unresolved []string
 	for _, id := range ids {
 		if idx != nil {
@@ -122,7 +123,7 @@ func contextRelLabels(idx *data.Index, ids []string) string {
 // Used by beanContext's Children table (the former Review-Cockpit's
 // reviewStandMarkdown per-group/Rework tables shared this too, removed by
 // E7 T1, PF-14, bean bt-wmtb, 2026-07-15).
-func contextBeanTable(beans []*data.Bean) string {
+func contextBeanTable(beans []*item.Item) string {
 	var out strings.Builder
 	out.WriteString("| ID | Type | Status | Prio | Title |\n|---|---|---|---|---|\n")
 	for _, b := range beans {

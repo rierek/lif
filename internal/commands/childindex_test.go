@@ -4,40 +4,8 @@ import (
 	"testing"
 
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 )
-
-// TestBuildChildrenIndexEmptyTree verifies that an empty input yields an
-// empty index, and that looking up any ID on it returns nil (not a panic).
-func TestBuildChildrenIndexEmptyTree(t *testing.T) {
-	idx := buildChildrenIndex(nil)
-	if len(idx) != 0 {
-		t.Fatalf("expected empty index, got %d entries", len(idx))
-	}
-	if got := idx["missing"]; got != nil {
-		t.Fatalf("expected nil for missing key, got %v", got)
-	}
-}
-
-// TestBuildChildrenIndexSingleLevel verifies that direct parent -> children
-// relationships are indexed, and items without a parent are not indexed
-// under any key.
-func TestBuildChildrenIndexSingleLevel(t *testing.T) {
-	parent := &item.Item{ID: "beans-p1"}
-	child1 := &item.Item{ID: "beans-c1", Parent: "beans-p1"}
-	child2 := &item.Item{ID: "beans-c2", Parent: "beans-p1"}
-	orphan := &item.Item{ID: "beans-o1"}
-
-	idx := buildChildrenIndex([]*item.Item{parent, child1, child2, orphan})
-
-	children := idx["beans-p1"]
-	if len(children) != 2 {
-		t.Fatalf("expected 2 children under beans-p1, got %d", len(children))
-	}
-
-	if len(idx["beans-o1"]) != 0 {
-		t.Fatalf("expected no children indexed under orphan, got %v", idx["beans-o1"])
-	}
-}
 
 // TestDescendantsMultiLevel verifies that descendants walks transitively
 // through multiple generations (milestone -> epic -> task), not just direct
@@ -49,7 +17,7 @@ func TestDescendantsMultiLevel(t *testing.T) {
 	task2 := &item.Item{ID: "beans-t2", Parent: "beans-e1"}
 	grandchild := &item.Item{ID: "beans-g1", Parent: "beans-t1"}
 
-	idx := buildChildrenIndex([]*item.Item{milestone, epic, task1, task2, grandchild})
+	idx := roadmap.ChildrenIndex([]*item.Item{milestone, epic, task1, task2, grandchild})
 
 	got := descendants("beans-m1", idx)
 	if len(got) != 4 {
@@ -78,7 +46,7 @@ func TestDescendantsMultiLevel(t *testing.T) {
 // TestDescendantsEmptyTree verifies that an ID with no children yields no
 // descendants and does not panic.
 func TestDescendantsEmptyTree(t *testing.T) {
-	idx := buildChildrenIndex(nil)
+	idx := roadmap.ChildrenIndex(nil)
 	got := descendants("beans-nope", idx)
 	if len(got) != 0 {
 		t.Fatalf("expected no descendants, got %v", ids(got))
@@ -95,7 +63,7 @@ func TestDescendantProgressCountsCompletedAndScrapped(t *testing.T) {
 	inProgress := &item.Item{ID: "beans-t3", Parent: "beans-m1", Status: "in-progress"}
 	scrapped := &item.Item{ID: "beans-t4", Parent: "beans-m1", Status: "scrapped"}
 
-	idx := buildChildrenIndex([]*item.Item{milestone, done, todo, inProgress, scrapped})
+	idx := roadmap.ChildrenIndex([]*item.Item{milestone, done, todo, inProgress, scrapped})
 
 	completed, total := descendantProgress("beans-m1", idx)
 	if completed != 1 {
@@ -114,7 +82,7 @@ func TestDescendantProgressAllScrappedIsZeroZero(t *testing.T) {
 	scrapped1 := &item.Item{ID: "beans-t1", Parent: "beans-m1", Status: "scrapped"}
 	scrapped2 := &item.Item{ID: "beans-t2", Parent: "beans-m1", Status: "scrapped"}
 
-	idx := buildChildrenIndex([]*item.Item{milestone, scrapped1, scrapped2})
+	idx := roadmap.ChildrenIndex([]*item.Item{milestone, scrapped1, scrapped2})
 
 	completed, total := descendantProgress("beans-m1", idx)
 	if completed != 0 || total != 0 {
@@ -126,7 +94,7 @@ func TestDescendantProgressAllScrappedIsZeroZero(t *testing.T) {
 // no descendants at all also reports 0/0.
 func TestDescendantProgressChildlessIsZeroZero(t *testing.T) {
 	milestone := &item.Item{ID: "beans-m1"}
-	idx := buildChildrenIndex([]*item.Item{milestone})
+	idx := roadmap.ChildrenIndex([]*item.Item{milestone})
 
 	completed, total := descendantProgress("beans-m1", idx)
 	if completed != 0 || total != 0 {

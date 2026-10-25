@@ -147,15 +147,12 @@ func TestGlobalBindingsFitIn80Columns(t *testing.T) {
 	}
 }
 
-// TestBlockingKeyIsR guards Q06's Blocking-Remap (design-spec.md §15 PF-16,
-// bean bt-ntoz/bt-d8kc): keys.Blocking moves from "B" to "r" ("r" free since
-// PF-14's Review-Cockpit removal, verified -- no other keyMap field binds
-// it; "B" becomes free, verified -- no other keyMap field/raw string
-// reference used it either).
-func TestBlockingKeyIsR(t *testing.T) {
+// TestBlockingKeyIsB guards beans-u4uu: keys.Blocking is "b" (was "r", Q06;
+// "B" stays free). "r" is bound to nothing.
+func TestBlockingKeyIsB(t *testing.T) {
 	k := newKeyMap()
-	if !bindHas(k.Blocking, "r") {
-		t.Errorf("Blocking.Keys() = %v, want to contain %q", k.Blocking.Keys(), "r")
+	if !bindHas(k.Blocking, "b") {
+		t.Errorf("Blocking.Keys() = %v, want to contain %q", k.Blocking.Keys(), "b")
 	}
 	if bindHas(k.Blocking, "B") {
 		t.Errorf("Blocking.Keys() = %v, must NOT still contain %q (Q06 remap frees it)", k.Blocking.Keys(), "B")
@@ -200,7 +197,7 @@ func TestGlobalBindingHelpTextsShortened(t *testing.T) {
 // binding may appear in BOTH globalBindings() (Header Zone 1, always
 // visible) AND either Chrome-calling view's own local-footer list --
 // duplication is exactly what PF-11 removes. Scoped to the two VIEW-local
-// lists only (browseRepoLocalBindings/backlogLocalBindings) -- the
+// lists only (footerBindings per view) -- the
 // overlay-/search-/palette-/help-context footer sets (footer_context.go)
 // are a DIFFERENT axis (Q04-Antwort) and deliberately restate Enter/Back
 // for local reinforcement while a modal has full input capture (see that
@@ -211,8 +208,8 @@ func TestNoDuplicateBindingBetweenGlobalAndAnyLocalHintList(t *testing.T) {
 		global[strings.Join(b.Keys(), ",")] = true
 	}
 	lists := map[string][]keybind.Binding{
-		"browseRepoLocalBindings": browseRepoLocalBindings(),
-		"backlogLocalBindings":    backlogLocalBindings(),
+		"footerBindings (roadmap)": u10Browse(t).footerBindings(),
+		"footerBindings (ready)":   u10Ready(t).footerBindings(),
 	}
 	for name, list := range lists {
 		for _, b := range list {
@@ -272,70 +269,6 @@ func TestHelpGroupsCoverEveryBindingExactlyOnce(t *testing.T) {
 			t.Errorf("keyMap field %s (%s) is not covered by any helpGroups() entry", c.field, id)
 		case c.count > 1:
 			t.Errorf("keyMap field %s (%s) is covered %d times by helpGroups() (want exactly once)", c.field, id, c.count)
-		}
-	}
-}
-
-// TestHistoryBindingsUnbelegtElsewhere guards the design-spec.md §15 claim
-// ("[/] verifiziert unbelegt im gesamten Keymap") that motivated picking
-// them as the ctrl+left/ctrl+right fallback in the first place (F01
-// History-Stack, E9 Task 8, bean bt-1vbp): no OTHER keyMap field may bind
-// the raw "[" or "]" key, and no other field may bind "ctrl+left"/
-// "ctrl+right" either (both would silently double-fire alongside
-// HistoryBack/HistoryForward).
-func TestHistoryBindingsUnbelegtElsewhere(t *testing.T) {
-	reserved := map[string]bool{"[": true, "]": true, "ctrl+left": true, "ctrl+right": true}
-	v := reflect.ValueOf(newKeyMap())
-	typ := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		name := typ.Field(i).Name
-		if name == "HistoryBack" || name == "HistoryForward" {
-			continue
-		}
-		b, ok := v.Field(i).Interface().(keybind.Binding)
-		if !ok {
-			continue
-		}
-		for _, k := range b.Keys() {
-			if reserved[k] {
-				t.Errorf("field %s binds %q, which collides with HistoryBack/HistoryForward's reserved key set", name, k)
-			}
-		}
-	}
-}
-
-// TestHelpGroupsIncludeHistoryBindings is the bean's own explicitly-named
-// TDD step, more specific than the generic drift guard above: HistoryBack/
-// HistoryForward must land in the "Navigation" group specifically (PF-01
-// Sichtbarkeit: same group as every other Vollbild/Fokus binding, keys.
-// Fullscreen/FocusIn/FocusOut), and render with the [/] short-labels D06's
-// renderBindings picks from WithHelp (ctrl+left/ctrl+right are the SAME
-// binding, just its second/first key -- Help() always renders the FIRST
-// key registered via WithKeys, "[" and "]" here).
-func TestHelpGroupsIncludeHistoryBindings(t *testing.T) {
-	var nav []keybind.Binding
-	for _, g := range keys.helpGroups() {
-		if g.title == "Navigation" {
-			nav = g.bindings
-		}
-	}
-	if nav == nil {
-		t.Fatal(`helpGroups() has no "Navigation" group`)
-	}
-	want := map[string]string{"[": "history back", "]": "history fwd"}
-	got := map[string]bool{}
-	for _, b := range nav {
-		h := b.Help()
-		if desc, ok := want[h.Key]; ok {
-			if h.Desc != desc {
-				t.Errorf("Navigation binding %q help = %q, want %q", h.Key, h.Desc, desc)
-			}
-			got[h.Key] = true
-		}
-	}
-	for k := range want {
-		if !got[k] {
-			t.Errorf("Navigation group missing a binding with Help().Key == %q (HistoryBack/HistoryForward)", k)
 		}
 	}
 }

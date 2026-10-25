@@ -12,6 +12,7 @@ package tui
 // etag-no-cascade rationale), esc discards.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"sort"
 	"strings"
 
@@ -37,7 +38,7 @@ func buildBlockingItems(idx *data.Index, selfID, slug string) []pickerItem {
 	if idx == nil {
 		return nil
 	}
-	all := make([]*data.Bean, 0, len(idx.ByID))
+	all := make([]*item.Item, 0, len(idx.ByID))
 	for _, cand := range idx.ByID {
 		if cand.ID == selfID {
 			continue
@@ -214,8 +215,8 @@ func (m model) applyBlockingPickerDiff() (tea.Model, tea.Cmd) {
 		m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 		return m, toastCmd
 	}
-	client := m.client
-	return m, mutateCmd(func() error { return client.SetBlocking(id, add, remove, etag) })
+	store := m.store
+	return m, mutateCmd(store, func() error { return store.SetBlocking(id, add, remove, etag) })
 }
 
 // blockingDot is the ●/○ pending indicator (port beans-src

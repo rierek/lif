@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -9,7 +10,7 @@ import (
 )
 
 // Index is an in-memory snapshot over a set of beans, built once per
-// load/reload from Client.List() output -- there is no incremental update
+// load/reload from Store.Items() output -- there is no incremental update
 // path (YAGNI): a reload just builds a fresh Index.
 //
 // ByID and Children are exported for cheap read access. Consumers MUST NOT
@@ -18,25 +19,24 @@ import (
 // through sortBeans; do not re-sort or append to Children entries directly.
 type Index struct {
 	// ByID looks up a bean by its short ID.
-	ByID map[string]*Bean
+	ByID map[string]*item.Item
 	// Children maps a parent ID to its direct children, sorted
 	// Status -> Priority -> Type -> Title (see sortBeans).
-	Children map[string][]*Bean
+	Children map[string][]*item.Item
 
-	beans []*Bean
+	beans []*item.Item
 }
 
 // NewIndex builds an Index over beans. Callers must not mutate the slice
 // (or its elements) afterward -- Index holds pointers into it.
-func NewIndex(beans []Bean) *Index {
+func NewIndex(beans []*item.Item) *Index {
 	idx := &Index{
-		ByID:     make(map[string]*Bean, len(beans)),
-		Children: make(map[string][]*Bean),
-		beans:    make([]*Bean, 0, len(beans)),
+		ByID:     make(map[string]*item.Item, len(beans)),
+		Children: make(map[string][]*item.Item),
+		beans:    make([]*item.Item, 0, len(beans)),
 	}
 
-	for i := range beans {
-		b := &beans[i]
+	for _, b := range beans {
 		idx.ByID[b.ID] = b
 		idx.beans = append(idx.beans, b)
 
@@ -52,58 +52,10 @@ func NewIndex(beans []Bean) *Index {
 	return idx
 }
 
-// Roots returns top-level beans (no parent), optionally restricted to the
-// given types, sorted Status -> Priority -> Type -> Title. Used by the tree
-// view to seed milestones plus parentless epics/rest.
-func (idx *Index) Roots(types ...string) []*Bean {
-	var allowed map[string]bool
-	if len(types) > 0 {
-		allowed = make(map[string]bool, len(types))
-		for _, t := range types {
-			allowed[t] = true
-		}
-	}
-
-	var roots []*Bean
-	for _, b := range idx.beans {
-		if b.Parent != "" {
-			continue
-		}
-		if allowed != nil && !allowed[b.Type] {
-			continue
-		}
-		roots = append(roots, b)
-	}
-
-	sortBeans(roots)
-	return roots
-}
-
-// Backlog returns parentless beans that are neither milestone nor epic,
-// with status todo or draft -- the "unscheduled work" view.
-func (idx *Index) Backlog() []*Bean {
-	var backlog []*Bean
-	for _, b := range idx.beans {
-		if b.Parent != "" {
-			continue
-		}
-		if b.Type == "milestone" || b.Type == "epic" {
-			continue
-		}
-		if b.Status != "todo" && b.Status != "draft" {
-			continue
-		}
-		backlog = append(backlog, b)
-	}
-
-	sortBeans(backlog)
-	return backlog
-}
-
 // WithTag returns all beans carrying tag, sorted Status -> Priority -> Type
 // -> Title.
-func (idx *Index) WithTag(tag string) []*Bean {
-	var tagged []*Bean
+func (idx *Index) WithTag(tag string) []*item.Item {
+	var tagged []*item.Item
 	for _, b := range idx.beans {
 		for _, t := range b.Tags {
 			if t == tag {
@@ -157,38 +109,31 @@ func SetConfig(cfg *config.Config) {
 	cur.Store(newEnums(cfg, cfg.StatusNames(), cfg.TypeNames(), cfg.PriorityNames()))
 }
 
-// ConfiguredColors returns the colour specs (tone name or hex) the project
-// config sets explicitly, keyed by status/type/priority name: an entry counts
-// when its colour differs from the built-in one. Nothing is returned for a
-// repo without a config.
-func ConfiguredColors() (status, typ, priority map[string]string) {
-	cfg := cur.Load().cfg
-	if cfg == nil {
-		return nil, nil, nil
+// ActiveConfig returns the config SetConfig installed, or the built-in
+// defaults before any config is applied.
+func ActiveConfig() *config.Config {
+	if c := cur.Load().cfg; c != nil {
+		return c
 	}
+	return config.Default()
+}
+
+// ConfiguredColors returns the colour specs (tone name or hex) the active
+// config sets, keyed by status/type/priority name: every entry of the merged
+// lists with a non-empty colour. Without a config the built-in defaults apply.
+func ConfiguredColors() (status, typ, priority map[string]string) {
+	cfg := ActiveConfig()
 	status, typ, priority = map[string]string{}, map[string]string{}, map[string]string{}
-	builtin := map[string]string{}
 	set := func(dst map[string]string, name, color string) {
-		if color != "" && color != builtin[name] {
+		if color != "" {
 			dst[name] = color
 		}
-	}
-	for _, v := range config.DefaultStatuses {
-		builtin[v.Name] = v.Color
 	}
 	for _, v := range cfg.StatusList() {
 		set(status, v.Name, v.Color)
 	}
-	clear(builtin)
-	for _, v := range config.DefaultTypes {
-		builtin[v.Name] = v.Color
-	}
 	for _, v := range cfg.TypeList() {
 		set(typ, v.Name, v.Color)
-	}
-	clear(builtin)
-	for _, v := range config.DefaultPriorities {
-		builtin[v.Name] = v.Color
 	}
 	for _, v := range cfg.PriorityList() {
 		set(priority, v.Name, v.Color)
@@ -255,7 +200,7 @@ func PriorityValues() []string { return append([]string(nil), cur.Load().priorit
 // on full ties (same status/priority/type/title), rather than sort.Slice.
 // Upstream beans sorts with a non-stable sort -- this is not guaranteed to
 // produce byte-for-byte parity with upstream ordering on ties.
-func sortBeans(beans []*Bean) {
+func sortBeans(beans []*item.Item) {
 	e := cur.Load()
 	sort.SliceStable(beans, func(i, j int) bool {
 		a, b := beans[i], beans[j]
@@ -298,11 +243,11 @@ func rank(order map[string]int, val string) int {
 // bt-7jr8 T8-review): a second, ad-hoc tie-break in the tui package would
 // violate the "single place sort order is defined" contract this file
 // already asserts for its own callers.
-func SortBeans(beans []*Bean) { sortBeans(beans) }
+func SortBeans(beans []*item.Item) { sortBeans(beans) }
 
 // StatusRank exposes the status tier position (see statusOrder) for callers
 // that need to compare two beans' status without a full SortBeans call
-// (e.g. the Backlog sort-toggle, E2 Task 5).
+// (e.g. the Ready sort-toggle, E2 Task 5).
 func StatusRank(status string) int { return rank(cur.Load().statusOrder, status) }
 
 // PriorityRank exposes the priority tier position, empty treated as "normal"

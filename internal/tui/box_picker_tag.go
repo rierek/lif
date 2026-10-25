@@ -165,7 +165,7 @@ func tagItemIndex(items []tagCount, tag string) int {
 // D03/D10 (T6, bean bt-pqq3, epic bt-362n): the Tag-Registry is loaded
 // FRESH from disk on EVERY open (mirrors openTagManagementPage's own
 // "reload from disk on every open" convention, view_tag_management.go) -- a
-// nil m.client (pre-load/test fixture) degrades to an empty registry rather
+// nil m.store (pre-load/test fixture) degrades to an empty registry rather
 // than panicking, same D02 tolerant-missing philosophy one layer up.
 // tagItems is then built via collectTagCounts' Suggest-Mode union: defined
 // tags sort first, but every free tag stays fully togglable regardless
@@ -188,8 +188,8 @@ func (m model) openTagPicker() (tea.Model, tea.Cmd) {
 	m.mutTarget = b.ID
 
 	var defs []string
-	if m.client != nil {
-		defs, _ = m.client.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
+	if m.store != nil {
+		defs, _ = m.store.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
 	}
 	defined := make(map[string]bool, len(defs))
 	for _, name := range defs {
@@ -427,14 +427,14 @@ func (m model) applyTagPickerDiff() (tea.Model, tea.Cmd) {
 		m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 		return m, toastCmd
 	}
-	client := m.client
-	return m, mutateCmd(func() error { return client.SetTags(id, add, remove, etag) })
+	store := m.store
+	return m, mutateCmd(store, func() error { return store.SetTags(id, add, remove, etag) })
 }
 
 // tagPickerBox renders the floating Tag-Picker overlay (bean bt-9ipw, D01):
 // an ALWAYS-visible, always-focused search field (m.tagInput.View()) sits
 // above the checkbox + usage-count row list (same modalPanel + [x]/[ ]
-// convention as treeFilterBox, box_filter_facets.go) -- the two former
+// convention as filterMenuBox, box_filter_facets.go) -- the two former
 // separate overlay renderings (this function + the old tagInputBox) are now
 // ONE. The row list is driven by tagInputFiltered (the live-filtered
 // subset), NOT the unfiltered tagItems, so typing visibly narrows exactly
@@ -469,7 +469,7 @@ func (m model) tagPickerBox() string {
 	for i, it := range m.tagInputFiltered {
 		marker := " "
 		if it.defined {
-			marker = tagManagementMarkerStyle.Render(tagManagementMarkerGlyph)
+			marker = tagManagementMarkerStyle().Render(tagManagementMarkerGlyph)
 		}
 		box := theme.Dim.Render("[ ]")
 		if m.tagPending[it.tag] {

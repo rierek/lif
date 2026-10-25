@@ -16,7 +16,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // TestEditTitleFormPrefilledAndNonEmptyValidated guards both halves of
@@ -60,7 +59,8 @@ func TestEditTitleSubmitFiresSetTitleDirectlyNoConfirm(t *testing.T) {
 	}
 
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t5-scratch-dir"}
+	store := fixtureStore(t)
+	m.store = store
 	m.form = f
 	m.formKind = "editTitle"
 	m.mutTarget = "tk-1"
@@ -84,8 +84,11 @@ func TestEditTitleSubmitFiresSetTitleDirectlyNoConfirm(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetTitle dispatched)", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "tk-1").Title; got != "Original Title" {
+		t.Fatalf("title on disk = %q, want %q (proves SetTitle dispatched)", got, "Original Title")
 	}
 }
 
@@ -200,7 +203,8 @@ func TestOpenEditTitleFormRoundTripsLongTitleUnchanged(t *testing.T) {
 	}
 
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-2v38-scratch-dir"}
+	store := fixtureStore(t)
+	m.store = store
 	m.form = f
 	m.formKind = "editTitle"
 	m.mutTarget = "tk-1"
@@ -221,8 +225,11 @@ func TestOpenEditTitleFormRoundTripsLongTitleUnchanged(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetTitle dispatched, same GetString(title) verified full/unchanged above)", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "tk-1").Title; got != long {
+		t.Fatalf("title on disk = %q, want the full unchanged long title (proves SetTitle dispatched it untruncated)", got)
 	}
 }
 
@@ -276,9 +283,8 @@ func collectCmdMsgs(cmd tea.Cmd, budget int) []tea.Msg {
 func TestEditTitleFormCtrlEDoesNotFireHuhEditor(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, keyMsg(tea.KeyTab))
-	m = step(t, m, keyMsg(tea.KeyEnter)) // field level, fieldCursor=0 (title)
-	m = step(t, m, keyMsg(tea.KeyEnter)) // opens the Title-Edit-Form via styleForm
+	tm0, _ := m.openEditTitleForm(m.idx.ByID["tk-2"]) // opens the Title-Edit-Form via styleForm
+	m = tm0.(model)
 	if m.form == nil || m.formKind != "editTitle" {
 		t.Fatalf("setup: form=%v formKind=%q, want an open editTitle form", m.form, m.formKind)
 	}

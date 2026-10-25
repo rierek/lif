@@ -7,17 +7,20 @@ package tui
 // (update_test.go, same package).
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/rierek/lif/pkg/item"
+
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // archiveFixtureBeans is a small tree with one completed leaf so tests below
 // can assert it is hidden/shown without disturbing fixtureBeans()'s own
 // (unaffected) shape.
-func archiveFixtureBeans() []data.Bean {
-	return []data.Bean{
+func archiveFixtureBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
 		{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1"},
@@ -43,37 +46,32 @@ func TestArchivedBeanHiddenFromTreeByDefault(t *testing.T) {
 	}
 }
 
-// TestArchivedBeanShownWhenShowArchivedToggled drives the REAL f-menu key
-// path (space on the "Show archived" row) end-to-end, not a direct
-// field write -- proves the facet wiring (buildFilterItems/facetOn/
-// toggleFacet) actually reaches m.showArchived, no new key involved.
+// TestArchivedBeanShownWhenShowArchivedToggled drives the REAL key path
+// (f, left to the Archive field, enter, space on the "Show archived" value)
+// end-to-end, not a direct field write -- proves the facet wiring
+// (buildFilterItems/facetOn/toggleFacet) actually reaches m.showArchived.
 func TestArchivedBeanShownWhenShowArchivedToggled(t *testing.T) {
 	m := fixtureModel(t, archiveFixtureBeans())
 	m.expanded["ms-1"] = true
 	m.expanded["ep-1"] = true
 
-	m = step(t, m, runeMsg('f'))
-	if !m.filterOpen {
-		t.Fatal("setup: f did not open the filter menu")
-	}
-	idx := -1
-	for i, it := range m.filterItems {
-		if it.facet == "archive" {
-			idx = i
-			break
+	openArchiveMenu := func(m model) model {
+		m = step(t, m, runeMsg('f'))
+		m = step(t, m, keyMsg(tea.KeyLeft)) // wraps from Type to the last field, Archive
+		m = step(t, m, keyMsg(tea.KeyEnter))
+		if m.overlay != overlayFilterMenu || m.filterItems[m.filterMenu.cursor].facet != "archive" {
+			t.Fatal("setup: the Archive field did not open its value menu")
 		}
+		return m
 	}
-	if idx < 0 {
-		t.Fatalf("setup: no \"archive\" facet row in filterItems, got %+v", m.filterItems)
-	}
-	m.filterMenu.cursor = idx
 
+	m = openArchiveMenu(m)
 	m = step(t, m, keyMsg(tea.KeySpace))
 	if !m.showArchived {
 		t.Fatal("space on the archive row did not set m.showArchived = true")
 	}
 	m = step(t, m, keyMsg(tea.KeyEsc))
-	if m.filterOpen {
+	if m.overlay != overlayNone {
 		t.Fatal("esc did not close the filter menu")
 	}
 
@@ -84,12 +82,11 @@ func TestArchivedBeanShownWhenShowArchivedToggled(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("tk-done not visible after toggling showArchived on via the real f-menu key path")
+		t.Fatal("tk-done not visible after toggling showArchived on via the real key path")
 	}
 
-	// Toggle back off (same row, still cursored) -- must hide it again.
-	m = step(t, m, runeMsg('f'))
-	m.filterMenu.cursor = idx
+	// Toggle back off (same value) -- must hide it again.
+	m = openArchiveMenu(m)
 	m = step(t, m, keyMsg(tea.KeySpace))
 	if m.showArchived {
 		t.Fatal("second space toggle did not flip m.showArchived back to false")
@@ -126,10 +123,11 @@ func TestBuildFilterItemsIncludesArchiveRow(t *testing.T) {
 // ONLY child is also completed must vanish from the tree entirely, root and
 // all, when showArchived is false.
 func TestArchivedOnlyMilestoneDisappearsWithNoOpenDescendant(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "ms-done", Title: "Done Milestone", Status: "completed", Type: "milestone", Priority: "normal"},
 		{ID: "tk-done", Title: "Done Task", Status: "completed", Type: "task", Priority: "normal", Parent: "ms-done"},
 		{ID: "ms-open", Title: "Open Milestone", Status: "todo", Type: "milestone", Priority: "normal"},
+		{ID: "tk-open", Title: "Open Task", Status: "todo", Type: "task", Priority: "normal", Parent: "ms-open"},
 	}
 	m := fixtureModel(t, beans)
 
@@ -179,7 +177,7 @@ func TestFilterClearXDoesNotResetArchiveToggle(t *testing.T) {
 // casing was needed in applyBleveResult, this is purely beanMatches picking
 // up the new beanMatchesArchive term.
 func TestArchivedBeanExcludedFromBleveHitByDefault(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "tk-done", Title: "Refactor the done task", Status: "completed", Type: "task", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)
@@ -200,29 +198,27 @@ func TestArchivedBeanExcludedFromBleveHitByDefault(t *testing.T) {
 	}
 }
 
-// --- Backlog is structurally unaffected (index.go Backlog(): no change) ---
+// --- Ready is structurally unaffected by the archive toggle ---
 
-// TestBacklogUnaffectedByArchiveToggle guards the "KEINE Änderung nötig"
-// acceptance box for index.go Backlog(): idx.Backlog() already excludes
-// completed/scrapped structurally (todo/draft only) -- toggling showArchived
-// must not add them back, since backlogVisible() only narrows the
-// PRE-filtered idx.Backlog() set, never widens it.
-func TestBacklogUnaffectedByArchiveToggle(t *testing.T) {
-	beans := []data.Bean{
+// TestReadyUnaffectedByArchiveToggle guards that toggling showArchived does
+// not add archived items back: readyVisible() only narrows the Ready set
+// (Store.Ready excludes archive statuses itself), never widens it.
+func TestReadyUnaffectedByArchiveToggle(t *testing.T) {
+	beans := []*item.Item{
 		{ID: "tk-todo", Title: "Open Task", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "tk-done", Title: "Done Task", Status: "completed", Type: "task", Priority: "normal"},
 	}
-	m := fixtureModel(t, beans)
+	m := readyModel(t, beans, "tk-todo")
 
-	before := m.backlogVisible()
+	before := m.readyVisible()
 	if len(before) != 1 || before[0].ID != "tk-todo" {
-		t.Fatalf("backlogVisible() (showArchived=false) = %v, want just tk-todo", before)
+		t.Fatalf("readyVisible() (showArchived=false) = %v, want just tk-todo", before)
 	}
 
 	m.showArchived = true
-	after := m.backlogVisible()
+	after := m.readyVisible()
 	if len(after) != 1 || after[0].ID != "tk-todo" {
-		t.Fatalf("backlogVisible() (showArchived=true) = %v, want unchanged (tk-todo only) -- Backlog() already excludes completed structurally", after)
+		t.Fatalf("readyVisible() (showArchived=true) = %v, want unchanged (tk-todo only) -- Ready() already excludes completed structurally", after)
 	}
 }
 
@@ -239,9 +235,9 @@ func TestRepoSwitchResetsShowArchived(t *testing.T) {
 
 	newRepo := t.TempDir()
 	tm, _ := m.applyRepoSwitched(repoSwitchedMsg{
-		client:  &data.Client{RepoDir: newRepo},
+		store:   newTestStore(t),
 		repoDir: newRepo,
-		beans:   []data.Bean{},
+		beans:   []*item.Item{},
 	})
 	m2, ok := tm.(model)
 	if !ok {
@@ -249,5 +245,30 @@ func TestRepoSwitchResetsShowArchived(t *testing.T) {
 	}
 	if m2.showArchived {
 		t.Fatal("showArchived leaked across a repo switch, want reset to false")
+	}
+}
+
+// TestArchiveFilterUsesConfiguredArchiveStatus: a status the project config
+// marks `archive: true` is hidden by default, like completed/scrapped.
+func TestArchiveFilterUsesConfiguredArchiveStatus(t *testing.T) {
+	dir := t.TempDir()
+	cfg := "statuses:\n  - name: po-review\n    archive: true\n"
+	if err := os.WriteFile(filepath.Join(dir, ".lif.yml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	applyDirConfig(t, dir)
+	t.Cleanup(func() { applyRepoConfig(nil) })
+
+	items := append(archiveFixtureBeans(), &item.Item{ID: "tk-po", Title: "Task PO", Status: "po-review", Type: "task", Priority: "normal", Parent: "ep-1"})
+	m := fixtureModel(t, items)
+	if m.beanMatchesArchive(items[len(items)-1]) {
+		t.Error("po-review (archive: true) matches the archive filter by default, want hidden")
+	}
+	if !m.beanMatchesArchive(items[2]) {
+		t.Error("in-progress item hidden by the archive filter, want visible")
+	}
+	m.showArchived = true
+	if !m.beanMatchesArchive(items[len(items)-1]) {
+		t.Error("po-review hidden although showArchived is on")
 	}
 }

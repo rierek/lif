@@ -11,10 +11,10 @@ package tui
 // equalStrings from update_test.go (same package).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- Local live filter (flattenTreeFiltered / beanMatchesSearch) ---
@@ -54,7 +54,7 @@ func TestLocalSearchMatchesBeanIDSubstring(t *testing.T) {
 // ancestor whose OWN title doesn't match stays visible when one of its
 // descendants does -- the match's path must render as context.
 func TestLocalSearchPreservesAncestorPathOfMatch(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "root-1", Title: "Container", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "leaf-1", Title: "Findme", Status: "todo", Type: "task", Priority: "normal", Parent: "root-1"},
 	}
@@ -63,19 +63,16 @@ func TestLocalSearchPreservesAncestorPathOfMatch(t *testing.T) {
 	m = setSearchQuery(m, "findme")
 
 	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{"root-1", "leaf-1"}) {
-		t.Fatalf("filtered nodes = %v, want [root-1 leaf-1] (root-1 must stay visible as leaf-1's expanded ancestor even though root-1's own title doesn't match)", got)
+	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "root-1", "leaf-1"}) {
+		t.Fatalf("filtered nodes = %v, want [unscheduled root-1 leaf-1] (root-1 must stay visible as leaf-1's expanded ancestor even though root-1's own title doesn't match)", got)
 	}
 }
 
-// TestLocalSearchCollapsedAncestorHidesMatchingDescendant guards DD2-178
-// parity (devd view_browse_project.go:215-238, PO decision carried over
-// verbatim per the plan's Port-Referenzen): a manually collapsed ancestor
-// stays collapsed even though it contains a match -- it renders as a single
-// context row, its matching child stays hidden, and it is NEVER
-// auto-expanded.
-func TestLocalSearchCollapsedAncestorHidesMatchingDescendant(t *testing.T) {
-	beans := []data.Bean{
+// TestLocalSearchOpensCollapsedAncestorOfMatch (beans-leh5, replaces the
+// DD2-178 "collapsed ancestor stays collapsed" rule): a search opens every
+// ancestor of a hit, without touching m.expanded.
+func TestLocalSearchOpensCollapsedAncestorOfMatch(t *testing.T) {
+	beans := []*item.Item{
 		{ID: "root-1", Title: "Container", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "leaf-1", Title: "Findme", Status: "todo", Type: "task", Priority: "normal", Parent: "root-1"},
 	}
@@ -83,39 +80,42 @@ func TestLocalSearchCollapsedAncestorHidesMatchingDescendant(t *testing.T) {
 	m = setSearchQuery(m, "findme")
 
 	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{"root-1"}) {
-		t.Fatalf("filtered nodes = %v, want [root-1] only -- collapsed ancestor must hide the matching descendant, never auto-expand", got)
+	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "root-1", "leaf-1"}) {
+		t.Fatalf("filtered nodes = %v, want [unscheduled root-1 leaf-1]: the ancestor opens for the hit", got)
+	}
+	if m.expanded["root-1"] {
+		t.Fatalf("search must not write m.expanded")
 	}
 }
 
 // TestLocalSearchOrphanBucketOmittedWhenNoMatch guards that the synthetic
-// "(orphaned)" root goes through the SAME predicate as the real tree: with
+// "Not on roadmap" root goes through the SAME predicate as the real tree: with
 // zero matching orphans/cycle-beans, it must be omitted entirely (not shown
 // as an empty collapsed bucket).
 func TestLocalSearchOrphanBucketOmittedWhenNoMatch(t *testing.T) {
-	beans := append(fixtureBeans(), data.Bean{
+	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Orphaned Task", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	m = setSearchQuery(m, "zzz-no-match-anywhere")
 
 	for _, n := range m.visibleNodes() {
-		if n.orphan {
-			t.Fatal("orphan root must be omitted entirely when no orphan/cycle bean matches the query")
+		if n.section != "" {
+			t.Fatal("Not-on-roadmap root must be omitted entirely when no orphan/cycle bean matches the query")
 		}
 	}
 }
 
 // TestLocalSearchOrphanBucketShowsMatchingOrphan is the positive
 // counterpart: a matching orphan renders exactly like today, under the
-// (still expanded) orphan root.
+// (still expanded) Not-on-roadmap root.
 func TestLocalSearchOrphanBucketShowsMatchingOrphan(t *testing.T) {
-	beans := append(fixtureBeans(), data.Bean{
+	beans := append(fixtureBeans(), &item.Item{
 		ID: "orph-1", Title: "Findable Orphan", Status: "todo", Type: "task", Priority: "normal", Parent: "missing",
 	})
 	m := fixtureModel(t, beans)
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	m = setSearchQuery(m, "findable")
 
 	found := false
@@ -125,7 +125,7 @@ func TestLocalSearchOrphanBucketShowsMatchingOrphan(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("matching orphan must remain visible under the (still expanded) orphan root")
+		t.Fatal("matching orphan must remain visible under the (still expanded) Not-on-roadmap root")
 	}
 }
 
@@ -261,10 +261,10 @@ func TestSearchBleveFiresOnlyAtThreeOrMoreChars(t *testing.T) {
 }
 
 // TestSearchCmdTagsResultWithQuery guards searchCmd's message tagging
-// directly (no beans binary required either way -- Search() tags the query
-// on BOTH its success and its error path, so a repo-less Client is enough).
+// directly (Store.Search() tags the query
+// on BOTH its success and its error path).
 func TestSearchCmdTagsResultWithQuery(t *testing.T) {
-	c := &data.Client{RepoDir: t.TempDir()}
+	c := fixtureStore(t)
 	msg := searchCmd(c, "abc")()
 	res, ok := msg.(searchBleveResultMsg)
 	if !ok {
@@ -303,7 +303,7 @@ func TestSearchBleveStaleResultDiscardedWhenQueryChangedMeanwhile(t *testing.T) 
 // Bleve response arrives (its Bleve result set may legitimately be empty for
 // that bean).
 func TestSearchIDSubstringHitStaysVisibleAfterBleveResultArrives(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "tk-1", Title: "Something Else Entirely", Status: "todo", Type: "task", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)
@@ -342,5 +342,30 @@ func TestSearchBleveResultAppliedWhenQueryStillCurrent(t *testing.T) {
 	}
 	if m.searchBleveLoading {
 		t.Fatal("applying a (non-stale) result must clear searchBleveLoading")
+	}
+}
+
+// Bleve indexes whole words only. Once its response lands, a partial word
+// ("team") or a capitalised wildcard ("Bei*") must still show the item: the
+// local substring rule is unioned with the Bleve hits, not replaced by them.
+func TestSearchPartialWordAndWildcardSurviveBleveResponse(t *testing.T) {
+	beans := []*item.Item{
+		{ID: "tk-1", Title: "Teams und Rechte", Status: "todo", Type: "task", Priority: "normal"},
+		{ID: "tk-2", Title: "Beispiel-Plugin", Status: "todo", Type: "task", Priority: "normal"},
+	}
+	for query, id := range map[string]string{"team": "tk-1", "Bei*": "tk-2"} {
+		m := fixtureModel(t, beans)
+		m = setSearchQuery(m, query)
+		m = step(t, m, searchBleveResultMsg{query: query, ids: nil}) // Bleve finds neither
+		if !m.beanMatchesSearch(m.idx.ByID[id]) {
+			t.Errorf("%q must find %s after the Bleve response", query, id)
+		}
+		other := "tk-1"
+		if id == other {
+			other = "tk-2"
+		}
+		if m.beanMatchesSearch(m.idx.ByID[other]) {
+			t.Errorf("%q must not find %s", query, other)
+		}
 	}
 }

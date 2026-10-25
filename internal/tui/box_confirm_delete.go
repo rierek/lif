@@ -20,13 +20,12 @@ package tui
 // smoke test + an isolated `beans create`/`beans delete` probe, both
 // reproducible): the epic-E3-plan.md/bean bt-ppzb's ORIGINAL assumption --
 // that a deleted bean's direct children survive with a now-DANGLING Parent
-// field and surface under the synthetic "(orphaned)" root -- is WRONG. The
+// field and surface under the synthetic orphan root -- is WRONG. The
 // real beans 0.4.2 `delete` command actively rewrites every direct child's
 // frontmatter, REMOVING the `parent:` field entirely rather than leaving it
 // dangling. A deleted bean's direct children therefore become genuine,
-// ordinary ROOT beans (idx.Roots(), view_browse_repo.go) -- NOT
-// "(orphaned)"-bucket orphans; they render at the top level exactly like any
-// other parentless bean, not flagged or quarantined in any way. delChildren
+// ordinary parentless beans (the roadmap places them) -- NOT
+// orphan-bucket orphans; they are not flagged or quarantined. delChildren
 // (below) is still an accurate PRE-delete count (computed from the CURRENT
 // in-memory idx.Children before the mutation fires) -- only the POST-delete
 // outcome the modal's copy describes was corrected. Grandchildren are
@@ -108,7 +107,7 @@ func countLinkedBeans(idx *data.Index, id string) int {
 }
 
 // keyDeleteConfirm drives the open Delete-Confirm: enter fires
-// data.Client.Delete (NO --if-match -- the beans CLI's `delete` subcommand
+// data.Store.Delete (NO --if-match -- the beans CLI's `delete` subcommand
 // takes no etag at all, mutations.go Delete's own doc-stamp; m.beanETag(id)
 // is still consulted here, but ONLY for its ok bool, the same vanished-
 // target guard shape as every other overlay's applyXSelection/
@@ -120,10 +119,10 @@ func countLinkedBeans(idx *data.Index, id string) int {
 // bean.
 func (m model) keyDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case keybind.Matches(msg, keys.Back), msg.String() == "n":
+	case keybind.Matches(msg, keys.Cancel):
 		m.overlay = overlayNone
 		return m, nil
-	case keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Confirm):
 		m.overlay = overlayNone
 		id := m.mutTarget
 		if _, ok := m.beanETag(id); !ok {
@@ -136,8 +135,8 @@ func (m model) keyDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 			return m, toastCmd
 		}
-		client := m.client
-		return m, mutateCmd(func() error { return client.Delete(id) })
+		store := m.store
+		return m, mutateCmd(store, func() error { return store.Delete(id) })
 	}
 	return m, nil
 }
@@ -183,6 +182,6 @@ func (m model) deleteBox() string {
 		b.WriteString(fmt.Sprintf("%d items lose their blocking/blocked-by link to this item\n", m.delLinks))
 	}
 	b.WriteString("\n" + lipgloss.NewStyle().Foreground(theme.Red).Render("Irreversible.") + "\n")
-	b.WriteString("\n" + theme.Dim.Render("enter: delete permanently   esc/n: cancel"))
+	b.WriteString("\n" + theme.Dim.Render("enter/y: delete permanently   esc/n: cancel"))
 	return modalBox(b.String(), clampModalWidth(48, m.width), theme.Red)
 }

@@ -1,6 +1,6 @@
 package tui
 
-// box_picker_tag_test.go — TDD coverage for the Tag-Picker (`t`, E3 Task 2,
+// box_picker_tag_test.go — TDD coverage for the Tag-Picker (`g`, E3 Task 2,
 // bean bt-8v69): usage-counted toggle-multi-select + free-text new-tag
 // entry + Pending-Diff (Port beans-src blockingpicker.go's Enter=confirm/
 // esc=cancel convention -- NOT box_filter_facets.go's enter=close-without-
@@ -9,6 +9,7 @@ package tui
 // box_menu_value_test.go (same package).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ import (
 // with: urgent appears on tk-1 AND tk-2 (count 2), backend and zeta each
 // appear once (count 1, tied -- exercises collectTagCounts' alpha
 // tie-break: backend < zeta).
-func fixtureBeansTagged() []data.Bean {
+func fixtureBeansTagged() []*item.Item {
 	beans := fixtureBeans()
 	for i := range beans {
 		switch beans[i].ID {
@@ -90,7 +91,7 @@ func TestCollectTagCountsSortedByCountDescThenAlpha(t *testing.T) {
 // usage count is far lower (rare-defined, count 1, beats popular-free,
 // count 3).
 func TestCollectTagCountsDefinedFirstThenCountDescThenAlpha(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "b1", Tags: []string{"popular-free"}},
 		{ID: "b2", Tags: []string{"popular-free"}},
 		{ID: "b3", Tags: []string{"popular-free"}},
@@ -115,7 +116,7 @@ func TestCollectTagCountsDefinedFirstThenCountDescThenAlpha(t *testing.T) {
 // key even at count 0: ghost-defined (defined, count 0) still sorts before
 // in-use-free (free, count 1).
 func TestCollectTagCountsIncludesUnusedDefinedTagAtCountZero(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "b1", Tags: []string{"in-use-free"}},
 	})
 	defined := map[string]bool{"ghost-defined": true}
@@ -137,7 +138,7 @@ func TestOpenTagPickerSeedsPendingFromFocusedBean(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2") // tags: urgent
 
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	if m.overlay != overlayTagPicker {
 		t.Fatalf("overlay = %v, want overlayTagPicker", m.overlay)
@@ -168,7 +169,7 @@ func TestOpenTagPickerSeedsPendingFromFocusedBean(t *testing.T) {
 
 // TestOpenTagPickerLoadsRegistryFreshMarksDefinedIncludingUnused writes a
 // real .lif-tags.yml (T1, internal/data/tagdefs.go) to a temp repo dir,
-// points m.client at it, and verifies openTagPicker (D03: loads the
+// points m.store at it, and verifies openTagPicker (D03: loads the
 // registry FRESH on every open) marks tagItems[].defined correctly AND
 // surfaces a registry-defined tag that is not currently used on ANY bean
 // (ghost-defined, count 0) -- the concrete behavior behind this task's own
@@ -179,10 +180,10 @@ func TestOpenTagPickerLoadsRegistryFreshMarksDefinedIncludingUnused(t *testing.T
 		t.Fatal(err)
 	}
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: dir}
+	m.store = &data.Store{RepoDir: dir}
 	m = focusBean(m, "tk-2") // tags: urgent
 
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	want := []tagCount{
 		{tag: "urgent", count: 2, defined: true},
@@ -203,14 +204,14 @@ func TestOpenTagPickerLoadsRegistryFreshMarksDefinedIncludingUnused(t *testing.T
 // TestOpenTagPickerNilClientDegradesToNoDefinedTags mirrors D02's
 // tolerant-missing philosophy one layer up (same precedent as
 // TestOpenTagManagementPageNilClientBuildsFromIdxOnly, view_tag_management_test.go,
-// T2): a nil m.client (pre-load/test fixture -- fixtureModel's own default)
-// must never panic on m.client.LoadTagDefs() and must degrade to an empty
+// T2): a nil m.store (pre-load/test fixture -- fixtureModel's own default)
+// must never panic on m.store.LoadTagDefs() and must degrade to an empty
 // registry, i.e. every row free (defined=false).
 func TestOpenTagPickerNilClientDegradesToNoDefinedTags(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
 
-	m = step(t, m, runeMsg('t')) // must not panic on a nil m.client
+	m = step(t, m, runeMsg('g')) // must not panic on a nil m.store
 
 	for _, it := range m.tagItems {
 		if it.defined {
@@ -225,14 +226,14 @@ func TestOpenTagPickerNilClientDegradesToNoDefinedTags(t *testing.T) {
 // togglable AND fire a real save mutation on enter -- Suggest-Mode only
 // affects sort/display, never selectability.
 func TestOpenTagPickerFreeTagRemainsTogglableAndSavable(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".lif-tags.yml"), []byte("tags:\n  - urgent\n"), 0o644); err != nil {
+	store := newTestStore(t, fixtureBeansTagged()...)
+	if err := os.WriteFile(filepath.Join(store.RepoDir, ".lif-tags.yml"), []byte("tags:\n  - urgent\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: dir}
+	m.store = store
 	m = focusBean(m, "tk-2") // tags: urgent
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	m = tagPickerCursorTo(t, m, "backend") // NOT in the registry -- free tag
 	m = step(t, m, runeMsg(' '))           // toggle on
@@ -249,8 +250,12 @@ func TestOpenTagPickerFreeTagRemainsTogglableAndSavable(t *testing.T) {
 		t.Fatal("a free tag toggle must still fire a save mutation (no strict mode)")
 	}
 	msg := cmd()
-	if _, ok := msg.(mutationDoneMsg); !ok {
-		t.Fatalf("cmd() = %T, want mutationDoneMsg -- free tag save must dispatch a real SetTags call", msg)
+	mdm, ok := msg.(mutationDoneMsg)
+	if !ok || mdm.err != nil {
+		t.Fatalf("cmd() = %+v, want a successful mutationDoneMsg -- free tag save must dispatch a real SetTags call", msg)
+	}
+	if !storeItem(t, store, "tk-2").HasTag("backend") {
+		t.Fatal("the free tag did not land on tk-2 on disk")
 	}
 }
 
@@ -259,7 +264,7 @@ func TestOpenTagPickerFreeTagRemainsTogglableAndSavable(t *testing.T) {
 func TestTagPickerToggleFlipsPendingOnly(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2") // tags: urgent
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	m = tagPickerCursorTo(t, m, "urgent")
 	m = step(t, m, runeMsg(' '))
@@ -294,14 +299,14 @@ func TestTagPickerToggleFlipsPendingOnly(t *testing.T) {
 // AddTag/RemoveTag mutateCmds batched via tea.Batch -- N sequential
 // mutations against ONE etag would be a conflict cascade. Verified two
 // ways: cmd() resolves DIRECTLY to a mutationDoneMsg (a tea.Batch would
-// instead resolve to a tea.BatchMsg), and the underlying error text (real
-// data.Client pointed at a nonexistent repo dir, no beans binary required)
-// contains "lif update", proving SetTags actually dispatched.
+// instead resolve to a tea.BatchMsg), and the item on disk (real temp store)
+// carries the tag diff, proving SetTags actually dispatched.
 func TestTagPickerEnterDiffsFireOneSetTagsCall(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-e3-t2-scratch-dir"}
+	store := newTestStore(t, fixtureBeansTagged()...)
+	m.store = store
 	m = focusBean(m, "tk-2") // tags: urgent
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	m = tagPickerCursorTo(t, m, "urgent") // originally present -> toggle off = remove
 	m = step(t, m, runeMsg(' '))
@@ -325,15 +330,18 @@ func TestTagPickerEnterDiffsFireOneSetTagsCall(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg (ONE combined SetTags call, not tea.Batch)", msg)
 	}
-	if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-		t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetTags dispatched)", mdm.err, "lif update")
+	if mdm.err != nil {
+		t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+	}
+	if got := storeItem(t, store, "tk-2"); !got.HasTag("backend") || got.HasTag("urgent") {
+		t.Fatalf("tk-2 tags on disk = %v, want urgent replaced by backend (proves SetTags dispatched)", got.Tags)
 	}
 }
 
 func TestTagPickerEnterNoChangesNoMutation(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
 	nm := tm.(model)
@@ -350,7 +358,7 @@ func TestTagPickerEnterNoChangesNoMutation(t *testing.T) {
 func TestTagPickerEscDiscardsPending(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	m = tagPickerCursorTo(t, m, "backend")
 	m = step(t, m, runeMsg(' ')) // toggle backend on in pending
 
@@ -373,7 +381,7 @@ func TestTagPickerEscDiscardsPending(t *testing.T) {
 func TestTagPickerNewTagValidatesRegex(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	before := len(m.tagItems)
 
 	for _, r := range "Über!" {
@@ -400,7 +408,7 @@ func TestTagPickerNewTagValidatesRegex(t *testing.T) {
 func TestTagPickerNewTagAddsPendingItem(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	before := len(m.tagItems)
 
 	for _, r := range "greenfield" {
@@ -445,7 +453,7 @@ func TestTagPickerNewTagAddsPendingItem(t *testing.T) {
 func TestOpenTagPickerSeedsFilteredWithFullList(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	if len(m.tagInputFiltered) != len(m.tagItems) {
 		t.Fatalf("tagInputFiltered len = %d, want %d (full tagItems on empty query)", len(m.tagInputFiltered), len(m.tagItems))
@@ -466,7 +474,7 @@ func TestOpenTagPickerSeedsFilteredWithFullList(t *testing.T) {
 func TestTagPickerFiltersLiveBySubstringCaseInsensitive(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2") // tagItems: urgent(2), backend(1), zeta(1)
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	for _, r := range "UR" { // mixed-case substring of "urgent"
 		m = step(t, m, runeMsg(r))
@@ -488,7 +496,7 @@ func TestTagPickerFiltersLiveBySubstringCaseInsensitive(t *testing.T) {
 func TestTagPickerNavigationMovesCursorClampedToFilteredBounds(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t')) // empty query -> all 3 rows
+	m = step(t, m, runeMsg('g')) // empty query -> all 3 rows
 
 	if m.tagInputSuggestCursor != 0 {
 		t.Fatalf("setup: cursor = %d, want 0", m.tagInputSuggestCursor)
@@ -519,7 +527,7 @@ func TestTagPickerNavigationMovesCursorClampedToFilteredBounds(t *testing.T) {
 func TestTagPickerArrowKeysDoNotLeakIntoTypedText(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	for _, r := range "risk" {
 		m = step(t, m, runeMsg(r))
@@ -538,7 +546,7 @@ func TestTagPickerArrowKeysDoNotLeakIntoTypedText(t *testing.T) {
 func TestTagPickerToggleTogglesCursoredFilteredSuggestion(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2") // original tags: urgent
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	before := len(m.tagItems)
 
 	for _, r := range "back" { // substring of "backend", exactly one match
@@ -570,7 +578,7 @@ func TestTagPickerToggleTogglesCursoredFilteredSuggestion(t *testing.T) {
 func TestTagPickerToggleTogglesCursoredSuggestionNotFirst(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")     // original tags: urgent
-	m = step(t, m, runeMsg('t')) // empty query -> all 3 rows: urgent, backend, zeta
+	m = step(t, m, runeMsg('g')) // empty query -> all 3 rows: urgent, backend, zeta
 
 	if len(m.tagInputFiltered) < 2 {
 		t.Fatalf("setup: tagInputFiltered = %+v, want >1 rows", m.tagInputFiltered)
@@ -608,7 +616,7 @@ func TestTagPickerToggleTogglesCursoredSuggestionNotFirst(t *testing.T) {
 func TestTagPickerTypedXStaysLiteralNotToggle(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	pendingBefore := len(m.tagPending)
 
 	for _, r := range "linux" {
@@ -633,7 +641,7 @@ func TestTagPickerTypedXStaysLiteralNotToggle(t *testing.T) {
 func TestTagPickerBoxRendersSearchField(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	out := ansi.Strip(m.tagPickerBox())
 	if !strings.Contains(out, "type to filter or create") {
@@ -659,9 +667,9 @@ func TestTagPickerBoxRendersSearchField(t *testing.T) {
 // above), enter always means "commit and close" whenever there is a match.
 func TestTagPickerEnterWithFilteredMatchSavesAndClosesPicker(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = &data.Client{RepoDir: "/nonexistent-bt-9ipw-d01-scratch-dir"}
+	m.store = newTestStore(t)
 	m = focusBean(m, "tk-2") // original tags: urgent
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	for _, r := range "back" { // narrows to exactly [backend], a real match
 		m = step(t, m, runeMsg(r))
@@ -690,7 +698,7 @@ func TestTagPickerEnterWithFilteredMatchSavesAndClosesPicker(t *testing.T) {
 func TestTagPickerBoxRendersFilteredRowsWithCursorMarker(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	m = step(t, m, keyMsg(tea.KeyDown)) // cursor -> row index 1
 
 	out := ansi.Strip(m.tagPickerBox())
@@ -708,11 +716,11 @@ func TestTagPickerEnterTargetVanishedClosesGracefully(t *testing.T) {
 	beans := fixtureBeansTagged()
 	m := fixtureModel(t, beans)
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	m = tagPickerCursorTo(t, m, "backend")
 	m = step(t, m, runeMsg(' ')) // ensure a pending change exists
 
-	remaining := []data.Bean{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
+	remaining := []*item.Item{beans[0], beans[1], beans[2]} // ms-1, ep-1, tk-1 -- no tk-2
 	m = step(t, m, beansLoadedMsg{beans: remaining})
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
@@ -754,7 +762,7 @@ func TestTagPickerEnterTargetVanishedClosesGracefully(t *testing.T) {
 func TestTagPickerEscWhileTypingDiscardsAndClosesEntirePicker(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2") // tags: urgent
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	m = tagPickerCursorTo(t, m, "backend")
 	m = step(t, m, runeMsg(' ')) // toggle backend on in pending
 
@@ -780,7 +788,7 @@ func TestTagPickerEscWhileTypingDiscardsAndClosesEntirePicker(t *testing.T) {
 func TestTagPickerToggleOffThenOnYieldsEmptyDiffNoMutation(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2") // tags: urgent
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 
 	m = tagPickerCursorTo(t, m, "urgent")
 	m = step(t, m, runeMsg(' ')) // off
@@ -803,8 +811,8 @@ func TestTagPickerToggleOffThenOnYieldsEmptyDiffNoMutation(t *testing.T) {
 // --- capture-order guard (cheap follow-up from the T1 review, bt-8v69 body) ---
 
 // TestOverlayCaptureSwallowsQuitKeysWhileTagPickerOpen pins handleKey's
-// capture order (design decision a2/the overlay precedent m.filterOpen/
-// m.searchActive already established): q/ctrl+c must never leak through to
+// capture order (design decision a2/the overlay precedent
+// m.searchActive already established): q must never leak through to
 // a quit-request while ANY node-action overlay is open. Exercised against
 // the tag picker since that is what this task builds, but the guard itself
 // (m.overlay != overlayNone routes to keyOverlay BEFORE the global
@@ -816,22 +824,15 @@ func TestTagPickerToggleOffThenOnYieldsEmptyDiffNoMutation(t *testing.T) {
 func TestOverlayCaptureSwallowsQuitKeysWhileTagPickerOpen(t *testing.T) {
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = focusBean(m, "tk-2")
-	m = step(t, m, runeMsg('t'))
+	m = step(t, m, runeMsg('g'))
 	if m.overlay != overlayTagPicker {
 		t.Fatal("setup: t did not open the tag picker")
 	}
 
-	tm, cmd := m.Update(keyMsg(tea.KeyCtrlC))
-	nm := tm.(model)
-	if cmd != nil {
-		t.Fatal("ctrl+c while an overlay is open must not fire tea.Quit (capture-order guard)")
-	}
-	if nm.overlay != overlayTagPicker {
-		t.Fatal("ctrl+c must not close the open overlay either")
-	}
+	assertQuitsAtOnce(t, m)
 
-	tm, cmd = nm.Update(runeMsg('q'))
-	nm = tm.(model)
+	tm, cmd := m.Update(runeMsg('q'))
+	nm := tm.(model)
 	// D01 (bean bt-9ipw): "q" now lands in the always-focused search field
 	// like any other letter -- textinput.Update legitimately returns a
 	// non-nil Cmd here (its own blink-restart tick), so a bare cmd!=nil

@@ -7,19 +7,19 @@ package tui
 // vs. devd's own handleMouse, both consequences of design decision f
 // (view_browse_repo.go's own doc comment, "kein m.scroll-Feld existiert"):
 //
-//  1. Wheel moves the active view's CURSOR (m.cursorID/m.backlogList.cursor
+//  1. Wheel moves the active view's CURSOR (m.cursorID/m.readyList.cursor
 //     via the two *CursorMove helpers, view_browse_repo.go/
-//     view_browse_backlog.go) instead of devd's `m.scroll -= 3`/`+= 3`
+//     view_browse_ready.go) instead of devd's `m.scroll -= 3`/`+= 3`
 //     non-Tree branch -- beans-tui has no scroll-offset field to move;
 //     windowAround/windowStart already follow the cursor automatically on
-//     render. EXCEPTION (bean bt-ze10, epic bt-vy1q F1): while
-//     boxFormEnabled(), a wheel tick landing inside the Detail pane's own
-//     bounds (boxFormWheelHit, below) now scrolls model.boxFormScroll
+//     render. EXCEPTION (bean bt-ze10, epic bt-vy1q F1): a wheel tick
+//     landing inside the Detail pane's own
+//     bounds (boxFormWheelHit, below) scrolls model.boxFormScroll
 //     instead -- the one real scroll-offset field this codebase has, and
-//     deliberately scoped to that ONE mode/pane so this doc comment's claim
-//     stays true everywhere else (wheelMove's own doc comment has the gate).
+//     deliberately scoped to that ONE pane so this doc comment's claim
+//     stays true everywhere else.
 //  2. Left-click dispatch is a SINGLE `switch m.view` over two sibling
-//     views (viewBrowseRepo/viewBacklog), not devd's Tree-vs-everything-else
+//     views (viewBrowseRepo/viewReady), not devd's Tree-vs-everything-else
 //     split (devd's non-Tree views are all Chrome()-scrolled detail screens;
 //     beans-tui's two views are both master-detail panes with their own
 //     *ClickRow row-mapping, view_*.go).
@@ -33,12 +33,12 @@ package tui
 // (mouse_test.go) is the regression guard for this exact ordering.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // minTreeWidthFloor/maxTreeWidthFloor mirror config.minTreeWidth/
@@ -59,7 +59,7 @@ const (
 // m.settings is the config.Settings{} zero value until app.go's Run() (or a
 // Settings-Form submit) populates it (types.go's own "settings" field
 // doc-stamp) -- falls back to 24, the SAME value this file hardcoded before
-// T6b, so the Golden snapshot tests (tree/chrome/backlog) stay
+// T6b, so the Golden snapshot tests (tree/chrome/ready) stay
 // byte-identical. A configured value is additionally
 // clamped into [minTreeWidthFloor,maxTreeWidthFloor] -- consistent with
 // config.validateSettings' own [24,60] clamp range: belt-and-braces here,
@@ -80,17 +80,17 @@ func treeWidthFloor(configured int) int {
 }
 
 // clickPaneGeometry recomputes the numeric frame geometry every one of the
-// two View functions (viewBrowseRepo/viewBacklog, view_browse_repo.go/
-// view_browse_backlog.go) build ahead of their own two-pane body -- bodyH/
+// two View functions (viewBrowseRepo/viewReady, view_browse_repo.go/
+// view_browse_ready.go) build ahead of their own two-pane body -- bodyH/
 // lw/rw plus the screen origin (originX/originY) of the pane's FIRST
 // windowed content row (the search-or-summary head row already consumed --
 // PF-10, bean bt-uyzf, removed the pane's own title+separator lines, so
 // nothing else precedes it now). Single source for BOTH halves: the two View functions
 // themselves (each now calls this instead of an independently maintained
-// avail/bodyH/lw/rw copy) AND treeClickRow/backlogClickRow (Golden-Rule-
+// avail/bodyH/lw/rw copy) AND treeClickRow/readyClickRow (Golden-Rule-
 // Drift-Schutz, mirrors windowStart's own shared-geometry rationale,
 // view_browse_repo.go). head/localKeys are the caller's own EXACT
-// breadcrumb()/footer() strings (browseRepoChrome/backlogChrome), so headH
+// breadcrumb()/footer() strings (browseRepoChrome/readyChrome), so headH
 // always matches that view's real head height (narrow-terminal 2-line
 // breadcrumb wrap included). treeWidth is the caller's OWN
 // m.settings.Layout.TreeWidth (T6b, bean bt-pd22, T5-Review I01 -- BEFORE
@@ -108,7 +108,7 @@ func treeWidthFloor(configured int) int {
 // indicator. It therefore has to be an INPUT here -- the old hardcoded "+2"
 // silently assumed the row was always present, and keeping it after the
 // reservation was dropped would offset every mouse click by exactly one row.
-func clickPaneGeometry(w, h int, head, localKeys, status string, treeWidth int) (bodyH, lw, rw, originX, originY int) {
+func clickPaneGeometry(w, h int, head, localKeys, status string, treeWidth int, layout layoutMode) (bodyH, lw, rw, originX, originY int) {
 	if w <= 0 {
 		w = 80
 	}
@@ -127,6 +127,14 @@ func clickPaneGeometry(w, h int, head, localKeys, status string, treeWidth int) 
 		bodyH = 1
 	}
 	lw, rw = masterDetailWidths(innerW, treeWidthFloor(treeWidth))
+	switch {
+	case !layout.hasDetail():
+		// No Detail pane: the list takes the full width, same accounting as
+		// a single pane's paneW (innerW-2 content + 2 border).
+		lw, rw = innerW-2, 0
+	case !layout.hasList():
+		lw, rw = 0, innerW-2 // Detail alone at full width
+	}
 	// originY: outer top border(1) + head line(s) + divider(1) + the pane's
 	// OWN top border(1) -- its title line + separator line no longer exist
 	// (PF-10, design-spec.md §15, epic-E7-plan.md »Task 5«, bean bt-uyzf:
@@ -150,33 +158,20 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m.dismissToast()
 	}
 
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): Maus im Vollbild --
-	// explizites Nicht-Ziel (v1, dokumentierter Scope-Cut). A click/wheel
-	// against the fullscreen single-pane geometry would otherwise be
-	// interpreted against the (WRONG) Split-Geometry clickPaneGeometry/
-	// treeClickRow/backlogClickRow/detailClickRow still compute -- this guard
-	// turns that into a safe no-op instead of a false hit against the wrong
-	// row/section. Placed directly after the Toast-Klick-Vorrang (that stays
-	// unconditional, design decision a) and BEFORE the pre-existing overlay
-	// guard below (same full-capture precedent).
-	if m.fullscreen != fullscreenNone {
-		return m, nil
-	}
-
 	// Slice D (bt-f0y9, "feld-verankertes Inline-Dropdown", D09 revidiert):
 	// the anchored value menu is the ONE overlay mouse-native enough to act
 	// on a click (box_menu_value.go's mouseValueMenuClick) -- checked BEFORE
 	// the blanket overlay guard below, which would otherwise swallow this
 	// click same as every other overlay (devd precedent, update.go:470-474,
 	// still correct for every OTHER overlay: pickers/forms/palette/help/
-	// confirms stay keyboard-only, unchanged). Gated on boxFormEnabled()
-	// here too (mirrors composeOverlays' own identical gate,
-	// view_browse_repo.go) so accordion mode's centered value menu (Slice C,
-	// out of Slice D's scope) falls straight through to the blanket guard
-	// below, UNCHANGED.
-	if boxFormEnabled() && m.overlay == overlayValueMenu &&
+	// confirms stay keyboard-only, unchanged).
+	if m.overlay == overlayValueMenu &&
 		msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
 		return m.mouseValueMenuClick(msg)
+	}
+	if m.overlay == overlayFilterMenu &&
+		msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
+		return m.mouseFilterMenuClick(msg)
 	}
 
 	// Modale/Overlays sind tastaturgesteuert -- Maus ignorieren (kein
@@ -194,7 +189,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// but Defense-in-Depth: this list's own doc claim of completeness must
 	// hold, and a future T3-T6 change to either switch must not silently
 	// route stray clicks against the tag page's foreign geometry.
-	if m.form != nil || m.overlay != overlayNone || m.paletteOpen || m.filterOpen ||
+	if m.form != nil || m.overlay != overlayNone || m.paletteOpen ||
 		m.searchActive || m.helpOpen || m.confirmQuit || m.view == viewLobby ||
 		m.view == viewTagManagement {
 		return m, nil
@@ -212,80 +207,67 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		// bt-wtqs (epic bt-vy1q): the persistent filter-chip strip
 		// (box_filter_bar.go) sits ABOVE the Tree/Detail split, spanning
 		// the full inner width -- checked BEFORE the m.view switch below
-		// (the same "earliest wins" precedent as the Toast/fullscreen/
+		// (the same "earliest wins" precedent as the Toast/
 		// overlay guards above), since a strip hit is never a Tree-or-
 		// Detail click. filterBarHit itself is a no-op unless
-		// boxFormEnabled() && m.view == viewBrowseRepo, so this is dead
-		// weight (never true) for every other view/flag-off combination --
-		// the existing switch below is reached completely unchanged
+		// m.view == viewBrowseRepo, so it is never true for every other
+		// view -- the existing switch below is reached completely unchanged
 		// whenever the strip is not even rendered.
 		if facet, ok := filterBarHit(m, msg); ok {
-			return m.openFilterMenuAt(facet)
+			return m.focusFilterField(facet).openFilterMenu(), nil
 		}
 		switch m.view {
 		case viewBrowseRepo:
 			return m.mouseTreeClick(msg)
-		case viewBacklog:
-			return m.mouseBacklogClick(msg)
+		case viewReady:
+			return m.mouseReadyClick(msg)
 		}
 	}
 	return m, nil
 }
 
-// filterBarFieldAt maps a click at (row, col) relative to the filter strip's
-// OWN top-left corner (row 0 = the strip's first screen row -- its own top
-// border, box_filter_bar.go's dropdownBox/gridRow shape; col 0 = the strip's
-// own left edge, the SAME zero point filterBar(width) itself renders from)
-// into one of its four chips. gridColAt (below) walks the SAME
-// gridColWidths(4, width) filterBar's own gridRow call renders from -- the
-// strip's real column boundaries and this hit-test can never independently
-// drift (Golden-Rule-Drift-Schutz, detailBoxFormClickRow's own gridColAt use,
-// above). facets is filterBar's own fixed cell order (box_filter_bar.go's
-// `cells` literal: Type/Status/Priority/Tags), mapped to buildFilterItems'
-// facet-key vocabulary (box_filter_facets.go) -- "tag", singular, NOT "tags".
-// ok=false for a row outside [0,filterBarHeight) or a col past the last chip
-// (the 1-cell inter-chip gap, or past the strip's own right edge).
+// filterBarFieldAt maps a click at (row, col), relative to the strip's own
+// top-left corner, to a facet in filterFields (same gridColWidths as the
+// render). ok=false outside [0,filterBarHeight) or between/after the chips.
 func filterBarFieldAt(row, col, width int) (facet string, ok bool) {
 	if row < 0 || row >= filterBarHeight {
 		return "", false
 	}
-	widths := gridColWidths(4, width)
+	widths := gridColWidths(len(filterFields), width)
 	i := gridColAt(widths, col)
 	if i < 0 {
 		return "", false
 	}
-	facets := []string{"type", "status", "priority", "tag"}
-	return facets[i], true
+	return filterFields[i], true
 }
 
-// filterBarHit resolves msg against the persistent filter-chip strip
-// (box_filter_bar.go, bt-wtqs) while boxFormEnabled() -- the strip only ever
-// renders in Browse (viewBrowseRepo, view_browse_repo.go's ONE call site;
-// Backlog never shows it, the SAME B6 precedent detailBoxFormClickRow/
-// treeClickRow's own doc comments already establish), so a non-Browse view
-// short-circuits false here without reconstructing any geometry at all.
-//
-// Reconstructs the SAME clickPaneGeometry geometry treeClickRow/
-// detailBoxFormClickRow do (Golden-Rule-Drift-Schutz) -- but, deliberately,
-// BEFORE either of those applies their own `originY += filterBarHeight`
-// correction: clickPaneGeometry's raw originY assumes screen content begins
-// exactly 1 row after a bordered box's own top border sitting directly below
-// the header divider (its own doc comment, mouse.go above) -- while
-// boxFormEnabled(), that bordered box IS the filter strip itself
-// (view_browse_repo.go's content build order: head+div, THEN filterBarRow,
-// THEN the Tree/Detail split), so the strip's own top-border row is
-// originY-1, and its 3 rows span [originY-1, originY-1+filterBarHeight).
-// This is exactly the row treeClickRow/detailBoxFormClickRow skip PAST via
-// their own `+= filterBarHeight` (which lands one row AFTER the strip, at
-// originY-1+filterBarHeight == originY+filterBarHeight-1... no: originY
-// itself, corrected, becomes originY+filterBarHeight, i.e. exactly the
-// strip's bottom border's own next row) -- the two hit-tests are two
-// windows on the SAME originY-1 anchor, verified against a real View()
-// render (mouse_filter_bar_test.go's filterBarClickAt).
+// filterBarHit resolves msg against the persistent filter-chip strip, which
+// renders only in Browse and Ready layouts with hasFilter; any other layout
+// or view short-circuits false. The origin is the strip's top border row
+// (filterBarOrigin) -- the same geometry as treeClickRow, before its
+// `+= filterBarHeight` correction.
 func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
-	if !boxFormEnabled() || m.view != viewBrowseRepo {
+	if !m.layout.hasFilter() || (m.view != viewBrowseRepo && m.view != viewReady) {
 		return "", false
 	}
+	x, y, innerW := filterBarOrigin(m)
+	return filterBarFieldAt(msg.Y-y, msg.X-x, innerW)
+}
+
+// filterBarOrigin is the screen position of the filter bar's top-left corner
+// (its top border row, its left edge) and the bar's width, derived from the
+// SAME clickPaneGeometry the click hit tests use. Only meaningful while the
+// layout shows the bar.
+func filterBarOrigin(m model) (x, y, innerW int) {
+	_, _, _, originX, rawOriginY, innerW := m.paneGeometry()
+	return originX, rawOriginY - 1, innerW
+}
+
+// paneGeometry is the shared click/wheel preparation: it resolves the
+// fallback size (80x24), builds the view's chrome (Ready vs Browse) and
+// returns clickPaneGeometry's values plus innerW. originY is the raw value,
+// before the B6 filterRows correction; callers apply it when they need it.
+func (m model) paneGeometry() (bodyH, lw, rw, originX, originY, innerW int) {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80
@@ -293,11 +275,15 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 	if h <= 0 {
 		h = 24
 	}
-	innerW := w - 2
-	head, localKeys := m.browseRepoChrome(innerW)
-	_, _, _, originX, rawOriginY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	stripTop := rawOriginY - 1
-	return filterBarFieldAt(msg.Y-stripTop, msg.X-originX, innerW)
+	innerW = w - 2
+	var head, localKeys string
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
+	} else {
+		head, localKeys = m.browseRepoChrome(innerW)
+	}
+	bodyH, lw, rw, originX, originY = clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	return
 }
 
 // wheelMove dispatches a single wheel tick (delta = ±1) -- design decision f:
@@ -305,23 +291,22 @@ func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
 // step as a single i/k keypress (devd's own Tree-wheel precedent,
 // update.go:476-487 -- devd's NON-Tree ×3 m.scroll branch has no beans-tui
 // equivalent, this file's own doc comment). bt-ze10 (epic bt-vy1q F1) adds
-// the ONE exception: while boxFormEnabled() AND the wheel event's own
+// the ONE exception: while the wheel event's own
 // coordinates land inside the Detail pane (boxFormWheelHit, below), the tick
 // scrolls model.boxFormScroll instead of moving a cursor -- checked first so
 // it takes priority over the view switch, mirrors the Toast-Klick-Vorrang/
-// fullscreen/overlay guards above it in handleMouse (earliest-wins
-// precedent). boxFormEnabled() off (or a wheel outside the Detail pane, e.g.
-// over the Tree/Backlog) always falls through to the original switch below,
-// UNCHANGED.
+// overlay guards above it in handleMouse (earliest-wins
+// precedent). A wheel outside the Detail pane, e.g. over the Tree/Ready,
+// falls through to the original switch below.
 func (m model) wheelMove(msg tea.MouseMsg, delta int) model {
-	if boxFormEnabled() && boxFormWheelHit(m, msg) {
+	if boxFormWheelHit(m, msg) {
 		return m.adjustBoxFormScroll(m.focusedBean(), delta)
 	}
 	switch m.view {
 	case viewBrowseRepo:
 		return m.treeCursorMove(m.visibleNodes(), delta)
-	case viewBacklog:
-		return m.backlogCursorMove(m.backlogVisible(), delta)
+	case viewReady:
+		return m.readyCursorMove(m.readyVisible(), delta)
 	}
 	return m
 }
@@ -361,7 +346,7 @@ func (m model) mouseTreeClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m.mouseDetailClick(msg)
 	}
 	n := nodes[idx]
-	if n.placeholder {
+	if n.unselectable() {
 		// D01 (bean bt-39cl): the archive-hint row is non-selectable -- a
 		// click on it is a No-Op (mirrors skipPlaceholder's keyboard-side
 		// decision: it is never a legitimate cursor target).
@@ -408,13 +393,13 @@ func (m model) mouseTreeClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 // mouseTreeClick: resolves the clicked row via flatClickRow (view_browse_flat.go,
 // pure geometry, mirrors treeClickRow's own structure) then sets flatList's
 // index cursor. No Doppelklick semantics, same rationale as
-// mouseBacklogClick just below (flat list, keyFlat's own doc comment: "kein
+// mouseReadyClick just below (flat list, keyFlat's own doc comment: "kein
 // Doppelklick-Bedarf").
 func (m model) mouseFlatClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	vis := m.flatVisible()
 	idx, ok := flatClickRow(m, vis, msg)
 	if !ok {
-		// B07 precedent (mouseTreeClick/mouseBacklogClick, above): delegate
+		// B07 precedent (mouseTreeClick/mouseReadyClick, above): delegate
 		// to the shared Detail-Pane click dispatcher for anything outside
 		// the flat list's own column/row span.
 		return m.mouseDetailClick(msg)
@@ -424,252 +409,35 @@ func (m model) mouseFlatClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// mouseBacklogClick dispatches a Backlog left-click: resolves the clicked
-// row via backlogClickRow (view_browse_backlog.go) and sets the cursor --
+// mouseReadyClick dispatches a Ready left-click: resolves the clicked
+// row via readyClickRow (view_browse_ready.go) and sets the cursor --
 // no Doppelklick semantics (flat list, plan epic-E5-plan.md »Task 4« Step
-// 6: "kein Doppelklick-Bedarf bei Backlog").
-func (m model) mouseBacklogClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	vis := m.backlogVisible()
-	idx, ok := backlogClickRow(m, vis, msg)
+// 6: "kein Doppelklick-Bedarf bei Ready").
+func (m model) mouseReadyClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	vis := m.readyVisible()
+	idx, ok := readyClickRow(m, vis, msg)
 	if !ok {
 		// B07: mirrors mouseTreeClick's own delegation above (same
-		// rationale -- backlogClickRow's ok=false covers BOTH "wrong pane"
+		// rationale -- readyClickRow's ok=false covers BOTH "wrong pane"
 		// and "in-pane but no row hit", detailClickRow independently
 		// re-validates the X bounds either way).
 		return m.mouseDetailClick(msg)
 	}
-	m.backlogList.setLen(len(vis))
-	m.backlogList.cursor = idx
+	m.readyList.setLen(len(vis))
+	m.readyList.cursor = idx
 	return m, nil
 }
 
-// detailClickRow maps a Detail-Pane click to either a Section-Header hit
-// (fieldIdx == -1) or a Meta field-row hit (secIdx == metaSectionIdx,
-// fieldIdx >= 0) -- B07 (design-spec.md §15 PF-16, bean bt-duz7), ANALOG
-// treeClickRow/backlogClickRow above: reconstructs the pane's geometry via
-// the SAME clickPaneGeometry + browseRepoChrome/backlogChrome helpers those
-// two use (Golden-Rule-Drift-Schutz) -- picks the caller's OWN chrome via
-// m.view, since the Detail pane renders identically from BOTH viewBrowseRepo
-// and viewBacklog (renderBeanAccordionPane, view_browse_repo.go), just
-// alongside a different left pane/footer.
-//
-// The row->section/field walk below is GROUNDED against the real render
-// pipeline, not a second, independently-maintained height formula: it reuses
-// the EXACT SAME state (m.detailFocus/m.secCursor/m.accOpen/m.fieldCursor/
-// m.detailLevel) and the EXACT SAME beanSections() call renderAccordionPane
-// itself makes (view_browse_repo.go), then walks secs with the IDENTICAL
-// isOpen/activeSec conditionals renderAccordion (accordion.go) uses to
-// build its own line-by-line output (B04, design-spec.md §15 PF-17, bean
-// bt-b0w0: the former fieldStrip-shown conditional this walk used to mirror
-// is GONE on both sides -- removed here in lockstep with accordion.go's own
-// removal, see the row++ block's own comment below). Section-body line
-// counts are measured via lipgloss.Height on the SAME s.body string
-// renderAccordion hands to boxStyle.Render -- PaddingLeft alone never
-// changes a line count, so this is byte-equivalent without reconstructing
-// boxStyle's own Width/Padding here. A change to either function's
-// algorithm is caught by the render-grounded tests in mouse_test.go, which
-// locate click coordinates by searching the REAL m.View() output (mirrors
-// treeClickAt/leftPaneClickAt's own pattern) -- never by hand-deriving a row
-// number (the "selbst-referenzielle Geometrie-Test" trap E7 already hit
-// once, this task's own Architektur-Vorgabe #2 warns against repeating it).
-//
-// v1 simplification (bean bt-duz7 Architektur-Vorgabe #2, no PO-Wortlaut
-// requires more): ONLY Meta (metaSectionIdx) has a fixed, direct
-// Zeile->Feldindex mapping (Zeile 0 = title ... Zeile 4 = tags, per
-// metaFields' fixed order). bt-lg68 shrunk this from 7 to 5 rows
-// (created_at/updated_at removed). A click landing inside an OPEN
-// Body/Relations/History section's body resolves to that section's OWN
-// header hit (fieldIdx == -1), never a field index. Relations rows carry their own
-// ▷/▶ cursor marker now too (B04, relationsSectionBody) but are NOT yet
-// individually mouse-clickable -- that stays v1 scope, unchanged by this
-// task (no PO-Wortlaut requires it; B04's own scope is keyboard navigation
-// + render, mirrors "Pfeiltasten-Navigation ändert KEINEN Code").
-func detailClickRow(m model, b *data.Bean, msg tea.MouseMsg) (secIdx, fieldIdx int, ok bool) {
-	w, h := m.width, m.height
-	if w <= 0 {
-		w = 80
-	}
-	if h <= 0 {
-		h = 24
-	}
-	innerW := w - 2
-
-	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
-	} else {
-		head, localKeys = m.browseRepoChrome(innerW)
-	}
-
-	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-
-	if msg.X < originX+lw || msg.X >= originX+lw+rw {
-		return 0, 0, false // left pane, or off-screen -- no Detail target
-	}
-	clickRow := msg.Y - originY
-	if clickRow < 0 || clickRow >= bodyH {
-		return 0, 0, false // above the pane, or past renderPane's own Golden-Rule-#1 line cap
-	}
-	if b == nil {
-		return 0, 0, false // "(no selection)" placeholder -- nothing to hit
-	}
-
-	// detailHeaderBlock (view_detail_bean.go) ALWAYS renders 5 fixed rows
-	// (ID/Title/blank/type-status-prio/blank) ahead of the Accordion --
-	// bt-duz7's own PO-Wortlaut ("Kopfblock-Offset 5 Zeilen beachten!").
-	const headerBlockLines = 5
-	if clickRow < headerBlockLines {
-		return 0, 0, false // Kopfblock -- never a Section-/Feld-Treffer
-	}
-	accordionRow := clickRow - headerBlockLines
-
-	bodyW := rw - 4
-	if bodyW < 1 {
-		bodyW = 1
-	}
-	secs := beanSections(m.idx, b, bodyW, m.detailFocus, m.secCursor, m.fieldCursor, m.detailLevel)
-
-	row := 0
-	for i, s := range secs {
-		n := i + 1
-		isOpen := n == m.accOpen // PF-18: exclusive-open incl. Meta, mirrors renderAccordion (revises PF-1)
-		if accordionRow == row {
-			return i, -1, true // this section's own header row
-		}
-		row++
-		if !isOpen {
-			continue
-		}
-		// B04 (design-spec.md §15 PF-17, bean bt-b0w0): the former
-		// fieldStrip-row skip (an extra row this walk used to add for an
-		// active section carrying fields, mirroring renderAccordion's own
-		// removed fieldStrip branch) is GONE -- RELATIONS was its only
-		// remaining caller, and RELATIONS' rows now carry their own ▷/▶
-		// markers INLINE in s.body (relationsSectionBody), not in a
-		// separate strip. Keeping this skip after B04 would silently
-		// shift every row-count past an active+open RELATIONS section by
-		// one (TestDetailClickRowNoOffByOneWhenRelationsSectionActiveWithFields,
-		// mouse_test.go, catches the regression).
-		bodyLines := lipgloss.Height(s.body)
-		if accordionRow >= row && accordionRow < row+bodyLines {
-			if i == metaSectionIdx {
-				if fi := accordionRow - row; fi >= 0 && fi < len(s.fields) {
-					return i, fi, true
-				}
-			}
-			return i, -1, true // Body/Relations/History body, or an out-of-range Meta row -- section-level hit
-		}
-		row += bodyLines
-	}
-	return 0, 0, false // past the last rendered section (renderPane's own line cap already excluded above, defensive)
-}
-
-// detailClickKeyBase offsets every Detail-Pane clickKey into a number space
-// GUARANTEED disjoint from any realistic Tree/Backlog row index (B01,
-// Fix-Runde 1, bean bt-duz7): all three click dispatchers share the ONE
-// m.lastClickIdx int (Architektur-Vorgabe #3, "KEIN zweites Zeitfenster-
-// Paar"), and without the offset a Tree click on row index N followed
-// <500ms by a FIRST click on the Detail field whose unoffset key was also N
-// (e.g. Tree row 1 -> title: field, 0*10+0+1 == 1) aliased into a false
-// double click that opened the field's overlay/form without any prior
-// selection (reviewer-reproduced).
-const detailClickKeyBase = 1000
-
-// detailClickKey folds a detailClickRow hit (secIdx, fieldIdx) into the one
-// shared m.lastClickIdx int (I01, Fix-Runde 1: named+testable instead of an
-// inline expression): section-header hits (fieldIdx == -1) land on
-// base+0/10/20/30, Meta field hits on base+1..base+5 (bt-lg68: shrunk from
-// 7 to 5 Meta fields) -- disjoint from each other AND (via
-// detailClickKeyBase) from every Tree/Backlog row index.
-func detailClickKey(secIdx, fieldIdx int) int {
-	return detailClickKeyBase + secIdx*10 + fieldIdx + 1
-}
-
-// mouseDetailClick dispatches a Detail-Pane left-click (B07, design-spec.md
-// §15 PF-16, bean bt-duz7): resolves the clicked row via detailClickRow
-// (pure geometry, no side effect, above) then applies the SAME
-// lastClickIdx/lastClickAt Doppelklick machinery mouseTreeClick already uses
-// (Architektur-Vorgabe #3, "gleiche Felder auf model wiederverwenden, KEIN
-// zweites Zeitfenster-Paar") -- keys are folded via detailClickKey (above)
-// so they can alias neither each other nor a Tree/Backlog row index (B01).
-//
-// A single click on a NOT-yet-selected target ALWAYS selects (Fall a/b:
-// activates+expands the section, additionally enters field level for a Meta
-// field) and NEVER opens an overlay. Fall c has TWO triggers (PO wording
-// verbatim, "Doppelklick (oder Zweitklick auf ein bereits selektiertes
-// Feld)" -- B02, Fix-Runde 1): (1) a double click within
-// doubleClickInterval (mirrors mouseTreeClick's isDouble), and (2) a second
-// click on an ALREADY-selected field, which fires INDEPENDENT of the time
-// window -- the Enter-Kaskade it mirrors (activateDetailField, update.go)
-// is windowless, so "click the selected field again" must be too.
-// "Selected" is the same state the ▶ marker renders from (metaSectionBody,
-// view_detail_bean.go): m.detailFocus && detailLevel==1 && the cursor pair
-// matches -- a stale fieldCursor without detailFocus does NOT count.
-//
-// BODY's section header (fieldIdx==-1) used to have its OWN double-click
-// exception here, opening $EDITOR via the (since-removed) openBodyEditor
-// helper -- mirroring keyDetailFocus's former enter-on-BODY branch (bt-y2iw
-// "Notes for bt-duz7", E8 Task 6/B10). D01 (design-spec.md §15 PF-17, bean
-// bt-z4b1) REVERTED that keyDetailFocus branch ersatzlos ("PO's neues
-// Mentalmodell reserviert '$EDITOR öffnen' ausschließlich für e") -- this
-// mirrored mouse exception is reverted the SAME way, for the same reason: a
-// double click on ANY section header (BODY included) is now a plain no-op,
-// exactly like every other section header.
+// mouseDetailClick dispatches a Detail-Pane left-click: the box-form
+// hit test (mouseBoxFormDetailClick) resolves the field under the pointer.
+// With the Detail pane hidden (rw == 0) detailBoxFormClickRow finds no
+// pane and the click is inert.
 func (m model) mouseDetailClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	b := m.focusedBean()
 	if b == nil {
 		return m, nil
 	}
-	if boxFormEnabled() {
-		// S6 ("Box-form detail click-to-edit"): while the experiment flag is
-		// on, renderAccordionPane (view_browse_repo.go) swaps the Detail
-		// pane's body for detailBoxForm's jira-style boxes (box_detail_form.go)
-		// -- detailClickRow's accordion Section/Field walk below is the WRONG
-		// geometry in that mode (no beanSections/headerBlockLines exist),
-		// so this branches to the box-form-specific hit test instead, BEFORE
-		// ever reaching the accordion path. Default off leaves the branch
-		// dead, existing accordion click tests/goldens byte-identical.
-		return m.mouseBoxFormDetailClick(b, msg)
-	}
-	secIdx, fieldIdx, ok := detailClickRow(m, b, msg)
-	if !ok {
-		return m, nil
-	}
-
-	clickKey := detailClickKey(secIdx, fieldIdx)
-	now := m.now()
-	isDouble := clickKey == m.lastClickIdx && now.Sub(m.lastClickAt) < doubleClickInterval
-	// B02 (Fix-Runde 1): capture BEFORE the state update below whether the
-	// clicked field was ALREADY the selected one -- the PO's second Fall-c
-	// trigger, windowless (see doc comment).
-	wasSelected := fieldIdx >= 0 && m.detailFocus && m.detailLevel == 1 &&
-		m.secCursor == secIdx && m.fieldCursor == fieldIdx
-	m.lastClickIdx = clickKey
-	m.lastClickAt = now
-
-	m.detailFocus = true
-	m.secCursor = secIdx
-	m.accOpen = secIdx + 1
-
-	if fieldIdx < 0 {
-		m.detailLevel = 0
-		m.fieldCursor = 0
-		return m, nil
-	}
-
-	// detailClickRow only ever returns fieldIdx >= 0 nested under
-	// i == metaSectionIdx (its own doc comment above) -- metaFields(b) is
-	// therefore the SAME fixed 7-entry slice s.fields already was.
-	m.detailLevel = 1
-	m.fieldCursor = fieldIdx
-
-	if isDouble || wasSelected {
-		fields := metaFields(b)
-		if fieldIdx < len(fields) {
-			return m.activateDetailField(b, fields[fieldIdx])
-		}
-	}
-	return m, nil
+	return m.mouseBoxFormDetailClick(b, msg)
 }
 
 // boxFormTarget* — detailBoxFormClickRow's hit-test result kinds (S6, "Box-
@@ -713,11 +481,11 @@ func gridColAt(widths []int, col int) int {
 // last written (bean bt-ze10 Akzeptanz "Offset resets when the selected bean
 // changes") -- types.go's own boxFormScrollBean doc comment has the full
 // "derived reset, not N explicit reset call sites" rationale. Pure/read-
-// only: renderBeanAccordionPane (view_browse_repo.go) calls this to get the
-// value it hands to renderAccordionPane's own boxScroll param; it never
+// only: renderBeanDetailBox (view_browse_repo.go) calls this to get the
+// value it hands to renderDetailBox's own boxScroll param; it never
 // mutates model.boxFormScroll itself (adjustBoxFormScroll, below, is the
 // only writer).
-func boxFormEffectiveScroll(m model, b *data.Bean) int {
+func boxFormEffectiveScroll(m model, b *item.Item) int {
 	if b == nil || b.ID != m.boxFormScrollBean {
 		return 0
 	}
@@ -733,22 +501,14 @@ func boxFormEffectiveScroll(m model, b *data.Bean) int {
 // check, not a content-height BUDGET): the persistent filter-chip row's
 // height is reclaimed from bodyH here, exactly as viewBrowseRepo's own
 // View() does before the split ever renders (view_browse_repo.go's "S3"
-// comment, boxFormEnabled()) -- that SAME post-reclaim bodyH is what
-// ultimately reaches renderAccordionPane as its `h` param at render time, so
+// comment) -- that SAME post-reclaim bodyH is what
+// ultimately reaches renderDetailBox as its `h` param at render time, so
 // this must match it or the stored offset and the actual render disagree.
 //
-// bt-s90e (epic bt-vy1q) added the fullscreenDetail WIDTH branch below. F1
-// (bean bt-ze10) had guarded the Vollbild off entirely rather than clamp
-// against the wrong geometry; the fix turned out to be width-ONLY. Height
-// needs no branch: bodyH is already read off the CURRENT model's own chrome
-// (browseRepoChrome/backlogChrome are footer-context-aware, so the Vollbild
-// yields its own correct value here for free) via the SAME clickPaneGeometry
-// call viewBrowseRepo makes BEFORE its fullscreen branch, filter-bar reclaim
-// included. The Vollbild renders ONE full-width pane instead of the split's
-// right half, so accW comes from paneW (innerW-2, view_browse_repo.go's own
-// border-accounting comment) minus renderAccordionPane's own w-2, i.e.
-// innerW-4 -- NOT rw-2.
-func boxFormScrollBounds(m model, b *data.Bean) (total, height int) {
+// The layouts need no branch of their own: clickPaneGeometry returns the
+// Detail pane's width for each (full width in layoutDetail), and the filter
+// row is reclaimed only where the layout shows it (m.filterRows).
+func boxFormScrollBounds(m model, b *item.Item) (total, height int) {
 	if b == nil {
 		return 0, 0
 	}
@@ -764,40 +524,17 @@ func boxFormScrollBounds(m model, b *data.Bean) (total, height int) {
 // arithmetic and the wheel/keyboard clamp arithmetic on one geometry -- a
 // cursor computed against a different height than the one the offset is
 // clamped to would let a focused field land just outside the viewport.
-func boxFormPaneMetrics(m model, b *data.Bean) (accW, height int) {
+func boxFormPaneMetrics(m model, b *item.Item) (accW, height int) {
 	if b == nil {
 		return 1, 0
 	}
-	w, h := m.width, m.height
-	if w <= 0 {
-		w = 80
-	}
-	if h <= 0 {
-		h = 24
-	}
-	innerW := w - 2
-
-	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
-	} else {
-		head, localKeys = m.browseRepoChrome(innerW)
+	bodyH, _, rw, _, _, _ := m.paneGeometry()
+	bodyH -= m.filterRows()
+	if bodyH < 1 {
+		bodyH = 1
 	}
 
-	bodyH, _, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	if m.view != viewBacklog {
-		bodyH -= filterBarHeight // B6 precedent: only viewBrowseRepo shows the filter bar
-		if bodyH < 1 {
-			bodyH = 1
-		}
-	}
-
-	accW = rw - 2
-	if m.fullscreen == fullscreenDetail {
-		// bt-s90e: Vollbild-Detail is ONE full-width pane, not the lw/rw split --
-		// paneW is innerW-2, minus renderAccordionPane's own w-2.
-		accW = innerW - 4
-	}
+	accW = rw - 2 // layoutDetail: rw is the full width, so no separate branch
 	if accW < 1 {
 		accW = 1
 	}
@@ -815,7 +552,7 @@ func boxFormPaneMetrics(m model, b *data.Bean) (accW, height int) {
 // (returns m unchanged) when b is nil (defensive -- callers already guard
 // this in practice: keyDetailFocus's own b==nil early-return, wheelMove's
 // boxFormWheelHit implying a resolved Detail pane).
-func (m model) adjustBoxFormScroll(b *data.Bean, delta int) model {
+func (m model) adjustBoxFormScroll(b *item.Item, delta int) model {
 	if b == nil {
 		return m
 	}
@@ -829,30 +566,12 @@ func (m model) adjustBoxFormScroll(b *data.Bean, delta int) model {
 // boxFormWheelHit reports whether msg lands inside the Detail pane's own
 // column/row bounds -- wheelMove (above) uses this to decide whether a wheel
 // tick scrolls the box-form Detail pane (bean bt-ze10) instead of moving the
-// Tree/Backlog cursor. Mirrors detailBoxFormClickRow's own X/Y bounds check
+// Tree/Ready cursor. Mirrors detailBoxFormClickRow's own X/Y bounds check
 // (below) minus the row->target mapping a click needs -- a wheel tick has no
 // "which box did I land on" question, only "am I over the pane at all".
 func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
-	w, h := m.width, m.height
-	if w <= 0 {
-		w = 80
-	}
-	if h <= 0 {
-		h = 24
-	}
-	innerW := w - 2
-
-	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
-	} else {
-		head, localKeys = m.browseRepoChrome(innerW)
-	}
-
-	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	if m.view != viewBacklog {
-		originY += filterBarHeight // B6 precedent, detailBoxFormClickRow below
-	}
+	bodyH, lw, rw, originX, originY, _ := m.paneGeometry()
+	originY += m.filterRows() // B6 precedent, detailBoxFormClickRow below
 
 	if msg.X < originX+lw || msg.X >= originX+lw+rw {
 		return false
@@ -862,13 +581,11 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 }
 
 // detailBoxFormClickRow maps a Detail-Pane click to a box-form field target
-// (S6) while boxFormEnabled() -- the box-form analog of detailClickRow
-// (accordion mode, above): reconstructs the SAME clickPaneGeometry geometry
-// (Golden-Rule-Drift-Schutz), corrected by the B6 filter-bar offset (this
-// file's treeClickRow doc comment, view_browse_repo.go) -- ONLY viewBrowseRepo
-// ever shows the filter bar (box_filter_bar.go's one call site), so the
-// offset is guarded on `m.view != viewBacklog` here, the SAME branch
-// detailClickRow's own head/localKeys selection already makes.
+// (S6): reconstructs the SAME clickPaneGeometry geometry
+// corrected by the B6 filter-bar offset (this file's treeClickRow doc
+// comment, view_browse_repo.go), which m.filterRows is 0 for in layouts
+// without the bar. With the Detail pane hidden (rw == 0) no X coordinate
+// falls inside it, so every click is inert.
 //
 // detailBoxForm's OWN fixed row order (box_detail_form.go doc comment:
 // Title(3 lines) -> rowA Status|Type|Priority(3 lines) -> rowB Parent|Tags
@@ -883,36 +600,11 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 // be, it is the exact same action a real `e` press already fires from
 // anywhere in the pane today.
 //
-// NO fullscreenDetail branch here, deliberately (bt-hd42, checked rather than
-// assumed): boxFormScrollBounds/boxFormPaneMetrics need their own accW branch
-// because the KEYBOARD reaches the Vollbild (bt-s90e), but handleMouse (above)
-// returns a flat no-op for `m.fullscreen != fullscreenNone` BEFORE the wheel
-// and left-click dispatch -- F01's documented v1 scope cut, "Maus im Vollbild".
-// Every caller of this function is downstream of that guard, so a Vollbild
-// click can never arrive here. A width branch would be code for a dead path;
-// if F01 is ever lifted, the accW below must gain boxFormPaneMetrics' own
-// innerW-4 branch in the same change.
+// layoutDetail needs no branch either: clickPaneGeometry returns lw == 0 and
+// rw == the full width there.
 func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
-	w, h := m.width, m.height
-	if w <= 0 {
-		w = 80
-	}
-	if h <= 0 {
-		h = 24
-	}
-	innerW := w - 2
-
-	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
-	} else {
-		head, localKeys = m.browseRepoChrome(innerW)
-	}
-
-	bodyH, lw, rw, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	if m.view != viewBacklog {
-		originY += filterBarHeight // B6: viewBacklog never shows the filter bar
-	}
+	bodyH, lw, rw, originX, originY, _ := m.paneGeometry()
+	originY += m.filterRows() // B6 precedent
 
 	if msg.X < originX+lw || msg.X >= originX+lw+rw {
 		return "", false // left pane, or off-screen -- no Detail target
@@ -937,7 +629,7 @@ func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 	//
 	// The offset is read through boxFormEffectiveScroll -- NOT m.boxFormScroll
 	// directly -- for the same reason the render does (view_browse_repo.go's
-	// renderBeanAccordionPane): that helper applies bt-ze10's DERIVED per-bean
+	// renderBeanDetailBox): that helper applies bt-ze10's DERIVED per-bean
 	// reset (a stale offset belonging to a previously selected bean reads as 0
 	// rather than being nulled at N call sites). Reading the raw field here
 	// would resolve clicks against an offset the visible render is not using,
@@ -953,18 +645,18 @@ func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 	return boxFormFieldOrder[field].target, true
 }
 
-// mouseBoxFormDetailClick dispatches a Detail-Pane left-click while
-// boxFormEnabled() (S6, "Box-form detail click-to-edit"): resolves the
+// mouseBoxFormDetailClick dispatches a Detail-Pane left-click
+// (S6, "Box-form detail click-to-edit"): resolves the
 // clicked box via detailBoxFormClickRow (above, pure geometry) then fires
 // the EXACT SAME action keyNodeAction's own s/o/u/a/t/e branch fires for
 // each key (update.go:760-823) -- box-form fields are direct dropdownBox/
-// panelBox hotkeys (box_detail_form.go), not an accordion Section/Field
-// two-level selection, so a single click ALWAYS opens the target's editor/
+// panelBox hotkeys (box_detail_form.go), so a single click ALWAYS opens the
+// target's editor/
 // menu/picker immediately -- no Doppelklick semantics here, mirrors
-// mouseBacklogClick's own "flat list, kein Doppelklick-Bedarf" precedent
+// mouseReadyClick's own "flat list, kein Doppelklick-Bedarf" precedent
 // (this file). Matches the S6 task spec verbatim ("Trigger the SAME action
 // those keys fire").
-func (m model) mouseBoxFormDetailClick(b *data.Bean, msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+func (m model) mouseBoxFormDetailClick(b *item.Item, msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	target, ok := detailBoxFormClickRow(m, msg)
 	if !ok {
 		return m, nil
@@ -976,10 +668,9 @@ func (m model) mouseBoxFormDetailClick(b *data.Bean, msg tea.MouseMsg) (tea.Mode
 // $EDITOR -- the SHARED helper between mouseBoxFormDetailClick (Maus, above)
 // and boxFormActivateCursor (enter on the field cursor, box_nav_field.go,
 // bean bt-1o4g). Extracted verbatim from the click dispatch's former inline
-// switch, mirroring activateDetailField's own "exactly ONE place that
-// dispatches a field onto its overlay" precedent (update.go) -- keyboard and
+// switch -- keyboard and
 // mouse open the same thing for the same box, by construction.
-func (m model) activateBoxFormTarget(b *data.Bean, target string) (tea.Model, tea.Cmd) {
+func (m model) activateBoxFormTarget(b *item.Item, target string) (tea.Model, tea.Cmd) {
 	switch target {
 	case boxFormTargetStatus:
 		return m.openValueMenu("status"), nil

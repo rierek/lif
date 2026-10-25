@@ -105,7 +105,7 @@ func TestRenderBindingsColorsKeyTealDescSubtext(t *testing.T) {
 // never split them). Replacing ":" with a plain " " (D06's own optic)
 // reintroduced a real breakable space there, so footer()'s own wordwrap
 // (view.go) could orphan a key alone on one line with its desc starting the
-// NEXT line (observed live: Backlog footer at 80 cols split "S" from
+// NEXT line (observed live: Ready footer at 80 cols split "S" from
 // "Sort"). renderBindings must glue key+desc (and any multi-word desc's own
 // internal spaces) with a non-breaking space (U+00A0, x/ansi's own
 // wordwrap.go explicitly excludes nbsp from its breakpoint set) so an
@@ -126,7 +126,7 @@ func TestRenderBindingsKeepsKeyAndDescTogetherAcrossWrap(t *testing.T) {
 }
 
 // TestRenderBindingsKeepsMultiWordDescTogether guards the same NBSP fix for
-// a multi-word Help().Desc (e.g. FocusIn's "focus in"): none of its own
+// a multi-word Help().Desc (e.g. FocusIn's "next focus"): none of its own
 // internal words may split across a wrap boundary either.
 func TestRenderBindingsKeepsMultiWordDescTogether(t *testing.T) {
 	bs := []keybind.Binding{

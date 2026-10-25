@@ -7,7 +7,7 @@ package tui
 // turns the resulting scroll offset into "page X of N" and renders it as hell/
 // dunkel dots. Rework B3 (PO "Sticky Body-Kopfzeile"): the dots ride in the
 // BODY panel's own title row (boxTopBorderBadges, box_dropdown.go), which
-// renderAccordionPane pins to the top of the viewport while the body is paged,
+// renderDetailBox pins to the top of the viewport while the body is paged,
 // so the indicator stays visible WHILE paging (Akzeptanz) -- no longer on the
 // outer pane frame.
 //

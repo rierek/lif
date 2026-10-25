@@ -35,6 +35,10 @@ type Row struct {
 	// "Unscheduled" bucket is the only current use.
 	Section  string
 	Progress *Progress
+	// Marker, when set, is the one-cell expand/collapse glyph of an
+	// interactive list (TreeBlocksMeasured); the tree form draws it in the
+	// first cell of the line, left of the tree lines. lif roadmap leaves it empty.
+	Marker string
 }
 
 // Connector is the tree prefix that leads into this row's type word.

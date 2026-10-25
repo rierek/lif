@@ -41,9 +41,9 @@ func resetConfiguredEditor(t *testing.T) {
 // this SAME package's test binary could render against the wrong accent.
 func resetThemeAccent(t *testing.T) {
 	t.Helper()
-	origAccent, origHeader := theme.Accent, theme.Header
+	origAccent, origHeader, origConfigured := theme.Accent, theme.Header, configuredAccent
 	t.Cleanup(func() {
-		theme.Accent, theme.Header = origAccent, origHeader
+		theme.Accent, theme.Header, configuredAccent = origAccent, origHeader, origConfigured
 	})
 }
 

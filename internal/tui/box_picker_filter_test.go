@@ -1,7 +1,7 @@
 package tui
 
 // box_picker_filter_test.go — TDD coverage for the shared Picker-Filter
-// (bean bt-a3a8, PO-Nebenbefund N7): the Blocking-Picker (`r`) and the
+// (bean bt-a3a8, PO-Nebenbefund N7): the Blocking-Picker (`b`) and the
 // Parent-Picker (`a`) both grew a live text search plus a Type/Status/
 // Priority/Tags chip strip, ported from the Tag-Picker's own always-focused
 // textinput pattern (box_picker_tag.go, bean bt-9ipw D01).
@@ -17,6 +17,7 @@ package tui
 // textinput can never consume as literal characters.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -41,8 +42,8 @@ func typeString(t *testing.T, m model, s string) model {
 // filterBeansFixture is a deliberately heterogeneous set: distinct titles,
 // types, statuses, priorities and tags, so every facet has something to
 // narrow on and no two criteria are accidentally coextensive.
-func filterBeansFixture() []data.Bean {
-	return []data.Bean{
+func filterBeansFixture() []*item.Item {
+	return []*item.Item{
 		{ID: "ms-1", Title: "Alpha Milestone", Status: "todo", Type: "milestone", Priority: "normal", Tags: []string{"infra"}},
 		{ID: "ep-1", Title: "Beta Epic", Status: "todo", Type: "epic", Priority: "high", Parent: "ms-1", Tags: []string{"ui"}},
 		{ID: "tk-1", Title: "Gamma Task", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1", Tags: []string{"ui", "infra"}},
@@ -58,7 +59,7 @@ func filterBeansFixture() []data.Bean {
 func TestBlockingPickerSearchNarrowsByTitle(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	if len(m.blockFiltered) != 4 {
 		t.Fatalf("unfiltered blockFiltered = %d, want 4 (every bean but ms-1)", len(m.blockFiltered))
@@ -81,7 +82,7 @@ func TestBlockingPickerSearchNarrowsByTitle(t *testing.T) {
 func TestBlockingPickerSearchMatchesID(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	m = typeString(t, m, "bug-9")
 
@@ -98,7 +99,7 @@ func TestBlockingPickerSearchMatchesID(t *testing.T) {
 func TestBlockingPickerLettersStayTypeable(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	before := len(m.blockPending)
 	m = typeString(t, m, "xst")
@@ -118,7 +119,7 @@ func TestBlockingPickerLettersStayTypeable(t *testing.T) {
 func TestBlockingPickerSpaceStillToggles(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	m = typeString(t, m, "bug-9")
 	m = step(t, m, runeMsg(' '))
@@ -136,7 +137,7 @@ func TestBlockingPickerSpaceStillToggles(t *testing.T) {
 func TestBlockingPickerSelectionAfterFilterHitsRightBean(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	unfilteredFirst := m.blockItems[0].id
 	m = typeString(t, m, "delta")
@@ -165,7 +166,7 @@ func TestBlockingPickerSelectionAfterFilterHitsRightBean(t *testing.T) {
 func TestBlockingPickerFacetCycleNarrows(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	// Step the Type chip until it lands on "task".
 	for i := 0; i < len(data.TypeValues())+1; i++ {
@@ -190,7 +191,7 @@ func TestBlockingPickerFacetCycleNarrows(t *testing.T) {
 func TestBlockingPickerFacetCycleWrapsToAny(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	if m.blockFilter.facetType != "" {
 		t.Fatalf("Type chip = %q on open, want unset", m.blockFilter.facetType)
@@ -212,7 +213,7 @@ func TestBlockingPickerFacetCycleWrapsToAny(t *testing.T) {
 func TestBlockingPickerFacetAndSearchCombine(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	m = typeString(t, m, "gamma")
 	for i := 0; i < len(data.StatusValues())+1; i++ {
@@ -235,7 +236,7 @@ func TestBlockingPickerFacetAndSearchCombine(t *testing.T) {
 func TestBlockingPickerTagFacetNarrows(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "tk-2")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	for i := 0; i < len(m.tagFilterOptions())+1; i++ {
 		if m.blockFilter.facetTag == "infra" {
@@ -257,7 +258,7 @@ func TestBlockingPickerTagFacetNarrows(t *testing.T) {
 func TestBlockingPickerPriorityFacetNarrows(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	for i := 0; i < len(data.PriorityValues())+1; i++ {
 		if m.blockFilter.facetPriority == "low" {
@@ -282,7 +283,7 @@ func TestBlockingPickerPriorityFacetNarrows(t *testing.T) {
 func TestBlockingPickerDoesNotMutateGlobalFilter(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	m = typeString(t, m, "gamma")
 	m = step(t, m, keyMsg(tea.KeyCtrlT))
@@ -415,12 +416,12 @@ func TestPickerFilterResetsOnReopen(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")
 
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 	m = typeString(t, m, "gamma")
 	m = step(t, m, keyMsg(tea.KeyCtrlT))
 	m = step(t, m, keyMsg(tea.KeyEsc))
 
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 	if got := m.blockFilter.input.Value(); got != "" {
 		t.Fatalf("reopened picker carries query %q, want empty", got)
 	}
@@ -444,7 +445,7 @@ func TestBlockingPickerBoxTitleIsRelations(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m.width, m.height = 120, 40
 	m = focusBeanFull(m, "tk-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	out := ansi.Strip(m.blockingPickerBox())
 	if !strings.Contains(out, "Relations") {
@@ -470,7 +471,7 @@ func TestPickerBoxesFrameTheSearchField(t *testing.T) {
 		key  rune
 		box  func(model) string
 	}{
-		{"blocking", 'r', model.blockingPickerBox},
+		{"blocking", 'b', model.blockingPickerBox},
 		{"parent", 'a', model.parentPickerBox},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -515,7 +516,7 @@ func TestPickerHintUsesBindingStyling(t *testing.T) {
 		box  func(model) string
 		want string
 	}{
-		{"blocking", 'r', model.blockingPickerBox, renderBindings(blockingPickerLocalBindings())},
+		{"blocking", 'b', model.blockingPickerBox, renderBindings(blockingPickerLocalBindings())},
 		{"parent", 'a', model.parentPickerBox, renderBindings(parentPickerLocalBindings())},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -536,7 +537,7 @@ func TestPickerHintOmitsKeysAlreadyBadgedInline(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m.width, m.height = 120, 40
 	m = focusBeanFull(m, "tk-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 
 	out := ansi.Strip(m.blockingPickerBox())
 	for _, stale := range []string{"^t/^n/^p/^g:facets", "type:filter", "esc:discard", "space:toggle"} {
@@ -562,7 +563,7 @@ func TestPickerBoxesRenderFilterChrome(t *testing.T) {
 		key  rune
 		box  func(model) string
 	}{
-		{"blocking", 'r', model.blockingPickerBox},
+		{"blocking", 'b', model.blockingPickerBox},
 		{"parent", 'a', model.parentPickerBox},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -583,10 +584,10 @@ func TestPickerBoxesRenderFilterChrome(t *testing.T) {
 // manyBeansFixture is big enough that both pickers must actually window
 // their row list -- the short fixture above never exceeds any budget, so it
 // cannot catch a vertical overflow.
-func manyBeansFixture() []data.Bean {
-	out := []data.Bean{{ID: "ms-1", Title: "Alpha Milestone", Status: "todo", Type: "milestone", Priority: "normal"}}
+func manyBeansFixture() []*item.Item {
+	out := []*item.Item{{ID: "ms-1", Title: "Alpha Milestone", Status: "todo", Type: "milestone", Priority: "normal"}}
 	for i := 0; i < 60; i++ {
-		out = append(out, data.Bean{
+		out = append(out, &item.Item{
 			ID:     "tk-" + string(rune('a'+i%26)) + string(rune('a'+i/26)),
 			Title:  "A deliberately long candidate title that will wrap at any sane picker width, number " + string(rune('a'+i%26)),
 			Status: "todo", Type: "task", Priority: "normal", Parent: "ms-1",
@@ -610,7 +611,7 @@ func TestPickerBoxesFitIn24Lines(t *testing.T) {
 		key  rune
 		box  func(model) string
 	}{
-		{"blocking", 'r', model.blockingPickerBox},
+		{"blocking", 'b', model.blockingPickerBox},
 		{"parent", 'a', model.parentPickerBox},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -635,7 +636,7 @@ func TestPickerBoxesFitIn80Columns(t *testing.T) {
 		key  rune
 		box  func(model) string
 	}{
-		{"blocking", 'r', model.blockingPickerBox},
+		{"blocking", 'b', model.blockingPickerBox},
 		{"parent", 'a', model.parentPickerBox},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -654,11 +655,11 @@ func TestPickerBoxesFitIn80Columns(t *testing.T) {
 // which shows closed items again.
 func TestPickersDefaultToOpenStatuses(t *testing.T) {
 	beans := append(filterBeansFixture(),
-		data.Bean{ID: "done-1", Title: "Old Task", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-1"})
+		&item.Item{ID: "done-1", Title: "Old Task", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-1"})
 
 	m := fixtureModel(t, beans)
 	m = focusBeanFull(m, "ms-1")
-	m = step(t, m, runeMsg('r'))
+	m = step(t, m, runeMsg('b'))
 	if m.blockFilter.facetStatus != "open" || pickerItemIDs(m.blockFiltered)["done-1"] || len(m.blockFiltered) != 4 {
 		t.Fatalf("blocking picker default: chip=%q filtered=%+v, want open and no done-1", m.blockFilter.facetStatus, m.blockFiltered)
 	}

@@ -6,6 +6,7 @@ package tui
 // forced for determinism.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // goldenTreeModel builds the deterministic fixture rendered by
@@ -23,7 +23,7 @@ import (
 // both branches expanded, cursor parked on a leaf.
 func goldenTreeModel(t *testing.T) model {
 	t.Helper()
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "gld-mlst", Title: "Golden Milestone", Status: "in-progress", Type: "milestone", Priority: "high"},
 		{ID: "gld-epic", Title: "Golden Epic", Status: "todo", Type: "epic", Priority: "normal", Parent: "gld-mlst", Tags: []string{"backend"}},
 		{ID: "gld-tsk1", Title: "First golden task", Status: "todo", Type: "task", Priority: "normal", Parent: "gld-epic"},
@@ -34,9 +34,10 @@ func goldenTreeModel(t *testing.T) model {
 	m := newModel(nil, "/tmp/bt-golden-repo")
 	m = step(t, m, beansLoadedMsg{beans: beans})
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.layout = layoutFilterDetail
 	m.expanded["gld-mlst"] = true
 	m.expanded["gld-epic"] = true
-	m.expanded[orphanRootID] = true
+	m.expanded[notOnRoadmapRootID] = true
 	m.cursorID = "gld-tsk1"
 	return m
 }

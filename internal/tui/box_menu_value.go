@@ -4,7 +4,7 @@ package tui
 // Task 1, bean bt-dlgk, design decision a3): design-spec.md §7 reserves
 // exactly ONE key for this cluster (no separate Type/Priority key), so all
 // three beans enums render as ONE modalPanel with three group headers (the
-// SAME facetHead render pattern box_filter_facets.go's treeFilterBox already
+// SAME facetHead render pattern box_filter_facets.go's filterMenuBox already
 // established) instead of three separate picker overlays -- beans-src's
 // statuspicker.go/typepicker.go/prioritypicker.go are structurally
 // identical, consolidated here per design decision a3. Enter applies the
@@ -13,6 +13,7 @@ package tui
 // enter only closes without mutating anything (filter facets act live).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	keybind "github.com/charmbracelet/bubbles/key"
@@ -29,7 +30,7 @@ import (
 type valueMenuItem struct{ group, value string }
 
 // valueMenuGroupHead labels each group's sub-header -- same facetHead-style
-// render pattern as box_filter_facets.go's treeFilterBox.
+// render pattern as box_filter_facets.go's filterMenuBox.
 var valueMenuGroupHead = map[string]string{
 	"status":   "Status",
 	"type":     "Type",
@@ -84,7 +85,7 @@ func valueMenuCursorFor(items []valueMenuItem, group, value string) int {
 // valueMenuIsCurrent reports whether it is b's current value in its own
 // group -- drives the "(current)" marker (valueMenuBox). Priority mirrors
 // data.PriorityRank's own empty-defaults-to-normal convention.
-func valueMenuIsCurrent(b *data.Bean, it valueMenuItem) bool {
+func valueMenuIsCurrent(b *item.Item, it valueMenuItem) bool {
 	switch it.group {
 	case "status":
 		return b.Status == it.value
@@ -107,7 +108,7 @@ func valueMenuIsCurrent(b *data.Bean, it valueMenuItem) bool {
 // field-level enter cascade seeds "type"/"priority" too, not only the
 // `s`-key's hardcoded "status"). Returns "" for an unrecognized group (falls
 // back to valueMenuCursorFor's own index-0 default, never panics).
-func currentValueForGroup(b *data.Bean, group string) string {
+func currentValueForGroup(b *item.Item, group string) string {
 	switch group {
 	case "status":
 		return b.Status
@@ -148,7 +149,7 @@ func (m model) openValueMenu(group string) model {
 	// place all four trigger paths (keyboard s/o/u, field-cursor Enter, mouse
 	// click, Palette) funnel through (S6 grounding §4) -- so this is the only
 	// call site that needs touching, not four. Read by composeOverlays'
-	// placeValueMenuOverlay (view_browse_repo.go) ONLY while boxFormEnabled().
+	// placeValueMenuOverlay (view_browse_repo.go) ONLY.
 	m.valueMenuAnchorField = boxFormFieldIndexForGroup(group)
 	m.overlay = overlayValueMenu
 	return m
@@ -240,14 +241,14 @@ func (m model) applyValueMenuSelection() (tea.Model, tea.Cmd) {
 		m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 		return m, toastCmd
 	}
-	client := m.client
+	store := m.store
 	switch it.group {
 	case "status":
-		return m, mutateCmd(func() error { return client.SetStatus(id, it.value, etag) })
+		return m, mutateCmd(store, func() error { return store.SetStatus(id, it.value, etag) })
 	case "type":
-		return m, mutateCmd(func() error { return client.SetType(id, it.value, etag) })
+		return m, mutateCmd(store, func() error { return store.SetType(id, it.value, etag) })
 	case "priority":
-		return m, mutateCmd(func() error { return client.SetPriority(id, it.value, etag) })
+		return m, mutateCmd(store, func() error { return store.SetPriority(id, it.value, etag) })
 	}
 	return m, nil
 }
@@ -299,7 +300,7 @@ func (m model) valueMenuBodyAndItemRows() (body string, itemRows []int) {
 	// wrong thing, both describing a group they were not showing.
 	b.WriteString(theme.Muted.Render("enter:apply  esc/"+valueMenuGroupKey(m.valueMenuGroup()).Help().Key+":cancel") + "\n")
 
-	var cur *data.Bean
+	var cur *item.Item
 	if m.idx != nil {
 		cur = m.idx.ByID[m.mutTarget]
 	}
@@ -340,7 +341,7 @@ func valueMenuItemRow(m model, i int) int {
 
 // valueMenuBox renders the floating (now single-group, B11/B12) value menu --
 // same modalPanel + facetHead-group-header render pattern as
-// box_filter_facets.go's treeFilterBox, "(current)" suffix (theme.Muted) on
+// box_filter_facets.go's filterMenuBox, "(current)" suffix (theme.Muted) on
 // the group's current value (port beans-src statuspicker.go isCurrent). The
 // per-row group-header line still renders (lastGroup bookkeeping) even though
 // exactly one group is present now -- harmless, keeps the render loop
@@ -414,15 +415,15 @@ func valueMenuPopupY(anchorY, anchorH, fgH, canvasH, minY int) int {
 }
 
 // placeValueMenuOverlay composes the value-menu overlay onto out (Slice C):
-// while boxFormEnabled() AND the anchor field's rect resolves
+// while the anchor field's rect resolves
 // (boxFormFieldRect, box_nav_field.go, seeded via m.mutTarget/
 // m.valueMenuAnchorField at open time, openValueMenu above), the menu is
 // placed LEFT-ALIGNED directly BELOW its triggering boxed field (or flipped
 // above it, valueMenuPopupY) via placeOverlayAt (Slice B) instead of the
 // pre-existing CENTERED placeOverlay. Falls back to placeOverlay in every
-// other case: boxFormEnabled() off (accordion mode has no boxed fields to
-// anchor to at all -- D09's own scope, "nur die endlichen Einzelfeld-
-// Menüs"), or a rect that fails to resolve (nil mutTarget bean, out-of-range
+// other case: the Detail pane is hidden (no boxed fields on screen to
+// anchor to, except in layoutDetail, which has the Detail), or a rect that fails to
+// resolve (nil mutTarget bean, out-of-range
 // anchor field -- defensive; should not happen in practice since
 // openValueMenu always seeds m.valueMenuAnchorField from the static
 // boxFormFieldIndexForGroup lookup in the SAME call that sets m.overlay).
@@ -449,14 +450,12 @@ func (m model) placeValueMenuOverlay(out string, w, h int) string {
 // click hit-test (mouseValueMenuClick, mouse.go, bt-f0y9 "feld-verankertes
 // Inline-Dropdown") needs the SAME geometry the render uses, so both now
 // call this ONE function rather than maintaining the x/y math twice
-// (Golden-Rule-Drift-Schutz). ok=false whenever boxFormEnabled() is off
-// (accordion mode renders the menu CENTERED via the pre-existing
-// placeOverlay -- Slice D is explicitly scoped to the anchored box-form
-// popup only, D09's own "nur die endlichen Einzelfeld-Menüs") or the anchor
-// field's rect fails to resolve (same defensive fallback
+// (Golden-Rule-Drift-Schutz). ok=false whenever the Detail pane is hidden
+// (the menu is then rendered CENTERED via the pre-existing placeOverlay) or
+// the anchor field's rect fails to resolve (same defensive fallback
 // placeValueMenuOverlay itself has, e.g. a vanished mutTarget bean).
 func (m model) valueMenuPopupRect() (x, y, w, h int, ok bool) {
-	if !boxFormEnabled() {
+	if !m.layout.hasDetail() {
 		return 0, 0, 0, 0, false
 	}
 	b := m.idx.ByID[m.mutTarget] // nil-safe: a nil map / missing key both yield nil
@@ -491,7 +490,7 @@ func (m model) valueMenuPopupRect() (x, y, w, h int, ok bool) {
 		x = ww - fgW // right-edge overflow: shift left, never past the field's own line
 	}
 	if paneLeft := boxFormPaneContentLeft(m); x < paneLeft {
-		x = paneLeft // never cross into the Tree/Backlog/Flat pane on the left
+		x = paneLeft // never cross into the Tree/Ready/Flat pane on the left
 	}
 	y = valueMenuPopupY(ry, rh, fgH, hh, boxFormPopupChromeFloor(m))
 
@@ -511,14 +510,9 @@ func (m model) valueMenuPopupRect() (x, y, w, h int, ok bool) {
 // that boundary is ~3 columns short of where content actually draws,
 // harmless for its own coarse pane gate, but would misplace this hit-test).
 //
-// Centered/accordion mode (boxFormEnabled() off) is deliberately OUT of
-// Slice D's scope: valueMenuPopupRect's own ok=false there routes every
-// click straight to "close without mutation" -- but handleMouse (mouse.go)
-// only ever calls this function while boxFormEnabled() in the first place
-// (its own guard mirrors composeOverlays' identical boxFormEnabled() gate),
-// so accordion mode's click is UNCHANGED: the pre-existing blanket overlay
-// guard still swallows it before this function is ever reached (no
-// regression, no new capability there either).
+// The centered mode (Detail pane hidden) has no anchored popup:
+// valueMenuPopupRect's own ok=false there routes every click straight to
+// "close without mutation".
 //
 // A click INSIDE the popup's own rect but not on any item row (the title/
 // hint/group-header/blank/border rows) is a deliberate no-op -- neither

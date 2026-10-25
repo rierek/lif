@@ -214,7 +214,7 @@ func TestToastBoxWidthFloorOnNarrowTerminal(t *testing.T) {
 // set target.view is applied to m.view before the toast is cleared.
 func TestDismissToastJumpsToTarget(t *testing.T) {
 	m := model{width: 90, height: 24, view: viewBrowseRepo}
-	m, _ = m.showToast(toastInfo, "moved", "", &toastTarget{view: viewBacklog}, false)
+	m, _ = m.showToast(toastInfo, "moved", "", &toastTarget{view: viewReady}, false)
 
 	tm, _ := m.dismissToast()
 	nm, ok := tm.(model)
@@ -224,8 +224,8 @@ func TestDismissToastJumpsToTarget(t *testing.T) {
 	if nm.toast != nil {
 		t.Error("dismissToast must clear the toast")
 	}
-	if nm.view != viewBacklog {
-		t.Errorf("view = %v, want viewBacklog (target adopted)", nm.view)
+	if nm.view != viewReady {
+		t.Errorf("view = %v, want viewReady (target adopted)", nm.view)
 	}
 }
 
@@ -297,9 +297,8 @@ func TestToastSeqStaysMonotonicAcrossReset(t *testing.T) {
 // (beansLoadedMsg) untouched -- applyLoaded never assigns m.toast, so there
 // is nothing to clobber it (design decision a).
 func TestConflictToastIsStickyAndSurvivesReload(t *testing.T) {
-	fakeBeansConflict(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	m.store = conflictingStore(t)
 	m = focusBean(m, "tk-2")
 	m = step(t, m, runeMsg('s'))
 	if m.overlay != overlayValueMenu {
@@ -341,5 +340,30 @@ func TestConflictToastIsStickyAndSurvivesReload(t *testing.T) {
 	}
 	if !nm3.toast.sticky {
 		t.Error("toast.sticky flipped to false across the reload, want unchanged")
+	}
+}
+
+// --- esc dismisses a sticky toast (beans-qb4k) ---
+
+func TestEscDismissesStickyToastOnlyWhenEscIsIdle(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans())
+	m, _ = m.showWarn("hooks are not allowed")
+	nm, _ := m.handleKey(keyMsg(tea.KeyEsc))
+	if nm.(model).toast != nil {
+		t.Fatal("esc with no overlay must close the sticky toast")
+	}
+
+	// Palette open: esc closes the palette, the toast stays.
+	pm, _ := m.openPalette()
+	nm, _ = pm.(model).handleKey(keyMsg(tea.KeyEsc))
+	if got := nm.(model); got.paletteOpen || got.toast == nil {
+		t.Fatalf("esc with palette open: paletteOpen=%v toast=%v, want palette closed and toast kept", got.paletteOpen, got.toast)
+	}
+
+	// A non-sticky toast is left to its timer.
+	m.toast.sticky = false
+	nm, _ = m.handleKey(keyMsg(tea.KeyEsc))
+	if nm.(model).toast == nil {
+		t.Fatal("esc must not close a non-sticky toast")
 	}
 }

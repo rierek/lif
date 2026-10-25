@@ -1,7 +1,7 @@
 package tui
 
 // footer_boxform_test.go — bean bt-fy5d (Nebenbefund N2, epic bt-vy1q):
-// while boxFormEnabled(), the Detail pane already shows every scalar field's
+// the Detail pane already shows every scalar field's
 // hotkey salient INSIDE its own box frame ((e) (s) (o) (u) (a) (t),
 // box_detail_form.go). Repeating those keys in the footer is pure redundancy
 // and costs a whole footer line at 80 columns. The footer therefore drops
@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	keybind "github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -39,12 +38,11 @@ func bindingKeys(bs []keybind.Binding) []string {
 // from the footer removed the only place the key was advertised at all. The
 // rule is now literal, and TestBoxFormInlineKeysAllHaveAnInlineBadge below
 // enforces it structurally instead of by hand.
-var boxFormInlineFooterKeys = []string{"s", "e", "t", "a"}
+var boxFormInlineFooterKeys = []string{"s", "e", "g", "a"}
 
 func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 
-	got := bindingKeys(browseRepoLocalBindings())
+	got := bindingKeys(u10Browse(t).setLayout(layoutFilterDetail).footerBindings())
 	for _, k := range boxFormInlineFooterKeys {
 		for _, have := range got {
 			if have == k {
@@ -55,7 +53,7 @@ func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 	// Everything that is NOT inline-visible must survive -- the point is to
 	// de-duplicate, not to strip the footer. `r` (bean bt-6nuz) is in this
 	// list precisely because the Relations panel gives it no badge.
-	for _, k := range []string{"tab", "shift+tab", "/", "f", "c", "d", "b", "y", "r", "v"} {
+	for _, k := range []string{"tab", "shift+tab", "/", "f", "c", "d", "b", "y", "v"} {
 		found := false
 		for _, have := range got {
 			if have == k {
@@ -69,30 +67,13 @@ func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 	}
 }
 
-// TestBrowseRepoLocalBindingsUnchangedWithoutBoxForm is the flag-OFF pin
-// (bean bt-fy5d Akzeptanz: "Bei Flag AUS ist der Footer unveraendert"):
-// without the box form nothing is shown inline, so nothing may be dropped.
-func TestBrowseRepoLocalBindingsUnchangedWithoutBoxForm(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "0")
-
-	// `v` (bean bt-oox1, #10) is deliberately absent here: the flag-OFF
-	// footer already fills its two lines at 80 columns, so Fullscreen is
-	// added under the box form only, where dropping the inline-badged keys
-	// makes room (browseRepoLocalBindings' own doc-stamp).
-	got := bindingKeys(browseRepoLocalBindings())
-	want := []string{"tab", "shift+tab", "/", "f", "s", "c", "d", "e", "b", "t", "y", "a", "r"}
-	if strings.Join(got, "|") != strings.Join(want, "|") {
-		t.Fatalf("flag-OFF footer set changed:\n got %v\nwant %v", got, want)
-	}
-}
-
-// TestBacklogFooterFollowsBrowseRepo: the Backlog renders the SAME box-form
-// detail pane, so its footer must thin out identically (backlogLocalBindings
-// delegates -- this pins that it keeps doing so).
-func TestBacklogFooterFollowsBrowseRepo(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
-	if a, b := bindingKeys(backlogLocalBindings()), bindingKeys(browseRepoLocalBindings()); strings.Join(a, "|") != strings.Join(b, "|") {
-		t.Fatalf("Backlog footer diverged from Browse: %v vs %v", a, b)
+// TestReadyFooterFollowsBrowseRepo: the Ready renders the SAME box-form
+// detail pane, so its footer drops the inline keys identically; only the
+// view keys differ (M and L instead of R).
+func TestReadyFooterFollowsBrowseRepo(t *testing.T) {
+	got := footerKeys(u10Ready(t).setLayout(layoutFilterDetail))
+	for _, k := range boxFormInlineFooterKeys {
+		mustHave(t, got, k, false)
 	}
 }
 
@@ -105,7 +86,6 @@ func TestBacklogFooterFollowsBrowseRepo(t *testing.T) {
 // actually appear as a literal (x) badge in that render. A future key
 // removed from the footer without a badge to justify it fails here.
 func TestBoxFormInlineKeysAllHaveAnInlineBadge(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 
 	m := fixtureModel(t, fixtureBeans())
 	m.width, m.height = 120, 40
@@ -129,7 +109,6 @@ func TestBoxFormInlineKeysAllHaveAnInlineBadge(t *testing.T) {
 // source, TestHelpGroupsCoverEveryBindingExactlyOnce reflects over it), so
 // the Help overlay keeps documenting them and the handlers keep working.
 func TestBoxFormFooterKeysStayFunctional(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 
 	registered := map[string]bool{}
 	for _, g := range keys.helpGroups() {
@@ -145,43 +124,3 @@ func TestBoxFormFooterKeysStayFunctional(t *testing.T) {
 }
 
 // --- bean bt-8d35: the footer names the REGION-local meaning of tab ---
-
-// TestFooterNamesTabAsFieldNavInsideTheDetailRegion guards bt-z4w7's derived-
-// label rule for the Fokus-Modell: while the Detail region has focus, tab
-// really moves the field cursor, so Footer Zone 3 must say so instead of
-// repeating the pane-swap's "focus in". The literals below carry the nbsp
-// renderBindings joins key and label with (view.go's wrap-atomic rule).
-func TestFooterNamesTabAsFieldNavInsideTheDetailRegion(t *testing.T) {
-	m := boxFormScrollModel(t) // LIF_TUI_BOXFORM=1, Tree-focused
-
-	if got := m.contextualLocalHint(browseRepoLocalBindings()); !strings.Contains(got, "focus\u00a0in") {
-		t.Fatalf("Tree-focused footer lost the pane-swap label: %q", got)
-	}
-
-	m = step(t, m, keyMsg(tea.KeyTab))
-	got := m.contextualLocalHint(browseRepoLocalBindings())
-	for _, want := range []string{"next\u00a0field", "prev\u00a0field"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("Detail-focused footer does not advertise %q: %q", want, got)
-		}
-	}
-	if strings.Contains(got, "focus\u00a0in") {
-		t.Fatalf("Detail-focused footer still advertises the stale pane-swap label: %q", got)
-	}
-}
-
-// TestFooterKeepsFocusLabelsWithoutBoxForm is the flag-OFF pin: without the
-// experiment the Fokus-Modell does not exist and tab is still the pane swap,
-// in the footer as much as in handleKey.
-func TestFooterKeepsFocusLabelsWithoutBoxForm(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "0")
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if !m.detailFocus {
-		t.Fatal("setup: tab did not focus the Detail pane")
-	}
-	if got := m.contextualLocalHint(browseRepoLocalBindings()); !strings.Contains(got, "focus\u00a0in") {
-		t.Fatalf("flag-OFF footer must keep the pane-swap label: %q", got)
-	}
-}

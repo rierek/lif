@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/rierek/lif/internal/gitutil"
+	"github.com/rierek/lif/internal/storeroot"
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/internal/worktree"
 	"github.com/rierek/lif/pkg/config"
@@ -142,7 +143,7 @@ type checkResult struct {
 // legacyNameWarnings returns one warning per legacy store name in use, each
 // naming the legacy name, the new name and the step that ends it. It reads
 // the outcome of the name levels from res and never from the environment.
-func legacyNameWarnings(res storeResolution, c *config.Config, storeRoot string) []string {
+func legacyNameWarnings(res storeroot.Resolution, c *config.Config, storeRoot string) []string {
 	var out []string
 	file := filepath.Base(c.ConfigFile())
 	if res.LegacyConfigFile {
@@ -157,15 +158,15 @@ func legacyNameWarnings(res storeResolution, c *config.Config, storeRoot string)
 		move := fmt.Sprintf("run `git mv %s %s` in %s", config.LegacyDefaultStoreDir, config.DefaultStoreDir, filepath.Dir(storeRoot))
 		msg := fmt.Sprintf("store directory %s is a legacy name: %s", config.LegacyDefaultStoreDir, move)
 		switch res.StoreDirSource {
-		case storeSourceConfig:
+		case storeroot.SourceConfig:
 			msg += fmt.Sprintf(", then change path: %s to path: %s in %s",
 				c.Items.Path, filepath.Join(filepath.Dir(c.Items.Path), config.DefaultStoreDir), file)
 			if res.LegacyConfigFile {
 				msg += fmt.Sprintf(", and run `git mv %s %s`", config.LegacyConfigFileName, config.ConfigFileName)
 			}
-		case storeSourceFlag:
+		case storeroot.SourceFlag:
 			msg += fmt.Sprintf(", then pass the new directory to --%s", storePathFlag)
-		case storeSourceEnv:
+		case storeroot.SourceEnv:
 			msg += fmt.Sprintf(", then point %s at the new directory", config.StoreEnvVar)
 		}
 		out = append(out, msg)

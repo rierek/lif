@@ -1,8 +1,8 @@
 package tui
 
 // view_browse_flat_test.go — jira-style-ui experiment, Slice 5 (S5): update-
-// tests + golden coverage for the Nested/Flat Browse toggle (`G`,
-// keymap.go/view_browse_flat.go). Mirrors tree_golden_test.go's/
+// tests + golden coverage for the flat list view (`L`/`M`,
+// view_browse_flat.go). Mirrors tree_golden_test.go's/
 // box_form_golden_test.go's fixture+harness pattern for the golden half.
 
 import (
@@ -17,10 +17,10 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// TestKeyGTogglesFlatView guards the basic toggle contract: `G` flips
+// TestKeysLAndMSwitchFlatView guards the basic contract: `L` sets
 // m.flatView, and the rendered LEFT pane switches from the Tree's indented/
-// expand-marker rows to flatRows' un-indented, backlogRowText-based rows.
-func TestKeyGTogglesFlatView(t *testing.T) {
+// expand-marker rows to flatRows' un-indented, readyRowText-based rows; `M` goes back.
+func TestKeysLAndMSwitchFlatView(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.expanded["ms-1"] = true
@@ -32,10 +32,10 @@ func TestKeyGTogglesFlatView(t *testing.T) {
 
 	before := ansi.Strip(m.View())
 
-	m = step(t, m, runeMsg('G'))
+	m = step(t, m, runeMsg('L'))
 
 	if !m.flatView {
-		t.Fatal("flatView = false after G, want true")
+		t.Fatal("flatView = false after L, want true")
 	}
 
 	after := ansi.Strip(m.View())
@@ -56,9 +56,9 @@ func TestKeyGTogglesFlatView(t *testing.T) {
 	// Toggling back returns byte-identical to the original Tree render (a
 	// pure, reversible mode switch -- Tree's own cursorID/expanded state was
 	// never touched while flat was active).
-	m = step(t, m, runeMsg('G'))
+	m = step(t, m, runeMsg('M'))
 	if m.flatView {
-		t.Fatal("flatView = true after second G, want false (toggle)")
+		t.Fatal("flatView = true after M, want false (Roadmap)")
 	}
 	if got := ansi.Strip(m.View()); got != before {
 		t.Error("toggling G back to nested did not restore the original Tree render byte-for-byte")
@@ -71,7 +71,7 @@ func TestKeyGTogglesFlatView(t *testing.T) {
 // Detail pane the correct bean at every step.
 func TestKeyFlatNavMovesCursorAndSelection(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('G'))
+	m = step(t, m, runeMsg('L'))
 	if !m.flatView {
 		t.Fatal("setup: expected flatView true")
 	}

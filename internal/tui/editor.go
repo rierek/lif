@@ -33,6 +33,7 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"os/exec"
 	"sort"
@@ -154,7 +155,7 @@ func editInEditor(initial, suffix string) tea.Cmd {
 // editorTarget/editorETag/editorSnapshot are all frozen HERE, at
 // $EDITOR-open time (F2, mirrors openBodyEditor's own rationale -- never a
 // fresh m.beanETag(id)/m.idx re-read later). editorSnapshot (types.go, NEW
-// field) is the FULL *data.Bean value, not just ID+ETag: applyEditorFinished
+// field) is the FULL *item.Item value, not just ID+ETag: applyEditorFinished
 // diffs every field individually against it (buildWholeEditDiff below), so
 // title/status/type/priority/tags/blocking/blocked_by/parent/body all need
 // their open-time value on hand, not just enough to detect an ETag
@@ -162,12 +163,12 @@ func editInEditor(initial, suffix string) tea.Cmd {
 // beansLoadedMsg reload can never mutate it out from under an in-flight
 // $EDITOR session (same "frozen, not live" contract editorETag already
 // established).
-func (m model) openBeanEditor(b *data.Bean) (model, tea.Cmd) {
+func (m model) openBeanEditor(b *item.Item) (model, tea.Cmd) {
 	m.editorTarget = b.ID
-	m.editorETag = b.ETag
+	m.editorETag = b.ETag()
 	snap := *b
 	m.editorSnapshot = &snap
-	return m, showRawCmd(m.client, b.ID)
+	return m, showRawCmd(m.store, b.ID)
 }
 
 // rawBeanFrontmatter is the parse target for a whole-bean $EDITOR round-trip
@@ -199,7 +200,7 @@ type rawBeanFrontmatter struct {
 // Freitext-YAML, so a malformed edit must be recoverable, never silently
 // discarded).
 //
-// body's leading-newline convention deliberately mirrors data.Bean.Body's
+// body's leading-newline convention deliberately mirrors item.Item.Body's
 // own CLI-JSON shape (verified empirically, internal/data's
 // TestUpdateWholeSendsOnlyChangedFields "body only" subtest): the on-disk
 // format always has a blank line between the frontmatter's closing "---"
@@ -260,14 +261,14 @@ func diffStringSlices(old, new []string) (add, remove []string) {
 // snapshot (the bean's state frozen at $EDITOR-open time, m.editorSnapshot)
 // and the $EDITOR round-trip's parsed return (fm, body) -- D01, design-spec
 // §15 PF-17 Step 2. Only fields that actually differ carry a non-nil/
-// non-empty value (data.Client.UpdateWhole's own "only changed fields"
+// non-empty value (data.Store.UpdateWhole's own "only changed fields"
 // contract, mutations.go) -- a fully unchanged round-trip (e.g. the PO only
 // reformatted whitespace) produces a zero-value diff, which UpdateWhole
 // turns into NO CLI call at all. created_at/updated_at/the ID are not
 // compared here -- they are not even parsed into rawBeanFrontmatter
 // (parseRawBean's own doc-stamp), the "Bekannte Grenze" this task documents
 // as an ERRATUM.
-func buildWholeEditDiff(snapshot *data.Bean, fm rawBeanFrontmatter, body string) data.WholeEditDiff {
+func buildWholeEditDiff(snapshot *item.Item, fm rawBeanFrontmatter, body string) data.WholeEditDiff {
 	var diff data.WholeEditDiff
 	if fm.Title != snapshot.Title {
 		diff.Title = &fm.Title

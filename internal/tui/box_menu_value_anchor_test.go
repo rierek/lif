@@ -4,7 +4,7 @@ package tui
 // "feld-verankertes Inline-Dropdown", D09 revidiert) + its B01/B02 fix round
 // (Reviewer, 2026-07-20): the value menu (Status/Type/Priority) opens
 // field-anchored (placeOverlayAt + boxFormFieldRect) instead of centered
-// (placeOverlay), while boxFormEnabled(). Every render-grounded assertion
+// (placeOverlay). Every render-grounded assertion
 // here locates a REAL landmark (the popup's own bottom-border corner) in
 // ansi.Strip(m.View()) and compares its position to what boxFormFieldRect
 // (Slice A) + valueMenuPopupY (this slice's own pure function, unit-tested
@@ -104,7 +104,6 @@ func TestValueMenuContentWidthSizesToLongestLine(t *testing.T) {
 }
 
 func TestValueMenuBoxWidthIsUnderOldFixedFortyAndMatchesContent(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = focusBean(m, "tk-2")
@@ -155,13 +154,12 @@ func rawValueMenuBody(m model) string {
 
 // --- Render-grounded: anchored placement, one test per trigger path ---
 
-// anchorModel builds a LIF_TUI_BOXFORM=1 fixtureModel at the given size, tk-2
+// anchorModel builds a fixtureModel at the given size, tk-2
 // focused (Task Two, ms-1->ep-1->tk-2 ancestry expanded, box_menu_value_test.
 // go's focusBean), Detail-Pane focused (tab-equivalent) -- the state every
 // one of the four trigger paths needs at minimum.
 func anchorModel(t *testing.T, width, height int) model {
 	t.Helper()
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: width, Height: height})
 	m = focusBean(m, "tk-2")
@@ -287,12 +285,12 @@ func TestValueMenuAnchoredViaFieldCursorEnter(t *testing.T) {
 
 // TestValueMenuAnchoredViaMouseClick guards the mouse-click trigger
 // (mouseBoxFormDetailClick -> detailBoxFormClickRow -> activateBoxFormTarget,
-// mouse.go): clicking Priority's own "(u)" hotkey badge anchors to Priority.
+// mouse.go): clicking Priority's own "(p)" hotkey badge anchors to Priority.
 func TestValueMenuAnchoredViaMouseClick(t *testing.T) {
 	for _, width := range []int{80, 120} {
 		t.Run(width2str(width), func(t *testing.T) {
 			m := anchorModel(t, width, 40)
-			msg := boxFormClickAt(t, m, "(u)")
+			msg := boxFormClickAt(t, m, "(p)")
 			tm, _ := m.handleMouse(msg)
 			m2, ok := tm.(model)
 			if !ok {
@@ -393,12 +391,12 @@ func TestValueMenuFlipStaysBelowWhenFullFitAboveIsImpossible(t *testing.T) {
 // render at visibly different, field-near columns.
 func TestValueMenuTypeAndPriorityPopupsSitAtDifferentFieldNearColumns(t *testing.T) {
 	mType := anchorModel(t, 80, 40)
-	mType = step(t, mType, runeMsg('o'))
+	mType = step(t, mType, runeMsg('t'))
 	assertValueMenuAnchoredBelowField(t, mType, "type")
 	typeX, _, _, _ := valueMenuPopupXY(t, mType, "type")
 
 	mPriority := anchorModel(t, 80, 40)
-	mPriority = step(t, mPriority, runeMsg('u'))
+	mPriority = step(t, mPriority, runeMsg('p'))
 	assertValueMenuAnchoredBelowField(t, mPriority, "priority")
 	priorityX, _, _, _ := valueMenuPopupXY(t, mPriority, "priority")
 
@@ -427,21 +425,17 @@ func TestValueMenuTypeAndPriorityPopupsSitAtDifferentFieldNearColumns(t *testing
 	}
 }
 
-// --- Fullscreen (Q01) ---
+// --- layoutDetail ---
 
-// TestValueMenuAnchoredInFullscreenDetail guards the fullscreenDetail case
-// (bt-s90e's own Vollbild-Geometrie, which boxFormFieldRect already handles,
-// Slice A): entering Vollbild-Detail via a real `v` keypress (mirrors
-// box_form_scroll_fullscreen_test.go's own fullscreenBoxFormModel
-// precedent), then `s` opens Status' menu anchored to the SAME field-rect
-// geometry as the Split view -- click is dead in Vollbild (F01), but
-// keyboard/Palette are not, so this path is real and must not silently fall
-// back to centered.
-func TestValueMenuAnchoredInFullscreenDetail(t *testing.T) {
+// TestValueMenuAnchoredInLayoutDetail guards layoutDetail's full-width
+// geometry, which boxFormFieldRect handles (lw == 0): `v` from the split
+// reaches layoutDetail, then `s` opens Status' menu anchored to the field
+// rect, not centered.
+func TestValueMenuAnchoredInLayoutDetail(t *testing.T) {
 	m := anchorModel(t, 100, 30)
 	m = step(t, m, runeMsg('v'))
-	if m.fullscreen != fullscreenDetail {
-		t.Fatalf("setup: fullscreen = %v after `v`, want fullscreenDetail", m.fullscreen)
+	if m.layout != layoutDetail {
+		t.Fatalf("setup: layout = %v after `v`, want layoutDetail", m.layout)
 	}
 
 	m = step(t, m, runeMsg('s'))
@@ -449,47 +443,6 @@ func TestValueMenuAnchoredInFullscreenDetail(t *testing.T) {
 }
 
 // --- Flag off: accordion mode stays centered ---
-
-// TestValueMenuStaysCenteredWithoutBoxFormFlag guards the OFF-by-default
-// contract: accordion mode (LIF_TUI_BOXFORM unset) has no boxed fields to anchor
-// to at all (D09's own scope, "nur die Einzelfeld-Menüs"), so the value menu
-// must stay centered exactly as before -- its title lands at the SAME
-// (centerX+2, centerY+1) position placeOverlay's own (bgW-fgW)/2,
-// (bgH-fgH)/2 formula has always produced (pre-existing, unrelated to this
-// slice).
-func TestValueMenuStaysCenteredWithoutBoxFormFlag(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-
-	if boxFormEnabled() {
-		t.Fatal("setup: LIF_TUI_BOXFORM must be unset for this test")
-	}
-	m = step(t, m, runeMsg('s'))
-	if m.overlay != overlayValueMenu {
-		t.Fatalf("overlay = %v, want overlayValueMenu", m.overlay)
-	}
-
-	fg := m.valueMenuBox()
-	fgLines := strings.Split(fg, "\n")
-	fgW, fgH := maxLineWidth(fgLines), len(fgLines)
-	centerX := (m.width - fgW) / 2
-	centerY := (m.height - fgH) / 2
-	wantRow, wantCol := centerY+1, centerX+2
-
-	title := valueMenuTitle(m.menuItems)
-	lines := screenLines(m)
-	if wantRow < 0 || wantRow >= len(lines) {
-		t.Fatalf("setup: wantRow=%d out of range (%d lines)", wantRow, len(lines))
-	}
-	idx := strings.Index(lines[wantRow], title)
-	if idx < 0 {
-		t.Fatalf("title %q not found on row %d: %q", title, wantRow, lines[wantRow])
-	}
-	if gotCol := ansi.StringWidth(lines[wantRow][:idx]); gotCol != wantCol {
-		t.Fatalf("title %q at col=%d, want %d (centered, LIF_TUI_BOXFORM off)", title, gotCol, wantCol)
-	}
-}
 
 func maxLineWidth(lines []string) int {
 	w := 0

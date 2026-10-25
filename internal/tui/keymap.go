@@ -10,13 +10,17 @@ package tui
 // later epic (Review-Cockpit, E4); they get added to this single source when
 // their view lands, not speculatively now (YAGNI).
 //
-// Port-adaptation vs. devd: the Blocking-Picker (now `r`, Q06 remap, design-
-// spec.md §15 PF-16, bean bt-ntoz/bt-d8kc — originally `B`) is new — beans
+// Port-adaptation vs. devd: the Blocking-Picker (now `b`, U10 remap, bean
+// beans-u4uu — was `r`, originally `B`) is new — beans
 // has no devd equivalent (blocking/blocked_by relation, design-spec §4).
 // `Editor` gains a bare `e` alongside `ctrl+e` (design-spec §7: "e/ctrl+e
 // Editor").
 
-import keybind "github.com/charmbracelet/bubbles/key"
+import (
+	"reflect"
+
+	keybind "github.com/charmbracelet/bubbles/key"
+)
 
 // keyMap is the central, typed single source of every bt keybinding (mirrors
 // devd DD2-47): navKey() derives the direction-cross normalization from
@@ -30,34 +34,44 @@ type keyMap struct {
 	Left  keybind.Binding
 	Right keybind.Binding
 
-	// Detail-Focus toggle pair (PF-13, design-spec.md §15, E7 T6): tab keeps
-	// its existing bidirectional toggle (Tree<->Detail, backward-compat) --
-	// shift+tab is NEW, a deterministic one-way exit (Detail->Tree only,
-	// no-op when already in Tree). Together they satisfy the PO's "vollständig
-	// symmetrische Paare" requirement (Nachtrag 7) without removing tab's
-	// existing toggle behavior (Planner decision, lowest regression risk --
-	// see design-spec §15 PF-13 for the full Kollisionsanalyse).
-	FocusIn  keybind.Binding // tab — focus Tree<->Detail (toggle, backward-compat)
-	FocusOut keybind.Binding // shift+tab — deterministic focus back to Tree
+	// Roadmap tree only (flat list and Ready ignore them). "[" / "]" jump to
+	// the previous / next sibling (same parent, same depth). The fold keys
+	// are two-key sequences with the vim prefix "z" (foldPrefixKey): the
+	// bindings hold the whole sequence, handleKey buffers the prefix.
+	PrevSibling  keybind.Binding // [ — previous sibling
+	NextSibling  keybind.Binding // ] — next sibling
+	ExpandNode   keybind.Binding // zo — expand the cursor node and all its descendants
+	CollapseNode keybind.Binding // zc — collapse the cursor node and all its descendants
+	ExpandAll    keybind.Binding // zR — expand every node
+	CollapseAll  keybind.Binding // zM — collapse every node (start state)
+
+	// Focus-ring pair: tab and shift+tab step the focus to the next and
+	// previous target of the active layout's ring (stepFocus, layout.go),
+	// wrapping at both ends; they never change the layout.
+	FocusIn  keybind.Binding // tab — next focus target
+	FocusOut keybind.Binding // shift+tab — previous focus target
 
 	// Activation / return / global.
 	Enter   keybind.Binding // enter — open/confirm
 	Back    keybind.Binding // esc — back
-	Quit    keybind.Binding // q / ctrl+c — quit (confirm)
+	Confirm keybind.Binding // enter or y — confirm a dialog (the dialog captures the key first, so y stays yank elsewhere)
+	Cancel  keybind.Binding // esc or n — cancel a dialog
+	Quit    keybind.Binding // q — quit (confirm)
+	QuitNow keybind.Binding // ctrl+c — quit at once, from every state (handled first in handleKey)
 	Help    keybind.Binding // ? — help overlay
-	Palette keybind.Binding // K — Command-Center
-	Picker  keybind.Binding // p — repo-picker
-	Backlog keybind.Binding // b — Backlog
+	Palette keybind.Binding // K or : — Command-Center
+	Picker  keybind.Binding // P — repo-picker (Lobby)
+	Ready   keybind.Binding // R — Ready
 	Search  keybind.Binding // / — search
 	Filter  keybind.Binding // f — facet filter
 	Yank    keybind.Binding // y — copy context (OSC52 + native)
 	Refresh keybind.Binding // ctrl+r — manual data reload
-	Section keybind.Binding // 1…9 — accordion section jump
 
 	FilterClear keybind.Binding // X — reset filters
 	Toggle      keybind.Binding // space/x — toggle facet checkbox (E2 Task 4, bean bt-9ldr)
-	Sort        keybind.Binding // S — cycle Backlog sort mode (E2 Task 5, bean bt-gzu6)
-	FlatView    keybind.Binding // G — Nested/Flat Browse toggle (jira-style-ui experiment S5, D07 uppercase = view/global)
+	Sort        keybind.Binding // S — cycle Ready sort mode (E2 Task 5, bean bt-gzu6)
+	Roadmap     keybind.Binding // M — Roadmap view (the tree)
+	FlatList    keybind.Binding // L — flat list view
 
 	// Node-focused (act on the focused tree/list node).
 	Status    keybind.Binding // s — status menu (all node types)
@@ -124,7 +138,7 @@ type keyMap struct {
 	// exclusive display/dispatch context: viewTagManagement is a
 	// FULL-CAPTURE page (D06, view_tag_management.go), so keyNodeAction's
 	// own "e" case (which fires Editor) is structurally unreachable while
-	// this page is open -- mirrors the established Backlog "S" precedent
+	// this page is open -- mirrors the established Ready "S" precedent
 	// (same physical key, different view-local meaning, no functional
 	// collision). A SEPARATE keybind.Binding (not a reuse of Editor)
 	// because TestHelpGroupsCoverEveryBindingExactlyOnce identifies
@@ -132,21 +146,11 @@ type keyMap struct {
 	// coexist without tripping that drift guard.
 	RenameTag keybind.Binding // e — rename tag (Tag-Management page)
 
-	// Fullscreen (F01 Kernmechanik, E9 Task 7, bean bt-13l7, design-spec.md
-	// §15): `v` (view) -- verified free against every OTHER binding above
-	// before wiring (no collision). Dispatch: keyFullscreen
-	// (view_fullscreen.go), handleKey's checkpoint NACH FocusIn/FocusOut, VOR
-	// keyNodeAction (update.go).
-	Fullscreen keybind.Binding // v — fullscreen
+	// Layout cycle: v steps forward, shift+v (the key "V") backward;
+	// dispatch is keyLayout (layout.go).
+	LayoutNext keybind.Binding // v — next layout
+	LayoutPrev keybind.Binding // shift+v — previous layout
 
-	// History-Stack (F01, E9 Task 8, bean bt-1vbp, design-spec.md §15):
-	// ctrl+left/ctrl+right are bubbletea v1.3.10's native decode of the
-	// standard xterm CSI sequences -- `[`/`]` are the terminal-unabhängig
-	// garantiert zustellbare Fallback (verified unbelegt against every OTHER
-	// binding above, TestHistoryBindingsUnbelegtElsewhere). Wirksam NUR in
-	// fullscreenDetail (keyFullscreen, view_fullscreen.go).
-	HistoryBack    keybind.Binding // ctrl+left / [ — history back
-	HistoryForward keybind.Binding // ctrl+right / ] — history fwd
 }
 
 // newKeyMap returns the currently active keybinding set. The direction cross
@@ -162,45 +166,52 @@ func newKeyMap() keyMap {
 		Left:  keybind.NewBinding(keybind.WithKeys("left", "j"), keybind.WithHelp("←/j", "back/out")),
 		Right: keybind.NewBinding(keybind.WithKeys("right", "l"), keybind.WithHelp("→/l", "in/expand")),
 
-		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "focus in")),
-		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "focus out")),
+		PrevSibling:  keybind.NewBinding(keybind.WithKeys("["), keybind.WithHelp("[", "previous sibling")),
+		NextSibling:  keybind.NewBinding(keybind.WithKeys("]"), keybind.WithHelp("]", "next sibling")),
+		ExpandNode:   keybind.NewBinding(keybind.WithKeys("zo"), keybind.WithHelp("zo", "expand node and children")),
+		CollapseNode: keybind.NewBinding(keybind.WithKeys("zc"), keybind.WithHelp("zc", "collapse node and children")),
+		ExpandAll:    keybind.NewBinding(keybind.WithKeys("zR"), keybind.WithHelp("zR", "expand all")),
+		CollapseAll:  keybind.NewBinding(keybind.WithKeys("zM"), keybind.WithHelp("zM", "collapse all")),
+
+		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next focus")),
+		FocusOut: keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "prev focus")),
 
 		Enter: keybind.NewBinding(keybind.WithKeys("enter"), keybind.WithHelp("enter", "open/confirm")),
 		Back:  keybind.NewBinding(keybind.WithKeys("esc"), keybind.WithHelp("esc", "back")),
-		Quit:  keybind.NewBinding(keybind.WithKeys("q", "ctrl+c"), keybind.WithHelp("q", "quit")),
-		Help:  keybind.NewBinding(keybind.WithKeys("?"), keybind.WithHelp("?", "help")),
+		// Help shows only y/n: enter and esc are listed under Navigation.
+		Confirm: keybind.NewBinding(keybind.WithKeys("enter", "y"), keybind.WithHelp("y", "confirm dialog")),
+		Cancel:  keybind.NewBinding(keybind.WithKeys("esc", "n"), keybind.WithHelp("n", "cancel dialog")),
+		Quit:    keybind.NewBinding(keybind.WithKeys("q"), keybind.WithHelp("q", "quit")),
+		QuitNow: keybind.NewBinding(keybind.WithKeys("ctrl+c"), keybind.WithHelp("ctrl+c", "quit at once")),
+		Help:    keybind.NewBinding(keybind.WithKeys("?"), keybind.WithHelp("?", "help")),
 		// bt-mx4k: ctrl+k retired -- K was long since bound and matches the
 		// D07 case convention (uppercase = view/global). One key, one
 		// function; the header gets six characters shorter, which counts at
 		// 80 columns.
-		Palette: keybind.NewBinding(keybind.WithKeys("K"), keybind.WithHelp("K", "commands")),
-		Picker:  keybind.NewBinding(keybind.WithKeys("p"), keybind.WithHelp("p", "repos")),
-		Backlog: keybind.NewBinding(keybind.WithKeys("b"), keybind.WithHelp("b", "Backlog")),
+		Palette: keybind.NewBinding(keybind.WithKeys("K", ":"), keybind.WithHelp("K/:", "commands")),
+		Picker:  keybind.NewBinding(keybind.WithKeys("P"), keybind.WithHelp("P", "repos")),
+		Ready:   keybind.NewBinding(keybind.WithKeys("R"), keybind.WithHelp("R", "Ready")),
 		Search:  keybind.NewBinding(keybind.WithKeys("/"), keybind.WithHelp("/", "search")),
 		Filter:  keybind.NewBinding(keybind.WithKeys("f"), keybind.WithHelp("f", "Filter")),
 		Yank:    keybind.NewBinding(keybind.WithKeys("y"), keybind.WithHelp("y", "Yank")),
 		Refresh: keybind.NewBinding(keybind.WithKeys("ctrl+r"), keybind.WithHelp("ctrl+r", "reload")),
-		Section: keybind.NewBinding(keybind.WithKeys("1", "2", "3", "4", "5", "6", "7", "8", "9"), keybind.WithHelp("1…9", "Section")),
 
 		FilterClear: keybind.NewBinding(keybind.WithKeys("X"), keybind.WithHelp("X", "Clear filters")),
 		Toggle:      keybind.NewBinding(keybind.WithKeys(" ", "x"), keybind.WithHelp("space/x", "Toggle facet")),
 		Sort:        keybind.NewBinding(keybind.WithKeys("S"), keybind.WithHelp("S", "Sort")),
-		FlatView:    keybind.NewBinding(keybind.WithKeys("G"), keybind.WithHelp("G", "Nested/Flat")),
+		Roadmap:     keybind.NewBinding(keybind.WithKeys("M"), keybind.WithHelp("M", "Roadmap")),
+		FlatList:    keybind.NewBinding(keybind.WithKeys("L"), keybind.WithHelp("L", "List")),
 
 		Status:   keybind.NewBinding(keybind.WithKeys("s"), keybind.WithHelp("s", "Status")),
-		Type:     keybind.NewBinding(keybind.WithKeys("o"), keybind.WithHelp("o", "Type")),
-		Priority: keybind.NewBinding(keybind.WithKeys("u"), keybind.WithHelp("u", "Priority")),
-		Assign:   keybind.NewBinding(keybind.WithKeys("a"), keybind.WithHelp("a", "Parent")),
-		// Label "Relations", nicht "Blocking" (PO-Befund #7): das Overlay heisst
-		// Relations und die Detail-Pane ueberschreibt ihr Panel ebenso. Der
-		// Bezeichner `Blocking` und `data.SetBlocking` bleiben, weil sie die
-		// konkrete Beziehungsart meinen -- ebenso appendGroup("Blocking", ...)
-		// in view_detail_bean.go, das eine Gruppe INNERHALB des Relations-Panels
-		// benennt. Nur das ANZEIGE-Label folgt der Ueberschrift.
-		Blocking:  keybind.NewBinding(keybind.WithKeys("r"), keybind.WithHelp("r", "Relations")),
+		Type:     keybind.NewBinding(keybind.WithKeys("t"), keybind.WithHelp("t", "Type")),
+		Priority: keybind.NewBinding(keybind.WithKeys("p"), keybind.WithHelp("p", "Priority")),
+		Assign:   keybind.NewBinding(keybind.WithKeys("a"), keybind.WithHelp("a", "assign parent")),
+		// b opens the blocking picker (U10); the item-detail panel is still
+		// titled "Relations" and groups blocking/blocked-by inside it.
+		Blocking:  keybind.NewBinding(keybind.WithKeys("b"), keybind.WithHelp("b", "Relations")),
 		Create:    keybind.NewBinding(keybind.WithKeys("c"), keybind.WithHelp("c", "Create")),
 		Delete:    keybind.NewBinding(keybind.WithKeys("d"), keybind.WithHelp("d", "Delete")),
-		TagAssign: keybind.NewBinding(keybind.WithKeys("t"), keybind.WithHelp("t", "Tags")),
+		TagAssign: keybind.NewBinding(keybind.WithKeys("g"), keybind.WithHelp("g", "Tags")),
 		Editor:    keybind.NewBinding(keybind.WithKeys("e", "ctrl+e"), keybind.WithHelp("e", "Edit")),
 
 		NewTag: keybind.NewBinding(keybind.WithKeys("n"), keybind.WithHelp("n", "New tag")),
@@ -214,10 +225,8 @@ func newKeyMap() keyMap {
 
 		RenameTag: keybind.NewBinding(keybind.WithKeys("e"), keybind.WithHelp("e", "Rename")),
 
-		Fullscreen: keybind.NewBinding(keybind.WithKeys("v"), keybind.WithHelp("v", "fullscreen")),
-
-		HistoryBack:    keybind.NewBinding(keybind.WithKeys("ctrl+left", "["), keybind.WithHelp("[", "history back")),
-		HistoryForward: keybind.NewBinding(keybind.WithKeys("ctrl+right", "]"), keybind.WithHelp("]", "history fwd")),
+		LayoutNext: keybind.NewBinding(keybind.WithKeys("v"), keybind.WithHelp("v", "next layout")),
+		LayoutPrev: keybind.NewBinding(keybind.WithKeys("V"), keybind.WithHelp("shift+v", "previous layout")),
 	}
 }
 
@@ -236,8 +245,9 @@ type helpGroup struct {
 // a later task — the help view itself is out of scope here).
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
-		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.Enter, k.Back, k.Section, k.FocusIn, k.FocusOut, k.Fullscreen, k.HistoryBack, k.HistoryForward}},
-		{"Views & Global", []keybind.Binding{k.Backlog, k.Picker, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.FlatView}},
+		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
+		{"Dialogs", []keybind.Binding{k.Confirm, k.Cancel}},
+		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are
@@ -266,16 +276,16 @@ func (k keyMap) helpGroups() []helpGroup {
 // dispatched at the same global handleKey checkpoint as Palette/Picker/
 // Quit -- dispatch POSITION and display BUCKET are two different axes (see
 // bt-t1uy's own T7 notes): FocusIn/FocusOut stay footer/view-local
-// (browseRepoLocalBindings/backlogLocalBindings, now FIRST per Q06's
+// (browseRepoLocalBindings/readyLocalBindings, now FIRST per Q06's
 // ordering). Every other global-checkpoint key (Create/Status/TagAssign/
-// Assign/Blocking/Delete/Editor/Yank/Backlog/Search/Filter/FilterClear/
+// Assign/Blocking/Delete/Editor/Yank/Ready/Search/Filter/FilterClear/
 // Section) is the same -- reachable from anywhere, but shown per-view in
 // the footer, not here (TestNoDuplicateBindingBetweenGlobalAndAnyLocalHint
 // List guards the two footer lists against ever re-adding one of THESE 4).
 //
 // PF-11 precedent (superseded, kept for history): the original 7-item set
 // was `{Refresh, Palette, Picker, Help, Back, Enter, Quit}`, rendered
-// `ctrl+r:reload · ctrl+k:commands · p:repos · ?:help · esc:back ·
+// `ctrl+r:reload · ctrl+k:commands · p:repos (now P) · ?:help · esc:back ·
 // enter:open/confirm · q:quit` -- the PO's own Grilling feedback found this
 // too noisy; D04 is the direct fast-follow.
 func globalBindings() []keybind.Binding {
@@ -309,4 +319,20 @@ func navKey(k string) string {
 		return "right"
 	}
 	return k
+}
+
+// boundKeys returns every key string some keyMap binding answers to, so
+// tui.actions cannot claim one.
+func (k keyMap) boundKeys() map[string]bool {
+	bound := map[string]bool{}
+	v := reflect.ValueOf(k)
+	for i := 0; i < v.NumField(); i++ {
+		if b, ok := v.Field(i).Interface().(keybind.Binding); ok {
+			for _, key := range b.Keys() {
+				bound[key] = true
+			}
+		}
+	}
+	bound[foldPrefixKey] = true // prefix of the fold sequences zo/zc/zR/zM
+	return bound
 }

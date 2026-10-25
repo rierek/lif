@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/rierek/lif/internal/output"
+	"github.com/rierek/lif/internal/storeroot"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/spf13/cobra"
 )
@@ -489,222 +490,10 @@ func mustMkdirAll(t *testing.T, path string) {
 	}
 }
 
-// resolveStorePath: the env var, default store directory and outcome levels.
-func TestResolveStorePath_Levels(t *testing.T) {
-	loadedCfg := func(t *testing.T, dir, name, content string) *config.Config {
-		t.Helper()
-		path := filepath.Join(dir, name)
-		writeFixtureFile(t, path, content)
-		c, err := config.Load(path)
-		if err != nil {
-			t.Fatalf("Load() error = %v", err)
-		}
-		return c
-	}
-
-	t.Run("env var: legacy only is used and recorded", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		store := evalSymlinks(t, t.TempDir())
-		t.Setenv(config.LegacyStoreEnvVar, store)
-		c := config.Default()
-		c.SetConfigDir(t.TempDir())
-
-		got, res, err := resolveStorePath("", c)
-		if err != nil || got != store {
-			t.Fatalf("resolveStorePath() = %q, %v; want %q", got, err, store)
-		}
-		if !res.LegacyEnv || res.StoreDirSource != "env" {
-			t.Errorf("resolution = %+v, want LegacyEnv and source env", res)
-		}
-	})
-
-	t.Run("env var: new only is used and not legacy", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		store := evalSymlinks(t, t.TempDir())
-		t.Setenv(config.StoreEnvVar, store)
-		c := config.Default()
-		c.SetConfigDir(t.TempDir())
-
-		got, res, err := resolveStorePath("", c)
-		if err != nil || got != store {
-			t.Fatalf("resolveStorePath() = %q, %v; want %q", got, err, store)
-		}
-		if res.LegacyEnv || res.StoreDirSource != "env" {
-			t.Errorf("resolution = %+v, want source env, not legacy", res)
-		}
-	})
-
-	t.Run("env var: both without flag or config fail naming both", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		t.Setenv(config.StoreEnvVar, "/a")
-		t.Setenv(config.LegacyStoreEnvVar, "/b")
-		c := config.Default()
-		c.SetConfigDir(t.TempDir())
-
-		_, _, err := resolveStorePath("", c)
-		requireErrNames(t, err, config.StoreEnvVar, config.LegacyStoreEnvVar)
-	})
-
-	t.Run("env var: a found config outranks the legacy variable", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		dir := evalSymlinks(t, t.TempDir())
-		mustMkdirAll(t, filepath.Join(dir, config.LegacyDefaultStoreDir))
-		t.Setenv(config.LegacyStoreEnvVar, "/must/not/be/used")
-		c := loadedCfg(t, dir, config.ConfigFileName, "lif:\n    prefix: a-\n")
-
-		got, res, err := resolveStorePath("", c)
-		if err != nil || got != filepath.Join(dir, config.LegacyDefaultStoreDir) {
-			t.Fatalf("resolveStorePath() = %q, %v; want the config's default store", got, err)
-		}
-		if !res.LegacyEnv || res.StoreDirSource != "default" {
-			t.Errorf("resolution = %+v, want LegacyEnv recorded and source default", res)
-		}
-	})
-
-	t.Run("env var: both are not resolved when the flag decides", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		t.Setenv(config.StoreEnvVar, "/a")
-		t.Setenv(config.LegacyStoreEnvVar, "/b")
-		store := evalSymlinks(t, t.TempDir())
-
-		got, res, err := resolveStorePath(store, config.Default())
-		if err != nil || got != store || res.StoreDirSource != "flag" {
-			t.Errorf("resolveStorePath() = %q, %+v, %v; want the flag store, source flag", got, res, err)
-		}
-	})
-
-	t.Run("env var: both are not resolved when a config file is found", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		t.Setenv(config.StoreEnvVar, "/a")
-		t.Setenv(config.LegacyStoreEnvVar, "/b")
-		dir := evalSymlinks(t, t.TempDir())
-		mustMkdirAll(t, filepath.Join(dir, config.DefaultStoreDir))
-		c := loadedCfg(t, dir, config.ConfigFileName, "lif:\n    prefix: a-\n")
-
-		got, _, err := resolveStorePath("", c)
-		if err != nil || got != filepath.Join(dir, config.DefaultStoreDir) {
-			t.Errorf("resolveStorePath() = %q, %v; want the config's store", got, err)
-		}
-	})
-
-	t.Run("default store directory: legacy only", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		dir := evalSymlinks(t, t.TempDir())
-		mustMkdirAll(t, filepath.Join(dir, config.LegacyDefaultStoreDir))
-		c := config.Default()
-		c.SetConfigDir(dir)
-
-		got, res, err := resolveStorePath("", c)
-		if err != nil || got != filepath.Join(dir, config.LegacyDefaultStoreDir) {
-			t.Fatalf("resolveStorePath() = %q, %v", got, err)
-		}
-		if !res.LegacyStoreDir || res.StoreDirSource != "default" {
-			t.Errorf("resolution = %+v, want LegacyStoreDir, source default", res)
-		}
-	})
-
-	t.Run("default store directory: new only", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		dir := evalSymlinks(t, t.TempDir())
-		mustMkdirAll(t, filepath.Join(dir, config.DefaultStoreDir))
-		c := config.Default()
-		c.SetConfigDir(dir)
-
-		got, res, err := resolveStorePath("", c)
-		if err != nil || got != filepath.Join(dir, config.DefaultStoreDir) {
-			t.Fatalf("resolveStorePath() = %q, %v", got, err)
-		}
-		if res.LegacyStoreDir {
-			t.Errorf("resolution = %+v, want LegacyStoreDir false", res)
-		}
-	})
-
-	t.Run("default store directory: both fail naming both", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		dir := evalSymlinks(t, t.TempDir())
-		mustMkdirAll(t, filepath.Join(dir, config.DefaultStoreDir))
-		mustMkdirAll(t, filepath.Join(dir, config.LegacyDefaultStoreDir))
-		c := config.Default()
-		c.SetConfigDir(dir)
-
-		_, _, err := resolveStorePath("", c)
-		requireErrNames(t, err, config.DefaultStoreDir, config.LegacyDefaultStoreDir, dir)
-	})
-
-	t.Run("default store directory: neither names the new directory", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		dir := evalSymlinks(t, t.TempDir())
-		c := config.Default()
-		c.SetConfigDir(dir)
-
-		_, _, err := resolveStorePath("", c)
-		requireErrNames(t, err, filepath.Join(dir, config.DefaultStoreDir))
-	})
-
-	t.Run("an explicit path is honored verbatim next to both default names", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		dir := evalSymlinks(t, t.TempDir())
-		mustMkdirAll(t, filepath.Join(dir, config.DefaultStoreDir))
-		mustMkdirAll(t, filepath.Join(dir, config.LegacyDefaultStoreDir))
-		c := loadedCfg(t, dir, config.LegacyConfigFileName, "beans:\n    path: "+config.LegacyDefaultStoreDir+"\n")
-
-		got, res, err := resolveStorePath("", c)
-		if err != nil || got != filepath.Join(dir, config.LegacyDefaultStoreDir) {
-			t.Fatalf("resolveStorePath() = %q, %v", got, err)
-		}
-		if res.StoreDirSource != "config" || !res.LegacyConfigFile || !res.LegacySectionKey || !res.LegacyStoreDir {
-			t.Errorf("resolution = %+v, want source config and all three legacy names", res)
-		}
-	})
-
-	t.Run("new names record no legacy outcome", func(t *testing.T) {
-		neutralizeStoreEnv(t)
-		dir := evalSymlinks(t, t.TempDir())
-		mustMkdirAll(t, filepath.Join(dir, config.DefaultStoreDir))
-		c := loadedCfg(t, dir, config.ConfigFileName, "lif:\n    path: "+config.DefaultStoreDir+"\n")
-
-		_, res, err := resolveStorePath("", c)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if res.LegacyConfigFile || res.LegacySectionKey || res.LegacyStoreDir || res.LegacyEnv {
-			t.Errorf("resolution = %+v, want no legacy flag", res)
-		}
-	})
-}
-
-// The anchored default resolves in the main worktree root, whatever the
-// worktree-local directories are called.
-func TestResolveStorePath_AnchoredDefault(t *testing.T) {
-	neutralizeStoreEnv(t)
-	mainRoot, worktreeRoot := initWorktreePair(t)
-	// initWorktreePair gives both a legacy store; give the main root the new
-	// name instead so the anchor's choice is visible.
-	if err := os.Remove(filepath.Join(mainRoot, config.LegacyDefaultStoreDir)); err != nil {
-		t.Fatal(err)
-	}
-	mustMkdirAll(t, filepath.Join(mainRoot, config.DefaultStoreDir))
-
-	c := config.Default()
-	c.Items.Anchor = config.AnchorRepoRoot
-	c.SetConfigDir(worktreeRoot)
-
-	got, _, err := resolveStorePath("", c)
-	if err != nil || got != filepath.Join(mainRoot, config.DefaultStoreDir) {
-		t.Errorf("resolveStorePath() = %q, %v; want the main root's %s", got, err, config.DefaultStoreDir)
-	}
-
-	t.Run("both default names in the main root fail naming both", func(t *testing.T) {
-		mustMkdirAll(t, filepath.Join(mainRoot, config.LegacyDefaultStoreDir))
-		_, _, err := resolveStorePath("", c)
-		requireErrNames(t, err, config.DefaultStoreDir, config.LegacyDefaultStoreDir, mainRoot)
-	})
-}
-
 // AC-10: the root command records the outcome of the four levels in the
 // package value `resolution`, which `lif check` reads.
 func TestRoot_RecordsResolutionOutcome(t *testing.T) {
-	stale := storeResolution{StoreDirSource: "stale", LegacyEnv: true}
+	stale := storeroot.Resolution{StoreDirSource: "stale", LegacyEnv: true}
 
 	t.Run("legacy project: all three names legacy, path from the config", func(t *testing.T) {
 		dir := legacyProject(t)
@@ -712,7 +501,7 @@ func TestRoot_RecordsResolutionOutcome(t *testing.T) {
 		if _, stderr, err := runInProject(t, dir, "list"); err != nil {
 			t.Fatalf("list error = %v\nstderr: %s", err, stderr)
 		}
-		want := storeResolution{LegacyConfigFile: true, LegacySectionKey: true, LegacyStoreDir: true, StoreDirSource: "config"}
+		want := storeroot.Resolution{LegacyConfigFile: true, LegacySectionKey: true, LegacyStoreDir: true, StoreDirSource: "config"}
 		if resolution != want {
 			t.Errorf("resolution = %+v, want %+v", resolution, want)
 		}
@@ -727,7 +516,7 @@ func TestRoot_RecordsResolutionOutcome(t *testing.T) {
 		if _, stderr, err := runInProject(t, dir, "list"); err != nil {
 			t.Fatalf("list error = %v\nstderr: %s", err, stderr)
 		}
-		want := storeResolution{StoreDirSource: "config"}
+		want := storeroot.Resolution{StoreDirSource: "config"}
 		if resolution != want {
 			t.Errorf("resolution = %+v, want %+v", resolution, want)
 		}
@@ -739,7 +528,7 @@ func TestRoot_RecordsResolutionOutcome(t *testing.T) {
 		if _, stderr, err := runInProject(t, evalSymlinks(t, t.TempDir()), "--lif-path", filepath.Join(dir, config.LegacyDefaultStoreDir), "list"); err != nil {
 			t.Fatalf("list error = %v\nstderr: %s", err, stderr)
 		}
-		want := storeResolution{LegacyStoreDir: true, StoreDirSource: "flag"}
+		want := storeroot.Resolution{LegacyStoreDir: true, StoreDirSource: "flag"}
 		if resolution != want {
 			t.Errorf("resolution = %+v, want %+v", resolution, want)
 		}

@@ -13,10 +13,9 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
-
-	"github.com/rierek/lif/internal/tui/data"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -34,13 +33,14 @@ func frameLines(m model) []string {
 // deep in the list so the window is scrolled, not pinned at the top.
 func longTreeModel(t *testing.T) model {
 	t.Helper()
-	beans := make([]data.Bean, 60)
+	beans := make([]*item.Item, 60)
 	for i := range beans {
-		beans[i] = data.Bean{ID: fmt.Sprintf("gld-r%03d", i), Title: fmt.Sprintf("Row %03d", i), Status: "todo", Type: "task"}
+		beans[i] = &item.Item{ID: fmt.Sprintf("gld-r%03d", i), Title: fmt.Sprintf("Row %03d", i), Status: "todo", Type: "task"}
 	}
 	m := newModel(nil, "/tmp/bt-golden-repo")
 	m = step(t, m, beansLoadedMsg{beans: beans})
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.expanded[unscheduledRootID] = true // parentless tasks sit under the Unscheduled root
 	m.cursorID = "gld-r045"
 	return m
 }
@@ -84,8 +84,8 @@ func TestBrowseRepoPanesGainTheFreedLine(t *testing.T) {
 	m := goldenTreeModel(t)
 	head, localKeys := m.browseRepoChrome(m.width - 2)
 
-	withStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "indicator", m.settings.Layout.TreeWidth)
-	withoutStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "", m.settings.Layout.TreeWidth)
+	withStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "indicator", m.settings.Layout.TreeWidth, layoutFilterDetail)
+	withoutStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "", m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 	if withoutStatus != withStatus+1 {
 		t.Fatalf("bodyH without status line = %d, want %d (exactly one row more than with it: %d)", withoutStatus, withStatus+1, withStatus)
@@ -109,7 +109,9 @@ func TestClickPaneGeometryBodyHMatchesRenderedPane(t *testing.T) {
 		m.watchUnavailable = watchDown
 
 		head, localKeys := m.browseRepoChrome(m.width - 2)
-		bodyH, _, _, _, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+		bodyH, _, _, _, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
+		bodyH -= filterBarHeight // the filter bar is reclaimed from bodyH
+		originY += filterBarHeight
 
 		lines := frameLines(m)
 		// The frame must still fill the terminal exactly. This is where a
@@ -121,7 +123,7 @@ func TestClickPaneGeometryBodyHMatchesRenderedPane(t *testing.T) {
 		}
 		rendered := 0
 		for y := originY; y < len(lines); y++ {
-			if strings.Contains(lines[y], "╰") {
+			if strings.HasPrefix(lines[y], "│╰") {
 				break
 			}
 			rendered++
@@ -149,8 +151,12 @@ func TestTreeClickRowSurvivesStatusLineRemoval(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
-	for _, watchDown := range []bool{false, true} {
-		m := longTreeModel(t)
+	for _, tc := range []struct {
+		watchDown bool
+		layout    layoutMode
+	}{{false, layoutRoadmap}, {true, layoutRoadmap}, {false, layoutFilterDetail}, {true, layoutFilterDetail}} {
+		watchDown := tc.watchDown
+		m := longTreeModel(t).setLayout(tc.layout)
 		m.watchUnavailable = watchDown
 		nodes := m.visibleNodes()
 		lines := frameLines(m)
@@ -159,7 +165,7 @@ func TestTreeClickRowSurvivesStatusLineRemoval(t *testing.T) {
 		// Detail pane repeats the selected bean's ID in its header, which
 		// would otherwise match on the wrong screen row.
 		head, localKeys := m.browseRepoChrome(m.width - 2)
-		_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+		_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, m.layout)
 
 		checked := 0
 		for want, n := range nodes {
@@ -188,7 +194,7 @@ func TestTreeClickRowSurvivesStatusLineRemoval(t *testing.T) {
 					watchDown, screenY, n.bean.ID, got, ok, want)
 			}
 		}
-		if checked < 15 {
+		if checked < 10 {
 			t.Fatalf("watchUnavailable=%v: only %d rows were on screen -- fixture no longer exercises the windowed path", watchDown, checked)
 		}
 	}

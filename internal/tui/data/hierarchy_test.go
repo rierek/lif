@@ -4,6 +4,7 @@ package data
 // (E3 Task 3, bean bt-p1uz, epic-E3-plan.md »Task 3« Step 1).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"testing"
 	"time"
 )
@@ -42,7 +43,7 @@ func TestValidParentTypesMirrorsBeancore(t *testing.T) {
 // TestCollectDescendantsBFS guards the plain hierarchy case: m -> e -> t1,
 // t2.
 func TestCollectDescendantsBFS(t *testing.T) {
-	beans := []Bean{
+	beans := []*item.Item{
 		{ID: "m", Title: "Milestone", Type: "milestone"},
 		{ID: "e", Title: "Epic", Type: "epic", Parent: "m"},
 		{ID: "t1", Title: "Task One", Type: "task", Parent: "e"},
@@ -72,7 +73,7 @@ func TestCollectDescendantsBFS(t *testing.T) {
 // regression (missing visited guard) fails the test instead of hanging the
 // whole suite forever.
 func TestCollectDescendantsSurvivesParentCycle(t *testing.T) {
-	beans := []Bean{
+	beans := []*item.Item{
 		{ID: "a", Title: "A", Type: "task", Parent: "b"},
 		{ID: "b", Title: "B", Type: "task", Parent: "a"},
 	}

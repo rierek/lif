@@ -204,7 +204,7 @@ func TestBootstrapSkipDoesNotMarkPick(t *testing.T) {
 // IsBootstrapSkip annotation read in isolation, over a directory with no
 // reachable store. A bootstrap-skip verb (version) must return with no
 // store-load error; a non-skip verb (list) must fail with the store-load
-// error resolveStorePath produces. This is the observable difference a
+// error storeroot.Resolve produces. This is the observable difference a
 // mutation of root.go:43 back to `if false` or the old cmd.Name() literal
 // would erase without any of this file's other tests noticing, since they
 // only assert the annotation, never PersistentPreRunE's own behaviour.

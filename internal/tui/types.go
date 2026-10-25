@@ -7,6 +7,10 @@ package tui
 // beans-native from the start, design-spec.md §3.1/§13).
 
 import (
+	pkgconfig "github.com/rierek/lif/pkg/config"
+	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/itemcore"
+	"github.com/rierek/lif/pkg/roadmap"
 	"time"
 
 	"github.com/rierek/lif/internal/tui/config"
@@ -18,14 +22,14 @@ import (
 )
 
 // viewID enumerates the top-level screens. T8 ships exactly one (the Browse
-// Primat-View, design-spec.md §6 V2); later epics add Backlog/Detail/
+// Primat-View, design-spec.md §6 V2); later epics add Ready/Detail/
 // Command-Center/Review/Forms/Overlays as siblings — the switch in View()
 // (view_browse_repo.go) grows one case per view, never a branch here.
 type viewID int
 
 const (
 	viewBrowseRepo viewID = iota
-	viewBacklog           // V3 Backlog (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3)
+	viewReady             // V3 Ready (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3)
 	viewLobby             // V1 Lobby/Repo-Picker (E5 Task 6, bean bt-zhwl, design-spec.md §6 V1)
 	// viewTagManagement (E10 Task 2, bean bt-r92i, epic bt-362n D05): the
 	// Tag-Management page -- ALWAYS appended LAST (never resort the values
@@ -33,20 +37,25 @@ const (
 	viewTagManagement
 )
 
-// orphanRootID is the synthetic node ID for the "(orphaned)" root that
-// collects every bean whose parent field does not resolve to a known bean
-// (MANDATORY orphan rule, bean bt-7jr8 / T3-review Q01: dangling parents are
-// beans-legal — `.md` is freely editable and `beans check` only reports
-// broken_links — so the tree must show them, never silently drop them). The
-// leading NUL byte guarantees this can never collide with a real beans ID
-// (beans IDs are `<prefix>-<n-chars>`, never containing \x00).
-const orphanRootID = "\x00orphans"
+// Synthetic root node IDs below the roadmap tree. "Unscheduled" holds the
+// roadmap's unscheduled containers and leaves; "Not on roadmap" holds every
+// item the roadmap places nowhere (childless milestones, types with
+// `roadmap: false`, invalid parents, parent cycles) as flat rows -- dropped
+// items must never be silently invisible. The leading NUL byte guarantees
+// these can never collide with a real item ID.
+const (
+	unscheduledRootID  = "\x00unscheduled"
+	notOnRoadmapRootID = "\x00notonroadmap"
+
+	sectionUnscheduled  = "Unscheduled"
+	sectionNotOnRoadmap = "Not on roadmap"
+)
 
 // overlayID enumerates E3's node-action overlays (Value-Menü, Tag-/Parent-/
 // Blocking-Picker, Create-/Delete-Confirm) -- mutually exclusive by
 // construction (design decision a2, bean bt-dlgk): ONE model.overlay field
-// (iota-enum) instead of six more bool fields alongside filterOpen/
-// confirmQuit. The two E2 bools are NOT retrofitted into this enum
+// (iota-enum) instead of six more bool fields alongside
+// confirmQuit. confirmQuit is NOT retrofitted into this enum
 // (documented, deliberate coexistence) -- handleKey's capture order settles
 // precedence between them. m.form != nil (T4) is a third, separate capture
 // state (huh forms are not a menu overlay). T1 wires overlayValueMenu only;
@@ -63,6 +72,8 @@ const (
 	overlayBlockingPicker
 	overlayCreateConfirm
 	overlayDeleteConfirm
+	overlayTaskOutput
+	overlayFilterMenu
 )
 
 // Picker-Stil-Divergenz (E3-T3-Review PFLICHT, carried into bean bt-ppzb/E3
@@ -72,7 +83,7 @@ const (
 // (tagPickerBox) use theme.Header.Render plus a leading "▸ " glyph on an
 // otherwise PLAIN value/tag string. box_picker_parent.go (parentPickerBox)
 // and box_picker_blocking.go (blockingPickerBox) instead use the D08 cursor
-// treatment shared with the Tree/Backlog panes (ansi.Strip + a whole-line
+// treatment shared with the Tree/Ready panes (ansi.Strip + a whole-line
 // theme.Accent.Render("▌"+plain) wrap) -- because THEIR rows are
 // relationRow-rendered (already carrying their own status-icon/type-icon
 // colors), so a second Header-wrap would clash with the existing per-cell
@@ -102,33 +113,6 @@ func cloneBoolMap(src map[string]bool) map[string]bool {
 	return out
 }
 
-// cloneStringSlice is cloneBoolMap's []string counterpart -- the same I01
-// Copy-on-Write rationale, applied to navBack/navForward (F01 History-Stack,
-// E9 Task 8, bean bt-1vbp): every push clones via this helper before
-// appending, so a slice header shared with an older model copy (a test
-// variable held around, a future undo feature) never gets silently aliased
-// by a later append reusing spare backing-array capacity.
-func cloneStringSlice(src []string) []string {
-	out := make([]string, len(src))
-	copy(out, src)
-	return out
-}
-
-// fullscreenMode enumerates F01's Vollbild-Navigation state (design-spec.md
-// §15 "F01 — Vollbild-Navigation", bean bt-13l7, E9 Task 7): ORTHOGONAL to
-// viewID (m.view) -- Vollbild changes only HOW the active view's Master-
-// Detail pair renders (one full-width pane instead of two side-by-side), it
-// never changes WHICH viewID is active. No new viewID value is added for
-// this (design decision, explicitly verified against the bean's own
-// Akzeptanz-Checkliste).
-type fullscreenMode int
-
-const (
-	fullscreenNone   fullscreenMode = iota
-	fullscreenList                  // Tree ODER Backlog-Liste (je nach m.view), Vollbreite
-	fullscreenDetail                // Detail-Accordion EINES Beans, Vollbreite
-)
-
 // model is the App-Shell state. T8 wires the read-only Tree (design-spec.md
 // §6 V2 basis) + async load/reload/watch; mutation state (forms, pickers,
 // menus) lands in E2/E3 as new fields on this same struct (devd port
@@ -138,30 +122,41 @@ type model struct {
 
 	width, height int
 
-	client  *data.Client
+	store   *data.Store
 	repoDir string
 
 	idx *data.Index
 	err string // rendered in the status line; "" = no error to show
 
-	expanded map[string]bool // node ID (bean ID or orphanRootID) -> expanded
-	cursorID string          // currently selected node's ID (bean ID or orphanRootID)
+	// The tree is the roadmap (roadmap.Build, rebuilt by applyLoaded on every
+	// load): roadmapScheduled = milestone roots, roadmapUnscheduled = the
+	// "Unscheduled" root's nodes, notOnRoadmap = items placed nowhere (flat
+	// rows under the "Not on roadmap" root). treeParent maps a node ID to its
+	// tree parent's ID (synthetic roots included) for expandAncestorsOf.
+	// readyIDs is the `lif list --ready` set the Ready view shows.
+	roadmapScheduled, roadmapUnscheduled []*roadmap.Node
+	notOnRoadmap                         []*item.Item
+	treeParent                           map[string]string
+	readyIDs                             map[string]bool
 
-	// detailFocus is the Tree<->Detail focus toggle (bean bt-7jr8 Q01):
-	// view-local `tab` handling, deliberately NOT routed through keymap.Right
-	// (which stays the tree's expand key).
+	expanded   map[string]bool // node ID (item ID or a synthetic root ID) -> expanded
+	cursorID   string          // currently selected node's ID (item ID or a synthetic root ID)
+	foldPrefix bool            // "z" was just pressed in the roadmap: the next key completes a fold sequence (update.go handleKey)
+
+	// detailFocus: the Detail pane holds the focus, one stop of the focus
+	// ring (stepFocus, layout.go); tab/shift+tab are deliberately NOT routed
+	// through keymap.Right (which stays the tree's expand key).
 	detailFocus bool
 
-	// Detail-Accordion focus machine (E2 Task 2, bean bt-2jve, port devd
-	// view_detail_issue.go's detailFocusView): secCursor/accOpen track the
-	// section level (0-based cursor / 1-based exclusive-open, kept as two
-	// fields since renderAccordion's `open` param is 1-based per its digit
-	// header while every other cursor in this codebase is 0-based).
-	// detailLevel 0 = section level, 1 = field level (Beziehungen only).
-	// fieldCursor indexes the currently open section's fields when
-	// detailLevel == 1. All four reset on every `tab`-into-detail-focus
-	// transition (handleKey).
-	secCursor, accOpen, detailLevel, fieldCursor int
+	// taskActions are the tui.actions of the open repo's config that passed
+	// validation (setTaskActions). Label is resolved.
+	taskActions []pkgconfig.TUIAction
+
+	// taskOutput* hold the open overlayTaskOutput: its title, the sanitized
+	// output lines and the index of the first visible line.
+	taskOutputTitle  string
+	taskOutputLines  []string
+	taskOutputScroll int
 
 	// Suche `/` (E2 Task 3, bean bt-4ep2, design-spec.md §6 V2): searchActive
 	// is the textinput-focused typing state (single-key shortcuts inactive
@@ -197,62 +192,46 @@ type model struct {
 	searchPrefixFacets map[string][]string
 	searchPrefixRest   string
 
-	// Facetten-Filter `f`/`X` (E2 Task 4, bean bt-9ldr, design-spec.md §6
-	// US-05): ONE shared filter state for Tree (this task) AND Backlog (Task
-	// 5 reuses it unchanged, same view-agnostic pattern as focusedBean()).
+	// Facet filter `f`/`X`: ONE shared filter state for Tree, flat and Ready.
 	// filterStatus/filterType/filterPriority/filterTag are COPY-ON-WRITE
 	// (I01 doc-stamp above) -- every toggle clones via cloneBoolMap before
-	// writing. filterItems is the flattened menu row list built fresh each
-	// time the menu opens (buildFilterItems, box_filter_facets.go);
-	// filterMenu is its cursor (listState, first non-test consumer since
-	// E1). filterOpen mirrors searchActive's "floating overlay fully
-	// captures input" precedent (handleKey).
+	// writing.
 	//
-	// filterTab (bt-2p9m, PO-Review E11 Runde 2, Plan-Konkretisierung E12
-	// Item 7) is the Querformat tab cursor -- WHICH facet group
-	// (Status/Type/Priority/Tags/Archive, facetHead order) currently has
-	// focus. Deliberately a SEPARATE field from filterMenu.cursor, not a
-	// second listState: filterMenu.cursor keeps its existing meaning (a
-	// GLOBAL index into the flattened filterItems slice, unchanged --
-	// TestFilterMenuUpDownMovesCursorSpaceTogglesRow and toggleFacet's own
-	// m.filterItems[m.filterMenu.cursor] lookup both rely on that), while
-	// filterTab only narrows which contiguous sub-range of filterItems
-	// up/down is allowed to move the cursor within (filterMenuMoveCursor,
-	// box_filter_facets.go). tab/shift+tab (keys.FocusIn/FocusOut, reused
-	// inside keyFilterMenu -- see that function's own doc comment for the
-	// verified Full-Capture precedence over the global FocusIn/FocusOut
-	// case in handleKey) change filterTab and jump filterMenu.cursor to the
-	// new tab's first element (PO-Klickpfad step 3, epic-E12-plan.md Item
-	// 7).
+	// The filter bar's fields (filterFields, box_filter_facets.go) are focus
+	// targets: filterFocus says the focus is in the bar, filterField is the
+	// focused field's index into filterFields. Activating a field opens its
+	// value menu (overlayFilterMenu); filterItems is the flattened row list
+	// built fresh each time the menu opens (buildFilterItems) and filterMenu
+	// is its cursor, a GLOBAL index into filterItems.
 	filterStatus, filterType, filterPriority, filterTag map[string]bool
-	filterOpen                                          bool
+	filterFocus                                         bool
+	filterField                                         int
 	filterItems                                         []ffItem
 	filterMenu                                          listState
-	filterTab                                           int
 
-	// Backlog `b` (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3): backlogList
-	// is the Backlog master pane's cursor (index-based, listState -- unlike
-	// the Tree's bean-ID cursorID, the Backlog is a flat, non-hierarchical
-	// list, so an index is sufficient and mirrors devd's own backlogCursor
-	// shape). Kept in sync (setLen) by keyBacklog on every keypress it
-	// handles and by the `b`-open case in keyTree, since backlogVisible()'s
+	// Ready `b` (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3): readyList
+	// is the Ready master pane's cursor (index-based, listState -- unlike
+	// the Tree's bean-ID cursorID, the Ready is a flat, non-hierarchical
+	// list, so an index is sufficient and mirrors devd's own readyCursor
+	// shape). Kept in sync (setLen) by keyReady on every keypress it
+	// handles and by the `b`-open case in keyTree, since readyVisible()'s
 	// LENGTH can change out from under it (search/filter routes through the
 	// SHARED keySearchInput/keyFilterMenu handlers, which know nothing about
-	// backlogList -- view_browse_backlog.go's doc comment has the full
-	// rationale). backlogSort is the active Sort-Toggle `S` mode: ""
-	// (default) leaves idx.Backlog()'s own canonical order in place;
+	// readyList -- view_browse_ready.go's doc comment has the full
+	// rationale). readySort is the active Sort-Toggle `S` mode: ""
+	// (default) leaves the canonical order in place;
 	// "status"/"priority"/"created"/"updated" are the four cycle stops
-	// (nextBacklogSort, view_browse_backlog.go).
-	backlogList listState
-	backlogSort string
+	// (nextReadySort, view_browse_ready.go).
+	readyList listState
+	readySort string
 
 	// Nested/Flat Browse toggle `G` (jira-style-ui experiment S5, D07
 	// uppercase = view/global group): flatView switches the Browse view's
 	// LEFT pane between the Tree (nested, default) and a flat, sorted list
 	// (columns) -- the master-detail split and the Detail pane itself are
-	// UNCHANGED (unlike the full-screen Backlog view, view_browse_backlog.go
+	// UNCHANGED (unlike the full-screen Ready view, view_browse_ready.go
 	// -- flat mode here is still Browse, master-detail stays intact). flatList
-	// is a minimal index-based cursor (listState, mirrors backlogList's own
+	// is a minimal index-based cursor (listState, mirrors readyList's own
 	// shape/rationale) over flatVisible()'s bean slice -- kept deliberately
 	// SEPARATE from the Tree's cursorID rather than reconciled into one
 	// shared cursor: the Tree's bean-ID cursor and a flat index cursor are
@@ -263,48 +242,43 @@ type model struct {
 	flatView bool
 	flatList listState
 
-	// Box-form Detail-Pane scroll (jira-style-ui experiment, bean bt-ze10,
-	// epic bt-vy1q F1): detailBoxForm (box_detail_form.go) renders Title +
-	// scalar-grid + Body/Relations/History as ONE tall string with NO
-	// windowing of its own -- unlike the accordion's RELATIONS section
-	// (windowRelationsSection, view_browse_repo.go), a long Body used to
-	// simply get cut off, Relations/History unreachable. boxFormScroll is
-	// the offset renderAccordionPane's boxFormEnabled() branch windows that
-	// string to (scrollView, view.go), advanced/clamped by keyDetailFocus's
-	// up/down (update.go, boxFormEnabled()-gated) and wheelMove (mouse.go,
-	// wheel over the Detail pane) via mouse.go's adjustBoxFormScroll/
-	// boxFormScrollBounds. boxFormScrollBean is the bean ID the offset was
-	// last computed for -- a SELECTION change is detected lazily by
-	// comparing this against the currently focused bean's ID
+	// Box-form Detail-Pane scroll (bean bt-ze10, epic bt-vy1q F1):
+	// detailBoxForm (box_detail_form.go) renders Title + scalar-grid +
+	// Body/Relations/History as ONE tall string with NO windowing of its
+	// own. boxFormScroll is the offset renderDetailBox windows that string
+	// to (scrollView, view.go), advanced/clamped by pgup/pgdn
+	// (update.go), boxFormNav and wheelMove
+	// (mouse.go, wheel over the Detail pane) via mouse.go's
+	// adjustBoxFormScroll/boxFormScrollBounds. boxFormScrollBean is the bean
+	// ID the offset was last computed for -- a SELECTION change is detected
+	// lazily by comparing this against the currently focused bean's ID
 	// (boxFormEffectiveScroll, mouse.go) wherever the offset is READ, rather
 	// than hunted down at every one of the many cursor-move/click/jump call
 	// sites that can change the selected bean (Golden-Rule-Drift-Schutz: one
 	// derived check beats N independent, driftable reset sites). Both zero-
-	// valued by default -- accordion mode (boxFormEnabled() off) never reads
-	// either field.
+	// valued by default.
 	boxFormScroll     int
 	boxFormScrollBean string
 
 	// Box-form Detail-Pane FIELD CURSOR (bean bt-1o4g, epic bt-vy1q, PO-
 	// Nebenbefund N8 "keyboard-first"): the index into boxFormFieldOrder
-	// (box_nav_field.go) the arrow keys move and enter activates while the
+	// (box_nav_field.go) the up/down keys move and enter activates while the
 	// Detail pane is focused. boxFormCursorBean mirrors boxFormScrollBean's
 	// derived-reset doctrine exactly (see above): the cursor is reset to the
 	// first field lazily, where it is READ (boxFormEffectiveCursor), by
 	// comparing this ID against the currently focused bean -- not at every
 	// call site that can change the selection. Zero-valued by default, which
 	// is ALSO the "cursor on Title" default, so no explicit init is needed;
-	// accordion mode (boxFormEnabled() off) never reads or writes either
-	// field, and an UNFOCUSED Detail pane renders with cursor -1 (no Mauve
-	// frame at all, so the flag-on goldens stay byte-identical).
+	// an UNFOCUSED Detail pane renders with cursor -1 (no Mauve frame at
+	// all).
 	boxFormCursor     int
 	boxFormCursorBean string
 
 	confirmQuit bool
 
 	// E3 (bean bt-dlgk): node-action overlays -- mutually exclusive by
-	// construction (ONE enum field, not 6 bools; filterOpen/confirmQuit
-	// predate this and are deliberately not retrofitted, see overlayID's
+	// construction (ONE enum field, not 6 bools; confirmQuit
+	// predates this and is deliberately not retrofitted, see overlayID's
 	// doc-stamp above). mutTarget is the bean ID the open overlay acts on,
 	// captured at open time; the ETag is NEVER captured -- every submit
 	// re-reads m.idx.ByID[mutTarget].ETag (beanETag, update.go) so
@@ -433,7 +407,7 @@ type model struct {
 
 	// huh-Form-Hosting (E3 Task 4, bean bt-y4ly, Port devd forms_shared.go):
 	// form is the embedded huh sub-model (nil when no form is open, the
-	// THIRD separate capture state alongside filterOpen/m.overlay, design
+	// THIRD separate capture state alongside m.overlay, design
 	// decision a2 -- huh forms are not a menu overlay); formKind is "create"
 	// (T4; T5 adds "editTitle") and drives both submitForm's dispatch
 	// (box_confirm_create.go) and formTitle's label (forms_shared.go).
@@ -464,7 +438,7 @@ type model struct {
 	// sketch (which additionally lists a `createConfirm bool` field
 	// alongside these): design decision a2 is unambiguous that the E3
 	// overlays -- INCLUDING Create-Confirm -- are ONE model.overlay
-	// overlayID enum, not "6 weitere Bools neben filterOpen/confirmQuit";
+	// overlayID enum, not "6 weitere Bools neben confirmQuit";
 	// Task 4's own Step 4 pseudocode agrees verbatim (`overlay =
 	// overlayCreateConfirm`, never `createConfirm = true`). No separate bool
 	// is added here -- the Confirm-Gate's open/closed state IS
@@ -504,7 +478,7 @@ type model struct {
 	editorETag   string
 
 	// editorSnapshot (D01, design-spec.md §15 PF-17, bean bt-z4b1): the FULL
-	// *data.Bean value at $EDITOR-OPEN time, frozen in the SAME
+	// *item.Item value at $EDITOR-OPEN time, frozen in the SAME
 	// openBeanEditor call as editorTarget/editorETag above -- unlike the
 	// old openBodyEditor (SetBody-only, E3 Task 5/E8 B10, both SUPERSEDED
 	// by this task), the whole-bean $EDITOR round-trip diffs EVERY field
@@ -515,7 +489,7 @@ type model struct {
 	// applyBeanRawLoaded's error paths (update.go) clear all three
 	// together on every exit, mirroring editorTarget/editorETag's own
 	// contract.
-	editorSnapshot *data.Bean
+	editorSnapshot *item.Item
 
 	// Delete-Confirm `d` (E3 Task 6, bean bt-ppzb, box_confirm_delete.go):
 	// delTitle/delChildren are captured at OPEN time (openDeleteConfirm) for
@@ -561,7 +535,7 @@ type model struct {
 
 	// Command-Center (E4 Task 1, bean bt-jpgn, design decisions a/b/h):
 	// paletteOpen is a full-capture floating-overlay state, same precedent
-	// as filterOpen (handleKey capture order, design decision h). palQuery
+	// as m.overlay (handleKey capture order, design decision h). palQuery
 	// drives the action candidate pool -- palList is the cursor over the
 	// filtered result list (palFiltered, rebuilt every keystroke). E4 Task 2
 	// (bean bt-yo60) had added a SECOND candidate pool (matching beans mixed
@@ -610,7 +584,7 @@ type model struct {
 
 	// Help-Overlay (E5 Task 2, bean bt-wpn9, Port devd overlay_shortcuts.go):
 	// helpOpen is a full-capture floating-overlay state, same precedent as
-	// filterOpen/paletteOpen above -- `?` (keys.Help) opens it from ANY
+	// paletteOpen above -- `?` (keys.Help) opens it from ANY
 	// view (design decision h, ctrl+k/Palette precedent), esc/?/q close it,
 	// every OTHER key is swallowed as a no-op while it stays open (a
 	// deliberate deviation from devd, which closes Help on any key --
@@ -618,6 +592,13 @@ type model struct {
 	// Help has existed since E1 Task 7 and is already covered by the
 	// Drift-Guard test TestHelpGroupsCoverEveryBindingExactlyOnce.
 	helpOpen bool
+	// U6 (bean beans-rbwc): helpQuery is the search term (live, case-
+	// insensitive); helpSearching is true while the search field takes text
+	// (entered with `/`, left with enter or esc); helpScroll is the first
+	// visible content row. All three reset when the help closes.
+	helpQuery     string
+	helpSearching bool
+	helpScroll    int
 
 	// Maus (E5 Task 4, bean bt-mne6, design decision f): lastClickIdx/
 	// lastClickAt back the Tree's Doppelklick detection (Port devd
@@ -656,23 +637,21 @@ type model struct {
 	// filter text over m.settings.Repos, repoSearch the backing
 	// textinput.Model (constructed once in newModel, like searchInput/
 	// tagInput), repoList the cursor over the CURRENTLY filtered result
-	// (filteredRepos(), view_lobby.go). watchStop holds the CURRENTLY
-	// running watcher's stop func -- the crux of the whole task: unlike E1-
-	// E4, where the watcher's stop lived ONLY as app.go Run()'s own local
-	// variable (invisible to Update()), a repo switch needs Update() itself
-	// to be able to retire the OLD watcher before the new one starts
-	// (switchRepoCmd, messages.go) -- so it now lives on the model instead.
-	// Populated two ways: the VERY FIRST watcher (app.go Run(), via the
-	// async initialWatchMsg -- see that type's own doc-stamp for why not a
-	// direct field write) and every subsequent repoSwitchedMsg
-	// (applyRepoSwitched, update.go). nil is a legitimate steady-state value
-	// (data.Watch failed to start, m.watchUnavailable carries that instead,
-	// I04 precedent) -- callers must nil-check before calling it (mirrors
-	// data.Watch's own stop being nil on error).
-	repoQuery  string
-	repoSearch textinput.Model
-	repoList   listState
-	watchStop  func()
+	// (filteredRepos(), view_lobby.go). storeEvents is the CURRENT store's
+	// change-event channel (Store.Watch): Update() re-arms
+	// waitForStoreEvents(m.storeEvents) after each batch, and a repo switch
+	// replaces it (applyRepoSwitched). nil is a legitimate steady-state value
+	// (Watch failed to start, m.watchUnavailable carries that, I04
+	// precedent); waitForStoreEvents(nil) is a no-op.
+	repoQuery   string
+	repoSearch  textinput.Model
+	repoList    listState
+	storeEvents <-chan []itemcore.ItemEvent
+	// repoFilterOpen: the Lobby filter takes typed text; it opens with / only
+	// (beans-u4uu), so q and the other keys stay commands. lobbyEscArmed: the
+	// first esc in the Lobby; the second leaves it.
+	repoFilterOpen bool
+	lobbyEscArmed  bool
 
 	// Archiv-Sicht (E5 Task 7, bean bt-ggt2, design decision e): showArchived
 	// is a PROGRAM DEFAULT (false = completed/scrapped hidden), toggled via
@@ -694,50 +673,18 @@ type model struct {
 	// repo B).
 	showArchived bool
 
-	// Vollbild `v` (F01 Kernmechanik, E9 Task 7, bean bt-13l7, design-spec.md
-	// §15): fullscreen is ORTHOGONAL to m.view (fullscreenMode doc-stamp
-	// above). fullscreenBeanID is the bean shown in fullscreenDetail --
-	// UNABHÄNGIG vom Tree-/Backlog-Cursor (a Relations-Sprung inside
-	// fullscreenDetail moves ONLY this field, never m.cursorID/
-	// m.backlogList.cursor -- those only sync back on esc-exit,
-	// keyDetailFocus's Back-case).
-	//
-	// navBack/navForward (F01 History-Stack, E9 Task 8, bean bt-1vbp, wired
-	// here -- Task 7 only declared them empty/unused) are []string Bean-ID
-	// stacks, COW throughout (cloneStringSlice above): every Relations-Sprung
-	// INSIDE fullscreenDetail (activateDetailField's jump case) pushes the
-	// bean being LEFT onto navBack and kapt navForward (Standard-Browser-
-	// Semantik). keys.HistoryBack/HistoryForward (ctrl+left/[, ctrl+right/],
-	// keyFullscreen) pop/push symmetrically between the two, wirksam NUR in
-	// fullscreenDetail. Both loop past a bean that vanished externally
-	// (watch-reload/repo-switch/parallel-agent delete) instead of landing on
-	// it -- same not-trap spirit as the F01 b==nil-Guard fix (Fix-Runde 1,
-	// bt-13l7) -- a stack that is empty OR all-vanished is a clean No-Op.
-	//
-	// ERRATA (Supervisor-Entscheid, Task 8): design-spec.md §15's original
-	// text ("navBack/navForward werden beim Verlassen NICHT geleert",
-	// verbatim repeated in bt-13l7's own "Notes for T8") is DEVIATED FROM
-	// here -- EVERY Vollbild-Exit (both keyDetailFocus's b==nil dead-end
-	// guard AND its Back-case esc-exit, PLUS keyFullscreen's fullscreenList
-	// esc-exit, defensively) now clears BOTH stacks. Rationale: leaving them
-	// populated would let a stale History-Path leak from one Vollbild
-	// session into the NEXT (e.g. `v` on a totally different bean, minutes
-	// later, would still offer Back/Forward into the earlier session's
-	// unrelated jump chain) -- the Supervisor judged that surprise worse
-	// than losing the (minor, PO-never-requested) "resume History on the
-	// same bean" convenience the original text was optimizing for.
-	fullscreen          fullscreenMode
-	fullscreenBeanID    string
-	navBack, navForward []string
+	// layout is the Browse/Ready layout cycled by v / shift+v (layout.go).
+	// The zero value is layoutRoadmap, the start layout.
+	layout layoutMode
 
 	// Tag-Management page (E10 Task 2, bean bt-r92i, epic bt-362n D05-D09):
 	// tagMgmtRows is the D09 Union row list (definierte Tags alpha-sortiert
 	// zuerst, dann freie/in-Verwendung-Tags Count-absteigend), built fresh at
 	// EVERY page-open (openTagManagementPage, D03 -- mirrors openLobby's own
 	// "reload from disk on open" convention). tagMgmtCursor is a plain
-	// listState cursor over that SAME row list (reuse, mirrors backlogList's
+	// listState cursor over that SAME row list (reuse, mirrors readyList's
 	// index-based shape -- the page is a flat, non-hierarchical list, same
-	// rationale as Backlog's own doc-stamp above).
+	// rationale as Ready's own doc-stamp above).
 	tagMgmtRows   []tagRegistryRow
 	tagMgmtCursor listState
 
@@ -792,7 +739,7 @@ type model struct {
 }
 
 // newModel builds the initial (pre-load) App-Shell state.
-func newModel(client *data.Client, repoDir string) model {
+func newModel(store *data.Store, repoDir string) model {
 	ti := textinput.New() // E2 Task 3: Tree search box (port devd app.go treeSearch)
 	ti.Placeholder = "Search (title/ID, 3+ chars also searches Bleve)"
 	ti.Prompt = ""
@@ -813,9 +760,9 @@ func newModel(client *data.Client, repoDir string) model {
 	repoIn.Prompt = ""
 	repoIn.CharLimit = 200
 
-	return model{
+	m := model{
 		view:         viewBrowseRepo,
-		client:       client,
+		store:        store,
 		repoDir:      repoDir,
 		expanded:     map[string]bool{},
 		searchInput:  ti,
@@ -823,4 +770,5 @@ func newModel(client *data.Client, repoDir string) model {
 		tagMgmtInput: tagMgmtIn,
 		repoSearch:   repoIn,
 	}
+	return m.setTaskActions()
 }

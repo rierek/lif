@@ -7,6 +7,7 @@ package tui
 // references must stay unambiguous).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -34,11 +35,11 @@ func TestShortBeanID(t *testing.T) {
 	}
 }
 
-// TestTreeRowTextDropsRepoPrefix and its Backlog twin below guard the
-// Grounding's own "zwei Render-Stellen" pitfall: Tree and Flat/Backlog use
+// TestTreeRowTextDropsRepoPrefix and its Ready twin below guard the
+// Grounding's own "zwei Render-Stellen" pitfall: Tree and Flat/Ready use
 // DIFFERENT row renderers, so shortening only one would let them drift.
 func TestTreeRowTextDropsRepoPrefix(t *testing.T) {
-	n := treeNode{bean: &data.Bean{ID: "sproutling-btv7", Title: "Go deeper", Status: "todo", Type: "task"}}
+	n := treeNode{bean: &item.Item{ID: "sproutling-btv7", Title: "Go deeper", Status: "todo", Type: "task"}}
 	got := stripHint(treeRowText(n, "sproutling"))
 	if strings.Contains(got, "sproutling-btv7") {
 		t.Fatalf("treeRowText kept the repo prefix: %q", got)
@@ -48,25 +49,25 @@ func TestTreeRowTextDropsRepoPrefix(t *testing.T) {
 	}
 }
 
-func TestBacklogRowTextDropsRepoPrefix(t *testing.T) {
-	b := &data.Bean{ID: "sproutling-btv7", Title: "Go deeper", Status: "todo", Type: "task"}
-	got := stripHint(backlogRowText(b, "sproutling"))
+func TestReadyRowTextDropsRepoPrefix(t *testing.T) {
+	b := &item.Item{ID: "sproutling-btv7", Title: "Go deeper", Status: "todo", Type: "task"}
+	got := stripHint(readyRowText(b, "sproutling"))
 	if strings.Contains(got, "sproutling-btv7") {
-		t.Fatalf("backlogRowText kept the repo prefix: %q", got)
+		t.Fatalf("readyRowText kept the repo prefix: %q", got)
 	}
 	if !strings.Contains(got, "btv7") {
-		t.Fatalf("backlogRowText lost the ID suffix: %q", got)
+		t.Fatalf("readyRowText lost the ID suffix: %q", got)
 	}
 }
 
-// TestBacklogRowTextKeepsForeignID: a bean whose ID does not carry the
+// TestReadyRowTextKeepsForeignID: a bean whose ID does not carry the
 // current repo's prefix is a cross-repo/dangling reference -- shortening it
 // would make it ambiguous, so it stays whole.
-func TestBacklogRowTextKeepsForeignID(t *testing.T) {
-	b := &data.Bean{ID: "lean-stack-58j0", Title: "Foreign", Status: "todo", Type: "task"}
-	got := stripHint(backlogRowText(b, "sproutling"))
+func TestReadyRowTextKeepsForeignID(t *testing.T) {
+	b := &item.Item{ID: "lean-stack-58j0", Title: "Foreign", Status: "todo", Type: "task"}
+	got := stripHint(readyRowText(b, "sproutling"))
 	if !strings.Contains(got, "lean-stack-58j0") {
-		t.Fatalf("backlogRowText shortened a foreign ID: %q", got)
+		t.Fatalf("readyRowText shortened a foreign ID: %q", got)
 	}
 }
 
@@ -76,12 +77,12 @@ func TestBacklogRowTextKeepsForeignID(t *testing.T) {
 // rendering "sproutling-xglu" although their titles wrap at a much narrower
 // width (wideModalWidth) -- the app contradicted itself, short in the list,
 // long in the picker (PO-Beleg: tmux 80x30 gegen sproutling nach bt-a3a8).
-// relationRowPrefix now takes the same `slug` treeRowText/backlogRowText do,
+// relationRowPrefix now takes the same `slug` treeRowText/readyRowText do,
 // so all three row renderers shorten through the ONE shortBeanID rule
 // instead of each growing its own.
 
 func TestRelationRowPrefixDropsRepoPrefix(t *testing.T) {
-	rel := &data.Bean{ID: "sproutling-xglu", Title: "Picked", Status: "todo", Type: "task"}
+	rel := &item.Item{ID: "sproutling-xglu", Title: "Picked", Status: "todo", Type: "task"}
 	got := stripHint(relationRowPrefix(rel, "sproutling"))
 	if strings.Contains(got, "sproutling-xglu") {
 		t.Fatalf("relationRowPrefix kept the repo prefix: %q", got)
@@ -92,7 +93,7 @@ func TestRelationRowPrefixDropsRepoPrefix(t *testing.T) {
 }
 
 func TestRelationRowPrefixKeepsForeignID(t *testing.T) {
-	rel := &data.Bean{ID: "lean-stack-58j0", Title: "Foreign", Status: "todo", Type: "task"}
+	rel := &item.Item{ID: "lean-stack-58j0", Title: "Foreign", Status: "todo", Type: "task"}
 	got := stripHint(relationRowPrefix(rel, "sproutling"))
 	if !strings.Contains(got, "lean-stack-58j0") {
 		t.Fatalf("relationRowPrefix shortened a foreign ID: %q", got)
@@ -107,7 +108,7 @@ func TestRelationRowPrefixKeepsForeignID(t *testing.T) {
 // through this path trips this test instead of silently removing the last
 // place the whole ID can be read.
 func TestRelationRowKeepsFullIDInDetail(t *testing.T) {
-	rel := &data.Bean{ID: "sproutling-xglu", Title: "Picked", Status: "todo", Type: "task"}
+	rel := &item.Item{ID: "sproutling-xglu", Title: "Picked", Status: "todo", Type: "task"}
 	got := stripHint(relationRow(rel, relationRowMarker(false, 0, 1), 60))
 	if !strings.Contains(got, "sproutling-xglu") {
 		t.Fatalf("relationRow (detail pane) shortened the ID -- the full ID must stay copyable there: %q", got)
@@ -116,10 +117,10 @@ func TestRelationRowKeepsFullIDInDetail(t *testing.T) {
 
 // TestParentPickerItemsDropRepoPrefix / TestBlockingPickerItemsDropRepoPrefix
 // guard BOTH picker builders separately for the same reason bt-pl5p guarded
-// Tree and Backlog separately: they are two independent call sites, and
+// Tree and Ready separately: they are two independent call sites, and
 // shortening only one would let the two overlays drift apart visually.
 func TestParentPickerItemsDropRepoPrefix(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "sproutling-aaaa", Title: "Child", Status: "todo", Type: "task"},
 		{ID: "sproutling-xglu", Title: "Epic", Status: "todo", Type: "epic"},
 	})
@@ -146,7 +147,7 @@ func TestParentPickerItemsDropRepoPrefix(t *testing.T) {
 }
 
 func TestBlockingPickerItemsDropRepoPrefix(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "sproutling-aaaa", Title: "Self", Status: "todo", Type: "task"},
 		{ID: "sproutling-xglu", Title: "Other", Status: "todo", Type: "task"},
 	})
@@ -168,7 +169,7 @@ func TestBlockingPickerItemsDropRepoPrefix(t *testing.T) {
 // AddBlocking -- shortening THAT would send a non-existent ID to the beans
 // CLI, which is the one way this cosmetic change could become a real bug.
 func TestPickerItemIDStaysFullForMutation(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "sproutling-aaaa", Title: "Self", Status: "todo", Type: "task"},
 		{ID: "sproutling-xglu", Title: "Other", Status: "todo", Type: "task"},
 	})

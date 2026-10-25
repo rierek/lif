@@ -11,11 +11,12 @@ package tui
 // (same package).
 
 import (
+	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // --- buildFilterItems / tagFilterOptions ---
@@ -25,7 +26,7 @@ import (
 // full beans enums, design-spec.md §4) plus the dynamic, deduped Tag facet
 // collected from the currently loaded beans.
 func TestBuildFilterItemsCoversStatusTypePriorityAndDynamicTags(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "b1", Title: "One", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"backend", "urgent"}},
 		{ID: "b2", Title: "Two", Status: "in-progress", Type: "bug", Priority: "high", Tags: []string{"backend"}},
 	}
@@ -73,9 +74,9 @@ func TestBuildFilterItemsCoversStatusTypePriorityAndDynamicTags(t *testing.T) {
 // the tag facet order flicker between calls. Repeated calls against the SAME
 // model must return byte-identical order.
 func TestTagFilterOptionsDeterministicAcrossCalls(t *testing.T) {
-	beans := make([]data.Bean, 0, 10)
+	beans := make([]*item.Item, 0, 10)
 	for i := 0; i < 10; i++ {
-		beans = append(beans, data.Bean{
+		beans = append(beans, &item.Item{
 			ID: string(rune('a' + i)), Title: "Bean", Status: "todo", Type: "task", Priority: "normal",
 			Tags: []string{string(rune('z' - i))},
 		})
@@ -140,332 +141,360 @@ func TestFilterClearXResetsAllFourFacetMaps(t *testing.T) {
 	}
 }
 
-// --- Filter-menu key machine (keyFilterMenu / `f` open) ---
+// --- Filter fields as focus targets (beans-f4q4, U3) ---
 
-// TestFilterMenuUpDownMovesCursorSpaceTogglesRow guards menu navigation +
-// checkbox toggling end-to-end through Update.
-func TestFilterMenuUpDownMovesCursorSpaceTogglesRow(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-	if !m.filterOpen {
-		t.Fatal("f did not open the filter menu")
-	}
-	if len(m.filterItems) == 0 {
-		t.Fatal("filterItems empty after opening the filter menu")
-	}
-	if m.filterMenu.cursor != 0 {
-		t.Fatalf("filterMenu.cursor after open = %d, want 0", m.filterMenu.cursor)
-	}
-
-	m = step(t, m, keyMsg(tea.KeyDown))
-	if m.filterMenu.cursor != 1 {
-		t.Fatalf("filterMenu.cursor after down = %d, want 1", m.filterMenu.cursor)
-	}
-
-	it := m.filterItems[1]
-	m = step(t, m, keyMsg(tea.KeySpace))
-	if !m.facetOn(it) {
-		t.Fatalf("facet %+v not toggled on after space", it)
-	}
-	m = step(t, m, keyMsg(tea.KeySpace))
-	if m.facetOn(it) {
-		t.Fatalf("facet %+v still on after second space toggle", it)
-	}
-
-	// "x" is the Toggle binding's second key (alongside space) -- verify it
-	// toggles too, distinct from the uppercase "X" FilterClear binding.
-	m = step(t, m, runeMsg('x'))
-	if !m.facetOn(it) {
-		t.Fatalf("facet %+v not toggled on by lowercase x", it)
-	}
-}
-
-// TestFilterMenuEscAndEnterAndFCloseWithoutClearing guards that all three
-// close keys (esc/enter/f) leave the toggled facet state untouched -- only
-// X (a separate binding) clears.
-func TestFilterMenuEscAndEnterAndFCloseWithoutClearing(t *testing.T) {
-	closeKeys := []tea.KeyMsg{keyMsg(tea.KeyEsc), keyMsg(tea.KeyEnter), runeMsg('f')}
-	for _, closeKey := range closeKeys {
-		m := fixtureModel(t, fixtureBeans())
-		m = step(t, m, runeMsg('f'))
-		it := m.filterItems[0]
-		m = step(t, m, keyMsg(tea.KeySpace))
-		if !m.facetOn(it) {
-			t.Fatalf("setup: facet %+v not toggled on", it)
-		}
-
-		m = step(t, m, closeKey)
-		if m.filterOpen {
-			t.Fatalf("close key %v did not close the filter menu", closeKey)
-		}
-		if !m.facetOn(it) {
-			t.Fatalf("close key %v cleared the toggled facet -- closing must not clear filter state", closeKey)
-		}
-	}
-}
-
-// TestFilterMenuXClearsWithoutClosing guards devd parity: X inside the open
-// menu clears every facet but leaves the menu open (view_browse_project.go's
-// keyTreeFilter FilterClear case does not touch treeFilterOpen).
-func TestFilterMenuXClearsWithoutClosing(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-	it := m.filterItems[0]
-	m = step(t, m, keyMsg(tea.KeySpace))
-	if !m.facetOn(it) {
-		t.Fatal("setup: facet not toggled on")
-	}
-
-	m = step(t, m, runeMsg('X'))
-	if !m.filterOpen {
-		t.Fatal("X inside the menu closed it -- devd parity requires it to stay open")
-	}
-	if m.filterActive() {
-		t.Fatal("X inside the menu did not clear the facet")
-	}
-}
-
-// --- Querformat Tab-Kategorien (bt-2p9m, PO-Review E11 Runde 2,
-// epic-E12-plan.md Item 7) ---
-
-// TestFilterMenuOpensWithFirstTabActiveAndFirstElementSelected guards the
-// PO-Klickpfad's first step verbatim: "f für Filter, erster tab aktiviert"
-// -- opening the menu selects tab 0 (Status, facetHead order) with its
-// first row already under the cursor.
-func TestFilterMenuOpensWithFirstTabActiveAndFirstElementSelected(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-
-	if !m.filterOpen {
-		t.Fatal("f did not open the filter menu")
-	}
-	if m.filterTab != 0 {
-		t.Fatalf("filterTab after open = %d, want 0 (first tab active)", m.filterTab)
-	}
-	if m.filterMenu.cursor != 0 {
-		t.Fatalf("filterMenu.cursor after open = %d, want 0 (first element pre-selected)", m.filterMenu.cursor)
-	}
-	if m.filterItems[0].facet != "status" {
-		t.Fatalf("filterItems[0].facet = %q, want %q (Status is the first facetHead tab)", m.filterItems[0].facet, "status")
-	}
-}
-
-// TestFilterMenuTabSwitchesCategoryAndSelectsFirstElement guards the
-// PO-Klickpfad's second+third step: "mit tab/shift-tab andere Filter
-// wählen" then "im fokussierten Tab ist das erste Element immer aktiv".
-func TestFilterMenuTabSwitchesCategoryAndSelectsFirstElement(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if m.filterTab != 1 {
-		t.Fatalf("filterTab after tab = %d, want 1 (Type)", m.filterTab)
-	}
-	wantFacet := m.filterItems[m.filterMenu.cursor].facet
-	if wantFacet != "type" {
-		t.Fatalf("active facet after tab = %q, want %q", wantFacet, "type")
-	}
-	start, _ := filterFacetRange(m.filterItems, "type")
-	if m.filterMenu.cursor != start {
-		t.Fatalf("filterMenu.cursor after tab = %d, want %d (Type's first element)", m.filterMenu.cursor, start)
-	}
-
-	// shift+tab from tab 1 (Type) goes back to tab 0 (Status).
-	m = step(t, m, keyMsg(tea.KeyShiftTab))
-	if m.filterTab != 0 {
-		t.Fatalf("filterTab after shift+tab = %d, want 0 (Status)", m.filterTab)
-	}
-
-	// shift+tab from tab 0 wraps around to the LAST tab (Archive).
-	m = step(t, m, keyMsg(tea.KeyShiftTab))
-	facets := filterFacetOrder(m.filterItems)
-	lastIdx := len(facets) - 1
-	if m.filterTab != lastIdx {
-		t.Fatalf("filterTab after wrap-around shift+tab = %d, want %d (last tab)", m.filterTab, lastIdx)
-	}
-	if facets[m.filterTab] != "archive" {
-		t.Fatalf("wrapped-to facet = %q, want %q", facets[m.filterTab], "archive")
-	}
-}
-
-// TestFilterMenuArrowsStayWithinActiveTabBounds guards the PO-Klickpfad's
-// own explicit scope limit: "Pfeil-rauf/runter direkt die Auswahl
-// navigieren" INSIDE the focused tab only -- up/down must never cross into
-// a neighboring facet's rows.
-func TestFilterMenuArrowsStayWithinActiveTabBounds(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-
-	_, end := filterFacetRange(m.filterItems, "status")
-
-	// Down past the last Status row must clamp at the last Status row, not
-	// spill into Type.
-	for i := 0; i < end+5; i++ {
-		m = step(t, m, keyMsg(tea.KeyDown))
-	}
-	if got := m.filterItems[m.filterMenu.cursor].facet; got != "status" {
-		t.Fatalf("cursor facet after overshooting down = %q, want %q (must not cross tabs)", got, "status")
-	}
-	if m.filterMenu.cursor != end-1 {
-		t.Fatalf("filterMenu.cursor after overshooting down = %d, want %d (clamped at last Status row)", m.filterMenu.cursor, end-1)
-	}
-
-	// Up past the first Status row must clamp at 0, not go negative.
-	for i := 0; i < 10; i++ {
-		m = step(t, m, keyMsg(tea.KeyUp))
-	}
-	if m.filterMenu.cursor != 0 {
-		t.Fatalf("filterMenu.cursor after overshooting up = %d, want 0 (clamped at first Status row)", m.filterMenu.cursor)
-	}
-}
-
-// TestFilterMenuTabDoesNotLeakToGlobalFocusToggle guards the plan's own
-// verified claim (epic-E12-plan.md Item 7 "Kein Tastenkonflikt"):
-// handleKey checks m.filterOpen (Full-Capture) BEFORE the global
-// FocusIn/FocusOut case, so tab/shift+tab inside the open filter menu must
-// change the CATEGORY tab, never m.detailFocus.
-func TestFilterMenuTabDoesNotLeakToGlobalFocusToggle(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m.detailFocus = false
-	m = step(t, m, runeMsg('f'))
-
-	m = step(t, m, keyMsg(tea.KeyTab))
-	if m.detailFocus {
-		t.Fatal("tab inside the open filter menu leaked into the global FocusIn toggle (m.detailFocus)")
-	}
-	if !m.filterOpen {
-		t.Fatal("tab inside the open filter menu unexpectedly closed it")
-	}
-
-	m = step(t, m, keyMsg(tea.KeyShiftTab))
-	if m.detailFocus {
-		t.Fatal("shift+tab inside the open filter menu leaked into the global FocusOut toggle (m.detailFocus)")
-	}
-}
-
-// TestFilterMenuSpaceTogglesCorrectFacetAfterTabSwitch guards that toggling
-// (space/x, unchanged toggleFacet) after switching categories still writes
-// to the RIGHT facet map -- a regression here would mean the Querformat
-// rendering changed but the underlying facet semantics silently broke.
-func TestFilterMenuSpaceTogglesCorrectFacetAfterTabSwitch(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-	m = step(t, m, keyMsg(tea.KeyTab)) // -> Type tab, cursor on Type's first row
-
-	it := m.filterItems[m.filterMenu.cursor]
-	if it.facet != "type" {
-		t.Fatalf("setup: active facet = %q, want %q", it.facet, "type")
-	}
-	m = step(t, m, keyMsg(tea.KeySpace))
-	if !m.facetOn(it) {
-		t.Fatalf("space after tab-switch did not toggle %+v on", it)
-	}
-	if len(m.filterStatus) != 0 {
-		t.Fatalf("toggling the Type row leaked into filterStatus: %v", m.filterStatus)
-	}
-}
-
-// TestFilterMenuEnterAppliesUnchangedAcrossTabs guards that enter still
-// closes the menu without clearing state, regardless of which tab was
-// active when pressed (PO-Klickpfad step 5, "mit enter den Filter
-// anwenden").
-func TestFilterMenuEnterAppliesUnchangedAcrossTabs(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-	m = step(t, m, keyMsg(tea.KeyTab)) // Type tab
-	it := m.filterItems[m.filterMenu.cursor]
-	m = step(t, m, keyMsg(tea.KeySpace))
-
-	m = step(t, m, keyMsg(tea.KeyEnter))
-	if m.filterOpen {
-		t.Fatal("enter did not close the filter menu")
-	}
-	if !m.facetOn(it) {
-		t.Fatal("enter cleared the toggled facet -- applying must not clear filter state")
-	}
-}
-
-// --- bean bt-8d35: the Filter-Strip as a REGION (boxFormEnabled only) ---
-
-// TestFilterStripEnterAppliesAndHoldsFocus is the PO's Flow #3 verbatim:
-// "Anwenden: enter -> Filter wirkt, **Fokus bleibt im Strip** (ausdrücklicher
-// PO-Wunsch)". Experiment-gated: with the flag OFF, enter keeps its
-// pre-existing close-the-menu meaning (TestFilterMenuEnterAppliesUnchanged
-// AcrossTabs, above, is the untouched guard for that).
-func TestFilterStripEnterAppliesAndHoldsFocus(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-	m = step(t, m, keyMsg(tea.KeyTab)) // Type tab
-	it := m.filterItems[m.filterMenu.cursor]
-
-	m = step(t, m, keyMsg(tea.KeyEnter))
-	if !m.filterOpen {
-		t.Fatal("enter closed the Filter-Strip -- the focus must STAY in the region (bt-8d35 Flow #3)")
-	}
-	if !m.facetOn(it) {
-		t.Fatal("enter did not apply the cursored facet")
-	}
-
-	m = step(t, m, keyMsg(tea.KeyEnter))
-	if m.facetOn(it) {
-		t.Fatal("a second enter did not un-apply the facet -- enter must apply the cursored value (multi-select)")
-	}
-	if !m.filterOpen {
-		t.Fatal("the second enter closed the Filter-Strip")
-	}
-}
-
-// TestFilterStripEscLeavesTheRegion pins bt-8d35's other half for the Strip:
-// esc (and only esc / the toggle key f) leaves the region.
-func TestFilterStripEscLeavesTheRegion(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, runeMsg('f'))
-	m = step(t, m, keyMsg(tea.KeyEsc))
-	if m.filterOpen {
-		t.Fatal("esc did not leave the Filter-Strip region")
-	}
-}
-
-// --- Querformat rendering (treeFilterBox) ---
-
-// TestTreeFilterBoxShowsTabBarAndOnlyActiveFacetRows guards the actual
-// Querformat rendering contract: a tab bar naming every category, but the
-// row list below shows ONLY the active tab's items -- Type/Priority/Tag/
-// Archive values must not appear while Status is active.
-//
-// Uses a beans set WITH a tag (fixtureBeans() itself has none, so the Tag
-// facet would be legitimately absent -- filterFacetOrder deliberately never
-// reports a phantom tab for a zero-row facet, see its own doc comment) so
-// this test genuinely exercises all five tabs, matching real-world usage.
-func TestTreeFilterBoxShowsTabBarAndOnlyActiveFacetRows(t *testing.T) {
-	beans := []data.Bean{
-		{ID: "tk-1", Title: "Task One", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"backend"}},
+// filterTaggedModel is a fixtureModel whose beans carry tags, at 100x30.
+func filterTaggedModel(t *testing.T) model {
+	t.Helper()
+	beans := []*item.Item{
+		{ID: "a", Title: "Alpha", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"backend"}},
+		{ID: "b", Title: "Beta", Status: "in-progress", Type: "bug", Priority: "high", Tags: []string{"web"}},
 	}
 	m := fixtureModel(t, beans)
-	m = step(t, m, runeMsg('f'))
-	out := stripHint(m.treeFilterBox())
+	return step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+}
 
-	for _, tabLabel := range []string{"Status", "Type", "Priority", "Tags", "Archive"} {
-		if !strings.Contains(out, tabLabel) {
-			t.Errorf("treeFilterBox() tab bar missing %q:\n%s", tabLabel, out)
+// TestFFromRoadmapSwitchesToFilterLayoutAndFocusesType: AC5.
+func TestFFromRoadmapSwitchesToFilterLayoutAndFocusesType(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans())
+	m = m.setLayout(layoutRoadmap)
+	m = step(t, m, runeMsg('f'))
+	if m.layout != layoutFilter {
+		t.Fatalf("layout after f from roadmap = %v, want layoutFilter", m.layout)
+	}
+	if !m.filterFocus || filterFields[m.filterField] != "type" {
+		t.Fatalf("focus after f: filterFocus=%v field=%q, want Type", m.filterFocus, filterFields[m.filterField])
+	}
+	if m.overlay != overlayNone {
+		t.Fatal("f opened an overlay; it must only move the focus")
+	}
+}
+
+// TestFFocusesTypeFromEveryLayout: AC4 + SC-02. In the layouts with a filter
+// bar f keeps the layout and jumps back to Type from any other field.
+func TestFFocusesTypeFromEveryLayout(t *testing.T) {
+	cases := []struct {
+		from, want layoutMode
+	}{
+		{layoutRoadmap, layoutFilter},
+		{layoutFilter, layoutFilter},
+		{layoutFilterDetail, layoutFilterDetail},
+		{layoutDetail, layoutFilter},
+	}
+	for _, tc := range cases {
+		m := fixtureModel(t, fixtureBeans()).setLayout(tc.from)
+		if tc.from.hasFilter() {
+			m = m.focusFilterField("tag") // already inside the bar, on another field
+		}
+		m = step(t, m, runeMsg('f'))
+		if m.layout != tc.want {
+			t.Errorf("from layout %v: layout after f = %v, want %v", tc.from, m.layout, tc.want)
+		}
+		if !m.filterFocus || m.detailFocus || filterFields[m.filterField] != "type" {
+			t.Errorf("from layout %v: filterFocus=%v detailFocus=%v field=%q, want focus on Type",
+				tc.from, m.filterFocus, m.detailFocus, filterFields[m.filterField])
 		}
 	}
-	if !strings.Contains(out, "todo") {
-		t.Errorf("treeFilterBox() with Status active must show its own rows (todo):\n%s", out)
+}
+
+// TestFilterFieldsAreFocusTargetsInBarOrder: AC1. left/right visit every
+// field of the bar, in filterFields order, and wrap.
+func TestFilterFieldsAreFocusTargetsInBarOrder(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	var seen []string
+	for range filterFields {
+		seen = append(seen, filterFields[m.filterField])
+		m = step(t, m, keyMsg(tea.KeyRight))
 	}
-	if strings.Contains(out, "milestone") {
-		t.Errorf("treeFilterBox() with Status active must NOT show Type rows (milestone):\n%s", out)
+	if !equalStrings(seen, filterFields) {
+		t.Fatalf("right visits %v, want %v", seen, filterFields)
+	}
+	if filterFields[m.filterField] != "type" {
+		t.Fatalf("right from the last field = %q, want wrap to type", filterFields[m.filterField])
+	}
+	m = step(t, m, keyMsg(tea.KeyLeft))
+	if filterFields[m.filterField] != "archive" {
+		t.Fatalf("left from the first field = %q, want wrap to archive", filterFields[m.filterField])
+	}
+	// The bar renders the five fields in the same order.
+	bar := stripHint(m.filterBar(98))
+	last := -1
+	for _, label := range []string{"Type", "Status", "Priority", "Tags", "Archive"} {
+		i := strings.Index(bar, label)
+		if i < last {
+			t.Fatalf("bar label %q out of order in:\n%s", label, bar)
+		}
+		last = i
+	}
+}
+
+// TestEnterOnFilterFieldOpensValueMenuOfThatFacet: AC2.
+func TestEnterOnFilterFieldOpensValueMenuOfThatFacet(t *testing.T) {
+	for i, facet := range filterFields {
+		m := step(t, filterTaggedModel(t), runeMsg('f'))
+		for range i {
+			m = step(t, m, keyMsg(tea.KeyRight))
+		}
+		m = step(t, m, keyMsg(tea.KeyEnter))
+		if m.overlay != overlayFilterMenu {
+			t.Fatalf("field %q: enter did not open the value menu", facet)
+		}
+		start, end := m.filterMenuRows()
+		if end <= start || m.filterItems[m.filterMenu.cursor].facet != facet {
+			t.Fatalf("field %q: menu rows [%d,%d) cursor on %q", facet, start, end, m.filterItems[m.filterMenu.cursor].facet)
+		}
+	}
+}
+
+// TestFilterMenuWithoutValuesDoesNotOpen: a Tags field in a store without
+// tags has nothing to pick.
+func TestFilterMenuWithoutValuesDoesNotOpen(t *testing.T) {
+	m := step(t, fixtureModel(t, fixtureBeans()), runeMsg('f'))
+	m = m.focusFilterField("tag")
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	if m.overlay != overlayNone {
+		t.Fatal("enter on the Tags field without tags opened a menu")
+	}
+}
+
+// TestFilterMenuToggleAppliesToListAtOnce: AC3 + SC-01. Every facet filters
+// the list by the menu alone, no other overlay involved.
+func TestFilterMenuToggleAppliesToListAtOnce(t *testing.T) {
+	cases := []struct {
+		field   string
+		value   string
+		visible []string // item IDs left in the list
+	}{
+		{"type", "bug", []string{"b"}},
+		{"status", "todo", []string{"a"}},
+		{"priority", "high", []string{"b"}},
+		{"tag", "backend", []string{"a"}},
+	}
+	for _, tc := range cases {
+		m := step(t, filterTaggedModel(t), runeMsg('f'))
+		m = m.focusFilterField(tc.field)
+		m = step(t, m, keyMsg(tea.KeyEnter))
+		for m.filterItems[m.filterMenu.cursor].value != tc.value {
+			m = step(t, m, keyMsg(tea.KeyDown))
+		}
+		m = step(t, m, keyMsg(tea.KeySpace))
+		if !m.filterActive() {
+			t.Fatalf("%s=%s: toggling in the menu did not set the facet", tc.field, tc.value)
+		}
+		var got []string
+		for _, n := range m.visibleNodes() {
+			if n.bean != nil {
+				got = append(got, n.bean.ID)
+			}
+		}
+		if !equalStrings(got, tc.visible) {
+			t.Fatalf("%s=%s: list shows %v, want %v", tc.field, tc.value, got, tc.visible)
+		}
+		if m.overlay != overlayFilterMenu {
+			t.Fatalf("%s=%s: toggle closed the menu", tc.field, tc.value)
+		}
 	}
 
-	m = step(t, m, keyMsg(tea.KeyTab)) // -> Type
-	out = stripHint(m.treeFilterBox())
-	if !strings.Contains(out, "milestone") {
-		t.Errorf("treeFilterBox() with Type active must show its own rows (milestone):\n%s", out)
+	// Archive: a completed item shows once the toggle is on.
+	beans := []*item.Item{
+		{ID: "a", Title: "Alpha", Status: "todo", Type: "task", Priority: "normal"},
+		{ID: "z", Title: "Zed", Status: "completed", Type: "task", Priority: "normal"},
 	}
-	if strings.Contains(out, "todo") {
-		t.Errorf("treeFilterBox() with Type active must NOT show Status rows (todo):\n%s", out)
+	m := step(t, fixtureModel(t, beans), runeMsg('f'))
+	m = m.focusFilterField("archive")
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	m = step(t, m, keyMsg(tea.KeySpace))
+	if !m.showArchived {
+		t.Fatal("space on the Archive value did not show archived items")
+	}
+}
+
+// TestFilterMenuEnterAppliesAndKeepsMenuOpen: enter toggles like space (the
+// menu is a multi-select), and a second enter un-applies.
+func TestFilterMenuEnterAppliesAndKeepsMenuOpen(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	it := m.filterItems[m.filterMenu.cursor]
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	if !m.facetOn(it) || m.overlay != overlayFilterMenu {
+		t.Fatal("enter in the menu must apply the value and keep the menu open")
+	}
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	if m.facetOn(it) {
+		t.Fatal("a second enter must un-apply the value")
+	}
+}
+
+// TestFilterMenuArrowsStayWithinFieldValues: up/down never cross into
+// another facet's rows.
+func TestFilterMenuArrowsStayWithinFieldValues(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEnter)) // Type
+	start, end := m.filterMenuRows()
+	for range end + 5 {
+		m = step(t, m, keyMsg(tea.KeyDown))
+	}
+	if m.filterMenu.cursor != end-1 {
+		t.Fatalf("cursor after overshooting down = %d, want %d", m.filterMenu.cursor, end-1)
+	}
+	for range end + 5 {
+		m = step(t, m, keyMsg(tea.KeyUp))
+	}
+	if m.filterMenu.cursor != start {
+		t.Fatalf("cursor after overshooting up = %d, want %d", m.filterMenu.cursor, start)
+	}
+}
+
+// TestFilterMenuEscClosesWithoutClearingAndKeepsFocus: esc closes the menu,
+// the filter stays, the focus stays on the field; a second esc leaves the
+// bar for the list.
+func TestFilterMenuEscClosesWithoutClearingAndKeepsFocus(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	it := m.filterItems[m.filterMenu.cursor]
+	m = step(t, m, keyMsg(tea.KeySpace))
+
+	m = step(t, m, keyMsg(tea.KeyEsc))
+	if m.overlay != overlayNone || !m.filterFocus || !m.facetOn(it) {
+		t.Fatalf("after esc: overlay=%v filterFocus=%v facetOn=%v, want closed menu, field focus, facet kept", m.overlay, m.filterFocus, m.facetOn(it))
+	}
+	m = step(t, m, keyMsg(tea.KeyEsc))
+	if m.filterFocus || !m.facetOn(it) {
+		t.Fatalf("second esc: filterFocus=%v facetOn=%v, want focus back on the list, facet kept", m.filterFocus, m.facetOn(it))
+	}
+}
+
+// TestFilterClearKeepsLayoutAndClearsAllFacets: AC7, from the focused field
+// and from inside the menu (the menu stays open).
+func TestFilterClearKeepsLayoutAndClearsAllFacets(t *testing.T) {
+	set := func(m model) model {
+		m.filterStatus = map[string]bool{"todo": true}
+		m.filterType = map[string]bool{"task": true}
+		m.filterPriority = map[string]bool{"high": true}
+		m.filterTag = map[string]bool{"backend": true}
+		return m
+	}
+	for _, layout := range []layoutMode{layoutFilter, layoutFilterDetail} {
+		m := set(filterTaggedModel(t).setLayout(layout))
+		m = step(t, m, runeMsg('f'))
+		m = step(t, m, runeMsg('X'))
+		if m.filterActive() || m.layout != layout || !m.filterFocus {
+			t.Fatalf("X on a field in layout %v: active=%v layout=%v filterFocus=%v", layout, m.filterActive(), m.layout, m.filterFocus)
+		}
+
+		m = set(m)
+		m = step(t, m, keyMsg(tea.KeyEnter))
+		m = step(t, m, runeMsg('X'))
+		if m.filterActive() || m.layout != layout || m.overlay != overlayFilterMenu {
+			t.Fatalf("X in the menu in layout %v: active=%v layout=%v overlay=%v", layout, m.filterActive(), m.layout, m.overlay)
+		}
+	}
+}
+
+// TestFilterFieldEscReturnsToList: esc leaves the bar and tab steps to the
+// next field (the focus ring, TestFocusRingTabVisitsEveryTargetAndWraps);
+// keys the field does not own never reach the list underneath.
+func TestFilterFieldEscReturnsToList(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEsc))
+	if m.filterFocus || m.detailFocus {
+		t.Fatalf("esc: filterFocus=%v detailFocus=%v, want focus on the list", m.filterFocus, m.detailFocus)
+	}
+
+	m = step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyTab))
+	if got := focusAt(m); got != "filter:"+filterFields[1] {
+		t.Fatalf("tab on the first field: focus %q, want the second field", got)
+	}
+
+	m = step(t, filterTaggedModel(t), runeMsg('f'))
+	before := m.cursorID
+	m = step(t, m, runeMsg('s')) // would open the status menu on the list
+	if m.overlay != overlayNone || m.cursorID != before {
+		t.Fatalf("a list key leaked through the focused filter field: overlay=%v cursor %q -> %q", m.overlay, before, m.cursorID)
+	}
+}
+
+// TestLayoutWithoutFilterBarDropsFilterFocus: v into a layout that hides the
+// bar must not leave the focus on a field that is not shown.
+func TestLayoutWithoutFilterBarDropsFilterFocus(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = m.setLayout(layoutDetail)
+	if m.filterFocus {
+		t.Fatal("filterFocus survived a layout without a filter bar")
+	}
+}
+
+// TestFilterMenuTabDoesNotLeakToGlobalFocusToggle: the open menu captures
+// tab, so it never reaches the global region toggle.
+func TestFilterMenuTabDoesNotLeakToGlobalFocusToggle(t *testing.T) {
+	m := step(t, filterTaggedModel(t), runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	m = step(t, m, keyMsg(tea.KeyTab))
+	if m.detailFocus || m.overlay != overlayFilterMenu {
+		t.Fatalf("tab in the open menu: detailFocus=%v overlay=%v", m.detailFocus, m.overlay)
+	}
+}
+
+// TestFilterMenuScrollsLongTagFacet: the Tags field can hold many values;
+// the popup shows a window that always contains the cursor row.
+func TestFilterMenuScrollsLongTagFacet(t *testing.T) {
+	var beans []*item.Item
+	for i := range 40 {
+		beans = append(beans, &item.Item{ID: fmt.Sprintf("t%02d", i), Title: "T", Status: "todo", Type: "task", Priority: "normal", Tags: []string{fmt.Sprintf("tag%02d", i)}})
+	}
+	m := step(t, fixtureModel(t, beans), tea.WindowSizeMsg{Width: 100, Height: 24})
+	m = step(t, m, runeMsg('f'))
+	m = m.focusFilterField("tag")
+	m = step(t, m, keyMsg(tea.KeyEnter))
+	for range 30 {
+		m = step(t, m, keyMsg(tea.KeyDown))
+	}
+	first, last := m.filterMenuWindow()
+	if last-first != m.filterMenuMaxRows() {
+		t.Fatalf("window shows %d rows, want the cap %d", last-first, m.filterMenuMaxRows())
+	}
+	if m.filterMenu.cursor < first || m.filterMenu.cursor >= last {
+		t.Fatalf("cursor %d outside window [%d,%d)", m.filterMenu.cursor, first, last)
+	}
+	if box := stripHint(m.filterMenuBox()); !strings.Contains(box, m.filterItems[m.filterMenu.cursor].label) {
+		t.Fatalf("popup does not show the cursored value:\n%s", box)
+	}
+}
+
+// TestFilterMenuPopupSitsBelowItsFieldAndClicksToggle: the popup is drawn
+// where filterMenuRect says (directly under the focused field), a click on a
+// value row toggles it and a click outside closes the menu.
+func TestFilterMenuPopupSitsBelowItsFieldAndClicksToggle(t *testing.T) {
+	for _, width := range []int{80, 120} {
+		m := step(t, filterTaggedModel(t), tea.WindowSizeMsg{Width: width, Height: 30})
+		m = step(t, m, runeMsg('f'))
+		m = m.focusFilterField("archive") // rightmost field: exercises the right-edge shift
+		m = step(t, m, keyMsg(tea.KeyEnter))
+
+		x, y, w, _ := m.filterMenuRect()
+		_, barY, _ := filterBarOrigin(m)
+		if y != barY+filterBarHeight {
+			t.Fatalf("width %d: popup top %d, want directly below the bar (%d)", width, y, barY+filterBarHeight)
+		}
+		if x+w > width {
+			t.Fatalf("width %d: popup [%d,%d) passes the right edge", width, x, x+w)
+		}
+		lines := screenLines(m)
+		if row := lines[y+filterMenuFirstRow]; !strings.Contains(row, "Show archived") {
+			t.Fatalf("width %d: popup first value row %d reads %q, want the Archive value", width, y+filterMenuFirstRow, row)
+		}
+
+		click := tea.MouseMsg{Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: x + 3, Y: y + filterMenuFirstRow}
+		tm, _ := m.handleMouse(click)
+		m2 := tm.(model)
+		if !m2.showArchived || m2.overlay != overlayFilterMenu {
+			t.Fatalf("width %d: click on the value row: showArchived=%v overlay=%v", width, m2.showArchived, m2.overlay)
+		}
+		tm, _ = m2.handleMouse(tea.MouseMsg{Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: 0, Y: 0})
+		if tm.(model).overlay != overlayNone {
+			t.Fatalf("width %d: click outside did not close the menu", width)
+		}
 	}
 }
 
@@ -475,17 +504,18 @@ func TestTreeFilterBoxShowsTabBarAndOnlyActiveFacetRows(t *testing.T) {
 // active facet combine with AND semantics: a bean matching the search text
 // but excluded by the facet must not be visible; one matching both is.
 func TestTreeCombinesSearchAndFacetsWithAnd(t *testing.T) {
-	beans := []data.Bean{
+	beans := []*item.Item{
 		{ID: "a", Title: "Alpha Task", Status: "todo", Type: "task", Priority: "normal"},
 		{ID: "b", Title: "Alpha Bug", Status: "todo", Type: "bug", Priority: "normal"},
 	}
 	m := fixtureModel(t, beans)
+	m.expanded[unscheduledRootID] = true        // parentless items sit under the Unscheduled root
 	m = setSearchQuery(m, "alpha")              // matches both by title
 	m.filterType = map[string]bool{"bug": true} // excludes "a"
 
 	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{"b"}) {
-		t.Fatalf("combined search+facet nodes = %v, want [b] (AND-combined)", got)
+	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "b"}) {
+		t.Fatalf("combined search+facet nodes = %v, want [unscheduled b] (AND-combined)", got)
 	}
 }
 
@@ -493,7 +523,7 @@ func TestTreeCombinesSearchAndFacetsWithAnd(t *testing.T) {
 // every facet map empty -> everything matches.
 func TestBeanMatchesFacetsEmptyMapsImposeNoConstraint(t *testing.T) {
 	m := model{}
-	b := &data.Bean{ID: "x", Status: "todo", Type: "task", Priority: "normal"}
+	b := &item.Item{ID: "x", Status: "todo", Type: "task", Priority: "normal"}
 	if !m.beanMatchesFacets(b) {
 		t.Fatal("beanMatchesFacets with all facet maps empty must match everything")
 	}
@@ -503,8 +533,8 @@ func TestBeanMatchesFacetsEmptyMapsImposeNoConstraint(t *testing.T) {
 // within-facet semantics (a bean matches if ANY of its tags is selected).
 func TestBeanMatchesFacetsTagRequiresAnyOverlap(t *testing.T) {
 	m := model{filterTag: map[string]bool{"backend": true}}
-	hit := &data.Bean{ID: "a", Tags: []string{"frontend", "backend"}}
-	miss := &data.Bean{ID: "b", Tags: []string{"frontend"}}
+	hit := &item.Item{ID: "a", Tags: []string{"frontend", "backend"}}
+	miss := &item.Item{ID: "b", Tags: []string{"frontend"}}
 	if !m.beanMatchesFacets(hit) {
 		t.Error("bean with a matching tag among several must match the tag facet")
 	}
@@ -579,7 +609,7 @@ func TestEmptyFacetMatchViewRendersWithoutPanic(t *testing.T) {
 		t.Fatalf("visibleNodes() = %d nodes, want 0 (no fixture bean is scrapped)", n)
 	}
 	out := m.View()
-	if !strings.Contains(out, searchShield) {
+	if !strings.Contains(out, "─ Search ") {
 		t.Error("View() with zero filtered matches lost the Tree pane's search head row entirely")
 	}
 }

@@ -7,7 +7,7 @@ package tui
 // tui/overlay_shortcuts_test.go), ADAPTED: devd's Help closes on ANY key
 // ("beliebige Taste sollte Hilfe schließen") -- beans-tui deliberately does
 // NOT port that (bean bt-wpn9 Akzeptanz + design decision h precedent):
-// Help is a FULL-CAPTURE floating overlay like filterOpen/paletteOpen/
+// Help is a FULL-CAPTURE floating overlay like paletteOpen/
 // m.form/m.overlay (handleKey's own doc comments), so only esc/?/q close it
 // and every OTHER key is swallowed as a no-op, not routed anywhere else.
 
@@ -24,7 +24,7 @@ import (
 // can't (same generation the Drift-Guard test TestHelpGroupsCoverEvery
 // BindingExactlyOnce, keymap_test.go, already protects upstream of it).
 func TestHelpBoxRendersEveryGroup(t *testing.T) {
-	m := model{width: 90, height: 24}
+	m := model{width: 90} // height 0: no scroll window, so the box shows every row
 	out := m.helpBox()
 	if !strings.Contains(out, "Keyboard shortcuts") {
 		t.Errorf("helpBox() missing title %q", "Keyboard shortcuts")
@@ -47,10 +47,10 @@ func TestHelpBoxRendersEveryGroup(t *testing.T) {
 
 // TestKeyHelpOpensFromAnyView guards design decision h (ctrl+k/Palette
 // precedent, E4 Task 1): `?` opens Help from ANY view, not just
-// viewBrowseRepo -- checked here against viewBacklog.
+// viewBrowseRepo -- checked here against viewReady.
 func TestKeyHelpOpensFromAnyView(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.view = viewBacklog
+	m.view = viewReady
 	nm := step(t, m, runeMsg('?'))
 	if !nm.helpOpen {
 		t.Fatal("`?` must open Help from any view (design decision h)")
@@ -83,7 +83,7 @@ func TestKeyHelpEscQCloseHelp(t *testing.T) {
 }
 
 // TestHelpCapturesSingleKeysWhileOpen guards full-capture semantics (same
-// precedent as filterOpen/paletteOpen/m.form/m.overlay, handleKey's own doc
+// precedent as paletteOpen/m.form/m.overlay, handleKey's own doc
 // comments): `q` while Help is open must NOT ALSO fall through to the
 // quit-confirm switch, and any other key (not esc/?/q) is a no-op that
 // leaves Help open and leaks through to NOTHING else (no overlay, no

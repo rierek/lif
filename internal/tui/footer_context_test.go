@@ -31,37 +31,32 @@ func TestContextualLocalHintDefaultUsesViewLocal(t *testing.T) {
 	}
 }
 
-func TestContextualLocalHintFilterOpen(t *testing.T) {
-	m := model{filterOpen: true}
-	got := m.contextualLocalHint(viewLocalStub())
-	got = stripHint(got)
+func TestContextualLocalHintOverlayFilterMenu(t *testing.T) {
+	m := model{overlay: overlayFilterMenu}
+	got := stripHint(m.contextualLocalHint(viewLocalStub()))
 	if strings.Contains(got, "stub-view-local") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, must NOT contain the (irrelevant) viewLocal stub", got)
+		t.Errorf("overlayFilterMenu: contextualLocalHint = %q, must NOT contain the (irrelevant) viewLocal stub", got)
 	}
-	if !strings.Contains(got, "space/x Toggle facet") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, want it to contain the Toggle hint (Q04)", got)
+	if !strings.Contains(got, "space/x Toggle facet") || !strings.Contains(got, "enter apply") {
+		t.Errorf("overlayFilterMenu: contextualLocalHint = %q, want the toggle and apply hints (Q04)", got)
+	}
+	if strings.Contains(got, "category") {
+		t.Errorf("overlayFilterMenu: contextualLocalHint = %q, the menu has no category tabs any more", got)
 	}
 }
 
-// TestFilterMenuFooterHintShowsCategoryLabel is bt-nxuk's own regression
-// guard (Reviewer-Finding B04 aus bt-2p9m-Review 2026-07-17): while the
-// Filter-Menu is open, tab/shift+tab actually switch the active facet
-// category (keyFilterMenu, box_filter_facets.go) -- NOT the global
-// Tree<->Detail focus-swap keys.FocusIn/keys.FocusOut label the outer
-// footer used to leak through (footer_context.go's filterMenuLocalBindings
-// used to return the SAME keybind.Binding values keymap.go defines with
-// WithHelp("tab","focus in")/WithHelp("shift+tab","focus out")). The
-// Filter-Menu's own inline hint (treeFilterBox, box_filter_facets.go) has
-// always said "tab/shift+tab:category" -- Footer Zone 3 must say the same
-// thing, not the stale global label.
-func TestFilterMenuFooterHintShowsCategoryLabel(t *testing.T) {
-	m := model{filterOpen: true}
+// TestContextualLocalHintFilterFieldFocus: AC8 -- while the focus is in a
+// filter field the footer shows that field's keys, not the list's.
+func TestContextualLocalHintFilterFieldFocus(t *testing.T) {
+	m := model{filterFocus: true}
 	got := stripHint(m.contextualLocalHint(viewLocalStub()))
-	if !strings.Contains(got, "tab/shift+tab category") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, want it to contain the filter-menu-local \"tab/shift+tab category\" hint (bt-nxuk)", got)
+	if strings.Contains(got, "stub-view-local") {
+		t.Errorf("filterFocus: contextualLocalHint = %q, must NOT contain the viewLocal stub", got)
 	}
-	if strings.Contains(got, "focus in") || strings.Contains(got, "focus out") {
-		t.Errorf("filterOpen: contextualLocalHint = %q, must NOT contain the global FocusIn/FocusOut \"focus in\"/\"focus out\" label (bt-nxuk)", got)
+	for _, want := range []string{"←/→ field", "enter values", "X Clear filters", "esc back"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("filterFocus: contextualLocalHint = %q, want it to contain %q", got, want)
+		}
 	}
 }
 
@@ -183,8 +178,8 @@ func TestContextualLocalHintOverlayCreateConfirm(t *testing.T) {
 	if strings.Contains(got, "stub-view-local") {
 		t.Errorf("overlayCreateConfirm: contextualLocalHint = %q, must not contain the viewLocal stub", got)
 	}
-	if !strings.Contains(got, "enter open/confirm") || !strings.Contains(got, "esc back") {
-		t.Errorf("overlayCreateConfirm: contextualLocalHint = %q, want enter+back", got)
+	if !strings.Contains(got, "y confirm dialog") || !strings.Contains(got, "n cancel dialog") {
+		t.Errorf("overlayCreateConfirm: contextualLocalHint = %q, want confirm+cancel", got)
 	}
 }
 
@@ -195,8 +190,8 @@ func TestContextualLocalHintOverlayDeleteConfirm(t *testing.T) {
 	if strings.Contains(got, "stub-view-local") {
 		t.Errorf("overlayDeleteConfirm: contextualLocalHint = %q, must not contain the viewLocal stub", got)
 	}
-	if !strings.Contains(got, "enter open/confirm") || !strings.Contains(got, "esc back") {
-		t.Errorf("overlayDeleteConfirm: contextualLocalHint = %q, want enter+back", got)
+	if !strings.Contains(got, "y confirm dialog") || !strings.Contains(got, "n cancel dialog") {
+		t.Errorf("overlayDeleteConfirm: contextualLocalHint = %q, want confirm+cancel", got)
 	}
 }
 
@@ -228,8 +223,7 @@ func TestContextualLocalHintHelpOpen(t *testing.T) {
 }
 
 // TestContextualLocalHintPriority guards the priority chain design-spec.md
-// §15 PF-11 spells out (mirrors handleKey's own full-capture dispatch
-// order, update.go): Filter-Menü > Overlay > Suche > Palette > Help >
+// §15 PF-11 spells out: Overlay > Suche > Palette > Help > filter field >
 // View-Normalzustand. Only adjacent pairs whose rendered hints actually
 // DIFFER are usable as a discriminator here (searchActive and paletteOpen
 // both render the identical {Enter,Back} pair by design, so that specific
@@ -241,10 +235,10 @@ func TestContextualLocalHintPriority(t *testing.T) {
 		m    model
 		want string // a substring only the winning branch's hint contains
 	}{
-		{"filter beats overlay", model{filterOpen: true, overlay: overlayValueMenu}, "X Clear filters"},
+		{"overlay beats filter field", model{filterFocus: true, overlay: overlayValueMenu}, "s Status"},
+		{"search beats filter field", model{filterFocus: true, searchActive: true}, "enter open/confirm"},
 		{"overlay beats search", model{overlay: overlayValueMenu, searchActive: true}, "s Status"},
 		{"palette beats help", model{paletteOpen: true, helpOpen: true}, "enter open/confirm"},
-		{"help beats fullscreenDetail", model{helpOpen: true, fullscreen: fullscreenDetail}, "esc back"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -253,66 +247,5 @@ func TestContextualLocalHintPriority(t *testing.T) {
 				t.Errorf("%s: contextualLocalHint = %q, want it to contain %q", c.name, got, c.want)
 			}
 		})
-	}
-}
-
-// TestFullscreenDetailLocalBindingsShowsHistoryKeys is the bean's own
-// explicitly-named TDD step (F01 History-Stack, E9 Task 8, bean bt-1vbp):
-// the Detail-Vollbild's own footer set is {HistoryBack, HistoryForward,
-// Back} -- the PO-Implementierungshinweis "im Footer ausweisen" made
-// concrete.
-func TestFullscreenDetailLocalBindingsShowsHistoryKeys(t *testing.T) {
-	got := stripHint(renderBindings(fullscreenDetailLocalBindings()))
-	for _, want := range []string{"[ history back", "] history fwd", "esc back"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("fullscreenDetailLocalBindings() rendered = %q, want it to contain %q", got, want)
-		}
-	}
-}
-
-// TestFullscreenListLocalBindingsOmitsHistoryKeys is the bean's own
-// explicitly-named TDD step: the Listen-Vollbild's own footer set shows
-// Back+Enter but MUST NOT show the History keys (wirkungslos there --
-// design-spec.md §15 Scope-Entscheidung: the Stack only tracks jumps
-// INSIDE fullscreenDetail).
-func TestFullscreenListLocalBindingsOmitsHistoryKeys(t *testing.T) {
-	got := stripHint(renderBindings(fullscreenListLocalBindings()))
-	if strings.Contains(got, "history") {
-		t.Errorf("fullscreenListLocalBindings() rendered = %q, must NOT contain a history hint (wirkungslos in fullscreenList)", got)
-	}
-	for _, want := range []string{"esc back", "enter open/confirm"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("fullscreenListLocalBindings() rendered = %q, want it to contain %q", got, want)
-		}
-	}
-}
-
-// TestContextualLocalHintFullscreenDetail is
-// TestFullscreenDetailLocalBindingsShowsHistoryKeys' counterpart at the
-// Footer Zone 3 rendering layer (contextualLocalHint) -- the PO-facing
-// surface actually rendered around/below the Vollbild-Detail body. Must NOT
-// fall through to the (irrelevant) Tree/Backlog viewLocal stub.
-func TestContextualLocalHintFullscreenDetail(t *testing.T) {
-	m := model{fullscreen: fullscreenDetail}
-	got := stripHint(m.contextualLocalHint(viewLocalStub()))
-	if strings.Contains(got, "stub-view-local") {
-		t.Errorf("fullscreenDetail: contextualLocalHint = %q, must not contain the viewLocal stub", got)
-	}
-	if !strings.Contains(got, "[ history back") || !strings.Contains(got, "] history fwd") {
-		t.Errorf("fullscreenDetail: contextualLocalHint = %q, want the History hints", got)
-	}
-}
-
-// TestContextualLocalHintFullscreenList mirrors the above for fullscreenList
-// -- must also not fall through to the viewLocal stub, and must not show
-// the (wirkungslos) History hints either.
-func TestContextualLocalHintFullscreenList(t *testing.T) {
-	m := model{fullscreen: fullscreenList}
-	got := stripHint(m.contextualLocalHint(viewLocalStub()))
-	if strings.Contains(got, "stub-view-local") {
-		t.Errorf("fullscreenList: contextualLocalHint = %q, must not contain the viewLocal stub", got)
-	}
-	if strings.Contains(got, "history") {
-		t.Errorf("fullscreenList: contextualLocalHint = %q, must NOT contain a history hint", got)
 	}
 }

@@ -1,7 +1,7 @@
 package tui
 
 // mouse_boxform_test.go — TDD coverage for S6 (jira-style-ui experiment,
-// "mouse for box-form"): B6's filter-bar +3 click-Y offset (boxFormEnabled()
+// "mouse for box-form"): B6's filter-bar +3 click-Y offset
 // only), box-form Detail-Pane click-to-edit (a click on a field box fires
 // the SAME action its own hotkey does), and the flat-list row click (S5's
 // Nested/Flat Browse toggle `G`, view_browse_flat.go). Mirrors mouse_test.go's
@@ -21,7 +21,7 @@ import (
 // --- B6: filter-bar +3 click offset (Tree pane) ---
 
 // TestBoxFormFilterBarOffsetTreeClickSelectsCorrectRow mirrors
-// TestClickSetsTreeCursor (mouse_test.go) verbatim, EXCEPT LIF_TUI_BOXFORM=1 is
+// TestClickSetsTreeCursor (mouse_test.go) verbatim, EXCEPT the box-form is
 // set first: the persistent filter bar (box_filter_bar.go) now sits between
 // the header divider and the Tree/Detail split, pushing every rendered row
 // down by filterBarHeight (3) lines. treeClickAt locates "Task Two" in the
@@ -30,7 +30,6 @@ import (
 // this click would resolve 3 rows too far and select the WRONG node (or
 // none).
 func TestBoxFormFilterBarOffsetTreeClickSelectsCorrectRow(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.expanded["ms-1"] = true
@@ -44,29 +43,7 @@ func TestBoxFormFilterBarOffsetTreeClickSelectsCorrectRow(t *testing.T) {
 		t.Fatalf("handleMouse(click) did not return a model, got %T", tm)
 	}
 	if m2.cursorID != "tk-2" {
-		t.Fatalf("LIF_TUI_BOXFORM click on \"Task Two\" row: cursorID = %q, want tk-2 (B6 filter-bar +3 offset)", m2.cursorID)
-	}
-}
-
-// TestBoxFormOffDefaultTreeClickUnaffected guards the flag's OFF-by-default
-// contract for B6 specifically: without LIF_TUI_BOXFORM, treeClickRow's new
-// boxFormEnabled() branch must be dead code -- the exact same click still
-// resolves correctly with NO offset applied.
-func TestBoxFormOffDefaultTreeClickUnaffected(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.expanded["ms-1"] = true
-	m.expanded["ep-1"] = true
-	m.cursorID = "ms-1"
-
-	msg := treeClickAt(t, m, "Task Two")
-	tm, _ := m.handleMouse(msg)
-	m2, ok := tm.(model)
-	if !ok {
-		t.Fatalf("handleMouse(click) did not return a model, got %T", tm)
-	}
-	if m2.cursorID != "tk-2" {
-		t.Fatalf("default (LIF_TUI_BOXFORM unset) click on \"Task Two\" row: cursorID = %q, want tk-2", m2.cursorID)
+		t.Fatalf("box-form click on \"Task Two\" row: cursorID = %q, want tk-2 (B6 filter-bar +3 offset)", m2.cursorID)
 	}
 }
 
@@ -82,12 +59,9 @@ func TestBoxFormOffDefaultTreeClickUnaffected(t *testing.T) {
 func boxFormClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	boundary := originX + lw
-	filterBarBottom := originY // filter bar occupies [originY, originY+filterBarHeight) when LIF_TUI_BOXFORM is on
-	if boxFormEnabled() {
-		filterBarBottom = originY + filterBarHeight
-	}
+	filterBarBottom := originY + filterBarHeight // filter bar occupies [originY, originY+filterBarHeight)
 	for y, l := range screenLines(m) {
 		if y < filterBarBottom {
 			continue // skip the filter bar's own 3 rows -- avoid matching its "Status"/"Type"/"Priority"/"Tags" chip labels
@@ -106,12 +80,11 @@ func boxFormClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	return tea.MouseMsg{}
 }
 
-// boxFormFocusModel builds a fixtureModel with LIF_TUI_BOXFORM=1 and tk-2 focused
+// boxFormFocusModel builds a fixtureModel with and tk-2 focused
 // (Browse/Tree view, no detailFocus needed -- focusedBean() resolves via
 // m.cursorID regardless, update.go).
 func boxFormFocusModel(t *testing.T) model {
 	t.Helper()
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = focusBean(m, "tk-2")
@@ -139,13 +112,13 @@ func TestBoxFormClickOnStatusBoxOpensValueMenuSeededToStatus(t *testing.T) {
 }
 
 // TestBoxFormClickOnTypeBoxOpensValueMenuSeededToType mirrors the Status
-// case for the Type box's own (o) hotkey badge -- proves the click-X column
+// case for the Type box's own (t) hotkey badge -- proves the click-X column
 // bucketing (gridColAt/gridColWidths, mouse.go/box_detail_form.go) resolves
 // to a DIFFERENT column than Status, not just "any click in rowA works".
 func TestBoxFormClickOnTypeBoxOpensValueMenuSeededToType(t *testing.T) {
 	m := boxFormFocusModel(t)
 
-	msg := boxFormClickAt(t, m, "(o)")
+	msg := boxFormClickAt(t, m, "(t)")
 	tm, _ := m.handleMouse(msg)
 	m2, ok := tm.(model)
 	if !ok {
@@ -165,7 +138,7 @@ func TestBoxFormClickOnTypeBoxOpensValueMenuSeededToType(t *testing.T) {
 func TestBoxFormClickOnTagsBoxOpensTagPicker(t *testing.T) {
 	m := boxFormFocusModel(t)
 
-	msg := boxFormClickAt(t, m, "(t)")
+	msg := boxFormClickAt(t, m, "(g)")
 	tm, _ := m.handleMouse(msg)
 	m2, ok := tm.(model)
 	if !ok {
@@ -174,23 +147,6 @@ func TestBoxFormClickOnTagsBoxOpensTagPicker(t *testing.T) {
 	if m2.overlay != overlayTagPicker {
 		t.Fatalf("overlay = %v, want overlayTagPicker (click on Tags box)", m2.overlay)
 	}
-}
-
-// TestBoxFormDetailClickDeadWhenFlagOff guards B6/click-to-edit's OFF-by-
-// default contract: without LIF_TUI_BOXFORM, mouseDetailClick's new boxFormEnabled()
-// branch must never fire -- the pre-existing accordion click-to-select path
-// (detailClickRow/detailClickKey) stays the ONLY path, same as every
-// existing mouse_test.go detail-click test already proves unchanged.
-func TestBoxFormDetailClickDeadWhenFlagOff(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-
-	if boxFormEnabled() {
-		t.Fatal("setup: LIF_TUI_BOXFORM must be unset for this test")
-	}
-	_, ok := detailBoxFormClickRow(m, tea.MouseMsg{X: 999, Y: 999})
-	_ = ok // detailBoxFormClickRow is only ever CALLED from mouseDetailClick when boxFormEnabled() -- this line just proves it compiles/is reachable in isolation, the real guard is mouseDetailClick's own `if boxFormEnabled()` branch (mouse.go), exercised via the accordion-path tests already in mouse_test.go staying green.
 }
 
 // --- Flat-list row click (S5 Nested/Flat Browse toggle) ---
@@ -227,12 +183,11 @@ func TestFlatClickSelectsRow(t *testing.T) {
 }
 
 // TestFlatClickWithBoxFormOffsetSelectsRow combines S6's two flat-mode
-// requirements: LIF_TUI_BOXFORM's +3 filter-bar offset AND flatClickRow's own
+// requirements: the +3 filter-bar offset AND flatClickRow's own
 // windowStart/row math, both at once -- guards flatClickRow's own
-// boxFormEnabled() branch (view_browse_flat.go), the flat-list analog of the
+// filter-bar branch (view_browse_flat.go), the flat-list analog of the
 // Tree test above.
 func TestFlatClickWithBoxFormOffsetSelectsRow(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.flatView = true
@@ -255,6 +210,6 @@ func TestFlatClickWithBoxFormOffsetSelectsRow(t *testing.T) {
 		if sel != nil {
 			gotID = sel.ID
 		}
-		t.Fatalf("LIF_TUI_BOXFORM flat click on \"Task Two\" row: flatSelected().ID = %q, want tk-2 (B6 offset)", gotID)
+		t.Fatalf("flat click on \"Task Two\" row: flatSelected().ID = %q, want tk-2 (B6 offset)", gotID)
 	}
 }

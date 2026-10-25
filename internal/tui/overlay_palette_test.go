@@ -10,8 +10,12 @@ package tui
 // (not just until a hypothetical future T2).
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,45 +25,24 @@ import (
 
 // --- paletteActions: context-aware ordering (design decision b) ---
 
-// TestPaletteActionsBeanContextFirst guards that a focused bean's node
-// actions (status/type/priority/tags/create_tag/parent/blocking/edit_title/
-// delete) come BEFORE the global actions (create/go_backlog/...). type/
-// priority (B12, design-spec.md §15 PF-16, bean bt-ntoz, E8 Task 6) sit
-// directly after status -- the bean's own wording ("paletteActions(), im
-// focused-bean-Block, nach 'status':"). create_tag (B14, design-spec.md §15
-// PF-16, bean bt-ntoz, E8 Task 7, bean bt-yqdy) sits directly after tags --
-// same "grouped with the related action" precedent.
-func TestPaletteActionsBeanContextFirst(t *testing.T) {
+// TestPaletteActionsBeanContextAddsNodeActions guards that a focused bean
+// adds its node actions to the palette; their position is the verb grouping
+// (TestPaletteActionsGroupedByVerb), alphabetical inside each group.
+func TestPaletteActionsBeanContextAddsNodeActions(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2") // task bean -- focusedBean() != nil
 
-	items := paletteActions(m)
-	if len(items) == 0 {
-		t.Fatal("paletteActions returned no items")
+	var got []string
+	for _, it := range paletteActions(m) {
+		got = append(got, it.actionID)
 	}
-	if items[0].actionID != "status" {
-		t.Fatalf("items[0].actionID = %q, want %q (first node action)", items[0].actionID, "status")
-	}
-
-	wantNodeIDs := []string{"status", "type", "priority", "tags", "create_tag", "parent", "blocking", "edit_title", "delete"}
-	for i, want := range wantNodeIDs {
-		if items[i].actionID != want {
-			t.Fatalf("items[%d].actionID = %q, want %q", i, items[i].actionID, want)
+	for _, want := range []string{"status", "type", "priority", "tags", "create_tag", "parent", "blocking", "edit_title", "delete"} {
+		if !slices.Contains(got, want) {
+			t.Fatalf("node action %q missing from %v", want, got)
 		}
 	}
-	// The global "create" action must appear strictly AFTER every node action.
-	createIdx := -1
-	for i, it := range items {
-		if it.actionID == "create" {
-			createIdx = i
-			break
-		}
-	}
-	if createIdx == -1 {
-		t.Fatal(`"create" action missing from paletteActions`)
-	}
-	if createIdx < len(wantNodeIDs) {
-		t.Fatalf("create action at index %d, want it after all %d node actions", createIdx, len(wantNodeIDs))
+	if got[0] != "blocking" {
+		t.Fatalf("items[0].actionID = %q, want blocking (first set: label alphabetically)", got[0])
 	}
 }
 
@@ -75,7 +58,7 @@ func TestPaletteActionsIncludesSetTypeAndSetPriority(t *testing.T) {
 	m = focusBean(m, "tk-2")
 
 	items := paletteActions(m)
-	wantLabels := map[string]string{"status": "set status", "type": "set type", "priority": "set priority"}
+	wantLabels := map[string]string{"status": "set: status", "type": "set: type", "priority": "set: priority"}
 	for actionID, label := range wantLabels {
 		found := false
 		for _, it := range items {
@@ -150,8 +133,8 @@ func TestPaletteActionsIncludesCreateTag(t *testing.T) {
 	for _, it := range items {
 		if it.actionID == "create_tag" {
 			found = true
-			if it.label != "create tag" {
-				t.Fatalf("action %q label = %q, want %q", "create_tag", it.label, "create tag")
+			if it.label != "create: tag" {
+				t.Fatalf("action %q label = %q, want %q", "create_tag", it.label, "create: tag")
 			}
 		}
 	}
@@ -167,7 +150,7 @@ func TestPaletteActionsIncludesCreateTag(t *testing.T) {
 func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 	beans := append(fixtureBeans(), fixtureOrphanBean())
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 
 	if m.focusedBean() != nil {
 		t.Fatal("test setup invalid: focusedBean() != nil on the orphan root")
@@ -183,7 +166,7 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 			t.Fatalf("paletteActions leaked node action %q with no focused bean", it.actionID)
 		}
 	}
-	wantGlobal := []string{"create", "go_backlog", "go_browse", "filter", "search", "reload", "repo_picker", "register_project", "go_tags", "settings"}
+	wantGlobal := []string{"go_ready", "repo_picker", "go_browse", "settings", "go_tags", "create", "filter", "register_project", "reload", "search", "open_docs"}
 	if len(items) != len(wantGlobal) {
 		t.Fatalf("len(items) = %d, want %d (%v)", len(items), len(wantGlobal), wantGlobal)
 	}
@@ -196,10 +179,10 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 
 // fixtureOrphanBean is a bean with a dangling parent, shared by every test
 // here that needs the synthetic orphan root to exist (visibleNodes only
-// surfaces orphanRootID once at least one such bean is present, port
+// surfaces notOnRoadmapRootID once at least one such bean is present, port
 // precedent: update_test.go's TestOrphanShownUnderSyntheticRoot).
-func fixtureOrphanBean() data.Bean {
-	return data.Bean{
+func fixtureOrphanBean() *item.Item {
+	return &item.Item{
 		ID: "orph-1", Title: "Orphaned Task", Status: "todo", Type: "task",
 		Priority: "normal", Parent: "does-not-exist",
 	}
@@ -211,14 +194,14 @@ func fixtureOrphanBean() data.Bean {
 // the action label list against m.palQuery.
 func TestPalFilteredActionsFuzzyFiltered(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.palQuery = "bckl"
+	m.palQuery = "rdy"
 
 	items := m.palFiltered()
 	if len(items) != 1 {
-		t.Fatalf("len(palFiltered) = %d, want 1 (only 'go to backlog' matches %q)", len(items), m.palQuery)
+		t.Fatalf("len(palFiltered) = %d, want 1 (only 'go to ready' matches %q)", len(items), m.palQuery)
 	}
-	if items[0].actionID != "go_backlog" {
-		t.Fatalf("palFiltered[0].actionID = %q, want go_backlog", items[0].actionID)
+	if items[0].actionID != "go_ready" {
+		t.Fatalf("palFiltered[0].actionID = %q, want go_ready", items[0].actionID)
 	}
 }
 
@@ -226,7 +209,7 @@ func TestPalFilteredActionsFuzzyFiltered(t *testing.T) {
 // review I01 (bean bt-kyj5 Prelude, carried into E7 T4): Plan-Step 4 of the
 // English-i18n task (bt-w9o8) claimed a fuzzy-regression test for the 5
 // word-reversed PF-8 labels ("status: setzen" -> "set status" etc.) but only
-// ever re-verified "bckl" -> "go to backlog", whose word order PF-8 left
+// ever re-verified "rdy" -> "go to ready", whose word order PF-8 left
 // UNCHANGED (lowest-risk case, doesn't exercise the reversal at all). This
 // test exercises a query against the ACTUALLY reversed "set ..." labels.
 // "stat" is verified (not assumed) to be a rune SUBSEQUENCE -- not a
@@ -240,7 +223,7 @@ func TestPalFilteredActionsFuzzyStatMatchesSetStatusAndSetParent(t *testing.T) {
 	m.palQuery = "stat"
 
 	items := m.palFiltered()
-	wantIDs := []string{"status", "parent"}
+	wantIDs := []string{"parent", "status"}
 	if len(items) != len(wantIDs) {
 		t.Fatalf("len(palFiltered) = %d, want %d (%v) for query %q", len(items), len(wantIDs), wantIDs, m.palQuery)
 	}
@@ -251,29 +234,15 @@ func TestPalFilteredActionsFuzzyStatMatchesSetStatusAndSetParent(t *testing.T) {
 	}
 }
 
-// TestPalFilteredActionsFuzzyGoMatchesAllGoToEntriesPlusRegisterProject
-// guards T3-review I01 (bean bt-kyj5 Prelude): the "go to <entity>" entries
-// (backlog/browse/repo picker/tags/settings) share PF-8's UNCHANGED "go to
-// X" shape -- a plain "go" query must still fuzzy-match every one of them
-// (not fewer), in declaration order, with no bean leaking in. E10 Task 2
-// (bean bt-r92i) added a 5th such entry ("go to tags", go_tags) -- widening
-// this guard from 4 to 5. bt-d3ps (epic-E13-plan.md Item 4) ERRATUM: the new
-// "register project" label ALSO fuzzy-matches "go" as a subsequence (r-e-
-// "g"-ister project, g before the "o" in "project") -- not a "go to X" entry
-// conceptually, but fuzzyMatch (fuzzy.go) is a plain subsequence matcher
-// with no phrase-boundary awareness, so it matches anyway. Widening this
-// guard to 6 (not renaming its scope away from "go to") is the honest fix --
-// asserting 5 here would just be wrong, not a tighter guard. (T5-mini, bean
-// bt-uyzf, optional T4-review I01): none of fixtureBeans' titles ("Milestone
-// One"/"Epic One"/"Task One"/"Task Two") contain a 'g' at all, so no bean
-// item could ever fuzzy-match "go" and silently inflate the count above --
-// the exact-length assertion below implicitly guards that absence too.
-func TestPalFilteredActionsFuzzyGoMatchesAllGoToEntriesPlusRegisterProject(t *testing.T) {
+// TestPalFilteredVerbPrefixNarrowsToVerbEntries guards AC6 (beans-z646):
+// typing the verb prefix "set:" narrows the list to the set: entries.
+func TestPalFilteredVerbPrefixNarrowsToVerbEntries(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.palQuery = "go"
+	m = focusBean(m, "tk-2")
+	m.palQuery = "set:"
 
 	items := m.palFiltered()
-	wantIDs := []string{"go_backlog", "go_browse", "repo_picker", "register_project", "go_tags", "settings"}
+	wantIDs := []string{"blocking", "parent", "priority", "status", "tags", "edit_title", "type"}
 	if len(items) != len(wantIDs) {
 		t.Fatalf("len(palFiltered) = %d, want %d (%v) for query %q", len(items), len(wantIDs), wantIDs, m.palQuery)
 	}
@@ -328,7 +297,7 @@ func TestKeyPaletteEnterDispatchesAndCloses(t *testing.T) {
 	nm, _ := m.openPalette()
 	m = nm.(model)
 
-	m.palQuery = "bckl"
+	m.palQuery = "rdy"
 	m.palList.setLen(len(m.palFiltered()))
 
 	nm2, _ := m.keyPalette(keyMsg(tea.KeyEnter))
@@ -336,8 +305,8 @@ func TestKeyPaletteEnterDispatchesAndCloses(t *testing.T) {
 	if mm.paletteOpen {
 		t.Fatal("keyPalette enter did not close the palette")
 	}
-	if mm.view != viewBacklog {
-		t.Fatalf("view = %v, want viewBacklog (go_backlog dispatched)", mm.view)
+	if mm.view != viewReady {
+		t.Fatalf("view = %v, want viewReady (go_ready dispatched)", mm.view)
 	}
 }
 
@@ -345,7 +314,7 @@ func TestKeyPaletteEscClosesNoSideEffect(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	nm, _ := m.openPalette()
 	m = nm.(model)
-	m.palQuery = "bckl"
+	m.palQuery = "rdy"
 
 	nm2, _ := m.keyPalette(keyMsg(tea.KeyEsc))
 	mm := nm2.(model)
@@ -411,20 +380,39 @@ func TestHandleKeyCtrlKNoLongerBound(t *testing.T) {
 
 func TestHandleKeyPaletteUnreachableWhileFilterOpen(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m.filterOpen = true
+	m = step(t, m, runeMsg('f'))
+	m = step(t, m, keyMsg(tea.KeyEnter)) // opens the value menu of the Type field
+	if m.overlay != overlayFilterMenu {
+		t.Fatal("setup: the filter value menu did not open")
+	}
 	m = step(t, m, runeMsg('K'))
 	if m.paletteOpen {
-		t.Fatal("K opened the palette while filterOpen -- capture order violated (design decision h)")
+		t.Fatal("K opened the palette while the filter menu is open -- capture order violated (design decision h)")
 	}
-	if !m.filterOpen {
-		t.Fatal("filterOpen was cleared -- K must have been swallowed by keyFilterMenu, not routed to the palette")
+	if m.overlay != overlayFilterMenu {
+		t.Fatal("the filter menu closed -- K must have been swallowed by keyFilterMenu, not routed to the palette")
+	}
+}
+
+// TestDispatchPaletteFocusFilterJumpsToTypeField guards that the palette entry
+// "focus: filter" is the same jump f makes: Type field, filter layout.
+func TestDispatchPaletteFocusFilterJumpsToTypeField(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans()).setLayout(layoutRoadmap)
+	nm, _ := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "filter", label: "focus: filter"})
+	m2, ok := nm.(model)
+	if !ok {
+		t.Fatalf("dispatchPalette did not return a model, got %T", nm)
+	}
+	if m2.layout != layoutFilter || !m2.filterFocus || filterFields[m2.filterField] != "type" || m2.overlay != overlayNone {
+		t.Fatalf("focus: filter -> layout=%v filterFocus=%v field=%q overlay=%v, want filter layout, Type focused, no overlay",
+			m2.layout, m2.filterFocus, filterFields[m2.filterField], m2.overlay)
 	}
 }
 
 func TestHandleKeyPaletteOpensPaletteEvenWithOverlayOpen(t *testing.T) {
 	// Sanity: an E3 node-action overlay (e.g. Value-Menu) captures BEFORE
 	// the palette check -- K must NOT reach openPalette while overlay
-	// != overlayNone (same capture-order contract as filterOpen above).
+	// != overlayNone (same capture-order contract as the filter menu test above).
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2")
 	m = step(t, m, runeMsg('s')) // opens the value menu overlay
@@ -525,7 +513,7 @@ func TestDispatchPaletteCreateTagOpensTagPickerReadyToType(t *testing.T) {
 func TestDispatchPaletteCreateTagNoFocusedBeanNoOp(t *testing.T) {
 	beans := append(fixtureBeans(), fixtureOrphanBean())
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 	m.paletteOpen = true
 
 	if m.focusedBean() != nil {
@@ -557,8 +545,8 @@ func TestPaletteActionsIncludesRegisterProject(t *testing.T) {
 	for i, it := range items {
 		if it.actionID == "register_project" {
 			idx = i
-			if it.label != "register project" {
-				t.Fatalf("register_project label = %q, want %q", it.label, "register project")
+			if it.label != "register: project" {
+				t.Fatalf("register_project label = %q, want %q", it.label, "register: project")
 			}
 		}
 	}
@@ -580,13 +568,13 @@ func TestPaletteActionsIncludesRegisterProject(t *testing.T) {
 	}
 }
 
-// TestRegisterProjectNilClientNoOp guards the m.client == nil guard (Palette
+// TestRegisterProjectNilClientNoOp guards the m.store == nil guard (Palette
 // opened from the Lobby itself, no live repo) -- no-op, never crash, no
 // toast, settings unchanged.
 func TestRegisterProjectNilClientNoOp(t *testing.T) {
 	t.Setenv("HOME", t.TempDir()) // isolation: this path must never touch real config.yaml
 	m := fixtureModel(t, fixtureBeans())
-	if m.client != nil {
+	if m.store != nil {
 		t.Fatal("test setup invalid: fixtureModel's client is not nil")
 	}
 	before := append([]string{}, m.settings.Repos...)
@@ -614,7 +602,7 @@ func TestRegisterProjectAlreadyRegisteredShowsInfoToastNoDuplicate(t *testing.T)
 	t.Setenv("HOME", t.TempDir()) // isolation: dedup branch must never reach SaveUserSettings
 	repoDir := "/tmp/bt-d3ps-already-registered"
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: repoDir}
+	m.store = &data.Store{RepoDir: repoDir}
 	m.settings.Repos = []string{repoDir}
 
 	nm, cmd := m.registerProject()
@@ -651,7 +639,7 @@ func TestRegisterProjectSuccessSavesSettingsAndToasts(t *testing.T) {
 	}
 
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: repoDir}
+	m.store = &data.Store{RepoDir: repoDir}
 	if len(m.settings.Repos) != 0 {
 		t.Fatalf("test setup invalid: settings.Repos = %v, want empty", m.settings.Repos)
 	}
@@ -708,7 +696,7 @@ func TestDispatchPaletteRegisterProjectRoutesToRegisterProject(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.paletteOpen = true
 
-	nm, cmd := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register project"})
+	nm, cmd := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register: project"})
 	mm, ok := nm.(model)
 	if !ok {
 		t.Fatalf("dispatchPalette did not return a model, got %T", nm)
@@ -718,5 +706,32 @@ func TestDispatchPaletteRegisterProjectRoutesToRegisterProject(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Fatal("dispatchPalette(register_project) with nil client must return a nil cmd (registerProject's own no-op)")
+	}
+}
+
+// TestPaletteActionsGroupedByVerb guards beans-w2cc: set, view, the rest,
+// open last; alphabetical by label inside each group.
+func TestPaletteActionsGroupedByVerb(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans())
+	m = focusBean(m, "tk-2")
+	var verbs []string
+	var labels []string
+	for _, it := range paletteActions(m) {
+		verb, _, _ := strings.Cut(it.label, ":")
+		if len(verbs) == 0 || verbs[len(verbs)-1] != verb {
+			verbs = append(verbs, verb)
+		}
+		labels = append(labels, it.label)
+	}
+	for i, v := range verbs {
+		if want := []string{"set", "view"}; i < 2 && v != want[i] {
+			t.Fatalf("verb group %d = %q, want %q (groups: %v)", i, v, want[i], verbs)
+		}
+	}
+	if verbs[len(verbs)-1] != "open" {
+		t.Fatalf("last verb group = %q, want open (groups: %v)", verbs[len(verbs)-1], verbs)
+	}
+	if !sort.StringsAreSorted(labels[:7]) {
+		t.Fatalf("set: group not alphabetical: %v", labels[:7])
 	}
 }

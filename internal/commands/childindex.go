@@ -4,17 +4,6 @@ import (
 	"github.com/rierek/lif/pkg/item"
 )
 
-// buildChildrenIndex maps each item ID to its direct children.
-func buildChildrenIndex(all []*item.Item) map[string][]*item.Item {
-	children := make(map[string][]*item.Item)
-	for _, b := range all {
-		if b.Parent != "" {
-			children[b.Parent] = append(children[b.Parent], b)
-		}
-	}
-	return children
-}
-
 // descendants returns every item transitively parented under id (not including id itself).
 func descendants(id string, idx map[string][]*item.Item) []*item.Item {
 	var out []*item.Item

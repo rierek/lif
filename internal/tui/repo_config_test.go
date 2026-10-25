@@ -13,7 +13,19 @@ import (
 	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
 	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/config"
 )
+
+// applyDirConfig makes the config found at dir the active one, the way the TUI
+// does for an opened store.
+func applyDirConfig(t *testing.T, dir string) {
+	t.Helper()
+	cfg, err := config.LoadFromDirectory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyRepoConfig(cfg)
+}
 
 func useCustomRepoConfig(t *testing.T) {
 	t.Helper()
@@ -22,8 +34,8 @@ func useCustomRepoConfig(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".lif.yml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	applyRepoConfig(dir)
-	t.Cleanup(func() { applyRepoConfig(t.TempDir()) })
+	applyDirConfig(t, dir)
+	t.Cleanup(func() { applyRepoConfig(nil) })
 }
 
 func TestStatusMenuOffersConfiguredStatuses(t *testing.T) {
@@ -61,14 +73,14 @@ func TestConfiguredColoursOverrideBuiltinPalette(t *testing.T) {
 	if got, want := theme.StatusColor("review"), ui.ResolveColor("#112233"); got != want {
 		t.Errorf("StatusColor(review) = %v, want configured %v", got, want)
 	}
-	// An entry without an explicit colour keeps the TUI palette.
+	// An entry without an explicit colour keeps the config default.
 	if got := theme.StatusColor("todo"); got != theme.Green {
-		t.Errorf("StatusColor(todo) = %v, want built-in %v", got, theme.Green)
+		t.Errorf("StatusColor(todo) = %v, want config default %v", got, theme.Green)
 	}
 	// A repo switch to a repo without config drops the overrides.
-	applyRepoConfig(t.TempDir())
-	if got := theme.StatusColor("review"); got != theme.Subtext {
-		t.Errorf("StatusColor(review) after switch = %v, want fallback %v", got, theme.Subtext)
+	applyDirConfig(t, t.TempDir())
+	if got := theme.StatusColor("review"); got != theme.Text {
+		t.Errorf("StatusColor(review) after switch = %v, want fallback %v", got, theme.Text)
 	}
 	if contains := strings.Contains(strings.Join(data.StatusValues(), ","), "review"); contains {
 		t.Error("status list kept the previous repo's configured status")
@@ -81,4 +93,22 @@ func optionValues(opts []huh.Option[string]) []string {
 		out[i] = o.Value
 	}
 	return out
+}
+
+// TestApplyRepoConfigFollowsDisplayTheme: display.theme reaches the palette,
+// and a config without it falls back to the default (mocha).
+func TestApplyRepoConfigFollowsDisplayTheme(t *testing.T) {
+	t.Cleanup(func() { applyRepoConfig(nil) })
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".lif.yml"), []byte("display:\n  theme: latte\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	applyDirConfig(t, dir)
+	if theme.Base != "#eff1f5" {
+		t.Errorf("theme.Base = %q, want latte #eff1f5", theme.Base)
+	}
+	applyRepoConfig(nil)
+	if theme.Base != "#1e1e2e" {
+		t.Errorf("theme.Base = %q after config without theme, want mocha #1e1e2e", theme.Base)
+	}
 }

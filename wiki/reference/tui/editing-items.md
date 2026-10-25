@@ -7,7 +7,7 @@ Measured on Lif 0.13 in a terminal session; the TUI code is unchanged in 0.14 (c
 
 ## Principles
 
-The TUI has no write logic of its own. Every change runs `lif update`, `lif create` or `lif delete` as a subprocess, so the same validation applies as in the CLI: rank rule and cycle check for `parent` ([Configuration](../../configuration/#types-ranks-and-hierarchy-rules)). Updates send the item's ETag (`--if-match`). If the item changed meanwhile, a sticky toast shows `Conflict: item changed externally`. After every change the TUI reloads. All actions work on the selected item.
+The TUI has no write logic of its own. Every change goes through the same item core as `lif update`, `lif create` and `lif delete`, so the same validation applies: rank rule and cycle check for `parent` ([Configuration](../../configuration/#types-ranks-and-hierarchy-rules)). Updates send the item's ETag as the `If-Match` precondition. If the item changed meanwhile, a sticky toast shows `Conflict: item changed externally`. After every change the TUI reloads. All actions work on the selected item.
 
 ## Create an item
 
@@ -21,15 +21,15 @@ CLI equivalent: [`lif create`](../../commands/lif-create/).
 
 ## Quick changes
 
-- `s` status menu, `o` type menu, `u` priority menu. `enter` applies at once; `esc` closes.
+- `s` status menu, `t` type menu, `p` priority menu. `enter` applies at once; `esc` closes.
 - The menus list the statuses, types and priorities of the project: the built-in ones plus those in `.lif.yml`, in configured order.
-- Title: there is no key. Use the command palette (`K`, `set title`). In the classic detail layout `enter` on `title:` also works. The form saves on `enter` without confirmation.
+- Title: there is no key. Use the command palette (`K`, `set: title`). In the classic detail layout `enter` on `title:` also works. The form saves on `enter` without confirmation.
 
 ## Pickers
 
 - `a` parent picker: first row `(No parent)`, then candidates. A type may hang under every type of a lower rank, using the ranks of the project config, the same rule the CLI enforces.
-- `r` relations picker: toggles `blocking` for the selected item. `space` toggles, `enter` saves. It does not exclude cycles; the check happens on save.
-- `t` tag picker: type to filter, `space` toggles, `enter` saves. To create a tag, type a name that matches nothing and press `enter`, then `enter` again to save. Tag names are lowercase, hyphen-separated.
+- `b` blocking picker: toggles `blocking` for the selected item. `space` toggles, `enter` saves. It does not exclude cycles; the check happens on save.
+- `g` tag picker: type to filter, `space` toggles, `enter` saves. To create a tag, type a name that matches nothing and press `enter`, then `enter` again to save. Tag names are lowercase, hyphen-separated.
 - The parent and relations pickers offer the chips `ctrl+t`, `ctrl+n`, `ctrl+p`, `ctrl+g`.
 
 ## Edit the whole item
@@ -47,7 +47,7 @@ CLI equivalent: [`lif create`](../../commands/lif-create/).
 
 ## Tag management
 
-Open it with the command palette entry `go to tags`; it has no key. It lists tag definitions from the repository file `.lif-tags.yml` and tags in use. Keys: `n` new definition (or register a free tag), `e` rename, `d` delete a definition, `esc` back.
+Open it with the command palette entry `view: tags`; it has no key. It lists tag definitions from the repository file `.lif-tags.yml` and tags in use. Keys: `n` new definition (or register a free tag), `e` rename, `d` delete a definition, `esc` back.
 
 - Rename rewrites the definition and runs one `lif update` for every item with the old tag. It continues after a failure and shows a summary toast.
 - Delete removes only the definition. Items keep the tag.

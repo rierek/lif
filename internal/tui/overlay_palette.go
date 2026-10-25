@@ -23,6 +23,8 @@ package tui
 // standing in for devd's inline box chrome).
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -41,6 +43,7 @@ type paletteItemKind int
 
 const (
 	paletteKindAction paletteItemKind = iota
+	paletteKindTask                   // tui.actions entry, runs paletteItem.taskName
 )
 
 // paletteItem is one row of the Command-Center's filtered action list.
@@ -48,16 +51,18 @@ type paletteItem struct {
 	kind     paletteItemKind
 	actionID string
 	label    string // pre-rendered row text
+	taskName string // paletteKindTask only
 }
 
 // paletteActions returns the context-aware action list (design decision b):
-// focused-bean node actions FIRST (only when m.focusedBean() != nil), global
-// actions after.
+// focused-bean node actions (only when m.focusedBean() != nil) and global
+// actions, grouped by verb: set:, view:, the rest, open: last; alphabetical by
+// label inside each group (beans-w2cc).
 func paletteActions(m model) []paletteItem {
 	var items []paletteItem
 	if b := m.focusedBean(); b != nil {
 		items = append(items,
-			paletteItem{kind: paletteKindAction, actionID: "status", label: "set status"},
+			paletteItem{kind: paletteKindAction, actionID: "status", label: "set: status"},
 			// B12 (design-spec.md §15 PF-16, bean bt-ntoz, E8 Task 6): the
 			// combined value menu split into three single-group overlays --
 			// "set type"/"set priority" are the Palette's new second entry
@@ -67,9 +72,9 @@ func paletteActions(m model) []paletteItem {
 			// exactly ONE key, `s`, for the whole cluster -- explicit
 			// clarification per the bean's own ERRATUM note, in case a future
 			// reader is tempted to add a dedicated Type/Priority key).
-			paletteItem{kind: paletteKindAction, actionID: "type", label: "set type"},
-			paletteItem{kind: paletteKindAction, actionID: "priority", label: "set priority"},
-			paletteItem{kind: paletteKindAction, actionID: "tags", label: "set tags"},
+			paletteItem{kind: paletteKindAction, actionID: "type", label: "set: type"},
+			paletteItem{kind: paletteKindAction, actionID: "priority", label: "set: priority"},
+			paletteItem{kind: paletteKindAction, actionID: "tags", label: "set: tags"},
 			// B14 (design-spec.md §15 PF-16, bean bt-ntoz, E8 Task 7, bean
 			// bt-yqdy): "create tag" is a Palette-only second entry point to
 			// the SAME Tag-Picker "set tags" opens (box_picker_tag.go) --
@@ -79,45 +84,67 @@ func paletteActions(m model) []paletteItem {
 			// own doc-stamp). Grouped directly after "set tags" (both
 			// tag-related). Node action, since its dispatchPalette handler
 			// needs a focused bean's ID as the mutation target.
-			paletteItem{kind: paletteKindAction, actionID: "create_tag", label: "create tag"},
-			paletteItem{kind: paletteKindAction, actionID: "parent", label: "set parent"},
-			paletteItem{kind: paletteKindAction, actionID: "blocking", label: "set blocking"},
-			paletteItem{kind: paletteKindAction, actionID: "edit_title", label: "set title"},
-			paletteItem{kind: paletteKindAction, actionID: "delete", label: "delete item"},
+			paletteItem{kind: paletteKindAction, actionID: "create_tag", label: "create: tag"},
+			paletteItem{kind: paletteKindAction, actionID: "parent", label: "set: parent"},
+			paletteItem{kind: paletteKindAction, actionID: "blocking", label: "set: blocking"},
+			paletteItem{kind: paletteKindAction, actionID: "edit_title", label: "set: title"},
+			paletteItem{kind: paletteKindAction, actionID: "delete", label: "delete: item"},
 		)
 	}
 	items = append(items,
-		paletteItem{kind: paletteKindAction, actionID: "create", label: "create item"},
-		paletteItem{kind: paletteKindAction, actionID: "go_backlog", label: "go to backlog"},
-		paletteItem{kind: paletteKindAction, actionID: "go_browse", label: "go to browse"},
-		paletteItem{kind: paletteKindAction, actionID: "filter", label: "filter facets"},
-		paletteItem{kind: paletteKindAction, actionID: "search", label: "search items"},
-		paletteItem{kind: paletteKindAction, actionID: "reload", label: "reload data"},
+		paletteItem{kind: paletteKindAction, actionID: "create", label: "create: item"},
+		paletteItem{kind: paletteKindAction, actionID: "go_ready", label: "view: ready lifs"},
+		paletteItem{kind: paletteKindAction, actionID: "go_browse", label: "view: roadmap"},
+		paletteItem{kind: paletteKindAction, actionID: "filter", label: "focus: filter"},
+		paletteItem{kind: paletteKindAction, actionID: "search", label: "search: items"},
+		paletteItem{kind: paletteKindAction, actionID: "reload", label: "reload: data"},
 		// E5 Task 6 (bean bt-zhwl): a second entry point to the SAME
 		// keys.Picker dispatch (openLobby, view_lobby.go) -- mirrors every
 		// other single-key binding's own Command-Center mirror above.
-		paletteItem{kind: paletteKindAction, actionID: "repo_picker", label: "go to repo picker"},
+		paletteItem{kind: paletteKindAction, actionID: "repo_picker", label: "view: repos"},
 		// bt-d3ps (epic-E13-plan.md Item 4, PO-Redefinition Grilling
 		// 2026-07-17, replaces the earlier discovery-scan design entirely --
 		// NO scan, NO discovery roots, NO find-persistence): registers the
-		// currently open repo (m.client.RepoDir) into the SAME central
+		// currently open repo (m.store.RepoDir) into the SAME central
 		// config.yaml register the Lobby itself reads (view_lobby.go) --
 		// grouped directly after "go to repo picker" (same repo-registry
 		// neighborhood, mirrors "create_tag" sitting directly after "tags").
-		paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register project"},
+		paletteItem{kind: paletteKindAction, actionID: "register_project", label: "register: project"},
 		// E10 Task 2 (bean bt-r92i, epic bt-362n D05): the Tag-Management
 		// page has NO dedicated keybinding either (D05 mirrors the "go to
 		// settings" precedent immediately below -- Tastenraum bleibt knapp) --
 		// grouped directly BEFORE "settings" as the new last-but-one entry
 		// (Planner-Entscheidung, mirrors how "repo_picker" itself already
 		// sits directly before "settings").
-		paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "go to tags"},
+		paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "view: tags"},
 		// E5 Task 5 (bean bt-0l8c): the Settings-Form has NO dedicated
 		// keybinding (design-spec §7 knows none) -- reachable exclusively
 		// through the Command-Center, appended last.
-		paletteItem{kind: paletteKindAction, actionID: "settings", label: "go to settings"},
+		paletteItem{kind: paletteKindAction, actionID: "settings", label: "view: settings"},
+		paletteItem{kind: paletteKindAction, actionID: "open_docs", label: "open: documentation"},
 	)
+	for _, a := range m.taskActions {
+		if taskActionApplies(a, m.focusedBean()) {
+			items = append(items, paletteItem{kind: paletteKindTask, taskName: a.Task, label: "run: " + a.Label})
+		}
+	}
+	slices.SortStableFunc(items, func(a, b paletteItem) int {
+		return cmp.Or(cmp.Compare(verbRank(a.label), verbRank(b.label)), strings.Compare(a.label, b.label))
+	})
 	return items
+}
+
+// verbRank orders the verb groups of palette labels: set, view, other, open.
+func verbRank(label string) int {
+	switch verb, _, _ := strings.Cut(label, ":"); verb {
+	case "set":
+		return 0
+	case "view":
+		return 1
+	case "open":
+		return 3
+	}
+	return 2
 }
 
 // palFiltered fuzzy-filters the action pool against m.palQuery. B13
@@ -193,6 +220,8 @@ func (m model) keyPalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 	m.paletteOpen = false
 	switch it.kind {
+	case paletteKindTask:
+		return m.startTask(it.taskName)
 	case paletteKindAction:
 		switch it.actionID {
 		case "status":
@@ -251,19 +280,19 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 				return m, toastCmd
 			}
 			return m.openCreateForm()
-		case "go_backlog":
-			m.view = viewBacklog
-			m.backlogList.setLen(len(m.backlogVisible()))
+		case "go_ready":
+			m.view = viewReady
+			m.readyList.setLen(len(m.readyVisible()))
 			return m, nil
 		case "go_browse":
 			m.view = viewBrowseRepo
 			return m, nil
 		case "filter":
-			return m.openFilterMenu()
+			return m.focusFilter(), nil
 		case "search":
 			return m.openSearchInput()
 		case "reload":
-			return m, loadCmd(m.client)
+			return m, loadCmd(m.store)
 		case "repo_picker":
 			// E5 Task 6 (bean bt-zhwl): identical to keys.Picker's own
 			// dispatch (handleKey, update.go) -- the Command-Center is a
@@ -285,6 +314,8 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 			// (box_form_settings.go) -- same open-form shape as edit_title,
 			// no mutTarget (settings are repo-independent).
 			return m.openSettingsForm()
+		case "open_docs":
+			return m.openDocs()
 		}
 	}
 	return m, nil
@@ -298,13 +329,13 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 // opened via plain cwd-resolution (FindRepo, never explicitly registered)
 // has no way into that list otherwise. This is the one-keystroke bridge.
 func (m model) registerProject() (tea.Model, tea.Cmd) {
-	if m.client == nil {
+	if m.store == nil {
 		// Palette opened from the Lobby itself (no live repo) -- mirrors
 		// dispatchPalette's own "edit_title" focusedBean()-nil-guard shape:
 		// no-op, never crash.
 		return m, nil
 	}
-	repoDir := m.client.RepoDir
+	repoDir := m.store.RepoDir
 	for _, r := range m.settings.Repos {
 		if r == repoDir {
 			var toastCmd tea.Cmd

@@ -12,12 +12,12 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // boxFormLongBodyBeans is fixtureBeans() (update_test.go) with tk-1 AND tk-2
@@ -29,7 +29,7 @@ import (
 // changed" reset -- if only tk-2 overflowed, adjustBoxFormScroll(tk-1, ...)
 // would itself clamp to 0 regardless of the reset logic under test, a false
 // negative).
-func boxFormLongBodyBeans() []data.Bean {
+func boxFormLongBodyBeans() []*item.Item {
 	var body strings.Builder
 	for i := 1; i <= 80; i++ {
 		fmt.Fprintf(&body, "- BODYLINE%02d\n", i)
@@ -43,15 +43,14 @@ func boxFormLongBodyBeans() []data.Bean {
 	return beans
 }
 
-// boxFormScrollModel builds a fixtureModel with LIF_TUI_BOXFORM=1, a 100x30
+// boxFormScrollModel builds a fixtureModel with a 100x30
 // frame, and tk-2 (long body) focused (Browse/Tree view, ancestors
 // expanded via focusBean, box_menu_value_test.go) -- detailFocus is left
 // false (Tree-focused default); callers that need Detail focus set
 // m.detailFocus = true themselves, mirroring update_test.go's own pattern
-// (e.g. TestActivateDetailFieldJumpStaysInFullscreenDetail).
+// (e.g. TestActivateDetailFieldJump).
 func boxFormScrollModel(t *testing.T) model {
 	t.Helper()
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, boxFormLongBodyBeans())
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = focusBean(m, "tk-2")
@@ -63,7 +62,7 @@ func boxFormScrollModel(t *testing.T) model {
 // (Akzeptanz "Langer Body: Detail-Pane scrollt"), so a fixture/geometry
 // regression that accidentally makes the form fit must fail LOUDLY here,
 // not silently pass a scroll test that no longer exercises any scrolling.
-func requireOverflow(t *testing.T, m model, b *data.Bean) (total, height int) {
+func requireOverflow(t *testing.T, m model, b *item.Item) (total, height int) {
 	t.Helper()
 	total, height = boxFormScrollBounds(m, b)
 	if total <= height {
@@ -75,7 +74,7 @@ func requireOverflow(t *testing.T, m model, b *data.Bean) (total, height int) {
 // --- Keyboard: up/down only scrolls when the Detail pane is focused ---
 
 // TestBoxFormScrollDownUpWhenDetailFocused guards the core drive path: while
-// m.detailFocus is true and boxFormEnabled(), down/up eventually move
+// m.detailFocus is true, down/up eventually move
 // model.boxFormScroll and record its owning bean -- Akzeptanz "Offset
 // clamped" + the bean's own Test list item 1.
 //
@@ -192,7 +191,7 @@ func TestBoxFormWheelOverDetailPaneScrolls(t *testing.T) {
 	requireOverflow(t, m, b)
 
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 	detailMsg := tea.MouseMsg{
 		Button: tea.MouseButtonWheelDown, Action: tea.MouseActionPress,
@@ -291,19 +290,3 @@ func TestBoxFormScrollRevealsContentPreviouslyCutOff(t *testing.T) {
 }
 
 // --- Accordion mode (flag off) stays untouched ---
-
-// TestBoxFormScrollFieldsInertWithoutFlag guards the flag's OFF-by-default
-// contract for F1 specifically: without LIF_TUI_BOXFORM, up/down while
-// detailFocus is true must drive the pre-existing Accordion Section/Field
-// cursor exactly as before -- model.boxFormScroll must never be written.
-func TestBoxFormScrollFieldsInertWithoutFlag(t *testing.T) {
-	m := fixtureModel(t, boxFormLongBodyBeans()) // LIF_TUI_BOXFORM left unset
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-	m.detailFocus = true
-
-	m = step(t, m, keyMsg(tea.KeyDown))
-	if m.boxFormScroll != 0 || m.boxFormScrollBean != "" {
-		t.Fatalf("boxFormScroll/boxFormScrollBean = %d/%q, want 0/\"\" (accordion mode must never touch box-form scroll state)", m.boxFormScroll, m.boxFormScrollBean)
-	}
-}

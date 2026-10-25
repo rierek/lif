@@ -7,7 +7,7 @@ package tui
 // utilities (no devd-API coupling to strip), homeLogoBlock/repoPickerBody/
 // viewLobby are beans-tui-native (a "lif" banner instead of "DevDashboard",
 // beans-tui's own config.Settings.Repos instead of devd's api.Project list,
-// an Open/Total bean-count metric instead of devd's Sprint/Backlog count).
+// an Open/Total bean-count metric instead of devd's Sprint/Ready count).
 //
 // KEIN Overlay: viewLobby is a full top-level view (design decision, bean's
 // own body text) -- a repo switch needs a complete client/watcher restart,
@@ -168,7 +168,11 @@ func (m model) repoPickerBody(w int) string {
 		ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Text)
 	}
 	var b strings.Builder
-	b.WriteString(theme.Muted.Render("⌕ ") + ti.View() + "\n\n")
+	if m.repoFilterOpen {
+		b.WriteString(theme.Muted.Render("⌕ ") + ti.View() + "\n\n")
+	} else {
+		b.WriteString(theme.Muted.Render("⌕ press / to filter") + "\n\n")
+	}
 	b.WriteString(pickerRowFill(theme.Dim.Render("  ◦ Repo"), theme.Dim.Render("open/total"), w) + "\n")
 	b.WriteString(theme.Dim.Render(strings.Repeat("─", w)) + "\n")
 
@@ -236,7 +240,7 @@ func (m model) viewLobby() string {
 	// directly against the real m.width/m.height, this file's own
 	// overlay_show_toast.go doc-stamp) appearing pushed almost entirely
 	// off the top of the screen, just its bottom border edge visible.
-	// Every OTHER view (viewBrowseRepo/viewBacklog) already gets this right
+	// Every OTHER view (viewBrowseRepo/viewReady) already gets this right
 	// via the identical innerW := w - 2 pattern -- this now matches that
 	// established convention exactly, no new arithmetic invented.
 	innerW := w - 2
@@ -272,7 +276,7 @@ func (m model) viewLobby() string {
 	// via repoPickerWidth's own fix), this literal string has no natural
 	// truncation point of its own -- a narrow terminal must cut it, not
 	// silently word-wrap it into a second, unbudgeted line.
-	hintText := truncate("↑↓:move  enter:open  type:filter  "+lobbyExitHint(m), innerW)
+	hintText := truncate(lobbyHint(m), innerW)
 	hint := theme.Muted.Render(centerInto(hintText, innerW))
 	bodyH := innerH - 1 // innerH total inner lines, minus the 1 reserved for hint below
 	if bodyH < 1 {
@@ -284,30 +288,22 @@ func (m model) viewLobby() string {
 	return m.composeOverlays(out, w, h)
 }
 
-// lobbyExitHint renders the exit-key segment of the Lobby's footer hint.
-// Since the B01 fix (bt-1u0t Fix-Runde 1) decoupled keyLobby's exit keys,
-// esc and q DIVERGE once a live repo exists (esc goes back, q quit-confirms)
-// -- the pre-fix combined "esc/q:back" label would promise that q takes you
-// back too, exactly the surprise-copy problem quitBox's own context-
-// sensitive hint (B08 Planner add-on) exists to prevent. With no client
-// both keys still quit-confirm (first-screen Lobby, design decision d), so
-// the combined label stays there.
-//
-// D06 OPTIK-ANGLEICHUNG (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc,
-// Notes-für-bt-d8kc in bean bt-1u0t): the ":" format is replaced with the
-// same Teal-key/Subtext-desc color split renderBindings uses (theme.
-// BindingKey/BindingDesc directly -- there is no keybind.Binding to hand
-// renderBindings here, esc/q/esc-q are ad hoc label pairs, not real
-// bindings). WHICH text shows (esc:back+q:quit vs. the combined esc/q:quit)
-// is UNCHANGED -- only the optic. Scoped to lobbyExitHint's own segment
-// only: the surrounding hint line ("↑↓:move  enter:open  type:filter  ",
-// viewLobby) keeps its own colon format, out of this task's scope.
-func lobbyExitHint(m model) string {
-	if m.client != nil {
-		return theme.BindingKey.Render("esc") + " " + theme.BindingDesc.Render("back") + "  " +
-			theme.BindingKey.Render("q") + " " + theme.BindingDesc.Render("quit")
+// lobbyHint renders the Lobby's one-line footer hint from the keys that act
+// in its current state (beans-u4uu): the open filter takes text, a pending
+// first esc asks for the second, otherwise the command keys show.
+func lobbyHint(m model) string {
+	pair := func(k, d string) string {
+		return theme.BindingKey.Render(k) + " " + theme.BindingDesc.Render(d)
 	}
-	return theme.BindingKey.Render("esc/q") + " " + theme.BindingDesc.Render("quit")
+	sep := "  "
+	switch {
+	case m.repoFilterOpen:
+		return pair("type", "filter") + sep + pair("↑↓", "move") + sep + pair("enter", "open") + sep + pair("esc", "close filter")
+	case m.lobbyEscArmed:
+		return pair("esc", "again to leave") + sep + pair("any key", "stay")
+	}
+	return pair("↑↓", "move") + sep + pair("enter", "open") + sep + pair("/", "filter") + sep +
+		pair("esc esc", "leave") + sep + pair("q", "quit")
 }
 
 // openLobby transitions into the Lobby (E5 Task 6, design decision h):
@@ -337,33 +333,26 @@ func (m model) openLobby() (tea.Model, tea.Cmd) {
 	}
 	m.repoQuery = ""
 	m.repoSearch.SetValue("")
-	m.repoSearch.Focus() // Port devd openProjPick/keyHome's own "always focused" Lobby-search precedent
+	m.repoSearch.Blur()
+	m.repoFilterOpen, m.lobbyEscArmed = false, false
 	m.repoList = listState{}
 	m.repoList.setLen(len(m.settings.Repos))
 	return m, repoMetricsBatchCmd(m.settings.Repos, m.settings.RepoStorePaths)
 }
 
-// keyLobby drives the Lobby (Port devd keyHome's own structure,
-// view_home.go): nav + selection dispatches switchRepoCmd (the watcher-
-// lifecycle switch, messages.go); the three exit keys are DECOUPLED since
-// the B01 fix (bt-1u0t Fix-Runde 1): esc returns to the live repo if one
-// exists or quit-confirms otherwise (US-01 parity doc-stamp, lobbyExitHint
-// above), q ALWAYS quit-confirms (B08 stage 2 must stay reachable), ctrl+c
-// ALWAYS quits immediately (bt-7jr8 kill-switch contract); any other key
-// filters repoQuery live.
-//
-// notify is wired here (not messages.go) as
-// func(){ activeProgram.Send(watchMsg{}) } -- activeProgram (app.go) is
-// guaranteed non-nil by the time a keypress can reach this handler (Run()
-// sets it immediately after tea.NewProgram, strictly before p.Run() is ever
-// called, and no key can be dispatched before that).
+// keyLobby drives the Lobby (beans-u4uu). Keys are commands: up/down (or
+// i/k) move, enter opens the repo (switchRepoCmd, the watcher-lifecycle
+// switch, messages.go), / opens the repo filter, q quits at once, and two
+// presses of esc leave the Lobby (back to the live repo, or quit when there is
+// none). Only the open filter takes typed text; there esc closes it. ctrl+c
+// quits at once from everywhere (handleKey). Any other key resets a pending
+// first esc.
 func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// bt-l8e7 fix (E12 Item 3): intercept the RAW tea.KeyUp/tea.KeyDown
-	// KeyType here, NOT navKey()'s letter-alias table (keys.Up binds "i",
-	// keys.Down binds "k", vim-style) -- mirrors keyTagPicker's own raw-
-	// KeyType intercept (box_picker_tag.go, bt-9ipw), which exists for the
-	// exact same reason: a repoQuery starting with "i"/"k" (e.g. "ide") must
-	// reach the textinput below untouched, not be swallowed as navigation.
+	armed := m.lobbyEscArmed
+	m.lobbyEscArmed = false
+
+	// bt-l8e7: raw tea.KeyUp/tea.KeyDown, so a filter text starting with "i" or
+	// "k" (e.g. "ide") reaches the textinput untouched.
 	switch msg.Type {
 	case tea.KeyUp:
 		m.repoList.move(-1)
@@ -380,46 +369,47 @@ func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		target := filtered[m.repoList.cursor]
-		notify := func() { activeProgram.Send(watchMsg{}) }
-		return m, switchRepoCmd(m.watchStop, target, m.settings.RepoStorePaths[target], notify)
+		return m, switchRepoCmd(m.store, target, m.settings.RepoStorePaths[target])
 	case "esc":
-		if m.client != nil {
-			// A live repo already exists (p from a running session) -- go
-			// back to it instead of force-quitting a working session
-			// (design decision, bean bt-zhwl Step 9: devd's own keyHome has
-			// no equivalent case since devd's Home is its ONLY entry point;
-			// beans-tui's Lobby is reachable a SECOND way). D03: esc goes
-			// exactly ONE level back -- the Lobby was a side trip.
-			m.view = viewBrowseRepo
+		if m.repoFilterOpen {
+			m.repoFilterOpen = false
+			m.repoQuery = ""
+			m.repoSearch.SetValue("")
+			m.repoSearch.Blur()
+			m.repoList.cursor = 0
+			m.repoList.setLen(len(m.filteredRepos()))
 			return m, nil
 		}
-		return m.requestQuit()
-	case "q":
-		// B01 fix (bt-1u0t Fix-Runde 1): q quit-confirms REGARDLESS of
-		// m.client -- the pre-fix uniform esc/q/ctrl+c case made stage 2 of
-		// the B08 quit cascade unreachable once a repo had ever been opened
-		// (q always bounced back to Browse), contradicting the PO wording
-		// (bt-ntoz B08: "aus der Lobby q→enter beendet die TUI").
-		// keyConfirmQuit's quitBoxWillGoToLobby() is already false here
-		// (m.view == viewLobby), so the confirm's hint reads "enter: quit"
-		// and enter resolves to tea.Quit -- stage 2 complete.
-		return m.requestQuit()
-	case "ctrl+c":
-		// B01 fix, same hole: ctrl+c stays the hard/immediate kill switch
-		// (bean bt-7jr8) inside the Lobby too -- the pre-fix "ctrl+c -> back
-		// to Browse" was the only place in the app where ctrl+c did NOT
-		// quit. Mirrors handleKey's own ctrl+c case (update.go), which the
-		// Lobby's full-capture positioning otherwise shadows.
+		if !armed {
+			m.lobbyEscArmed = true
+			return m, nil
+		}
+		if m.store != nil {
+			m.view = viewBrowseRepo // the Lobby was a side trip: one level back
+			return m, nil
+		}
 		return m, tea.Quit
 	}
 
-	// Port devd projFilterType's own Focus()-before-Update() precedent
-	// (view_home.go): bubbles' textinput.Model.Update ignores key input
-	// entirely while unfocused, and the Lobby -- unlike the Tree's `/`
-	// search -- has no separate "not yet typing" mode (every non-nav/
-	// non-enter/non-esc key IS the filter, mirrors devd's own keyHome/
-	// projFilterType structure). Idempotent, safe to call every keystroke.
-	m.repoSearch.Focus()
+	if !m.repoFilterOpen {
+		switch msg.String() {
+		case "q":
+			return m.requestQuit()
+		case "/":
+			m.repoFilterOpen = true
+			m.repoSearch.Focus()
+			return m, nil
+		}
+		switch navKey(msg.String()) {
+		case "up":
+			m.repoList.move(-1)
+		case "down":
+			m.repoList.setLen(len(m.filteredRepos()))
+			m.repoList.move(1)
+		}
+		return m, nil
+	}
+
 	var cmd tea.Cmd
 	m.repoSearch, cmd = m.repoSearch.Update(msg)
 	prev := m.repoQuery

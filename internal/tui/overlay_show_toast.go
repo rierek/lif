@@ -12,7 +12,7 @@ package tui
 //
 // Deviation vs. devd (design decision a): toastTarget carries ONLY `view
 // viewID` -- devd's milestoneID/sprintID/issueID triad has no beans-tui
-// equivalent (ONE entity, data.Bean, design-spec §4); a future
+// equivalent (ONE entity, item.Item, design-spec §4); a future
 // deeper-focus-restore producer can extend this struct when it needs to, no
 // producer currently does.
 //
@@ -23,7 +23,7 @@ package tui
 //
 // toastGeometry/renderToast compose directly against m.width/m.height,
 // UNCHANGED vs. devd's own (already B01-fixed) source: beans-tui's View
-// functions (viewBrowseRepo/viewBacklog/viewLobby) each build their own full
+// functions (viewBrowseRepo/viewReady/viewLobby) each build their own full
 // frame (w, h := m.width, m.height, outerBorder(..., true)) exactly like
 // devd's fully-composited View()/viewComposite() split does -- no separate
 // termWidth()-style inner-width helper exists here to mis-target against
@@ -54,7 +54,7 @@ const (
 
 // toastTarget addresses, minimally, where a click on the toast jumps to
 // (devd DD2-272 AC4 parity). Only view -- beans-tui has ONE focus resolver
-// (focusedBean(), view-agnostic across Tree/Backlog), so a view switch alone
+// (focusedBean(), view-agnostic across Tree/Ready), so a view switch alone
 // is enough to land the click near the right context; no producer needs a
 // deeper bean/section jump yet.
 type toastTarget struct {
@@ -268,7 +268,7 @@ func (m model) renderToast(base string) string {
 			continue
 		}
 		if pad := w - ansi.StringWidth(fl); pad > 0 {
-			fl += overlayPad.Render(strings.Repeat(" ", pad))
+			fl += overlayPad().Render(strings.Repeat(" ", pad))
 		}
 		bgLines[row] = spliceLine(bgLines[row], fl, x, w)
 	}
@@ -295,4 +295,12 @@ func (m model) dismissToast() (tea.Model, tea.Cmd) {
 	}
 	m.toast = nil
 	return m, nil
+}
+
+// escDismissesToast reports whether esc closes the toast: a sticky toast is
+// visible and esc has no other job in the list views. Overlays, forms, the
+// palette and the help already captured esc before this is asked.
+func (m model) escDismissesToast() bool {
+	return m.toast != nil && m.toast.sticky &&
+		!m.detailFocus && !m.filterFocus && !m.treeActive() && !m.flatView && m.view != viewReady
 }

@@ -3,7 +3,7 @@ package tui
 // box_confirm_create.go — the Create-Form's Confirm-Gate (E3 Task 4, bean
 // bt-y4ly, design decision e, Port devd box_confirm_create.go's 1:1
 // pattern): after the Create-Form reaches huh.StateCompleted, a y/n-style
-// Confirm modal opens BEFORE the real data.Client.Create fires. enter fires
+// Confirm modal opens BEFORE the real data.Store.Create fires. enter fires
 // the already-built createCmd; n/esc returns to the BEFILLED form
 // (Draft-Erhalt, Port DD2-190) instead of discarding the PO's work.
 // beans-tui has only ONE gated form kind so far ("create") -- unlike devd's
@@ -60,7 +60,7 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 		d := draftFromForm(m.form)
 		m.createDraft = &d
 		m.createLabel = createConfirmLabel(d)
-		m.pendingCreate = createCmd(m.client, createOptsFromDraft(d))
+		m.pendingCreate = createCmd(m.store, createOptsFromDraft(d))
 		m.form = nil
 		m.formKind = ""
 		m.overlay = overlayCreateConfirm
@@ -78,12 +78,12 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 			m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
 			return m, toastCmd
 		}
-		client := m.client
-		return m, mutateCmd(func() error { return client.SetTitle(id, title, etag) })
+		store := m.store
+		return m, mutateCmd(store, func() error { return store.SetTitle(id, title, etag) })
 	case "settings":
 		// E5 Task 5 (bean bt-0l8c, design decision c, Port devd DD2-221):
 		// mirrors "editTitle"'s direct-fire shape (no Confirm-Gate) but is
-		// PURELY LOCAL -- no data.Client mutation, so there is no Cmd to
+		// PURELY LOCAL -- no data.Store mutation, so there is no Cmd to
 		// return either (unlike editTitle/reject's mutateCmd). Every field's
 		// own huh Validate() (box_form_settings.go) already guarantees
 		// tree_width parses as an in-range integer by the time
@@ -120,8 +120,9 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 			return m, toastCmd
 		}
 		m.settings = settings
-		configuredEditor = settings.Editor     // DD2-221 Port: live, no restart (editor.go)
-		theme.SetAccent(settings.Theme.Accent) // No-Op on empty/invalid (theme.go's own guard)
+		configuredEditor = settings.Editor // DD2-221 Port: live, no restart (editor.go)
+		configuredAccent = settings.Theme.Accent
+		theme.SetAccent(configuredAccent) // No-Op on empty/invalid (theme.go's own guard)
 		return m, nil
 	}
 	m.form = nil
@@ -146,7 +147,7 @@ func createConfirmLabel(d beanDraft) string {
 // DD2-190).
 func (m model) keyCreateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Confirm):
 		cmd := m.pendingCreate
 		m.overlay = overlayNone
 		// F1 (Review-Runde 2, Async-Gap-Clobbering, Finding 1b): pendingCreate
@@ -167,7 +168,7 @@ func (m model) keyCreateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// instead of routing through the draft-agnostic
 		// applyMutationResult tail.
 		return m, cmd
-	case keybind.Matches(msg, keys.Back), msg.String() == "n":
+	case keybind.Matches(msg, keys.Cancel):
 		m.overlay = overlayNone
 		m.pendingCreate = nil
 		m.createLabel = ""
@@ -187,6 +188,6 @@ func (m model) createConfirmBox() string {
 	var b strings.Builder
 	b.WriteString(theme.Header.Render("Create?") + "\n\n")
 	b.WriteString(theme.Accent.Render(m.createLabel) + "\n\n")
-	b.WriteString(theme.Dim.Render("enter: create   esc/n: back"))
+	b.WriteString(theme.Dim.Render("enter/y: create   esc/n: back"))
 	return modalBox(b.String(), clampModalWidth(54, m.width), theme.Mauve)
 }

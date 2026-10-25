@@ -24,6 +24,7 @@ package tui
 
 import (
 	"errors"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -67,9 +68,8 @@ func assertConflictSweep(t *testing.T, tm tea.Model, cmd tea.Cmd) {
 // `m.overlay = overlayNone` before returning the Cmd).
 func TestEtagConflictSweep(t *testing.T) {
 	t.Run("value-menu status", func(t *testing.T) {
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeans())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		m = focusBean(m, "tk-2")
 		m = step(t, m, runeMsg('s'))
 		if m.overlay != overlayValueMenu {
@@ -80,9 +80,8 @@ func TestEtagConflictSweep(t *testing.T) {
 	})
 
 	t.Run("value-menu type", func(t *testing.T) {
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeans())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		m = focusBean(m, "tk-2")
 		m = step(t, m, runeMsg('s'))
 		m.menu.cursor = valueMenuCursorFor(m.menuItems, "type", "bug")
@@ -91,9 +90,8 @@ func TestEtagConflictSweep(t *testing.T) {
 	})
 
 	t.Run("value-menu priority", func(t *testing.T) {
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeans())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		m = focusBean(m, "tk-2")
 		m = step(t, m, runeMsg('s'))
 		m.menu.cursor = valueMenuCursorFor(m.menuItems, "priority", "high")
@@ -102,11 +100,10 @@ func TestEtagConflictSweep(t *testing.T) {
 	})
 
 	t.Run("tag-picker SetTags", func(t *testing.T) {
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeansTagged())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		m = focusBean(m, "tk-2")
-		m = step(t, m, runeMsg('t'))
+		m = step(t, m, runeMsg('g'))
 		if m.overlay != overlayTagPicker {
 			t.Fatal("setup: t did not open the tag picker")
 		}
@@ -117,9 +114,8 @@ func TestEtagConflictSweep(t *testing.T) {
 	})
 
 	t.Run("parent-picker SetParent", func(t *testing.T) {
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeansForParentPicker())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		m = focusBeanFull(m, "ep-1")
 		m = step(t, m, runeMsg('a'))
 		for i, it := range m.parentItems {
@@ -132,9 +128,8 @@ func TestEtagConflictSweep(t *testing.T) {
 	})
 
 	t.Run("parent-picker RemoveParent", func(t *testing.T) {
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeansForParentPicker())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		m = focusBeanFull(m, "ep-1")
 		m = step(t, m, runeMsg('a'))
 		m.menu.cursor = 0 // "(No parent)" clear row
@@ -143,16 +138,15 @@ func TestEtagConflictSweep(t *testing.T) {
 	})
 
 	t.Run("blocking-picker SetBlocking", func(t *testing.T) {
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeansWithBlocking())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStoreOf(t, fixtureBeansWithBlocking())
 		m = focusBeanFull(m, "bean-a")
-		m = step(t, m, runeMsg('r'))
+		m = step(t, m, runeMsg('b'))
 		if m.overlay != overlayBlockingPicker {
 			t.Fatal("setup: r did not open the blocking picker")
 		}
 		for i, it := range m.blockItems {
-			if it.id == "ep-1" {
+			if it.id == "ep-2" {
 				m.menu.cursor = i
 			}
 		}
@@ -172,9 +166,8 @@ func TestEtagConflictSweep(t *testing.T) {
 		// testing.Short() guards there) -- a single-field settle via
 		// driveForm avoids reintroducing that cost for a sweep subtest that
 		// only needs submitForm's OWN dispatch, not a full keystroke replay.
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeans())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		f := buildEditTitleForm("Task Two")
 		f = driveForm(f, enterMsg())
 		m.form = f
@@ -201,12 +194,11 @@ func TestEtagConflictSweep(t *testing.T) {
 		// recovery path) -- mirrors
 		// TestEditorFinishedConflictWritesRecoveryTempFileAndSurfacesPath's
 		// own setup shape, editor_test.go).
-		fakeBeansConflict(t)
 		m := fixtureModel(t, fixtureBeans())
-		m.client = &data.Client{RepoDir: t.TempDir()}
+		m.store = conflictingStore(t)
 		m.editorTarget = "tk-2"
 		m.editorETag = "captured-at-open-etag"
-		m.editorSnapshot = &data.Bean{ID: "tk-2", Title: "Task Two", Status: "todo", Type: "task", Priority: "normal"}
+		m.editorSnapshot = &item.Item{ID: "tk-2", Title: "Task Two", Status: "todo", Type: "task", Priority: "normal"}
 
 		fm := rawBeanFrontmatter{Title: "Task Two Edited", Status: "todo", Type: "task", Priority: "normal"}
 		raw := rawEditorText(t, fm, "edited body")
@@ -226,9 +218,8 @@ func TestEtagConflictSweep(t *testing.T) {
 // handlungsleitende detail beyond the generic "Conflict: bean changed
 // externally" title.
 func TestPlainConflictSetsNonEmptyToastCtx(t *testing.T) {
-	fakeBeansConflict(t)
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	m.store = conflictingStore(t)
 	m = focusBean(m, "tk-2")
 	m = step(t, m, runeMsg('s'))
 	if m.overlay != overlayValueMenu {
@@ -277,29 +268,22 @@ func TestPlainConflictSetsNonEmptyToastCtx(t *testing.T) {
 // echoes the ACTUAL --if-match value it received into its (still-failing,
 // for observability only) error text.
 func TestConflictAfterWatchReloadUsesFreshETagNoConflict(t *testing.T) {
-	fakeBeansEchoIfMatch(t)
-
-	beans := fixtureBeans()
-	for i := range beans {
-		if beans[i].ID == "tk-2" {
-			beans[i].ETag = "etag-at-open"
-		}
-	}
-	m := fixtureModel(t, beans)
-	m.client = &data.Client{RepoDir: t.TempDir()}
+	store := fixtureStore(t)
+	m := fixtureModel(t, fixtureBeans())
+	m.store = store
 	m = focusBean(m, "tk-2")
 	m = step(t, m, runeMsg('s')) // opens the value menu, mutTarget=tk-2, NO etag captured (design d)
 	if m.overlay != overlayValueMenu {
 		t.Fatal("setup: s did not open the value menu")
 	}
 
-	reloaded := fixtureBeans()
-	for i := range reloaded {
-		if reloaded[i].ID == "tk-2" {
-			reloaded[i].ETag = "etag-after-reload"
-		}
+	// tk-2 changes on disk (its ETag rotates); the watch-reload lands while the
+	// menu is still open and hands the model the fresh item.
+	tk2 := storeItem(t, store, "tk-2")
+	if err := store.SetTitle("tk-2", "Task Two (external)", tk2.ETag()); err != nil {
+		t.Fatalf("setup: external write: %v", err)
 	}
-	m = step(t, m, beansLoadedMsg{beans: reloaded}) // watch-reload lands while the menu is still open
+	m = step(t, m, beansLoadedMsg{beans: store.Items()})
 
 	tm, cmd := m.Update(keyMsg(tea.KeyEnter))
 	if _, ok := tm.(model); !ok {
@@ -313,13 +297,7 @@ func TestConflictAfterWatchReloadUsesFreshETagNoConflict(t *testing.T) {
 	if !ok {
 		t.Fatalf("cmd() = %T, want mutationDoneMsg", msg)
 	}
-	if mdm.err == nil {
-		t.Fatal("setup: the fake lif script always exits 1")
-	}
-	if !strings.Contains(mdm.err.Error(), "received-if-match=etag-after-reload") {
-		t.Fatalf("dispatched --if-match: %v, want it to contain the FRESH (reloaded) etag %q", mdm.err, "etag-after-reload")
-	}
-	if strings.Contains(mdm.err.Error(), "etag-at-open") {
-		t.Fatalf("dispatched the STALE (open-time) etag: %v, want the fresh one (design decision d)", mdm.err)
+	if mdm.err != nil {
+		t.Fatalf("mutation after a reload failed: %v -- want the FRESH etag dispatched, no false conflict (design decision d)", mdm.err)
 	}
 }

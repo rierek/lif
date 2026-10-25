@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rierek/lif/internal/storeroot"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/itemcore"
@@ -149,12 +150,12 @@ func TestStoreResolutionErrorsNameLif(t *testing.T) {
 	c.SetConfigDir(t.TempDir())
 
 	missing := filepath.Join(t.TempDir(), "gone")
-	_, _, err := resolveStorePath(missing, c)
+	_, _, err := storeroot.Resolve(missing, c)
 	if want := "store path does not exist or is not a directory: " + missing; err == nil || err.Error() != want {
 		t.Errorf("explicit path error = %v, want %q", err, want)
 	}
 
-	_, _, err = resolveStorePath("", c)
+	_, _, err = storeroot.Resolve("", c)
 	if err == nil || !strings.Contains(err.Error(), "(run 'lif init' to create one)") {
 		t.Errorf("missing store error = %v, want it to point at 'lif init'", err)
 	}

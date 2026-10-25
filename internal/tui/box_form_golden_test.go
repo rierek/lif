@@ -1,13 +1,9 @@
 package tui
 
 // box_form_golden_test.go — golden snapshot for the Browse Primat-View with
-// the experimental jira-style box-form detail render switched ON (S2b,
-// LIF_TUI_BOXFORM env gate, box_form_flag.go). Mirrors tree_golden_test.go's
+// the jira-style box-form detail render (S2b). Mirrors tree_golden_test.go's
 // TestTreeGolden EXACTLY (same fixture via goldenTreeModel, same 100x30
-// frame, same TrueColor/-update pattern) -- the ONLY difference is
-// t.Setenv("LIF_TUI_BOXFORM", "1") before rendering, so this test proves the
-// flag's ON state without touching tree.golden (which stays the flag-OFF
-// snapshot, byte-identical, per this slice's contract).
+// frame, same TrueColor/-update pattern).
 
 import (
 	"os"
@@ -19,11 +15,10 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// TestBrowseBoxFormGolden renders the SAME fixture TestTreeGolden uses, but
-// with LIF_TUI_BOXFORM=1, and compares it against testdata/browse_boxform.golden.
+// TestBrowseBoxFormGolden renders the SAME fixture TestTreeGolden uses
+// and compares it against testdata/browse_boxform.golden.
 // Regenerate with: go test ./internal/tui/ -run TestBrowseBoxFormGolden -update
 func TestBrowseBoxFormGolden(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
@@ -55,25 +50,5 @@ func TestBrowseBoxFormGolden(t *testing.T) {
 	}
 	if out != string(want) {
 		t.Errorf("browse boxform view output differs from golden %q (frame/width/truncation?).\n--- got ---\n%s\n--- want ---\n%s", path, out, string(want))
-	}
-}
-
-// TestBrowseBoxFormDefaultOffMatchesTree guards the flag's OFF-by-default
-// contract at the golden level: WITHOUT LIF_TUI_BOXFORM set, the exact same
-// fixture must still render byte-identically to tree.golden -- i.e. this new
-// code path is fully inert unless explicitly opted into.
-func TestBrowseBoxFormDefaultOffMatchesTree(t *testing.T) {
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	defer lipgloss.SetColorProfile(termenv.Ascii)
-
-	m := goldenTreeModel(t)
-	out := m.View()
-
-	want, err := os.ReadFile(filepath.Join("testdata", "tree.golden"))
-	if err != nil {
-		t.Fatalf("tree.golden missing: %v", err)
-	}
-	if out != string(want) {
-		t.Errorf("default (LIF_TUI_BOXFORM unset) browse view diverged from tree.golden -- flag must be fully inert when unset")
 	}
 }

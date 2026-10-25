@@ -2,8 +2,7 @@ package tui
 
 // box_nav_field.go — the box-form FIELD CURSOR (bean bt-1o4g, epic bt-vy1q,
 // PO-Nebenbefund N8): keyboard-first navigation between detailBoxForm's boxes
-// (box_detail_form.go) while the Detail pane is focused (tab) and
-// boxFormEnabled().
+// (box_detail_form.go) while the Detail pane is focused (up/down).
 //
 // THREE deliberate single-source decisions, all Golden-Rule-Drift-Schutz:
 //
@@ -27,27 +26,7 @@ package tui
 import (
 	keybind "github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rierek/lif/internal/tui/data"
-)
-
-// boxFormFieldNext/boxFormFieldPrev are the Detail REGION's own tab/shift+tab
-// (bean bt-8d35, PO's Fokus-Modell: "tab/shift+tab bewegen INNERHALB der
-// fokussierten Region, esc VERLAESST die Region"). They carry the same
-// physical keys as the global keys.FocusIn/keys.FocusOut pane swap, but a
-// different, region-local meaning -- exactly the filterMenuCategoryHint
-// precedent (footer_context.go), and safe by construction for the same
-// reason: handleKey routes tab/shift+tab here FIRST while the Detail region
-// has focus and boxFormEnabled(), so the global meaning never also runs.
-//
-// Deliberately standalone keybind.Bindings, NOT keyMap fields: keymap_test.go's
-// TestHelpGroupsCoverEveryBindingExactlyOnce reflects over keyMap fields only
-// and would flag these as unrouted Help entries. The label lives on the SAME
-// value the handler matches (footer_context.go's boxFormRegionLabels swaps
-// them into Footer Zone 3), so bt-z4w7's "the label IS the binding" rule
-// holds literally here.
-var (
-	boxFormFieldNext = keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next field"))
-	boxFormFieldPrev = keybind.NewBinding(keybind.WithKeys("shift+tab"), keybind.WithHelp("shift+tab", "prev field"))
+	"github.com/rierek/lif/pkg/item"
 )
 
 // boxFormPageUp/boxFormPageDown page the focused Detail pane by one FULL
@@ -56,13 +35,9 @@ var (
 // excluded; pgup/pgdn mean exactly "blaettern" and collide with nothing,
 // TestKeymapNoCtrlSQ is the precedent for hard terminal-collision guards).
 //
-// Standalone keybind.Bindings, NOT keyMap fields -- SAME rationale as
-// boxFormFieldNext/Prev above: keymap_test.go's TestHelpGroupsCoverEvery
-// BindingExactlyOnce reflects over keyMap fields only, and these are
-// experiment-gated Detail-region-local keys, not global Help entries. (The
-// SSTD handover note said "keymap.go single source"; the closer, verified
-// precedent -- the sibling field-nav bindings right here -- governs where a
-// box-form-local binding actually belongs, so it lives beside them.)
+// Standalone keybind.Bindings, NOT keyMap fields: keymap_test.go's
+// TestHelpGroupsCoverEveryBindingExactlyOnce reflects over keyMap fields only,
+// and these are Detail-region-local keys, not global Help entries.
 //
 // Both route through the SAME adjustBoxFormScroll mutation point up/down and
 // the wheel use (keyDetailFocus, update.go), one screen == boxFormScrollBounds'
@@ -125,7 +100,7 @@ func boxFormRowCols(row int) int {
 
 // boxFormCursorRow returns the layout row the field cursor sits in, or -1 for
 // no cursor (the SAME derivation boxFormBlocks' own focusRow uses, box_detail_
-// form.go). Lets renderAccordionPane resolve the Body header's focus color
+// form.go). Lets renderDetailBox resolve the Body header's focus color
 // without restating the cursor->row rule (bean bt-adkn Rework B3).
 func boxFormCursorRow(cursor int) int {
 	if cursor >= 0 && cursor < len(boxFormFieldOrder) {
@@ -227,7 +202,7 @@ func boxFormMoveField(cur int, dir string) int {
 // (mouse.go): one lazy check where the value is READ beats N reset call sites
 // at every cursor-move/click/jump that can change the selection. Also the
 // defensive clamp point -- boxFormCursor survives watch-reloads untouched.
-func boxFormEffectiveCursor(m model, b *data.Bean) int {
+func boxFormEffectiveCursor(m model, b *item.Item) int {
 	if b == nil || b.ID != m.boxFormCursorBean {
 		return 0
 	}
@@ -278,11 +253,12 @@ func boxFormScrollIntoView(off, start, h, height int) int {
 //
 // Directions:
 //
-//   - "next"/"prev" (bean bt-8d35, the ONLY ones a key drives today:
-//     tab/shift+tab) step LINEARLY through boxFormFieldOrder and WRAP at both
-//     ends -- the PO's explicit "am Ende umbrechen, NICHT in den Tree
-//     zurueckfallen, sonst verliert man den Fokus versehentlich beim
-//     Durchsteppen".
+//   - "next"/"prev" step LINEARLY through boxFormFieldOrder and WRAP at both
+//     ends (bean bt-8d35). stepFocus (layout.go) drives them for tab inside
+//     the Detail ring; in layoutFilterDetail it leaves the Detail at the
+//     ends instead of wrapping.
+//   - "first"/"last" put the cursor on the first/last field: stepFocus
+//     enters the Detail from the list or the filter bar with them.
 //   - left/right move the cursor within its grid row.
 //   - up/down first REVEAL, then MOVE: while the cursored field still extends
 //     past the visible window in the pressed direction, the keypress scrolls
@@ -304,7 +280,7 @@ func boxFormScrollIntoView(off, start, h, height int) int {
 //
 // Writes both cursor and scroll ownership (boxFormCursorBean/
 // boxFormScrollBean) so the derived per-bean resets stay consistent.
-func (m model) boxFormNav(b *data.Bean, dir string) model {
+func (m model) boxFormNav(b *item.Item, dir string) model {
 	if b == nil {
 		return m
 	}
@@ -326,6 +302,10 @@ func (m model) boxFormNav(b *data.Bean, dir string) model {
 		}
 		n := len(boxFormFieldOrder)
 		cur = ((cur+d)%n + n) % n // wrap at BOTH ends (bt-8d35)
+	case "first":
+		cur = 0
+	case "last":
+		cur = len(boxFormFieldOrder) - 1
 	case "left", "right":
 		cur = boxFormMoveField(cur, dir)
 	case "up", "down":
@@ -363,35 +343,33 @@ func (m model) boxFormNav(b *data.Bean, dir string) model {
 //   - Row span (Y): boxFormFieldSpan (box_detail_form.go) minus
 //     boxFormEffectiveScroll (mouse.go), against clickPaneGeometry's originY
 //     corrected for the box-form filter bar the SAME way detailBoxFormClickRow
-//     is (B6, filterBarHeight, ONLY viewBrowseRepo ever shows the bar). This
+//     is (B6, m.filterRows: the bar is shown only in the filter layouts). This
 //     half matches detailBoxFormClickRow's own contentRow = clickRow +
 //     offset exactly, just inverted (screenRow = contentRow - offset) --
 //     confirmed render-grounded, no deviation here.
-//   - Pane accW: boxFormPaneMetrics (mouse.go) already branches on
-//     m.fullscreen == fullscreenDetail (bt-s90e) -- reused verbatim so this
+//   - Pane accW: boxFormPaneMetrics (mouse.go) -- reused verbatim so this
 //     function and boxFormPaneMetrics' own callers (boxFormNav,
 //     boxFormScrollBounds) can never disagree about the pane's width.
 //   - Column span within the field's grid row: gridColWidths (box_detail_
 //     form.go) + detailBoxFormGap, walked forward (colX = Σwidths[0:col] +
 //     col*gap) -- gridColAt (mouse.go) is the SAME table's inverse direction.
 //   - Pane left edge (X): NOT originX+lw (detailBoxFormClickRow's own click
-//     boundary, mouse.go) -- see ERRATUM below. Instead: Split mode (m.
-//     fullscreen != fullscreenDetail), the Detail pane's own left border sits
-//     at originX+lw+2 (the Tree/Backlog/Flat pane occupies lw+2 columns:
+//     boundary, mouse.go) -- see ERRATUM below. Instead: with a list pane
+//     shown, the Detail pane's own left border sits at originX+lw+2 (the
+//     Tree/Ready/Flat pane occupies lw+2 columns:
 //     border+lw content+border, JoinHorizontal butts the Detail pane directly
 //     against it with no gap), and detailBoxForm's own content -- the
 //     accW-wide string dropdownBox/panelBox draw, which begins with its own
 //     "╭"/"│" -- starts ONE column further right of that, at originX+lw+3.
-//     fullscreenDetail (bt-s90e): there is no preceding Tree/Backlog pane at
-//     all (renderFullscreenBody's ONE full-width pane), so content starts at
-//     originX+1.
+//     layoutDetail: there is no preceding Tree/Ready pane at all (ONE
+//     full-width pane), so content starts at originX+1.
 //
 // ERRATUM (Grounding-Kultur, checked rather than assumed): the Grounding's
 // own "trivial from gridColWidths" note implicitly assumed the pane's
-// content starts at originX+lw (Split) / originX (fullscreen) -- the SAME
+// content starts at originX+lw (Split) / originX (layoutDetail) -- the SAME
 // boundary detailBoxFormClickRow's own `msg.X < originX+lw` gate uses. A
 // render-grounded probe (ansi-stripped m.View(), a real "╭" search) found
-// this is off by +3 columns in Split mode (+1 in fullscreen) from where
+// this is off by +3 columns in Split mode (+1 in layoutDetail) from where
 // detailBoxForm ACTUALLY draws: detailBoxFormClickRow's own X arithmetic
 // only ever gates a coarse "which pane" decision and, past that, buckets via
 // gridColAt against ~14-15-cell-wide columns -- a 3-cell systematic
@@ -418,7 +396,7 @@ func (m model) boxFormNav(b *data.Bean, dir string) model {
 //
 // boxFormPaneContentLeft and boxFormPopupChromeFloor (below) factor the
 // pane-origin geometry this function's own X/Y math depends on out into
-// reusable, view/fullscreen-agnostic helpers -- placeValueMenuOverlay (Slice
+// reusable, view/layout-agnostic helpers -- placeValueMenuOverlay (Slice
 // C B02 fix, box_menu_value.go) needs the SAME left-edge column to clamp a
 // left-aligned popup against, and the SAME "row right after the divider" as
 // a hard floor no popup Y may ever cross (Slice C B01 fix) -- both MUST
@@ -428,8 +406,8 @@ func (m model) boxFormNav(b *data.Bean, dir string) model {
 // boxFormPaneContentLeft returns the column detailBoxForm's boxes actually
 // start drawing at (the SAME value boxFormFieldRect's own col=0 resolves
 // to, see the ERRATUM above): Split mode butts the Detail pane directly
-// against the Tree/Backlog/Flat pane's own lw+2-wide box (border+lw
-// content+border, no gap), fullscreenDetail has no preceding pane at all.
+// against the Tree/Ready/Flat pane's own lw+2-wide box (border+lw
+// content+border, no gap), layoutDetail has no preceding pane at all.
 func boxFormPaneContentLeft(m model) int {
 	ww, hh := m.width, m.height
 	if ww <= 0 {
@@ -441,15 +419,15 @@ func boxFormPaneContentLeft(m model) int {
 	innerW := ww - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, lw, _, originX, _ := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
+	_, lw, _, originX, _ := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	paneLeftBorder := originX
-	if m.fullscreen != fullscreenDetail {
+	if m.layout.hasList() {
 		paneLeftBorder = originX + lw + 2
 	}
 	return paneLeftBorder + 1 // one column past the pane's own left border/corner
@@ -463,8 +441,8 @@ func boxFormPaneContentLeft(m model) int {
 // already documents itself as "outer top border(1) + head(lines) +
 // divider(1) + the PANE'S OWN top border(1)" -- one row PAST the divider is
 // exactly originY minus that last "pane's own top border" term, i.e.
-// originY-1. View/fullscreen/filter-bar agnostic: none of those ever add
-// rows ABOVE this point (the filter bar, if boxFormEnabled(), sits AT this
+// originY-1. View/layout/filter-bar agnostic: none of those ever add
+// rows ABOVE this point (the filter bar sits AT this
 // row and below -- it is body chrome, not app chrome, safe to place a popup
 // over), only below it.
 func boxFormPopupChromeFloor(m model) int {
@@ -478,17 +456,17 @@ func boxFormPopupChromeFloor(m model) int {
 	innerW := ww - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
+	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	return originY - 1
 }
 
-func boxFormFieldRect(m model, b *data.Bean, field int) (x, y, w, h int, ok bool) {
+func boxFormFieldRect(m model, b *item.Item, field int) (x, y, w, h int, ok bool) {
 	if b == nil || field < 0 || field >= len(boxFormFieldOrder) {
 		return 0, 0, 0, 0, false
 	}
@@ -503,18 +481,16 @@ func boxFormFieldRect(m model, b *data.Bean, field int) (x, y, w, h int, ok bool
 	innerW := ww - 2
 
 	var head, localKeys string
-	if m.view == viewBacklog {
-		head, localKeys = m.backlogChrome(innerW)
+	if m.view == viewReady {
+		head, localKeys = m.readyChrome(innerW)
 	} else {
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
 
-	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth)
-	if boxFormEnabled() && m.view != viewBacklog {
-		originY += filterBarHeight // B6: same correction detailBoxFormClickRow applies (mouse.go)
-	}
+	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	originY += m.filterRows() // B6: same correction detailBoxFormClickRow applies (mouse.go)
 
-	accW, _ := boxFormPaneMetrics(m, b) // fullscreenDetail-aware accW (bt-s90e)
+	accW, _ := boxFormPaneMetrics(m, b)
 	contentX := boxFormPaneContentLeft(m)
 
 	f := boxFormFieldOrder[field]
@@ -538,7 +514,7 @@ func boxFormFieldRect(m model, b *data.Bean, field int) (x, y, w, h int, ok bool
 // half of Ziel 4, dispatched through the SAME activateBoxFormTarget
 // (mouse.go) a click on that box takes, so keyboard and mouse can never open
 // different things for the same field.
-func (m model) boxFormActivateCursor(b *data.Bean) (tea.Model, tea.Cmd) {
+func (m model) boxFormActivateCursor(b *item.Item) (tea.Model, tea.Cmd) {
 	if b == nil {
 		return m, nil
 	}

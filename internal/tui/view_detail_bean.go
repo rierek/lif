@@ -1,235 +1,64 @@
 package tui
 
-// view_detail_bean.go — the 4 fixed accordion sections for a bean (design-
-// spec §6 V4, §15 PF-1/PF-3/PF-4/PF-7): META / BODY (glamour) / RELATIONS /
-// HISTORY. Always all 4 (unlike devd's content-gated issueSections) -- there
-// is no reason to hide an empty section; digit jump 1..4 stays meaningful for
-// every bean. Section titles are uppercase English (PF-7, E7 T3 deliberately
-// left these 4 to this task -- bt-w9o8 "Notes for T4"). META additionally
-// carries a 5-entry field list (PF-4 + PF-15/D01) instead of its old 4-line
-// status/type/priority/tags summary -- tags rejoined Meta as its own field
-// (E8 Task 1, bean bt-e6q9, directly after priority). Shrunk from 7 to 5
-// entries by bt-lg68 (PO-Nebenbefund, US-Review Runde 3): created_at/
-// updated_at were doubly rendered in META AND HISTORY -- removed from META,
-// HISTORY (historieSectionBody) stays the sole source.
-//
-// META's section-level open/closed behavior: originally PF-1 made META
-// non-collapsible (always rendered its body). PF-18 REVISED this (design-
-// spec.md §15, PO-Feedback 2026-07-16, bean bt-98cb) -- META now behaves
-// exclusive-open like every other section (accordion.go's renderAccordion),
-// default-closed until actively selected, since the relevant summary info
-// already lives in the always-visible Meta-Strip header (detailHeaderBlock).
+// view_detail_bean.go — the building blocks of the box-form Detail pane
+// (box_detail_form.go): Relations, Body (glamour) and History panel bodies,
+// plus the shared relation row helpers. fmtTime is shared by
+// historieSectionBody so Created/Updated formatting lives in one place.
 
 import (
-	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 	"github.com/rierek/lif/internal/tui/data"
 	"github.com/rierek/lif/internal/tui/theme"
 )
 
-// beanSectionCount is the Single Source for the fixed section count (T6,
-// design-spec.md §15 PF-2: replaces two independently hardcoded '4' literals
-// in update.go::keyDetailFocus and the former view_review_cockpit.go --
-// removed by PF-14 -- with one shared constant).
-const beanSectionCount = 4
-
-// Section index constants (E8 Task 1, bean bt-e6q9, PF-16/B04 "Kleine
-// Zusatzarbeit"): named indices into the 4 fixed sections beanSections
-// returns, replacing Magic-Number section indices at call sites. Prepared
-// for T6/B10 (bean bt-ntoz), which needs bodySectionIdx instead of a bare 1.
-const (
-	metaSectionIdx      = 0
-	bodySectionIdx      = 1
-	relationsSectionIdx = 2
-	historySectionIdx   = 3
-)
-
-// Section titles (PF-7, uppercase English).
-const (
-	sectionTitleMeta      = "META"
-	sectionTitleBody      = "BODY"
-	sectionTitleRelations = "RELATIONS"
-	sectionTitleHistory   = "HISTORY"
-)
-
-// beanSections builds the 4 fixed sections of the Detail-Accordion for b.
-// bodyW is the inner body width (renderAccordion's box, already accounting
-// for its own PaddingLeft/border -- callers pass the same width they'd hand
-// renderAccordion). focused/activeIdx/fieldIdx are the SAME render-state
-// triple renderAccordion itself takes (E7 T4, bean bt-kyj5): META's body
-// needs to know whether IT is the currently active section to place its own
-// ▶ field marker (PF-4) -- previously META's body was static text, agnostic
-// of focus state. detailLevel (E8 Task 1, bean bt-e6q9, PF-16/B04) is a 4th
-// gate: the ▶ marker must not appear merely because Meta IS the active
-// section (activeIdx==0) -- it appears only once the field level has
-// actually been entered (detailLevel==1), otherwise a bare `tab` already
-// shows title: pre-selected before the user did anything at field level.
-func beanSections(idx *data.Index, b *data.Bean, bodyW int, focused bool, activeIdx, fieldIdx, detailLevel int) []accordionSection {
-	var secs []accordionSection
-	secs = append(secs, accordionSection{
-		title:  sectionTitleMeta,
-		body:   metaSectionBody(b, bodyW, focused && activeIdx == 0 && detailLevel == 1, fieldIdx),
-		fields: metaFields(b),
-	})
-	secs = append(secs, accordionSection{title: sectionTitleBody, body: bodySectionBody(b, bodyW)})
-	// B04 (design-spec.md §15 PF-17, bean bt-b0w0): relationsSectionBody
-	// grows the SAME (active, fieldIdx) pair metaSectionBody's own call
-	// above takes -- mirrors accordion.go's own activeSec gate (`active &&
-	// activeIdx == i`) verbatim, deliberately WITHOUT a detailLevel gate
-	// (unlike Meta's `&& detailLevel == 1`): the removed fieldStrip showed
-	// its active field as soon as the SECTION itself was active, regardless
-	// of detailLevel -- this preserves that exact visibility timing, only
-	// relocating WHERE the marker renders (per-row instead of a separate
-	// strip), per this task's own "Pfeiltasten-Navigation ändert KEINEN
-	// Code, nur die Visualisierung wechselt" scope.
-	rel, fields, relActiveLine := relationsSectionBody(idx, b, bodyW, focused && activeIdx == relationsSectionIdx, fieldIdx)
-	secs = append(secs, accordionSection{title: sectionTitleRelations, body: rel, fields: fields, activeLine: relActiveLine})
-	secs = append(secs, accordionSection{title: sectionTitleHistory, body: historieSectionBody(b, bodyW)})
-	return secs
+// relationField is a navigation target inside the Relations panel: a
+// jump-target entry (Parent/Children/Blocking/Blocked-By). beanID == ""
+// marks an unresolved/dangling reference.
+type relationField struct {
+	beanID string // target bean ID; "" for an unresolved/dangling reference
+	label  string // pre-rendered row text (theme colors already applied)
 }
 
-// metaFieldLabels are the 5 fixed row labels of the Meta field list (PF-4 +
-// PF-15/D01, E8 Task 1, bean bt-e6q9; shrunk from 7 to 5 by bt-lg68, PO-
-// Nebenbefund US-Review Runde 3: created_at/updated_at were doubly rendered
-// here AND in HISTORY -- removed from META, HISTORY stays the sole source).
-// metaFieldLabelWidth (below) computes the shared padding width FROM this
-// slice, not a hand-typed literal -- bt-lg68's own removal is exactly the
-// case the plan flagged: "created_at:" used to be the longest label (12
-// cells incl. padding), and hard-coding that width would have silently gone
-// stale the moment it was removed.
-var metaFieldLabels = [...]string{"title:", "status:", "type:", "priority:", "tags:"}
-
-// metaFieldLabelWidth is metaFieldLabels' common left-pad width: one cell
-// past the longest label ("priority:", 9 chars) -- computed here so a future
-// change to metaFieldLabels can never let a hard-coded width literal drift
-// out of sync again (bt-lg68 ripple-check).
-var metaFieldLabelWidth = func() int {
-	w := 0
-	for _, l := range metaFieldLabels {
-		if len(l) > w {
-			w = len(l)
-		}
+// glowRender renders markdown through glamour at the given width (devd
+// editor.go:98-126). The renderer is built per call: bean bodies are a few
+// KB, well under interactive-latency budgets. Both error paths return the
+// raw markdown unchanged.
+func glowRender(md string, width int) string {
+	if strings.TrimSpace(md) == "" {
+		return ""
 	}
-	return w + 1
-}()
-
-// metaFields builds the 5 kind-tagged Meta field entries (PF-4 + PF-15/D01,
-// design-spec.md §15; shrunk from 7 to 5 by bt-lg68): title / status / type
-// / priority / tags, in that fixed order. status/type/priority reuse T2's
-// GLYPH-producing theme helpers (StatusIcon/TypeIcon/Priority) -- NOT the
-// word, unlike the Kopfblock (detailHeaderBlock, below), which uses the word
-// for type/status. tags (PF-15/D01, E8 Task 1) reuses the previously
-// caller-less tagsInline/tagSwatch helper (render_shared.go) -- Hash-colored
-// "● tag" swatches, or a theme.Dim "(none)" placeholder for an empty Tags
-// slice. beanID is always "" (Meta fields are never Beziehungen-style jump
-// targets); kind drives the enter-dispatch (status/type/priority/tags ->
-// seeded Value-Menu / Tag-Picker, title -> Title-Edit-Form). created_at/
-// updated_at (formerly two trailing "readonly" No-Op entries here) are
-// REMOVED by bt-lg68 -- HISTORY (historieSectionBody, below) is now the
-// sole renderer of Created/Updated; fmtTime stays shared between the two so
-// their formatting can never drift apart again.
-func metaFields(b *data.Bean) []relationField {
-	priority := b.Priority
-	if priority == "" {
-		priority = "normal"
+	w := width
+	if w <= 0 {
+		w = 80
 	}
-	tags := tagsInline(b.Tags)
-	if tags == "" {
-		tags = theme.Dim.Render("(none)")
+	style := "dark"
+	if lipgloss.ColorProfile() == termenv.Ascii {
+		style = "notty"
 	}
-	return []relationField{
-		{kind: "title", label: b.Title},
-		{kind: "status", label: theme.StatusIcon(b.Status)},
-		{kind: "type", label: theme.TypeIcon(b.Type)},
-		{kind: "priority", label: theme.Priority(priority)},
-		{kind: "tags", label: tags},
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle(style),
+		glamour.WithWordWrap(w),
+	)
+	if err != nil {
+		return md
 	}
-}
-
-// metaSectionBody renders the 5-entry Meta field list (PF-4 + PF-15/D01;
-// shrunk from 7 to 5 by bt-lg68): a ▷/▶ cursor column (PF-12: ALWAYS one or
-// the other, never omitted -- the gutter is inherently stable by
-// construction here, unlike the two accordion.go call sites PF-12 had to
-// retrofit) followed by the field's label (padded to metaFieldLabelWidth)
-// and its pre-rendered value (metaFields). ▶ (Accent) marks the row only
-// when active is true AND fieldIdx matches that row's index -- mirrors
-// render_shared.go's renderPane list-cursor convention (only the marker
-// glyph is accent-tinted, not the whole row). Wrapped via wrapText like the
-// section body always has been (B01, E2-T1-quality-review, MANDATORY
-// carry-over) -- an overlong title must wrap instead of overflowing the
-// Detail pane's bordered width.
-func metaSectionBody(b *data.Bean, bodyW int, active bool, fieldIdx int) string {
-	fields := metaFields(b)
-	var lines []string
-	for i, f := range fields {
-		marker := theme.Muted.Render("▷ ") // B09 (bean bt-ntoz, PF-16): was unstilisiert (terminal-default white)
-		if active && fieldIdx == i {
-			marker = theme.Accent.Render("▶ ")
-		}
-		label := theme.Muted.Render(fmt.Sprintf("%-*s", metaFieldLabelWidth, metaFieldLabels[i]))
-		lines = append(lines, marker+label+f.label)
+	out, err := r.Render(md)
+	if err != nil {
+		return md
 	}
-	return wrapText(strings.Join(lines, "\n"), bodyW)
-}
-
-// detailHeaderBlock renders the NEW Detail-Pane Kopfblock (PF-3+PF-4,
-// verschmolzen laut PO-Antwort Q01, design-spec.md §15; PF-17/B05 (bean
-// bt-mtig): bean-id / NAME / blank / "type: X    status: Y    prio: Z
-// tags: <swatches>" / trailing blank, above the Accordion. type/status
-// render as the colored WORD (theme.TypeStyle/StatusStyle applied to
-// b.Type/b.Status) -- prio renders as the colored GLYPH (theme.Priority;
-// PF-6 removed the word-producing counterpart, there is no PriorityStyle to
-// apply to a word). tags is a 4th, appended column (PO-Mockup exact: "type:
-// epic  status: in-progress  prio: !  tags: to-review") -- variable width is
-// uncritical since it is the row's last column (no trailing padded field
-// depends on it, unlike type/status which DO have a following column and
-// therefore keep their fixed E8-B02 padding unchanged). Not the App-Chrome
-// header (PO-Antwort Q01 explicit: "Kein separater App-Header-Umbau") --
-// Detail-Pane only.
-func detailHeaderBlock(b *data.Bean, w int) string {
-	priority := b.Priority
-	if priority == "" {
-		priority = "normal"
-	}
-	// B02 (bean bt-ntoz, design-spec.md §15 PF-16): type/status are padded to
-	// the longest legal word BEFORE the TypeStyle/StatusStyle color is
-	// applied (9 = len("milestone"), 11 = len("in-progress")) -- otherwise
-	// the row's total width (and thus "status:"/"prio:"'s column start)
-	// shifts on every bean-change depending on word length. prio stays a
-	// GLYPH (theme.Priority), never a variable-length word, so it needs no
-	// padding of its own.
-	typeWord := fmt.Sprintf("%-9s", b.Type)
-	statusWord := fmt.Sprintf("%-11s", b.Status)
-	// tags mirrors metaFields' own tagsInline/"(none)" fallback (render_
-	// shared.go/view_detail_bean.go) verbatim -- kept as a small duplicate
-	// here (not extracted into a shared helper) because the two call sites
-	// have unrelated surrounding logic; if either changes, update both (see
-	// metaFields above).
-	tags := tagsInline(b.Tags)
-	if tags == "" {
-		tags = theme.Dim.Render("(none)")
-	}
-	typeStatusPrio := theme.Muted.Render("type: ") + theme.TypeStyle(b.Type).Render(typeWord) +
-		theme.Muted.Render("    status: ") + theme.StatusStyle(b.Status).Render(statusWord) +
-		theme.Muted.Render("    prio: ") + theme.Priority(priority) +
-		theme.Muted.Render("    tags: ") + tags
-	lines := []string{
-		truncate(theme.Key.Render(b.ID), w),
-		truncate(theme.Header.Render(b.Title), w),
-		"",
-		truncate(typeStatusPrio, w),
-		"",
-	}
-	return strings.Join(lines, "\n")
+	return strings.TrimRight(out, "\n")
 }
 
 // bodySectionBody renders b.Body via glowRender (glamour), with a muted
 // placeholder for an empty body -- digit-jump 2 must always show something.
-func bodySectionBody(b *data.Bean, bodyW int) string {
+func bodySectionBody(b *item.Item, bodyW int) string {
 	if strings.TrimSpace(b.Body) == "" {
 		return theme.Dim.Render("(no body)")
 	}
@@ -300,7 +129,7 @@ func relationRowMarker(active bool, fieldIdx, rowIdx int) string {
 // relationRow (below) is now a thin wrapper around this plus its own
 // `marker` parameter, byte-identical to its pre-extraction behavior.
 //
-// slug (bean bt-pt1r) is the same repo prefix treeRowText/backlogRowText
+// slug (bean bt-pt1r) is the same repo prefix treeRowText/readyRowText
 // already strip via shortBeanID (view_browse_repo.go, bean bt-pl5p) --
 // threaded in as a PARAMETER rather than resolved here, because the two
 // callers want opposite things and the difference is a deliberate design
@@ -316,7 +145,7 @@ func relationRowMarker(active bool, fieldIdx, rowIdx int) string {
 //
 // A foreign/dangling ID (no such prefix) is untouched either way -- that is
 // shortBeanID's own contract.
-func relationRowPrefix(rel *data.Bean, slug string) string {
+func relationRowPrefix(rel *item.Item, slug string) string {
 	return theme.StatusIcon(rel.Status) + " " + theme.TypeIcon(rel.Type) + " " + theme.Key.Render(shortBeanID(rel.ID, slug)) + " "
 }
 
@@ -326,7 +155,7 @@ func relationRowPrefix(rel *data.Bean, slug string) string {
 // continuation lines align under the title's own start on THIS row instead
 // of falling back to column 0. Passes slug "" on purpose -- see
 // relationRowPrefix's own note: the Detail pane keeps the FULL ID (bt-pl5p).
-func relationRow(rel *data.Bean, marker string, w int) string {
+func relationRow(rel *item.Item, marker string, w int) string {
 	return hangingIndentWrap(marker+relationRowPrefix(rel, ""), rel.Title, w)
 }
 
@@ -351,7 +180,7 @@ func relationRow(rel *data.Bean, marker string, w int) string {
 // construction time, so a relation TITLE that happens to contain "▶"/"▷"
 // can never be mistaken for the real cursor.
 func resolveSorted(idx *data.Index, ids []string, startIdx int, active bool, fieldIdx, w int) (lines []string, fields []relationField, nextIdx, activeOffset int) {
-	var resolved []*data.Bean
+	var resolved []*item.Item
 	var unresolved []string
 	for _, id := range ids {
 		if rel, ok := idx.ByID[id]; ok {
@@ -402,7 +231,7 @@ func resolveSorted(idx *data.Index, ids []string, startIdx int, active bool, fie
 // resolveSorted's own B04 parameters; activeOffset mirrors resolveSorted's
 // own bt-se4q addition (display-line offset of the active row within this
 // call's `lines`, -1 if not present here).
-func beanListRow(beans []*data.Bean, startIdx int, active bool, fieldIdx, w int) (lines []string, fields []relationField, nextIdx, activeOffset int) {
+func beanListRow(beans []*item.Item, startIdx int, active bool, fieldIdx, w int) (lines []string, fields []relationField, nextIdx, activeOffset int) {
 	rowIdx := startIdx
 	activeOffset = -1
 	lineOffset := 0
@@ -433,8 +262,7 @@ func beanListRow(beans []*data.Bean, startIdx int, active bool, fieldIdx, w int)
 // n+1..m, Blocked By=m+1..k) -- the SAME order fields[] already accumulated
 // in before this task (appendGroup hangs lines/fields on in lockstep,
 // UNCHANGED), so a row's position in the returned fields slice and its
-// on-screen ▶ marker always agree (keyDetailFocus's existing fieldCursor
-// navigation, update.go, is not touched by this task).
+// on-screen ▶ marker always agree.
 //
 // Each row is wrapped via hangingIndentWrap (B04.3) BEFORE the groups are
 // joined -- the former blanket wrapText(strings.Join(groups, "\n\n"), bodyW)
@@ -457,7 +285,7 @@ func beanListRow(beans []*data.Bean, startIdx int, active bool, fieldIdx, w int)
 // of re-deriving it from already-rendered text, which could be fooled by a
 // "▶"/"▷" character living inside a relation's own TITLE (Reviewer-Beleg,
 // bt-b0w0-Review).
-func relationsSectionBody(idx *data.Index, b *data.Bean, bodyW int, active bool, fieldIdx int) (string, []relationField, int) {
+func relationsSectionBody(idx *data.Index, b *item.Item, bodyW int, active bool, fieldIdx int) (string, []relationField, int) {
 	var groups []string
 	var fields []relationField
 	gi := 0
@@ -538,11 +366,11 @@ func fmtTime(t *time.Time) string {
 // muted placeholder instead of Go's zero-time string. B01 (E2-T1-quality-
 // review, MANDATORY carry-over into Task 2): wrapped via wrapText -- a long
 // ETag must wrap instead of overflowing the Detail pane's bordered width.
-func historieSectionBody(b *data.Bean, bodyW int) string {
+func historieSectionBody(b *item.Item, bodyW int) string {
 	var lines []string
 	lines = append(lines, theme.Muted.Render("Created: ")+fmtTime(b.CreatedAt))
 	lines = append(lines, theme.Muted.Render("Updated: ")+fmtTime(b.UpdatedAt))
-	etag := b.ETag
+	etag := b.ETag()
 	if etag == "" {
 		etag = theme.Dim.Render("(none)")
 	}

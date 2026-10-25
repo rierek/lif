@@ -14,12 +14,12 @@ The TUI reads `~/.config/lif/tui/config.yaml`. A second file, `state.json` in th
 | `repos` | List of repository paths for the [repository picker](../start-and-repositories/). | empty |
 | `repo_store_paths` | Map from a `repos` entry (exact string) to a store path, passed as `--lif-path`. | empty |
 | `editor` | Command to edit items. | empty (`$VISUAL`, `$EDITOR`, `vi`) |
-| `theme.accent` | Accent color, `#rrggbb`. | empty (built-in mauve) |
+| `theme.accent` | Accent color, `#rrggbb`. | empty (built-in lavender) |
 | `layout.tree_width` | Minimum width of the tree pane, 24 to 60. | 36 |
 
 The file belongs to the TUI and applies per user. Project settings live in `.lif.yml` ([Configuration](../../configuration/)).
 
-The settings form opens from the command palette: `K`, then `go to settings`. It has no key. It shows `repos`, `editor`, `accent` and `tree_width`, rejects invalid values with a message, and applies `editor` and `accent` at once. Saving rewrites the whole file from these keys: comments and unknown keys are lost; `repo_store_paths` is kept.
+The settings form opens from the command palette: `K`, then `view: settings`. It has no key. It shows `repos`, `editor`, `accent` and `tree_width`, rejects invalid values with a message, and applies `editor` and `accent` at once. Saving rewrites the whole file from these keys: comments and unknown keys are lost; `repo_store_paths` is kept.
 
 ## Example settings file
 
@@ -48,7 +48,7 @@ Quote the accent. Without quotes `#f5a97f` is a YAML comment and the value is em
 
 ## Themes
 
-`display.theme` in `.lif.yml` (`latte`, `frappe`, `macchiato`, `mocha`; default `mocha`) colors the CLI output. It has **no effect in the TUI**: the TUI uses a fixed dark palette (Catppuccin Macchiato) and assumes a dark background, so a light theme is not supported. The `color` of a status, type or priority in `.lif.yml` does apply, and so does the TUI setting `theme.accent`. `lif check` still reports an unknown `display.theme`.
+`display.theme` in `.lif.yml` (`latte`, `frappe`, `macchiato`, `mocha`; default `mocha`) sets the palette of the CLI output and of the TUI. The TUI follows the flavour, including the light `latte`. The `color` and the short letter of a status, type or priority in `.lif.yml` apply as well, and so does the TUI setting `theme.accent`. `display.max_width` has no effect in the TUI, which fills the terminal. `lif check` still reports an unknown `display.theme`.
 
 Custom themes do not exist.
 

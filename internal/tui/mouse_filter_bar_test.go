@@ -1,10 +1,9 @@
 package tui
 
 // mouse_filter_bar_test.go — TDD coverage for bt-wtqs (epic bt-vy1q): a
-// click on one of the persistent filter-strip's four chips (Type/Status/
-// Priority/Tags, box_filter_bar.go, LIF_TUI_BOXFORM-gated) must open the SAME
-// shared facet-filter menu `f` opens (openFilterMenu, update.go), seeded to
-// the clicked chip's own facet -- NOT openValueMenu (that mutates the
+// click on one of the persistent filter bar's five fields (Type/Status/
+// Priority/Tags/Archive, box_filter_bar.go) focuses that field and opens its
+// value menu (openFilterMenu) -- NOT openValueMenu (that mutates the
 // FOCUSED bean, a completely different action; the Ursache-Tabelle in the
 // bean explicitly flags this as the one wrong-action risk). Render-grounded
 // throughout (screenLines/filterBarClickAt), mirrors mouse_test.go's/
@@ -33,10 +32,10 @@ import (
 func filterBarClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, _, _, originX, rawOriginY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+	_, _, _, originX, rawOriginY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	// clickPaneGeometry's raw originY assumes content starts 1 row after a
 	// bordered box's own top border sitting directly below the divider --
-	// when boxFormEnabled(), that bordered box IS the filter bar itself
+	// the bordered box IS the filter bar itself
 	// (view_browse_repo.go's content build order: head+div, THEN
 	// filterBarRow, THEN the body), so the strip's own top-border row is
 	// originY-1, not originY (verified via a real View() render: rawOriginY
@@ -57,22 +56,15 @@ func filterBarClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	return tea.MouseMsg{}
 }
 
-// boxFormStripModel builds a fixtureModel with LIF_TUI_BOXFORM=1 at the given
-// terminal width (bt-wtqs Akzeptanz: geometry pinned at 80 AND 120 columns --
+// boxFormStripModel builds a fixtureModel at the given terminal width
+// (bt-wtqs Akzeptanz: geometry pinned at 80 AND 120 columns --
 // Maus-Off-by-one bugs in this repo (bt-hd42/bt-vpvu) lived exactly at
 // boundary widths, so both must be exercised, not just a comfortable 100).
 // Uses fixtureBeansTagged (box_picker_tag_test.go), NOT plain fixtureBeans --
-// the Tags chip's own facet ("tag") only appears in filterFacetOrder's
-// output at all when at least one loaded bean carries a tag
-// (tagFilterOptions, box_filter_facets.go); plain fixtureBeans has none, which
-// silently made openFilterMenuAt's facet lookup a no-op for the Tags case
-// (caught live: TestFilterBarChipClickOpensFilterMenuSeededToFacet/Tags first
-// failed with "seeded facet = status" -- the DEFAULT tab, not an error --
-// exactly the kind of silent wrong-default this task's own bean warns
-// against for the Ziel-Funktion).
+// the Tags field only has values to open a menu on when at least one loaded
+// bean carries a tag (tagFilterOptions, box_filter_facets.go).
 func boxFormStripModel(t *testing.T, width int) model {
 	t.Helper()
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeansTagged())
 	m = step(t, m, tea.WindowSizeMsg{Width: width, Height: 30})
 	m.expanded["ms-1"] = true
@@ -82,10 +74,10 @@ func boxFormStripModel(t *testing.T, width int) model {
 }
 
 // TestFilterBarChipClickOpensFilterMenuSeededToFacet is the table-driven RED
-// case over all 4 chip columns (bt-wtqs Akzeptanz): each chip's OWN facet
-// must become the active tab (m.filterTab), not just "some tab" -- proves
-// the click-X column bucketing (gridColAt/gridColWidths) resolves each chip
-// independently, not merely "any strip click opens tab 0".
+// case over all 5 fields (bt-wtqs Akzeptanz): each field's OWN facet must
+// get the focus and its value menu -- proves the click-X column bucketing
+// (gridColAt/gridColWidths) resolves each field independently, not merely
+// "any bar click opens the first field".
 func TestFilterBarChipClickOpensFilterMenuSeededToFacet(t *testing.T) {
 	cases := []struct {
 		label     string
@@ -95,6 +87,7 @@ func TestFilterBarChipClickOpensFilterMenuSeededToFacet(t *testing.T) {
 		{"Status", "status"},
 		{"Priority", "priority"},
 		{"Tags", "tag"},
+		{"Archive", "archive"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.label, func(t *testing.T) {
@@ -106,18 +99,14 @@ func TestFilterBarChipClickOpensFilterMenuSeededToFacet(t *testing.T) {
 			if !ok {
 				t.Fatalf("handleMouse(click) did not return a model, got %T", tm)
 			}
-			if !m2.filterOpen {
-				t.Fatalf("click on %q chip: filterOpen = false, want true (Filter-Overlay must open)", tc.label)
+			if m2.overlay != overlayFilterMenu {
+				t.Fatalf("click on %q field: overlay = %v, want overlayFilterMenu", tc.label, m2.overlay)
 			}
-			facets := filterFacetOrder(m2.filterItems)
-			if m2.filterTab < 0 || m2.filterTab >= len(facets) {
-				t.Fatalf("click on %q chip: filterTab = %d out of range %v", tc.label, m2.filterTab, facets)
+			if !m2.filterFocus || filterFields[m2.filterField] != tc.wantFacet {
+				t.Fatalf("click on %q field: focus = %v on %q, want %q", tc.label, m2.filterFocus, filterFields[m2.filterField], tc.wantFacet)
 			}
-			if got := facets[m2.filterTab]; got != tc.wantFacet {
-				t.Fatalf("click on %q chip: seeded facet = %q, want %q", tc.label, got, tc.wantFacet)
-			}
-			if m2.overlay != overlayNone {
-				t.Fatalf("click on %q chip: overlay = %v, want overlayNone (openFilterMenu does not touch m.overlay -- this must NOT be openValueMenu)", tc.label, m2.overlay)
+			if got := m2.filterItems[m2.filterMenu.cursor].facet; got != tc.wantFacet {
+				t.Fatalf("click on %q field: menu cursor on facet %q, want %q", tc.label, got, tc.wantFacet)
 			}
 		})
 	}
@@ -138,45 +127,10 @@ func TestFilterBarChipClickGeometryAt80And120Cols(t *testing.T) {
 			if !ok {
 				t.Fatalf("width %d: handleMouse(click) did not return a model, got %T", width, tm)
 			}
-			if !m2.filterOpen {
-				t.Fatalf("width %d: filterOpen = false, want true", width)
-			}
-			facets := filterFacetOrder(m2.filterItems)
-			if m2.filterTab < 0 || m2.filterTab >= len(facets) || facets[m2.filterTab] != "status" {
-				t.Fatalf("width %d: seeded facet = %v (tab %d), want status", width, facets, m2.filterTab)
+			if m2.overlay != overlayFilterMenu || filterFields[m2.filterField] != "status" {
+				t.Fatalf("width %d: overlay = %v on field %q, want the status menu", width, m2.overlay, filterFields[m2.filterField])
 			}
 		})
-	}
-}
-
-// TestFilterBarClickDeadWhenFlagOff guards the flag's OFF-by-default
-// contract (bean bt-wtqs doc-stamp: "Ohne Flag: kein Strip, kein neuer
-// Klick-Pfad -- Default-Verhalten byte-identisch"): the strip is not even
-// rendered without LIF_TUI_BOXFORM, so a click at the coordinates it WOULD occupy
-// must fall through unchanged (here: no-op, since no tree row exists there
-// without the boxFormEnabled() render branch reserving the offset).
-func TestFilterBarClickDeadWhenFlagOff(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.expanded["ms-1"] = true
-	m.expanded["ep-1"] = true
-	m.cursorID = "ms-1"
-
-	if boxFormEnabled() {
-		t.Fatal("setup: LIF_TUI_BOXFORM must be unset for this test")
-	}
-
-	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, _, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
-	msg := tea.MouseMsg{Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: originX + 2, Y: originY}
-
-	tm, _ := m.handleMouse(msg)
-	m2, ok := tm.(model)
-	if !ok {
-		t.Fatalf("handleMouse(click) did not return a model, got %T", tm)
-	}
-	if m2.filterOpen {
-		t.Fatalf("filterOpen = true with LIF_TUI_BOXFORM unset, want false (no strip, no click-path)")
 	}
 }
 
@@ -200,7 +154,7 @@ func TestFilterBarClickRegressionTreeClickStillSelectsRow(t *testing.T) {
 	if m2.cursorID != "tk-2" {
 		t.Fatalf("tree click below the strip: cursorID = %q, want tk-2 (strip hit-test must not swallow this click)", m2.cursorID)
 	}
-	if m2.filterOpen {
-		t.Fatal("tree click below the strip: filterOpen = true, want false")
+	if m2.overlay != overlayNone || m2.filterFocus {
+		t.Fatal("tree click below the bar: the filter menu opened or the bar took the focus")
 	}
 }

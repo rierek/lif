@@ -14,7 +14,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/rierek/lif/internal/tui/config"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // lobbyFixtureModel builds a model already positioned in the Lobby, with
@@ -90,6 +89,7 @@ func TestRepoPickerBodySlugFallsBackToDirBaseWithoutBeansYML(t *testing.T) {
 func TestLobbyFilterNarrowsBySearch(t *testing.T) {
 	m := lobbyFixtureModel(t, []string{"/tmp/repo-alpha", "/tmp/repo-beta"})
 
+	m = step(t, m, runeMsg('/'))
 	for _, r := range "beta" {
 		nm, _ := m.keyLobby(runeMsg(r))
 		m = nm.(model)
@@ -122,6 +122,7 @@ func TestLobbyFilterNarrowsBySearch(t *testing.T) {
 func TestLobbyQueryDoesNotSwallowArrowAliasLetters(t *testing.T) {
 	m := lobbyFixtureModel(t, []string{"/tmp/repo-alpha", "/tmp/repo-beta"})
 
+	m = step(t, m, runeMsg('/'))
 	for _, r := range "ide" {
 		nm, _ := m.keyLobby(runeMsg(r))
 		m = nm.(model)
@@ -155,7 +156,6 @@ func TestLobbyArrowKeysStillNavigateRepoList(t *testing.T) {
 }
 
 func TestLobbySelectSwitchesRepoAndView(t *testing.T) {
-	fakeLifEmptyList(t)
 	repoA := newTestRepoTUI(t)
 	repoB := newTestRepoTUI(t)
 
@@ -179,18 +179,14 @@ func TestLobbySelectSwitchesRepoAndView(t *testing.T) {
 	if rs.repoDir != repoB {
 		t.Fatalf("repoSwitchedMsg.repoDir = %q, want %q (repoB, cursor 1)", rs.repoDir, repoB)
 	}
-	t.Cleanup(func() {
-		if rs.watchStop != nil {
-			rs.watchStop()
-		}
-	})
+	t.Cleanup(func() { rs.store.Close() })
 
 	final := step(t, m, msg)
 	if final.view != viewBrowseRepo {
 		t.Fatalf("view after repoSwitchedMsg = %v, want viewBrowseRepo", final.view)
 	}
-	if final.client == nil {
-		t.Fatal("client is nil after a successful repo switch")
+	if final.store == nil {
+		t.Fatal("store is nil after a successful repo switch")
 	}
 	if final.repoDir != repoB {
 		t.Fatalf("repoDir = %q, want %q", final.repoDir, repoB)
@@ -198,10 +194,9 @@ func TestLobbySelectSwitchesRepoAndView(t *testing.T) {
 	if final.idx == nil {
 		t.Fatal("idx is nil after a successful repo switch")
 	}
-	if final.watchStop == nil {
-		t.Fatal("watchStop is nil after a successful repo switch with a working watcher")
+	if final.storeEvents == nil {
+		t.Fatal("storeEvents is nil after a successful repo switch with a working watcher")
 	}
-	t.Cleanup(final.watchStop)
 }
 
 func TestPickerKeyOpensLobbyFromAnyView(t *testing.T) {
@@ -211,21 +206,21 @@ func TestPickerKeyOpensLobbyFromAnyView(t *testing.T) {
 	// exist at the real dev machine's ~/.config/beans-tui/config.yaml.
 	t.Setenv("HOME", t.TempDir())
 
-	t.Run("from Backlog", func(t *testing.T) {
+	t.Run("from Ready", func(t *testing.T) {
 		m := fixtureModel(t, beans)
-		m.view = viewBacklog
-		out := step(t, m, runeMsg('p'))
+		m.view = viewReady
+		out := step(t, m, runeMsg('P'))
 		if out.view != viewLobby {
-			t.Fatalf("view after 'p' from Backlog = %v, want viewLobby", out.view)
+			t.Fatalf("view after 'P' from Ready = %v, want viewLobby", out.view)
 		}
 	})
 
 	t.Run("from Browse", func(t *testing.T) {
 		m := fixtureModel(t, beans)
 		m.view = viewBrowseRepo
-		out := step(t, m, runeMsg('p'))
+		out := step(t, m, runeMsg('P'))
 		if out.view != viewLobby {
-			t.Fatalf("view after 'p' from Browse = %v, want viewLobby", out.view)
+			t.Fatalf("view after 'P' from Browse = %v, want viewLobby", out.view)
 		}
 	})
 }
@@ -266,7 +261,7 @@ func TestViewLobbyFrameMatchesWidthHeight(t *testing.T) {
 // shape, regardless of how many repos Settings.Repos lists -- must stay on
 // viewBrowseRepo, exactly like every pre-Task-6 session.
 func TestNoLobbyOnSingleRepoCwdMatch(t *testing.T) {
-	m := newModel(&data.Client{RepoDir: "/tmp/bt-fixture-repo"}, "/tmp/bt-fixture-repo")
+	m := newModel(fixtureStore(t), "/tmp/bt-fixture-repo")
 	m.settings.Repos = []string{"/tmp/repo-a", "/tmp/repo-b", "/tmp/repo-c"} // >=2, would trigger Lobby at the cmd/tui.go layer if cwd had failed to resolve
 	if m.view != viewBrowseRepo {
 		t.Fatalf("newModel with a non-nil client started in view %v, want viewBrowseRepo -- newModel must never auto-derive the Lobby from Settings.Repos", m.view)
@@ -290,34 +285,8 @@ func TestNoLobbyOnSingleRepoCwdMatch(t *testing.T) {
 func lobbyFixtureModelWithClient(t *testing.T, repos []string) model {
 	t.Helper()
 	m := lobbyFixtureModel(t, repos)
-	m.client = &data.Client{RepoDir: "/tmp/bt-fixture-repo"}
+	m.store = fixtureStore(t)
 	return m
-}
-
-// TestLobbyQOpensQuitConfirmWithLiveClient guards the B01 fix's first half
-// (bt-1u0t Fix-Runde 1, PO wording bt-ntoz B08: "aus der Lobby q→enter
-// beendet die TUI" -- with no client-state carve-out): `q` in the Lobby
-// opens the quit-confirm EVEN when a live client exists, instead of
-// bouncing back to Browse; enter then completes stage 2 (tea.Quit).
-func TestLobbyQOpensQuitConfirmWithLiveClient(t *testing.T) {
-	m := lobbyFixtureModelWithClient(t, []string{"/tmp/repo-alpha"})
-	m.width, m.height = 80, 24
-
-	m = step(t, m, runeMsg('q'))
-	if !m.confirmQuit {
-		t.Fatal("q in the Lobby with a live client did not open the quit-confirm (B01: bounced back to Browse instead?)")
-	}
-	if m.view != viewLobby {
-		t.Fatalf("view after q = %v, want viewLobby (the confirm floats OVER the Lobby, no view switch)", m.view)
-	}
-
-	_, cmd := m.Update(keyMsg(tea.KeyEnter))
-	if cmd == nil {
-		t.Fatal("enter on the quit-confirm must return a Cmd")
-	}
-	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Fatal("enter's Cmd did not resolve to tea.QuitMsg -- stage 2 of the cascade must be reachable from a Lobby with a live client")
-	}
 }
 
 // TestLobbyCtrlCQuitsImmediatelyWithLiveClient guards the B01 fix's second
@@ -339,83 +308,32 @@ func TestLobbyCtrlCQuitsImmediatelyWithLiveClient(t *testing.T) {
 	}
 }
 
-// TestLobbyEscReturnsToBrowseWithLiveClient pins the UNCHANGED half of
-// keyLobby's exit handling across the B01 fix: esc with a live client still
-// returns to Browse (D03: one level back, the Lobby was a side trip), and
-// esc with NO client still quit-confirms (the Lobby is the first screen,
-// nothing to go back to).
-func TestLobbyEscReturnsToBrowseWithLiveClient(t *testing.T) {
+// TestLobbyHintShowsKeysThatAct guards the Lobby hint per state: command
+// keys (with the two-esc exit) by default, the text-entry keys while the
+// filter is open, the second-esc prompt after the first esc.
+func TestLobbyHintShowsKeysThatAct(t *testing.T) {
 	m := lobbyFixtureModelWithClient(t, []string{"/tmp/repo-alpha"})
-
-	nm := step(t, m, keyMsg(tea.KeyEsc))
-	if nm.view != viewBrowseRepo {
-		t.Fatalf("view after esc = %v, want viewBrowseRepo (D03: esc goes one level back to the live repo)", nm.view)
-	}
-	if nm.confirmQuit {
-		t.Fatal("esc with a live client must not open the quit-confirm")
-	}
-
-	noClient := lobbyFixtureModel(t, []string{"/tmp/repo-alpha"})
-	nm2 := step(t, noClient, keyMsg(tea.KeyEsc))
-	if !nm2.confirmQuit {
-		t.Fatal("esc with NO client must still quit-confirm (first-screen Lobby, unchanged behavior)")
-	}
-	if nm2.view != viewLobby {
-		t.Fatalf("view after esc (no client) = %v, want viewLobby", nm2.view)
-	}
-}
-
-// TestLobbyHintReflectsSplitEscQBehavior guards the footer hint against the
-// B01 fix's decoupling: once esc (back) and q (quit) diverge with a live
-// client, the old combined "esc/q:back" would promise q takes you back --
-// exactly the surprise-copy problem quitBox's own hint fix (B08 Planner
-// add-on) exists to prevent. With no client both keys still quit-confirm,
-// so the combined "esc/q quit" stays.
-//
-// D06 OPTIK-ANGLEICHUNG (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc,
-// Notes-für-bt-d8kc in bean bt-1u0t): lobbyExitHint's own ":"-format is
-// aligned to the new Header/Footer optic here -- key/desc color-separated,
-// no more ":" -- BEHAVIOR (which text shows when) stays byte-for-byte
-// unchanged, only scoped to lobbyExitHint's own two segments (the REST of
-// viewLobby's hint line, "↑↓:move  enter:open  type:filter", is untouched --
-// out of scope, a separate ad hoc literal, not this function).
-func TestLobbyHintReflectsSplitEscQBehavior(t *testing.T) {
-	t.Run("live client: esc back, q quit", func(t *testing.T) {
-		m := lobbyFixtureModelWithClient(t, []string{"/tmp/repo-alpha"})
-		m.width, m.height = 100, 30
-		out := ansi.Strip(m.viewLobby())
-		if strings.Contains(out, "esc/q") {
-			t.Fatalf("viewLobby() hint still shows the combined esc/q label despite esc and q now diverging:\n%s", out)
+	m.width, m.height = 100, 30
+	for name, tc := range map[string]struct {
+		m    model
+		want []string
+		not  []string
+	}{
+		"default":   {m, []string{"/ filter", "esc esc leave", "q quit"}, []string{"type filter"}},
+		"armed":     {step(t, m, keyMsg(tea.KeyEsc)), []string{"esc again to leave"}, nil},
+		"filtering": {step(t, m, runeMsg('/')), []string{"type filter", "esc close filter"}, []string{"q quit"}},
+	} {
+		out := ansi.Strip(tc.m.viewLobby())
+		for _, w := range tc.want {
+			if !strings.Contains(out, w) {
+				t.Errorf("%s: lobby hint lacks %q:\n%s", name, w, out)
+			}
 		}
-		if !strings.Contains(out, "esc back") {
-			t.Fatalf("viewLobby() hint missing esc back:\n%s", out)
+		for _, w := range tc.not {
+			if strings.Contains(out, w) {
+				t.Errorf("%s: lobby hint wrongly shows %q:\n%s", name, w, out)
+			}
 		}
-		if !strings.Contains(out, "q quit") {
-			t.Fatalf("viewLobby() hint missing q quit:\n%s", out)
-		}
-	})
-
-	t.Run("no client: combined esc/q quit stays", func(t *testing.T) {
-		m := lobbyFixtureModel(t, []string{"/tmp/repo-alpha"})
-		m.width, m.height = 100, 30
-		out := ansi.Strip(m.viewLobby())
-		if !strings.Contains(out, "esc/q quit") {
-			t.Fatalf("viewLobby() hint missing esc/q quit for the first-screen Lobby:\n%s", out)
-		}
-	})
-}
-
-// TestLobbyExitHintNoColon guards D06's own optic directly against
-// lobbyExitHint() (not just through the full viewLobby() render): neither
-// branch's rendered (ANSI-stripped) text may contain ':' anymore.
-func TestLobbyExitHintNoColon(t *testing.T) {
-	withClient := model{client: &data.Client{}}
-	if plain := ansi.Strip(lobbyExitHint(withClient)); strings.Contains(plain, ":") {
-		t.Errorf("lobbyExitHint(with client) = %q, must not contain ':' (D06)", plain)
-	}
-	noClient := model{}
-	if plain := ansi.Strip(lobbyExitHint(noClient)); strings.Contains(plain, ":") {
-		t.Errorf("lobbyExitHint(no client) = %q, must not contain ':' (D06)", plain)
 	}
 }
 

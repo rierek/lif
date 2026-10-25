@@ -25,7 +25,7 @@ func (m model) requestQuit() (tea.Model, tea.Cmd) {
 
 // quitBoxWillGoToLobby reports whether the NEXT enter on the quit-confirm
 // resolves to stage 1 of the two-stage cascade below (Lobby, not Quit):
-// Browse/Backlog with at least one configured repo. SHARED by keyConfirmQuit
+// Browse/Ready with at least one configured repo. SHARED by keyConfirmQuit
 // (the actual dispatch) and quitBox (the hint text) so the two can never
 // drift apart -- true is stage 1 (B08/A2 case 1, bean bt-ntoz), false covers
 // BOTH stage 2 (already in the Lobby, case 2) and the Randfall (no repos
@@ -42,14 +42,14 @@ func (m model) quitBoxWillGoToLobby() bool {
 // quitBoxWillGoToLobby above.
 func (m model) keyConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case keybind.Matches(msg, keys.Enter):
+	case keybind.Matches(msg, keys.Confirm):
 		goToLobby := m.quitBoxWillGoToLobby()
 		m.confirmQuit = false
 		if goToLobby {
 			return m.openLobby()
 		}
 		return m, tea.Quit
-	case keybind.Matches(msg, keys.Back):
+	case keybind.Matches(msg, keys.Cancel):
 		m.confirmQuit = false
 		return m, nil
 	}
@@ -66,11 +66,11 @@ func (m model) keyConfirmQuit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) quitBox() string {
 	body := "\n" + theme.Dim.Render("Really quit lif?") + "\n\n"
 	if m.quitBoxWillGoToLobby() {
-		body += theme.Accent.Render("enter") + theme.Dim.Render(": go to lobby   ") +
-			theme.Accent.Render("esc") + theme.Dim.Render(": cancel")
+		body += theme.Accent.Render("enter/y") + theme.Dim.Render(": go to lobby   ") +
+			theme.Accent.Render("esc/n") + theme.Dim.Render(": cancel")
 	} else {
-		body += theme.Accent.Render("enter") + theme.Dim.Render(": quit   ") +
-			theme.Accent.Render("esc") + theme.Dim.Render(": cancel")
+		body += theme.Accent.Render("enter/y") + theme.Dim.Render(": quit   ") +
+			theme.Accent.Render("esc/n") + theme.Dim.Render(": cancel")
 	}
 	return modalPanel("Quit?", body, "", 40, theme.Mauve)
 }

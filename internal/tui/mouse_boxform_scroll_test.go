@@ -31,7 +31,7 @@ import (
 func boxFormWheelScroll(t *testing.T, m model, ticks int) model {
 	t.Helper()
 	head, localKeys := m.browseRepoChrome(m.width - 2)
-	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth)
+	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	msg := tea.MouseMsg{
 		Button: tea.MouseButtonWheelDown, Action: tea.MouseActionPress,
 		X: originX + lw + 2, Y: originY + filterBarHeight + 1,
@@ -97,7 +97,7 @@ func TestBoxFormClickOnTagsBoxAfterScrollOpensTagPicker(t *testing.T) {
 		t.Fatalf("setup: boxFormScroll after 3 wheel ticks = %d, want 3", m.boxFormScroll)
 	}
 
-	msg := boxFormClickAt(t, m, "(t)")
+	msg := boxFormClickAt(t, m, "(g)")
 	tm, _ := m.handleMouse(msg)
 	m2, ok := tm.(model)
 	if !ok {
@@ -165,7 +165,7 @@ func TestBoxFormClickSameAfterWheelAndKeyboardScroll(t *testing.T) {
 	}
 
 	head, localKeys := base.browseRepoChrome(base.width - 2)
-	_, lw, rw, originX, originY := clickPaneGeometry(base.width, base.height, head, localKeys, base.statusLine(base.width-2), base.settings.Layout.TreeWidth)
+	_, lw, rw, originX, originY := clickPaneGeometry(base.width, base.height, head, localKeys, base.statusLine(base.width-2), base.settings.Layout.TreeWidth, layoutFilterDetail)
 	originY += filterBarHeight
 
 	for row := 0; row < height; row++ {

@@ -1,6 +1,10 @@
 # lif dev CLI — just ist der Einstieg (dev-cli-canon), mise bleibt die
 # Build-Implementierung des Upstream-Forks.
 
+# Every recipe runs with mise.toml's pinned Go first on PATH and without the
+# mise shims dir (scripts/go-path.sh explains why) (beans-zcex).
+export PATH := `bash scripts/go-path.sh`
+
 # Zielverzeichnis der Installation. NICHT ~/.local/bin wie `mise run install`:
 # in Eriks PATH gewinnt /opt/homebrew/bin, und dort liegt das aktive Binary.
 bin_dir := env_var_or_default("LIF_BIN_DIR", "/opt/homebrew/bin")
@@ -76,7 +80,7 @@ gqlgen:
 
 # Run the Go test suite, e.g. `just test ./pkg/item/...`
 test ARGS='./...':
-    go test -count=1 {{ARGS}}
+    go test -p 4 -count=1 {{ARGS}}
 
 # Run the frontend unit tests, e.g. `just test-web --project server`
 test-web ARGS='':
@@ -93,7 +97,7 @@ test-e2e ARGS='':
 
 # Run the Go test suite under the race detector
 test-race ARGS='./...':
-    go test -race -count=1 {{ARGS}}
+    go test -p 4 -race -count=1 {{ARGS}}
 
 # Lint the Go code: go vet plus a gofmt check (lists unformatted files)
 lint:
@@ -110,8 +114,16 @@ release-check:
 
 # Build every release platform locally without publishing (goreleaser --snapshot)
 release-snapshot: release-check
-    mise run build:embed
-    mise exec goreleaser@latest -- goreleaser release --snapshot --clean --skip=publish
+    bash scripts/release-snapshot.sh
+
+# Validate canonical wiki release prose without contacting GitHub.
+release-notes-check TAG:
+    bash scripts/release-github-notes.sh check "{{TAG}}"
+
+# Replace an existing GitHub release body with canonical wiki prose.
+# Run only after the release Action succeeds and PO authorizes publication.
+release-notes-publish TAG:
+    bash scripts/release-github-notes.sh publish "{{TAG}}" "{{release_repo}}"
 
 # Recompute flake.nix dependency hashes (local nix or Docker), optionally set its version
 nix-hashes VERSION='':
@@ -184,3 +196,11 @@ docs-build: docs-gen
 # Serve the docs site with live reload
 docs-dev: docs-gen
     cd site && npm run dev
+
+# Wurzel des Wegwerf-Verzeichnisses für die Doku-Medien. Einzige Quelle
+# dieses Werts: doc-media.sh führt keinen eigenen Default (steht hinter rm -rf).
+doc_media_root := env_var_or_default("LIF_DOC_MEDIA_ROOT", "/tmp/lif-doc-media")
+
+# Screenshots und GIFs der TUI per VHS neu erzeugen (beans-wy2o); SEL: png, gif oder Tape-Name
+doc-media SEL='':
+    bash scripts/doc-media.sh "{{ doc_media_root }}" "{{ SEL }}"

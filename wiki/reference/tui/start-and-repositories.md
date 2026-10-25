@@ -3,7 +3,7 @@ title: "Start and repositories"
 description: "Start lif tui and choose the repository to work in."
 ---
 
-`lif tui` is the terminal UI of Lif, built into the `lif` binary. It is a companion to the CLI: every read and write runs `lif` as a subprocess. The command page is [`lif tui`](../../commands/lif-tui/). Measured on Lif 0.13; the TUI code is unchanged in 0.14 (checked 2026-10-14).
+`lif tui` is the terminal UI of Lif, built into the `lif` binary. It is a companion to the CLI: it reads and writes the repository store in the same process; it does not run `lif` as a subprocess. The command page is [`lif tui`](../../commands/lif-tui/). Checked against Lif 0.17.
 
 ## Starting the TUI
 
@@ -11,10 +11,10 @@ description: "Start lif tui and choose the repository to work in."
 lif tui [repo-path]
 ```
 
-- At most one argument: the repository path. The command has no flags of its own.
+- At most one argument: the repository path. The command has no flags of its own; it honors the global flags `--config` and `--lif-path`.
 - The former separate `lif-tui` binary no longer exists.
-- The TUI starts without a loaded store. It does not read `.lif.yml`; it finds the repository itself.
-- The global flag `--lif-path` sets the store of the opened repository.
+- `lif tui` finds the repository, opens its store and reads its `.lif.yml`. With the Lobby first, no store is open until you pick a repository.
+- The global flag `--lif-path` sets the store, and `--config` sets the `.lif.yml`, of the repository opened at start. They do not apply to a repository you switch to later in the Lobby; that one resolves its own store and config.
 
 ## Which repository opens
 
@@ -42,13 +42,13 @@ Repo-Picker
   projB — /tmp/projB   4/4
 ```
 
-- `p` opens the picker from any view, also with fewer than two repositories. The "at least two" rule applies only to startup.
-- Typing filters the list (substring of the path). `↑`/`↓` move, `enter` opens, `esc` goes back.
-- The footer shows `↑↓` for moving. `i` and `k` are typed into the filter in the lobby, so they do not move the cursor.
-- Config edits made while the TUI runs appear the next time you press `p`.
+- `P` opens the picker from any view, also with fewer than two repositories. The "at least two" rule applies only to startup.
+- `↑`/`↓` (or `i`/`k`) move, `enter` opens. `/` opens the filter (substring of the path); only then do typed keys go into it, and `esc` closes it.
+- `q` opens the `Quit?` dialog: `y` quits, `n` or `esc` stays in the lobby. `esc` twice leaves the lobby: back to the open repository, or quit when none is open. A key between the two presses cancels the first.
+- Config edits made while the TUI runs appear the next time you press `P`.
 - After each switch the TUI writes `last_repo` to `state.json`. Nothing reads it back.
 
-Screenshot follows.
+![The repository picker with three repositories](../../screenshots/tui-lobby.png)
 
 ## Settings that matter at start
 
@@ -60,14 +60,18 @@ Two keys in `~/.config/lif/tui/config.yaml`:
 A repository enters `repos` in one of three ways. There is no automatic discovery.
 
 - By hand in the file.
-- Command palette (`K`), entry `register project`: adds the current repository. A duplicate shows `already registered`.
-- Settings form (palette entry `go to settings`), field `repos`, one path per line.
+- Command palette (`K`), entry `register: project`: adds the current repository. A duplicate shows `already registered`.
+- Settings form (palette entry `view: settings`), field `repos`, one path per line.
 
 All keys: [Settings and themes](../settings-and-themes/).
 
 ## Quit and help
 
-- `q` opens a `Quit?` dialog. `enter` goes to the lobby first when a repository is configured; a second `q` and `enter` quits. `esc` cancels.
+- `q` opens a `Quit?` dialog. `enter` or `y` goes to the lobby first when a repository is configured; in the lobby it quits. `esc` or `n` cancels.
 - `ctrl+c` quits at once, without confirmation.
 - `?` opens the help overlay, generated from the same key map as [Key bindings](../key-bindings/). The overlay is 54 rows high and is clipped on shorter terminals.
-- `K` opens the command palette.
+- `K` opens the command palette. Entries are sorted by verb: `set`, `view`, the rest alphabetically, then `open`.
+
+![The help overlay with all key bindings](../../screenshots/tui-help.png)
+
+![The command palette](../../screenshots/tui-palette.png)

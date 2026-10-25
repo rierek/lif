@@ -9,7 +9,7 @@ package tui
 import (
 	"errors"
 	"fmt"
-	"os"
+	"github.com/rierek/lif/pkg/item"
 	"reflect"
 	"strings"
 	"testing"
@@ -24,7 +24,7 @@ import (
 // TestTagRegistryRowsDefinedFirstAlphaThenFreeByCountDesc is the bean's own
 // named RED test (bt-r92i TDD section, quoted verbatim).
 func TestTagRegistryRowsDefinedFirstAlphaThenFreeByCountDesc(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "b1", Tags: []string{"zzz-free"}},
 		{ID: "b2", Tags: []string{"zzz-free"}},
 		{ID: "b3", Tags: []string{"aaa-free"}},
@@ -56,7 +56,7 @@ func TestTagRegistryRowsIncludesUnusedDefinedTagWithZeroCount(t *testing.T) {
 // (in the Defined group), carrying its REAL usage count -- not 0, and not a
 // second, duplicate row in the Free group.
 func TestTagRegistryRowsDefinedTagKeepsRealUsageCount(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{
+	idx := data.NewIndex([]*item.Item{
 		{ID: "b1", Tags: []string{"shared-tag"}},
 		{ID: "b2", Tags: []string{"shared-tag"}},
 	})
@@ -219,7 +219,7 @@ func TestKeyTagManagementEnterIsHandledNoOp(t *testing.T) {
 // never panic -- an empty registry applies, rows still build from whatever
 // tags already sit on m.idx's beans.
 func TestOpenTagManagementPageNilClientBuildsFromIdxOnly(t *testing.T) {
-	m := fixtureModel(t, []data.Bean{
+	m := fixtureModel(t, []*item.Item{
 		{ID: "tk-1", Title: "T", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"loose"}},
 	})
 	nm, cmd := m.openTagManagementPage()
@@ -286,7 +286,7 @@ func TestTagManagementChromeFooterListsUpDownBack(t *testing.T) {
 // after openTagManagementPage, viewTagManagement's output must contain both
 // a registry-defined tag name AND a free/in-use tag name.
 func TestViewTagManagementRendersDefinedAndFreeRows(t *testing.T) {
-	m := fixtureModel(t, []data.Bean{
+	m := fixtureModel(t, []*item.Item{
 		{ID: "tk-1", Title: "T", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"free-tag"}},
 	})
 	m.width, m.height = 100, 30
@@ -318,7 +318,7 @@ func TestViewTagManagementNoNewRegistryFileOnRender(t *testing.T) {
 
 // TestViewTagManagementLinesFitExactlyNoWrap is a regression guard (found
 // live during this task's OWN tmux-smoke run, same "B01" bug class as
-// view_lobby.go's own doc-stamp / view_browse_repo.go's F01 Vollbild
+// view_lobby.go's own doc-stamp / view_browse_repo.go's single-pane precedent
 // paneW note): a single full-width pane's renderPane `w` argument is a
 // CONTENT width (its own RoundedBorder adds +2 more) -- passing innerW
 // unadjusted (instead of innerW-2) double-counts the border, and
@@ -330,7 +330,7 @@ func TestViewTagManagementNoNewRegistryFileOnRender(t *testing.T) {
 // the per-line width check simultaneously.
 func TestViewTagManagementLinesFitExactlyNoWrap(t *testing.T) {
 	for _, width := range []int{120, 80} {
-		m := fixtureModel(t, []data.Bean{
+		m := fixtureModel(t, []*item.Item{
 			{ID: "tk-1", Title: "T", Status: "todo", Type: "task", Priority: "normal", Tags: []string{"a-fairly-long-free-tag-name"}},
 		})
 		m.width, m.height = width, 40
@@ -369,12 +369,10 @@ func TestViewDispatcherRoutesTagManagementView(t *testing.T) {
 
 // --- Command-Center entry point (D05) ---
 
-// TestPaletteActionsIncludesGoToTagsBeforeSettings guards D05's wiring:
-// "go to tags" is a global action (no focused-bean requirement, mirrors
-// "go to settings"), grouped directly BEFORE "settings" as the new
-// last-but-one entry (Planner-Entscheidung, epic bt-362n body's own D05
-// wording).
-func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
+// TestPaletteActionsIncludesGoToTagsAndSettings guards D05's wiring:
+// "view: tags" is a global action (no focused-bean requirement, mirrors
+// "view: settings"). Order is pinned by TestPaletteActionsGroupedByVerb.
+func TestPaletteActionsIncludesGoToTagsAndSettings(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	items := paletteActions(m)
 
@@ -383,8 +381,8 @@ func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
 		switch it.actionID {
 		case "go_tags":
 			gotIdx = i
-			if it.label != "go to tags" {
-				t.Fatalf(`go_tags label = %q, want "go to tags"`, it.label)
+			if it.label != "view: tags" {
+				t.Fatalf(`go_tags label = %q, want "view: tags"`, it.label)
 			}
 		case "settings":
 			settingsIdx = i
@@ -396,9 +394,6 @@ func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
 	if settingsIdx == -1 {
 		t.Fatal(`paletteActions missing "settings"`)
 	}
-	if settingsIdx != gotIdx+1 {
-		t.Fatalf("go_tags at %d, settings at %d -- want settings directly after go_tags", gotIdx, settingsIdx)
-	}
 }
 
 // TestDispatchPaletteGoTagsOpensTagManagementPage guards the Command-Center
@@ -408,7 +403,7 @@ func TestPaletteActionsIncludesGoToTagsBeforeSettings(t *testing.T) {
 // (box_form_settings_test.go).
 func TestDispatchPaletteGoTagsOpensTagManagementPage(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	nm, _ := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "go to tags"})
+	nm, _ := m.dispatchPalette(paletteItem{kind: paletteKindAction, actionID: "go_tags", label: "view: tags"})
 	mm, ok := nm.(model)
 	if !ok {
 		t.Fatalf("dispatchPalette did not return a model, got %T", nm)
@@ -534,7 +529,7 @@ func TestKeyTagManagementNewTagOpensInput(t *testing.T) {
 // (bt-ct3k Toast-Konsistenz: kein neuer stiller Erfolgspfad).
 func TestKeyTagManagementNewTagOnFreeRowAdoptsDirectlyNoInput(t *testing.T) {
 	dir := t.TempDir()
-	m := newModel(&data.Client{RepoDir: dir}, dir)
+	m := newModel(&data.Store{RepoDir: dir}, dir)
 	m.view = viewTagManagement
 	m.tagMgmtRows = []tagRegistryRow{{name: "old-defined", defined: true}, {name: "free-tag", defined: false, count: 2}}
 	m.tagMgmtCursor.setLen(2)
@@ -563,7 +558,7 @@ func TestKeyTagManagementNewTagOnFreeRowAdoptsDirectlyNoInput(t *testing.T) {
 		t.Fatal("want a non-empty successToast (Adopt's own success feedback, bt-ct3k Toast-Konsistenz)")
 	}
 
-	got, err := (&data.Client{RepoDir: dir}).LoadTagDefs()
+	got, err := (&data.Store{RepoDir: dir}).LoadTagDefs()
 	if err != nil {
 		t.Fatalf("LoadTagDefs after save: %v", err)
 	}
@@ -606,7 +601,7 @@ func TestKeyTagManagementNewTagOnDefinedRowStillOpensBlankCreate(t *testing.T) {
 // row -- silently opening an empty input would misread the intent).
 func TestKeyTagManagementNewTagOnFreeRowInvalidNameWarnsNoSave(t *testing.T) {
 	dir := t.TempDir()
-	m := newModel(&data.Client{RepoDir: dir}, dir)
+	m := newModel(&data.Store{RepoDir: dir}, dir)
 	m.view = viewTagManagement
 	m.tagMgmtRows = []tagRegistryRow{{name: "Bad_Tag", defined: false, count: 1}}
 	m.tagMgmtCursor.setLen(1)
@@ -624,7 +619,7 @@ func TestKeyTagManagementNewTagOnFreeRowInvalidNameWarnsNoSave(t *testing.T) {
 			t.Fatal("an invalid free name must never dispatch saveTagDefsCmd (no Registry write)")
 		}
 	}
-	if got, _ := (&data.Client{RepoDir: dir}).LoadTagDefs(); len(got) != 0 {
+	if got, _ := (&data.Store{RepoDir: dir}).LoadTagDefs(); len(got) != 0 {
 		t.Fatalf("on-disk registry must stay empty, got %v", got)
 	}
 }
@@ -740,12 +735,12 @@ func TestKeyTagMgmtInputRetypingNDoesNotReopen(t *testing.T) {
 // one (data.AddTagDefName) -- proven by intercepting the returned Cmd
 // (mirrors TestEditTitleSubmitFiresSetTitleDirectlyNoConfirm's own
 // "inspect before it fires" pattern, form_edit_title_test.go) against a REAL
-// t.TempDir()-backed *data.Client, doubling as the Persistenz-Roundtrip
+// t.TempDir()-backed *data.Store, doubling as the Persistenz-Roundtrip
 // requirement: after cmd() runs, the on-disk .lif-tags.yml actually
 // contains the new name.
 func TestKeyTagMgmtInputValidSubmitFiresSaveTagDefsCmdWithAddedName(t *testing.T) {
 	dir := t.TempDir()
-	m := newModel(&data.Client{RepoDir: dir}, dir)
+	m := newModel(&data.Store{RepoDir: dir}, dir)
 	m.view = viewTagManagement
 	m.tagMgmtRows = []tagRegistryRow{{name: "old-defined", defined: true}, {name: "free-one", defined: false}}
 
@@ -771,7 +766,7 @@ func TestKeyTagMgmtInputValidSubmitFiresSaveTagDefsCmdWithAddedName(t *testing.T
 		t.Fatalf("SaveTagDefs against a real t.TempDir() client failed: %v", tdm.err)
 	}
 
-	got, err := (&data.Client{RepoDir: dir}).LoadTagDefs()
+	got, err := (&data.Store{RepoDir: dir}).LoadTagDefs()
 	if err != nil {
 		t.Fatalf("LoadTagDefs after save: %v", err)
 	}
@@ -788,7 +783,7 @@ func TestKeyTagMgmtInputValidSubmitFiresSaveTagDefsCmdWithAddedName(t *testing.T
 // cursor-refinding-by-ID pattern one layer up).
 func TestApplyTagDefsSavedSuccessRefreshesRowsAndMovesCursor(t *testing.T) {
 	dir := t.TempDir()
-	client := &data.Client{RepoDir: dir}
+	client := &data.Store{RepoDir: dir}
 	if err := client.SaveTagDefs([]string{"old-defined", "brand-new"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
@@ -834,7 +829,7 @@ func TestApplyTagDefsSavedSuccessRefreshesRowsAndMovesCursor(t *testing.T) {
 // PO can retry the same name without retyping it) and a Toast surfaces the
 // error.
 func TestApplyTagDefsSavedErrorKeepsInputOpenShowsToast(t *testing.T) {
-	m := newModel(&data.Client{RepoDir: "/nonexistent-bt-604w-scratch-dir"}, "/nonexistent-bt-604w-scratch-dir")
+	m := newModel(newTestStore(t), "/nonexistent-bt-604w-scratch-dir")
 	m.view = viewTagManagement
 	m.tagMgmtInputActive = true
 	m.tagMgmtInputMode = "create"
@@ -862,7 +857,7 @@ func TestApplyTagDefsSavedErrorKeepsInputOpenShowsToast(t *testing.T) {
 // already guards the cmd==nil case for an empty successToast).
 func TestApplyTagDefsSavedSuccessToastShowsInfoToastWhenSuccessToastSet(t *testing.T) {
 	dir := t.TempDir()
-	client := &data.Client{RepoDir: dir}
+	client := &data.Store{RepoDir: dir}
 	if err := client.SaveTagDefs([]string{"free-tag"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
@@ -893,7 +888,7 @@ func TestApplyTagDefsSavedSuccessToastShowsInfoToastWhenSuccessToastSet(t *testi
 func TestFullCreateFlowRefreshesPageAndTouchesNoBean(t *testing.T) {
 	dir := t.TempDir()
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: dir}
+	m.store = &data.Store{RepoDir: dir}
 	m.repoDir = dir
 	m.view = viewTagManagement
 	nm, _ := m.openTagManagementPage()
@@ -950,7 +945,7 @@ func TestFullCreateFlowRefreshesPageAndTouchesNoBean(t *testing.T) {
 func TestFullAdoptFlowRegistersFreeRowShowsToastCursorFollows(t *testing.T) {
 	dir := t.TempDir()
 	m := fixtureModel(t, fixtureBeans())
-	m.client = &data.Client{RepoDir: dir}
+	m.store = &data.Store{RepoDir: dir}
 	m.repoDir = dir
 	m.view = viewTagManagement
 	m.tagMgmtRows = []tagRegistryRow{{name: "old-defined", defined: true}, {name: "free-tag", defined: false, count: 3}}
@@ -1253,11 +1248,11 @@ func TestKeyTagManagementDeleteConfirmCapturesFullDispatchNoLeak(t *testing.T) {
 // guards D12's core dispatch: enter fires saveTagDefsCmd EXACTLY ONCE with
 // the target removed from the registry's current defined names
 // (data.RemoveTagDefName, reused from T1 per bean bt-604w's own "Notes for
-// T4+T5" pointer) -- proven against a REAL t.TempDir()-backed *data.Client,
+// T4+T5" pointer) -- proven against a REAL t.TempDir()-backed *data.Store,
 // doubling as the Registry-Roundtrip requirement (tag gone from the file).
 func TestKeyTagMgmtDeleteConfirmEnterFiresSaveTagDefsCmdWithTargetRemoved(t *testing.T) {
 	dir := t.TempDir()
-	client := &data.Client{RepoDir: dir}
+	client := &data.Store{RepoDir: dir}
 	if err := client.SaveTagDefs([]string{"keep-me", "to-review"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
@@ -1285,7 +1280,7 @@ func TestKeyTagMgmtDeleteConfirmEnterFiresSaveTagDefsCmdWithTargetRemoved(t *tes
 		t.Fatalf("SaveTagDefs against a real t.TempDir() client failed: %v", tdm.err)
 	}
 
-	got, err := (&data.Client{RepoDir: dir}).LoadTagDefs()
+	got, err := (&data.Store{RepoDir: dir}).LoadTagDefs()
 	if err != nil {
 		t.Fatalf("LoadTagDefs after delete: %v", err)
 	}
@@ -1308,9 +1303,9 @@ func TestFullDeleteFlowUsedTagFallsBackToFreeGroupCountPreserved(t *testing.T) {
 	dir := t.TempDir()
 	beans := fixtureBeansTagged() // "urgent" used by tk-1+tk-2 (count 2)
 	m := fixtureModel(t, beans)
-	m.client = &data.Client{RepoDir: dir}
+	m.store = &data.Store{RepoDir: dir}
 	m.repoDir = dir
-	if err := m.client.SaveTagDefs([]string{"urgent"}); err != nil {
+	if err := m.store.SaveTagDefs([]string{"urgent"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
 	m.view = viewTagManagement
@@ -1387,9 +1382,9 @@ func TestFullDeleteFlowUsedTagFallsBackToFreeGroupCountPreserved(t *testing.T) {
 func TestFullDeleteFlowUnusedTagDisappearsEntirely(t *testing.T) {
 	dir := t.TempDir()
 	m := fixtureModel(t, fixtureBeans()) // no tags on any bean
-	m.client = &data.Client{RepoDir: dir}
+	m.store = &data.Store{RepoDir: dir}
 	m.repoDir = dir
-	if err := m.client.SaveTagDefs([]string{"unused-tag"}); err != nil {
+	if err := m.store.SaveTagDefs([]string{"unused-tag"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
 	m.view = viewTagManagement
@@ -1433,12 +1428,12 @@ func TestFullDeleteFlowUnusedTagDisappearsEntirely(t *testing.T) {
 // implicit input read).
 func TestFullDeleteFlowIgnoresStaleAbortedCreateInputText(t *testing.T) {
 	dir := t.TempDir()
-	client := &data.Client{RepoDir: dir}
+	client := &data.Store{RepoDir: dir}
 	if err := client.SaveTagDefs([]string{"alpha", "bravo", "charlie"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
 	m := fixtureModel(t, fixtureBeans()) // no tags on any bean
-	m.client = client
+	m.store = client
 	m.repoDir = dir
 	m.view = viewTagManagement
 	nm, _ := m.openTagManagementPage()
@@ -1488,7 +1483,7 @@ func TestFullDeleteFlowIgnoresStaleAbortedCreateInputText(t *testing.T) {
 // instead of silently pointing at whatever row inherited the old index.
 func TestFullDeleteFlowCursorFollowsUsedTagIntoFreeGroup(t *testing.T) {
 	dir := t.TempDir()
-	client := &data.Client{RepoDir: dir}
+	client := &data.Store{RepoDir: dir}
 	// "urgent" is used by tk-1+tk-2 (fixtureBeansTagged). Registry layout is
 	// picked so the deleted row's OLD index (0: defined group sorts urgent <
 	// zzz-last) and its NEW free-group position (1: after the one remaining
@@ -1498,7 +1493,7 @@ func TestFullDeleteFlowCursorFollowsUsedTagIntoFreeGroup(t *testing.T) {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
 	m := fixtureModel(t, fixtureBeansTagged())
-	m.client = client
+	m.store = client
 	m.repoDir = dir
 	m.view = viewTagManagement
 	nm, _ := m.openTagManagementPage()
@@ -1639,40 +1634,6 @@ func TestTagManagementLocalBindingsIncludesDelete(t *testing.T) {
 }
 
 // --- T5 (bean bt-y9my, epic bt-362n D13/D14): Rename + Bean-Sweep ---
-
-// fakeBeansSucceed installs a fake "beans" that always exits 0 with empty
-// stdout -- for tests that need every dispatched `beans update` call to
-// SUCCEED (mutations.go's update(): "if err == nil { return nil }", it never
-// parses stdout on the success path), without a real .beans/ repo backing
-// it. Mirrors fakeBeansConflict/fakeBeansOnPath's own precedent
-// (editor_test.go).
-func fakeBeansSucceed(t *testing.T) {
-	t.Helper()
-	fakeBeansOnPath(t, "#!/bin/sh\nexit 0\n")
-}
-
-// fakeBeansFailForIDLogCalls installs a fake "beans" that logs every
-// dispatched bean ID (the CLI's second positional arg, `beans update <id>
-// ...`) to logPath, one per line, THEN fails with a CONFLICT envelope for
-// exactly failID and succeeds (exit 0) for every other ID -- lets a test
-// drive renameTagCmd's continue-on-error sweep against a REAL *data.Client
-// with exactly one bean's SetTags call deterministically failing, AND prove
-// every OTHER bean was still attempted (not just infer it from the final
-// count). data.Client has no interface seam to mock (concrete struct
-// shelling out via exec.Command) -- this codebase always drives it via a
-// fake binary on PATH instead (mirrors fakeBeansConflict/fakeBeansEchoIfMatch,
-// editor_test.go).
-func fakeBeansFailForIDLogCalls(t *testing.T, failID, logPath string) {
-	t.Helper()
-	fakeBeansOnPath(t, fmt.Sprintf(`#!/bin/sh
-echo "$2" >> %s
-if [ "$2" = "%s" ]; then
-  echo '{"success":false,"error":"etag mismatch: stale","code":"CONFLICT"}'
-  exit 1
-fi
-exit 0
-`, logPath, failID))
-}
 
 // --- openTagMgmtRename ---
 
@@ -1830,7 +1791,7 @@ func TestKeyTagMgmtInputRenameRejectsDuplicateAgainstOtherExistingName(t *testin
 // must fire NO Cmd (no Registry save, no sweep) and leave the Page itself
 // open.
 func TestKeyTagMgmtInputEscInRenameModeDiscardsOnlySubmodeNoSave(t *testing.T) {
-	m := newModel(&data.Client{RepoDir: "/nonexistent-bt-y9my-scratch-dir"}, "")
+	m := newModel(newTestStore(t), "")
 	m.view = viewTagManagement
 	m.tagMgmtRows = []tagRegistryRow{{name: "alpha", defined: true}}
 	nm, _ := m.openTagMgmtInput("rename", "alpha")
@@ -1891,7 +1852,7 @@ func TestKeyTagMgmtInputCapturesEveryKeyNoLeakInRenameMode(t *testing.T) {
 // (no assertion against execution ORDER, D13's own "tea.Batch garantiert
 // KEINE Reihenfolge" rationale, messages.go's tagRenameDoneMsg doc-stamp).
 func TestKeyTagMgmtInputRenameValidSubmitFiresBatchOfTwoCmds(t *testing.T) {
-	m := newModel(&data.Client{RepoDir: t.TempDir()}, "")
+	m := newModel(&data.Store{RepoDir: t.TempDir()}, "")
 	m.view = viewTagManagement
 	m.tagMgmtRows = []tagRegistryRow{{name: "alpha", defined: true}}
 	nm, _ := m.openTagMgmtInput("rename", "alpha")
@@ -1917,7 +1878,7 @@ func TestKeyTagMgmtInputRenameValidSubmitFiresBatchOfTwoCmds(t *testing.T) {
 // independent, not a hidden sequential dependency.
 func TestKeyTagMgmtInputRenameRegistryPersistsIndependentlyOfSweepCmd(t *testing.T) {
 	dir := t.TempDir()
-	client := &data.Client{RepoDir: dir}
+	client := &data.Store{RepoDir: dir}
 	if err := client.SaveTagDefs([]string{"alpha", "bravo"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
@@ -1979,10 +1940,10 @@ func TestTagManagementLocalBindingsIncludesRenameTag(t *testing.T) {
 
 // TestRenameTagCmdContinuesPastOneFailure is the bean's own named RED test
 // (bt-y9my TDD section), adapted to this codebase's REAL test pattern for
-// driving data.Client (a concrete struct with no interface seam, always
+// driving data.Store (a concrete struct with no interface seam, always
 // exercised via a fake "beans" binary on PATH -- see fakeBeansConflict/
 // fakeBeansEchoIfMatch, editor_test.go -- NOT a fakeSetTagsClient mock,
-// which cannot satisfy renameTagCmd's *data.Client parameter type; the
+// which cannot satisfy renameTagCmd's *data.Store parameter type; the
 // bean's own literal sketch has the same "test-sketch compiles against a
 // fake type" issue T3/T4 already documented as ERRATA and fixed the same
 // way). fakeBeansFailForIDLogCalls fails ONLY b2's call (a genuine CONFLICT)
@@ -1990,28 +1951,26 @@ func TestTagManagementLocalBindingsIncludesRenameTag(t *testing.T) {
 // b3 were still attempted despite b2's failure -- not just infer it from
 // the final count.
 func TestRenameTagCmdContinuesPastOneFailure(t *testing.T) {
-	logPath := t.TempDir() + "/attempted.log"
-	fakeBeansFailForIDLogCalls(t, "b2", logPath)
+	store := newTestStore(t, taggedItem("b1", "old"), taggedItem("b2", "old"), taggedItem("b3", "old"))
+	idx := data.NewIndex(store.Items())
+	// b2 changes on disk after the index was built: its etag is stale, a
+	// genuine conflict for exactly this one item.
+	b2 := storeItem(t, store, "b2")
+	if err := store.SetPriority("b2", "high", b2.ETag()); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
 
-	idx := data.NewIndex([]data.Bean{
-		{ID: "b1", Tags: []string{"old"}, ETag: "e1"},
-		{ID: "b2", Tags: []string{"old"}, ETag: "stale"},
-		{ID: "b3", Tags: []string{"old"}, ETag: "e3"},
-	})
-	c := &data.Client{RepoDir: t.TempDir()}
-	msg := renameTagCmd(c, idx, "old", "new")().(tagRenameDoneMsg)
+	msg := renameTagCmd(store, idx, "old", "new")().(tagRenameDoneMsg)
 	if msg.renamed != 2 || len(msg.failed) != 1 || msg.failed[0].id != "b2" {
 		t.Fatalf("want 2 renamed, 1 failed(b2), got %+v", msg)
 	}
-
-	logged, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatalf("read attempted.log: %v", err)
-	}
-	for _, id := range []string{"b1", "b2", "b3"} {
-		if !strings.Contains(string(logged), id) {
-			t.Fatalf("attempted.log = %q, want it to contain %q (proves the sweep did not abort after b2's failure)", logged, id)
+	for _, id := range []string{"b1", "b3"} {
+		if it := storeItem(t, store, id); !it.HasTag("new") || it.HasTag("old") {
+			t.Fatalf("%s tags = %v, want old replaced by new (the sweep must not abort after b2's failure)", id, it.Tags)
 		}
+	}
+	if it := storeItem(t, store, "b2"); !it.HasTag("old") || it.HasTag("new") {
+		t.Fatalf("b2 tags = %v, want untouched (its rename conflicted)", it.Tags)
 	}
 }
 
@@ -2022,17 +1981,15 @@ func TestRenameTagCmdContinuesPastOneFailure(t *testing.T) {
 // argument to stderr, letting this test assert on the ACTUAL flags
 // dispatched.
 func TestRenameTagCmdDispatchesTagAndRemoveTagFlagsPerBean(t *testing.T) {
-	fakeBeansEchoArgs(t)
-	idx := data.NewIndex([]data.Bean{{ID: "solo", Tags: []string{"old"}, ETag: "e1"}})
-	c := &data.Client{RepoDir: t.TempDir()}
+	store := newTestStore(t, taggedItem("solo", "old", "keep"))
+	idx := data.NewIndex(store.Items())
 
-	msg := renameTagCmd(c, idx, "old", "new")().(tagRenameDoneMsg)
-	if len(msg.failed) != 1 {
-		t.Fatalf("want 1 failure (fake always fails), got %+v", msg)
+	msg := renameTagCmd(store, idx, "old", "new")().(tagRenameDoneMsg)
+	if msg.renamed != 1 || len(msg.failed) != 0 {
+		t.Fatalf("want 1 renamed, got %+v", msg)
 	}
-	errText := msg.failed[0].err.Error()
-	if !strings.Contains(errText, "--tag new") || !strings.Contains(errText, "--remove-tag old") {
-		t.Fatalf("dispatched args = %q, want both --tag new and --remove-tag old", errText)
+	if it := storeItem(t, store, "solo"); !it.HasTag("new") || it.HasTag("old") || !it.HasTag("keep") {
+		t.Fatalf("tags = %v, want old replaced by new, keep untouched", it.Tags)
 	}
 }
 
@@ -2040,10 +1997,10 @@ func TestRenameTagCmdDispatchesTagAndRemoveTagFlagsPerBean(t *testing.T) {
 // empty-sweep floor -- no bean currently carries oldTag, so the sweep is a
 // clean zero-value no-op, never a panic or a spurious CLI call.
 func TestRenameTagCmdNoBeansWithOldTagReturnsZeroRenamedNoFailures(t *testing.T) {
-	idx := data.NewIndex([]data.Bean{{ID: "b1", Tags: []string{"other"}, ETag: "e1"}})
-	c := &data.Client{RepoDir: t.TempDir()}
+	store := newTestStore(t, taggedItem("b1", "other"))
+	idx := data.NewIndex(store.Items())
 
-	msg := renameTagCmd(c, idx, "old", "new")().(tagRenameDoneMsg)
+	msg := renameTagCmd(store, idx, "old", "new")().(tagRenameDoneMsg)
 	if msg.renamed != 0 || len(msg.failed) != 0 {
 		t.Fatalf("want a zero-value no-op sweep, got %+v", msg)
 	}
@@ -2053,8 +2010,7 @@ func TestRenameTagCmdNoBeansWithOldTagReturnsZeroRenamedNoFailures(t *testing.T)
 // "if idx != nil" defensive guard (box_picker_tag.go) -- a pre-load/
 // test-fixture model (m.idx unset) must never panic here.
 func TestRenameTagCmdNilIndexNoPanicZeroRenamed(t *testing.T) {
-	c := &data.Client{RepoDir: t.TempDir()}
-	msg := renameTagCmd(c, nil, "old", "new")().(tagRenameDoneMsg)
+	msg := renameTagCmd(newTestStore(t), nil, "old", "new")().(tagRenameDoneMsg)
 	if msg.renamed != 0 || len(msg.failed) != 0 {
 		t.Fatalf("want a zero-value sweep result for a nil idx, got %+v", msg)
 	}
@@ -2069,16 +2025,17 @@ func TestRenameTagCmdNilIndexNoPanicZeroRenamed(t *testing.T) {
 // FAILS EVERY call it receives, so any (bug-triggered) SetTags call at all
 // would flip this test red.
 func TestRenameTagCmdSameOldNewNameSkipsSweepNoDestructiveSetTags(t *testing.T) {
-	fakeBeansOnPath(t, "#!/bin/sh\necho '{\"success\":false,\"error\":\"must never be called\",\"code\":\"VALIDATION_ERROR\"}'\nexit 1\n")
-	idx := data.NewIndex([]data.Bean{
-		{ID: "b1", Tags: []string{"same"}, ETag: "e1"},
-		{ID: "b2", Tags: []string{"same"}, ETag: "e2"},
-	})
-	c := &data.Client{RepoDir: t.TempDir()}
+	store := newTestStore(t, taggedItem("b1", "same"), taggedItem("b2", "same"))
+	idx := data.NewIndex(store.Items())
 
-	msg := renameTagCmd(c, idx, "same", "same")().(tagRenameDoneMsg)
+	msg := renameTagCmd(store, idx, "same", "same")().(tagRenameDoneMsg)
 	if msg.renamed != 2 || len(msg.failed) != 0 {
 		t.Fatalf("want renamed=2 failed=0 (self-rename no-op, no SetTags call ever fired), got %+v", msg)
+	}
+	for _, id := range []string{"b1", "b2"} {
+		if !storeItem(t, store, id).HasTag("same") {
+			t.Fatalf("%s lost its tag: a self-rename must never strip it", id)
+		}
 	}
 }
 
@@ -2152,26 +2109,21 @@ func TestUpdateDispatchesTagRenameDoneMsgToApplyTagRenameDone(t *testing.T) {
 	}
 }
 
-// --- Full end-to-end Rename flow (real *data.Client) ---
+// --- Full end-to-end Rename flow (real *data.Store) ---
 
 // TestFullRenameFlowRenamesRegistryAndSweepsBeansViaRealClient drives the
 // COMPLETE Rename flow (open -> type -> submit -> resolve both halves of
-// the batch) against a real *data.Client/temp-dir Registry AND a fake
-// always-succeeding "beans" binary standing in for the Bean-sweep's CLI
-// calls -- proves the whole D13 chain end-to-end, not just its isolated
+// the batch) against a real *data.Store (temp-dir Registry AND real items
+// for the Bean-sweep) -- proves the whole D13 chain end-to-end, not just its isolated
 // pieces.
 func TestFullRenameFlowRenamesRegistryAndSweepsBeansViaRealClient(t *testing.T) {
-	dir := t.TempDir()
-	client := &data.Client{RepoDir: dir}
+	client := newTestStore(t, taggedItem("b1", "alpha"), taggedItem("b2", "alpha"))
+	dir := client.RepoDir
 	if err := client.SaveTagDefs([]string{"alpha", "bravo"}); err != nil {
 		t.Fatalf("setup SaveTagDefs: %v", err)
 	}
-	fakeBeansSucceed(t)
 
-	idx := data.NewIndex([]data.Bean{
-		{ID: "b1", Tags: []string{"alpha"}, ETag: "e1"},
-		{ID: "b2", Tags: []string{"alpha"}, ETag: "e2"},
-	})
+	idx := data.NewIndex(client.Items())
 	m := newModel(client, dir)
 	m.idx = idx
 	m.view = viewTagManagement

@@ -8,6 +8,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"os"
 	"strings"
 	"time"
@@ -48,26 +49,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case beansLoadedMsg:
 		return m.applyLoaded(msg)
 
-	case watchMsg:
-		// data.Watch's onChange fired -- always a full reload, never partial
-		// (design decision D02).
-		return m, loadCmd(m.client)
-
-	case watchUnavailableMsg:
-		// I04: data.Watch failed to start -- surface once in the status line
-		// (view_browse_repo.go) instead of silently never reacting to
-		// on-disk changes; ctrl+r still reloads manually.
-		m.watchUnavailable = true
-		return m, nil
+	case storeEventsMsg:
+		// The store's watcher reported a change batch -- always a full
+		// reload, never partial (design decision D02), then wait for the
+		// next batch.
+		return m, tea.Batch(loadCmd(m.store), waitForStoreEvents(m.storeEvents))
 
 	case searchBleveResultMsg:
 		return m.applyBleveResult(msg)
+
+	case taskDoneMsg:
+		return m.applyTaskDone(msg)
 
 	case mutationDoneMsg:
 		// E3 (bean bt-dlgk): every Set*/Add*/Remove*/Delete mutation goes
 		// through this ONE case -- applyMutationResult below is the shared
 		// status-line + unconditional-reload tail (design decision d).
-		return m.applyMutationResult(msg.err)
+		return m.applyMutationResult(msg.err, msg.warn)
 
 	case createDoneMsg:
 		// E3 Task 4 (bean bt-y4ly): the ONE exception to mutationDoneMsg --
@@ -116,13 +114,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// clears m.toast if seq still matches the CURRENT generation (a
 		// newer showToast call may have already replaced it).
 		return m.handleToastExpired(msg)
-
-	case initialWatchMsg:
-		// E5 Task 6 (bean bt-zhwl): app.go Run()'s VERY FIRST watcher stop
-		// func, handed to the model asynchronously (see that type's own
-		// doc-stamp, messages.go) so the FIRST repo switch can retire it.
-		m.watchStop = msg.stop
-		return m, nil
 
 	case repoSwitchedMsg:
 		// E5 Task 6 (bean bt-zhwl): switchRepoCmd's outcome (Lobby enter,
@@ -185,7 +176,7 @@ func (m model) handleToastExpired(msg toastExpiredMsg) (tea.Model, tea.Cmd) {
 }
 
 // applyRepoSwitched is switchRepoCmd's (messages.go) shared success/failure
-// tail (E5 Task 6, bean bt-zhwl). Failure: the CURRENT session (m.client/
+// tail (E5 Task 6, bean bt-zhwl). Failure: the CURRENT session (m.store/
 // m.idx/m.watchStop) is left COMPLETELY untouched -- switchRepoCmd already
 // validated the target repo BEFORE ever touching the old watcher (design
 // note, messages.go), so there is nothing stale to clean up here, only a
@@ -203,7 +194,7 @@ func (m model) handleToastExpired(msg toastExpiredMsg) (tea.Model, tea.Cmd) {
 // searchQuery/facet filter from the old repo could silently show an EMPTY
 // tree for the new one with no visible reason, which is a genuine
 // usability bug, not just cosmetic drift -- same class of finding as this
-// file's own m.searchActive/m.filterOpen capture-order precedents).
+// file's own m.searchActive capture-order precedent).
 func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		var toastCmd tea.Cmd
@@ -211,12 +202,12 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 		return m, toastCmd
 	}
 
-	m.client = msg.client
+	m.store = msg.store
 	m.repoDir = msg.repoDir
-	m.watchStop = msg.watchStop
-	m.watchUnavailable = msg.watchStop == nil // I04 precedent: degrade visibly, never silently
-	applyRepoConfig(msg.repoDir)              // the new repo's value lists, BEFORE its index is sorted
-	m.idx = data.NewIndex(msg.beans)
+	m.storeEvents = msg.events
+	m.watchUnavailable = msg.events == nil // I04 precedent: degrade visibly, never silently
+	applyRepoConfig(msg.store.Config())    // the new repo's value lists, BEFORE its index is sorted
+	m = m.setItems(msg.beans, msg.ready)
 	m.view = viewBrowseRepo
 	m.err = ""
 
@@ -231,12 +222,13 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	// field elsewhere on model to also reset (toastState's own seq/sticky
 	// live INSIDE the struct this pointer addresses, overlay_show_toast.go).
 	m.toast = nil
+	m = m.setTaskActions() // the new repo's tui.actions; may raise a warning toast
 
 	// Port devd selectProject's reset-on-switch breadth (view_home.go).
 	m.expanded = map[string]bool{}
 	m.cursorID = ""
-	m.detailFocus = false
-	m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 0, 1, 0, 0
+	m.detailFocus = m.layout == layoutDetail // layoutDetail always holds Detail focus
+	m.boxFormCursor, m.boxFormCursorBean = 0, ""
 	m.searchActive = false
 	m.searchInput.SetValue("")
 	m.searchQuery = ""
@@ -245,14 +237,14 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.searchBleveIDs = nil
 	m.searchBleveFor = ""
 	m.searchBleveLoading = false
-	m.filterOpen = false
+	m.filterFocus = false
 	m = m.clearFacets()
 	m.showArchived = false // E5 Task 7 (bean bt-ggt2, T6-Note bug class, bt-zhwl "Notes for T7"): the archive-default toggle must not leak across a repo switch, same reset breadth as every other search/filter field here.
-	m.backlogList = listState{}
-	m.flatList = listState{} // S5: same stale-cursor hygiene as backlogList just above -- flatView itself (a display-mode preference, not per-repo state) deliberately survives the switch
+	m.readyList = listState{}
+	m.flatList = listState{} // S5: same stale-cursor hygiene as readyList just above -- flatView itself (a display-mode preference, not per-repo state) deliberately survives the switch
 
 	_ = config.SetLastRepo(msg.repoDir) // best-effort persistence (Port devd DD2-273 RMW pattern, state.go) -- a failed write must not block the switch itself
-	return m, nil
+	return m, waitForStoreEvents(m.storeEvents)
 }
 
 // applyRepoMetrics applies ONE repoMetricsMsg (E5 Task 6, bean bt-zhwl) --
@@ -276,7 +268,7 @@ func (m model) applyRepoMetrics(msg repoMetricsMsg) (tea.Model, tea.Cmd) {
 // apply. errors.Is(err, data.ErrConflict) gets its own status-line wording;
 // Toast is E5 scope, m.err/the status line's Red slot (view.go statusBar)
 // is the interim feedback channel.
-func (m model) applyMutationResult(err error) (tea.Model, tea.Cmd) {
+func (m model) applyMutationResult(err error, warn string) (tea.Model, tea.Cmd) {
 	m.err = ""
 	var toastCmd tea.Cmd
 	if err != nil {
@@ -332,10 +324,25 @@ func (m model) applyMutationResult(err error) (tea.Model, tea.Cmd) {
 				m.err += " — your version: " + cr.path
 				toastCtx = "Version saved: " + cr.path
 			}
-			m, toastCmd = m.showToast(toastError, err.Error(), toastCtx, nil, false)
+			// A gate block carries the hook name and its output: keep it
+			// readable until dismissed, like a conflict.
+			m, toastCmd = m.showToast(toastError, err.Error(), toastCtx, nil, strings.Contains(err.Error(), `hook "`))
 		}
+	} else {
+		m, toastCmd = m.showWarn(warn)
 	}
-	return m, tea.Batch(toastCmd, loadCmd(m.client))
+	return m, tea.Batch(toastCmd, loadCmd(m.store))
+}
+
+// showWarn shows the core warnings and hook output of a load or mutation as a
+// sticky warning toast; empty warn shows nothing. Stdout/stderr of the core
+// never reach the terminal (the alt screen would break), so this is the one
+// place they surface.
+func (m model) showWarn(warn string) (model, tea.Cmd) {
+	if warn == "" {
+		return m, nil
+	}
+	return m.showToast(toastWarn, "Warning", warn, nil, true)
 }
 
 // conflictWithRecovery wraps a mutation error with the path of a KEPT
@@ -395,7 +402,7 @@ func writeConflictTempFile(body string) (path string, err error) {
 // existing "exact bean still present" cursor-restore path (above) then finds
 // msg.bean.ID unchanged after the beansLoadedMsg arrives (US-10-parity, no
 // new cursor logic). A parentless new bean (msg.bean.Parent == "") needs no
-// expansion at all -- idx.Roots() already surfaces every parentless bean.
+// expansion at all -- a parentless bean sits at the roadmap root, or under a synthetic root.
 //
 // F1 (Review-Runde 2, Async-Gap-Clobbering, Finding 1): between the Confirm-
 // Gate's enter (keyCreateConfirm, box_confirm_create.go: overlay -> None,
@@ -440,19 +447,19 @@ func (m model) applyCreateDone(msg createDoneMsg) (tea.Model, tea.Cmd) {
 			return formModel, tea.Batch(toastCmd, formCmd)
 		}
 		m.createDraft = nil // busy (F1) or no draft to reopen from -- drop it either way
-		return m.applyMutationResult(msg.err)
+		return m.applyMutationResult(msg.err, msg.warn)
 	}
 	m.createDraft = nil   // success: draft consumed, no reopen needed (B01's other half)
 	m.pendingCreate = nil // in-flight window over (F1)
 	if msg.bean.Parent != "" {
-		m.expanded = expandAncestorsOf(m.idx, m.expanded, msg.bean.Parent)
+		m.expanded = expandAncestorsOf(m.treeParent, m.expanded, msg.bean.Parent)
 		exp := cloneBoolMap(m.expanded) // I01: copy-on-write
 		exp[msg.bean.Parent] = true     // expandAncestorsOf expands ancestors OF id, not id itself
 		m.expanded = exp
 	}
 	m.cursorID = msg.bean.ID
 	m.err = ""
-	return m, loadCmd(m.client)
+	return m, loadCmd(m.store)
 }
 
 // applyTagDefsSaved handles a completed Tag-Registry write (E10 Task 3, bean
@@ -494,8 +501,8 @@ func (m model) applyTagDefsSaved(msg tagDefsSavedMsg) (tea.Model, tea.Cmd) {
 	m.tagMgmtInputTarget = ""
 
 	var defs []string
-	if m.client != nil {
-		defs, _ = m.client.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
+	if m.store != nil {
+		defs, _ = m.store.LoadTagDefs() // D02: LoadTagDefs never returns a non-nil error
 	}
 	m.tagMgmtRows = tagRegistryRows(m.idx, defs)
 	m.tagMgmtCursor.setLen(len(m.tagMgmtRows))
@@ -536,7 +543,7 @@ func (m model) applyTagRenameDone(msg tagRenameDoneMsg) (tea.Model, tea.Cmd) {
 	}
 	var toastCmd tea.Cmd
 	m, toastCmd = m.showToast(kind, title, "", nil, false)
-	return m, tea.Batch(toastCmd, loadCmd(m.client))
+	return m, tea.Batch(toastCmd, loadCmd(m.store))
 }
 
 // applyBeanRawLoaded handles openBeanEditor's FIRST Cmd-hop result (D01,
@@ -573,7 +580,7 @@ func (m model) applyBeanRawLoaded(msg beanRawLoadedMsg) (tea.Model, tea.Cmd) {
 // call for a no-op edit, mirrors the plan's own Akzeptanz wording);
 // otherwise the content is PARSED (parseRawBean, editor.go), DIFFED against
 // the snapshot frozen at $EDITOR-open time (buildWholeEditDiff), and
-// dispatched as ONE combined data.Client.UpdateWhole call against the etag
+// dispatched as ONE combined data.Store.UpdateWhole call against the etag
 // CAPTURED AT $EDITOR-OPEN TIME (m.editorETag, F2 Review-Runde 2 fix) --
 // NOT a fresh m.beanETag(id) read here. Design decision d's "always read
 // fresh at submit" is correct for every OTHER E3 overlay, whose
@@ -666,9 +673,9 @@ func (m model) applyEditorFinished(msg editorFinishedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	diff := buildWholeEditDiff(snapshot, fm, body)
-	client := m.client
-	return m, mutateCmd(func() error {
-		err := client.UpdateWhole(id, diff, etag)
+	store := m.store
+	return m, mutateCmd(store, func() error {
+		err := store.UpdateWhole(id, diff, etag)
 		if err != nil {
 			// F01 (bt-z4b1 Review-Runde 1, critical, live reproduced):
 			// EVERY UpdateWhole failure -- not just errors.Is(_,
@@ -705,7 +712,7 @@ func (m model) beanETag(id string) (etag string, ok bool) {
 	if !ok {
 		return "", false
 	}
-	return b.ETag, true
+	return b.ETag(), true
 }
 
 // createInFlightNote is the brief status-line note shown when the PO tries
@@ -717,12 +724,12 @@ const createInFlightNote = "Creation already in progress — please wait"
 // keyNodeAction routes the node-focused mutation keys (design-spec §7:
 // s/t/a/B/c/d/e -- Status/TagAssign/Assign/Blocking/Create/Delete/Editor;
 // plus jira-style-ui experiment S4's o/u -- Type/Priority, wired onto the
-// SAME value-menu machinery as Status, not gated behind LIF_TUI_BOXFORM).
+// SAME value-menu machinery as Status).
 // Placed in handleKey directly after the Refresh check and BEFORE the
 // m.detailFocus dispatch, since node actions must act on m.focusedBean()
 // regardless of which pane currently has focus (focusedBean() already
-// covers Tree, Backlog AND detail focus, the same view-agnostic dispatcher
-// E2 Task 2 built) -- routing through keyDetailFocus/keyTree/keyBacklog
+// covers Tree, Ready AND detail focus, the same view-agnostic dispatcher
+// E2 Task 2 built) -- routing through keyDetailFocus/keyTree/keyReady
 // first would either shadow these keys entirely or require duplicating the
 // dispatch in three places. Create is the ONE key that works without a
 // focused bean (an empty repo can still be seeded); every other key here is
@@ -801,7 +808,7 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 			// B10): "e"/"ctrl+e" share ONE keys.Editor binding (design-spec
 			// §7) and now ALWAYS open the SAME whole-bean $EDITOR path,
 			// unconditionally -- egal welche Sektion/Feld-Ebene, auch ohne
-			// aktiven Detail-Fokus, aus Tree/Backlog/Detail (PO verbatim:
+			// aktiven Detail-Fokus, aus Tree/Ready/Detail (PO verbatim:
 			// "egal an welcher Stelle"). The former msg.String()=="ctrl+e"
 			// vs. section-context-sensitive "e" branching (B10) is GONE --
 			// there is only ONE editor path now, not two convergent ones
@@ -826,7 +833,7 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, m, nil // unreachable: msg matched one of the eight keys in this case's condition above
 	case keybind.Matches(msg, keys.Yank):
 		// E5 Task 3 (bean bt-e4a6, design decision b): `y` always acts on
-		// m.focusedBean() -- Tree/Backlog identical (focusedBean is already
+		// m.focusedBean() -- Tree/Ready identical (focusedBean is already
 		// the view-agnostic dispatcher E2 Task 2 built).
 		b := m.focusedBean()
 		if b == nil {
@@ -845,7 +852,7 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 // keyOverlay routes to the currently open node-action overlay's own key
 // handler (design decision a2: exactly one overlayID is active at a time).
 // Checked in handleKey ahead of the global ctrl+c/q/tab switch (same
-// full-capture precedent as m.searchActive/m.filterOpen just above it) so
+// full-capture precedent as m.searchActive just above it) so
 // e.g. "q" cannot leak through to a quit-request while a menu/picker is
 // open. T1 wires overlayValueMenu; T2/T3/T4/T6 add their cases as their
 // overlays land.
@@ -863,6 +870,10 @@ func (m model) keyOverlay(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keyCreateConfirm(msg)
 	case overlayDeleteConfirm:
 		return m.keyDeleteConfirm(msg)
+	case overlayTaskOutput:
+		return m.keyTaskOutput(msg)
+	case overlayFilterMenu:
+		return m.keyFilterMenu(msg)
 	}
 	return m, nil
 }
@@ -914,10 +925,10 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	// a vanished bean can clamp near its old spot instead of resetting to 0.
 	oldPos := 0
 	if m.idx != nil {
-		oldPos = m.cursorPos(flattenTree(m.idx, m.expanded))
+		oldPos = m.cursorPos(flattenTree(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, m.expanded))
 	}
 
-	m.idx = data.NewIndex(msg.beans)
+	m = m.setItems(msg.beans, msg.ready)
 	nodes := m.visibleNodes()
 
 	if len(nodes) == 0 {
@@ -946,7 +957,7 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	return m.showWarn(msg.warn)
 }
 
 // handleKey is the top-level key dispatch (devd keys.go port pattern):
@@ -954,6 +965,15 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 // view-global keys (ctrl+c hard-quit, tab focus-swap -- Q01, deliberately
 // NOT part of keymap.go's Right binding); then the tree/detail handlers.
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// ctrl+c quits at once from every state (bean beans-zata): checked before
+	// every capture (confirm, search, filter, form, overlay, lobby). tui.Run
+	// closes the store after the program ends.
+	if msg.String() == "ctrl+c" {
+		return m, tea.Quit
+	}
+	// A buffered fold prefix lives for exactly one key press, whatever that key does.
+	foldPending := m.foldPrefix
+	m.foldPrefix = false
 	if m.confirmQuit {
 		return m.keyConfirmQuit(msg)
 	}
@@ -970,17 +990,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.keySearchInput(msg)
 	}
 
-	// E2 Task 4 (bean bt-9ldr): the facet-filter menu is a floating overlay
-	// that fully captures input, same precedent as m.searchActive just above
-	// (and m.confirmQuit at the very top of this function) -- single-key
-	// shortcuts like `q`/`tab` must not leak through to the Tree underneath
-	// while the menu is open.
-	if m.filterOpen {
-		return m.keyFilterMenu(msg)
-	}
-
 	// E3 Task 4 (bean bt-y4ly): an open huh Form fully captures input too,
-	// same precedent as filterOpen/searchActive/confirmQuit above -- checked
+	// same precedent as searchActive/confirmQuit above -- checked
 	// BEFORE the node-action overlay switch below since m.form != nil is its
 	// own separate capture state, not one of the overlayID cases (design
 	// decision a2: "huh forms are not a menu overlay").
@@ -990,7 +1001,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// E3 (bean bt-dlgk): the open node-action overlay (Value-Menü T1, Tag-/
 	// Parent-/Blocking-Picker T2/T3, Create-/Delete-Confirm T4/T6) fully
-	// captures input, same precedent as m.filterOpen/m.searchActive just
+	// captures input, same precedent as m.searchActive just
 	// above -- checked ahead of the ctrl+c/q/tab switch so those single keys
 	// cannot leak through while a menu/picker is open.
 	if m.overlay != overlayNone {
@@ -998,7 +1009,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// E5 Task 6 (bean bt-zhwl, design decision h): the Lobby fully captures
-	// input, same full-capture precedent as m.overlay/m.filterOpen above --
+	// input, same full-capture precedent as m.overlay above --
 	// but positioned HERE, AHEAD of the ctrl+k/`?`/keys.Picker bare MATCH
 	// checks below (an ERRATUM vs. bt-0l8c's own forward-looking Notes-für-
 	// T6 sketch, which listed keys.Picker's match check BEFORE the
@@ -1039,7 +1050,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// E4 Task 1 (bean bt-jpgn, design decision h): the Command-Center's own
-	// open state fully captures, same precedent as filterOpen/m.overlay
+	// open state fully captures, same precedent as m.overlay
 	// above.
 	if m.paletteOpen {
 		return m.keyPalette(msg)
@@ -1053,11 +1064,26 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Deviations) -- it would let `?`, typed as a literal query character
 	// into an open Command-Center filter, hijack input and open Help
 	// instead of reaching keyPalette. Keeping every full-capture STATE
-	// check (filterOpen/form/overlay/paletteOpen/helpOpen) ahead of every
+	// check (form/overlay/paletteOpen/helpOpen) ahead of every
 	// bare keybind MATCH check (keys.Palette/keys.Help) preserves the
 	// existing precedent this file already establishes end to end.
 	if m.helpOpen {
 		return m.keyHelp(msg)
+	}
+	// Roadmap fold keys (zo/zc/zR/zM): intercepted AHEAD of every bare key
+	// below, whose letters (c, R, M, ...) would otherwise swallow the second
+	// key of the sequence.
+	if m.view == viewBrowseRepo && !m.flatView && !m.detailFocus && !m.filterFocus {
+		switch s := msg.String(); {
+		case foldPending:
+			return m.keyFold(foldPrefixKey + s), nil
+		case s == foldPrefixKey:
+			m.foldPrefix = true
+			return m, nil
+		case len(s) == 2 && s[:1] == foldPrefixKey && msg.Type == tea.KeyRunes:
+			// both keys arrived in one terminal read (fast typing, paste): bubbletea delivers them as one KeyRunes message
+			return m.keyFold(s), nil
+		}
 	}
 	// E4 Task 1 (design decision h): ctrl+k/K opens the palette from ANY
 	// view (design-spec §7: "von überall").
@@ -1078,98 +1104,44 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "ctrl+c": // immediate quit, no confirm (bean bt-7jr8: distinct from `q`)
-		return m, tea.Quit
 	case "q":
 		return m.requestQuit()
 	}
 
-	// Both replace the former raw `case "tab":` AT THE SAME dispatch point
-	// (still ahead of keyNodeAction/keyDetailFocus/keyBacklog/keyTree below) --
-	// no new collision risk (Kollisionsanalyse, epic-E7-plan.md Task 6).
-	//
-	// bt-8d35 (PO-Fokus-Modell, epic bt-vy1q): "tab/shift+tab bewegen INNERHALB
-	// der fokussierten Region, esc VERLAESST die Region". While the Detail
-	// region already HAS focus (split geometry) and boxFormEnabled(), tab is
-	// therefore no longer a pane swap at all -- it is the region-local field
-	// cursor, routed straight to keyDetailFocus (boxFormFieldNext/Prev,
-	// box_nav_field.go). Consequences, both deliberate:
-	//
-	//   - shift+tab stops being the deterministic exit (PF-13, bt-t1uy): it is
-	//     the BACKWARD field step now, and esc is the single documented way out
-	//     of a region (keyDetailFocus's Back-case).
-	//   - the Vollbild-Detail is excluded (m.fullscreen check): it renders no
-	//     field cursor at all (fieldCursor -1, view_fullscreen.go), so tab keeps
-	//     its global meaning there.
-	//
-	// Flag OFF -> the entire block below is the untouched PF-13 behaviour, and
-	// so are the Tree region's own tab/shift+tab (no intra-region targets are
-	// defined for the Tree, so tab-out-of-Tree stays the region ENTRY).
-	inFocusedDetailRegion := boxFormEnabled() && m.detailFocus && m.fullscreen != fullscreenDetail
-
-	// PF-13 (design-spec.md §15, E7 T6, bean bt-t1uy): FocusIn (tab) keeps its
-	// existing bidirectional toggle (Q01) -- FocusOut (shift+tab) is NEW, a
-	// deterministic one-way exit back to the Tree.
+	// tab and shift+tab (keys.FocusIn/FocusOut) step the focus along the ring
+	// of the active layout (stepFocus, layout.go). They sit ahead of
+	// keyNodeAction/keyDetailFocus/keyReady/keyTree below, and ahead of the
+	// focused filter field, so every region reacts the same.
 	if keybind.Matches(msg, keys.FocusIn) {
-		if inFocusedDetailRegion {
-			return m.keyDetailFocus(msg)
-		}
-		m.detailFocus = !m.detailFocus
-		if m.detailFocus {
-			// enterDetailFocus-equivalent (devd view_detail_issue.go:236-243,
-			// E2 Task 2): always re-enter the Detail-Accordion at Meta,
-			// section level, field cursor 0 -- a stale cursor position from a
-			// PREVIOUS detail-focus visit (possibly on a different bean, whose
-			// section/field shape may differ) must never leak into this one.
-			m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 0, 1, 0, 0
-			// bt-8d35 Flow #2 entry step ("tab aus dem Tree -> Fokus auf das
-			// erste Feld (Title)"): the box-form cursor gets the SAME
-			// no-stale-state treatment. Clearing the owning bean rather than
-			// just the index reuses boxFormEffectiveCursor's own derived reset
-			// (box_nav_field.go) instead of adding a second reset rule.
-			m.boxFormCursor, m.boxFormCursorBean = 0, ""
-		}
-		return m, nil
+		return m.stepFocus(1), nil
 	}
 	if keybind.Matches(msg, keys.FocusOut) {
-		if inFocusedDetailRegion {
-			return m.keyDetailFocus(msg)
-		}
-		// Deterministic exit only -- no cursor-state reset (that only ever
-		// happens on tab-IN, above): a no-op when the Tree already has focus.
-		m.detailFocus = false
-		return m, nil
+		return m.stepFocus(-1), nil
 	}
 
-	// S5 (jira-style-ui experiment, bean/slice: Nested/Flat Browse toggle):
-	// `G` flips m.flatView -- checked at the SAME "fokus-/Ansichts-Modus-
-	// Familie" checkpoint as FocusIn/FocusOut/Fullscreen just above/below
-	// (global reach, view-agnostic dispatch). Only viewBrowseRepo's render
-	// path (viewBrowseRepo, view_browse_repo.go) actually branches on
-	// flatView -- toggling it while e.g. the Backlog view is active is a
-	// harmless no-visible-effect state change (Backlog is already its own
-	// flat, full-screen list), symmetric with how Fullscreen's `v` is also
-	// globally reachable without every view rendering differently for it.
-	if keybind.Matches(msg, keys.FlatView) {
-		m.flatView = !m.flatView
-		return m, nil
-	}
-
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): keyFullscreen's own
-	// dispatch checkpoint -- NACH FocusIn/FocusOut (same fokus-/Ansichts-
-	// Modus-Familie), VOR keyNodeAction (below). Handles `v` (entry/no-op),
-	// `enter` while m.fullscreen == fullscreenList (Listen-Vollbild ->
-	// Detail-Vollbild), and `esc` while m.fullscreen == fullscreenList
-	// (direct exit -- the fullscreenDetail esc-cascade lives in
-	// keyDetailFocus's own Back-case instead, reached via the m.detailFocus
-	// routing line below, since it needs m.detailLevel to decide which rung
-	// fires).
-	if handled, nm, cmd := m.keyFullscreen(msg); handled {
+	// v / shift+v cycle the layout (keyLayout, layout.go).
+	if handled, nm, cmd := m.keyLayout(msg); handled {
 		return nm, cmd
 	}
 
+	// f jumps to the filter bar's Type field (switching to a layout with a
+	// filter bar when needed); while the bar has focus it owns the keys.
+	if keybind.Matches(msg, keys.Filter) && (m.view == viewBrowseRepo || m.view == viewReady) {
+		return m.focusFilter(), nil
+	}
+	if m.filterFocus {
+		return m.keyFilterField(msg)
+	}
+
+	// M / L / R switch between the Roadmap, the flat list and Ready (keyView,
+	// layout.go); reachable from every list view, but not while the filter bar
+	// owns the keys.
+	if handled, nm := m.keyView(msg); handled {
+		return nm, nil
+	}
+
 	if keybind.Matches(msg, keys.Refresh) {
-		return m, loadCmd(m.client)
+		return m, loadCmd(m.store)
 	}
 
 	// bean bt-adkn Rework (B1, PO-Reject 2026-07-21 "PageDown/PageUp scrollt das
@@ -1185,13 +1157,10 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// focusedBean() regardless of focus, through the SAME adjustBoxFormScroll
 	// mutation point line-wise up/down and the wheel use (one clamp/reset path,
 	// no drift -- SSTD load-bearing constraint). One page == the pane's own
-	// visible line budget (boxFormScrollBounds' height, fullscreen-aware).
+	// visible line budget (boxFormScrollBounds' height).
 	//
-	// fullscreenList is excluded: it renders the Master list full-width with no
-	// Detail-Body to page. fullscreenDetail is INCLUDED (focusedBean() resolves
-	// the fullscreen bean, keyDetailFocus's own doc comment) so paging works in
-	// Vollbild-Detail too. Flag off -> inert (whole path experiment-gated).
-	if boxFormEnabled() && m.fullscreen != fullscreenList {
+	// A layout without a Detail pane has no Body to page.
+	if m.layout.hasDetail() {
 		if b := m.focusedBean(); b != nil {
 			switch {
 			case keybind.Matches(msg, boxFormPageUp):
@@ -1205,427 +1174,105 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// E3 (bean bt-dlgk): node-focused mutation keys (s/t/a/B/c/d/e) --
-	// checked BEFORE the detailFocus/keyBacklog/keyTree dispatch below so
+	// checked BEFORE the detailFocus/keyReady/keyTree dispatch below so
 	// they act on m.focusedBean() regardless of which pane has focus (see
 	// keyNodeAction's own doc comment for the full rationale).
+	if handled, nm, cmd := m.keyTaskAction(msg); handled {
+		return nm, cmd
+	}
 	if handled, nm, cmd := m.keyNodeAction(msg); handled {
 		return nm, cmd
 	}
 
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): m.fullscreen ==
-	// fullscreenDetail routes here TOO, not just m.detailFocus -- inside the
-	// Vollbild-Detail, m.detailFocuss truth value is irrelevant to the
-	// dispatch decision, the Vollbild state itself is the signal-giver (the
-	// entry point via listen-Vollbild `enter`, or a Relations-Sprung inside
-	// fullscreenDetail, never touches m.detailFocus at all). focusedBean()'s
-	// own new fullscreenDetail case (above) is what makes this reuse
-	// VERBATIM-safe: every field-kaskade already resolves against the
-	// correct (fullscreen) bean.
-	if m.detailFocus || m.fullscreen == fullscreenDetail {
+	if keybind.Matches(msg, keys.Back) && m.escDismissesToast() {
+		return m.dismissToast()
+	}
+	if m.detailFocus {
 		return m.keyDetailFocus(msg)
 	}
-	if m.view == viewBacklog {
-		return m.keyBacklog(msg)
+	if m.view == viewReady {
+		return m.keyReady(msg)
 	}
 	return m.keyTree(msg)
 }
 
 // focusedBean returns the bean the Detail-Accordion currently targets,
 // independent of which view is active (devd port focusedIssue,
-// view_detail_issue.go:20-35) -- view-agnostic so Task 5's Backlog view
-// (viewBacklog case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
-func (m model) focusedBean() *data.Bean {
-	// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): fullscreenDetail's
-	// target is a VOLLBREITE, view-agnostic single bean (m.fullscreenBeanID),
-	// UNABHÄNGIG vom Tree-/Backlog-Cursor -- checked BEFORE the m.view switch
-	// below so keyDetailFocus (every Feld-Kaskade, PF-5) works VERBATIM in
-	// the Vollbild-Detail without a second, duplicated navigation
-	// implementation (same "one view-agnostic dispatcher" principle the
-	// m.view switch itself already establishes for Tree vs. Backlog).
-	if m.fullscreen == fullscreenDetail {
-		if m.idx == nil {
-			return nil
-		}
-		b, ok := m.idx.ByID[m.fullscreenBeanID]
-		if !ok {
-			return nil
-		}
-		return b
-	}
+// view_detail_issue.go:20-35) -- view-agnostic so Task 5's Ready view
+// (viewReady case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
+func (m model) focusedBean() *item.Item {
 	switch m.view {
-	case viewBacklog: // E2 Task 5: the Backlog list's own selection, NOT the (possibly stale/irrelevant) tree cursor
-		return m.backlogSelected()
+	case viewReady: // E2 Task 5: the Ready list's own selection, NOT the (possibly stale/irrelevant) tree cursor
+		return m.readySelected()
 	default: // viewBrowseRepo (T8)
 		// S5 (jira-style-ui experiment, Nested/Flat Browse toggle): in flat
 		// mode the flat list's OWN cursor (flatList) is the selection, not
 		// the (frozen, untouched-while-flat) Tree cursorID -- mirrors the
-		// viewBacklog case just above (a view/mode-local cursor overrides
+		// viewReady case just above (a view/mode-local cursor overrides
 		// the Tree's own).
 		if m.flatView {
 			return m.flatSelected()
 		}
 		nodes := m.visibleNodes()
 		pos := m.cursorPos(nodes)
-		if pos < 0 || pos >= len(nodes) || nodes[pos].orphan || nodes[pos].placeholder {
+		if pos < 0 || pos >= len(nodes) || nodes[pos].section != "" || nodes[pos].placeholder {
 			return nil
 		}
 		return nodes[pos].bean
 	}
 }
 
-// keyDetailFocus drives the two-level Detail focus machine (Section cursor
-// <-> Field cursor within Beziehungen; devd port view_detail_issue.go:
-// 281-392). Port deviation vs. devd: no separate "header edit fields" layer
-// (devd's section index 0) -- E2 has no edit-field concept (E3 scope), so
-// section index 0 is Meta directly, no off-by-one vs. devd's secCursor-1.
+// keyDetailFocus drives the Detail region. pgup/pgdn page the Body at
+// handleKey's global checkpoint, never here.
+//
+// up/down walk the box-form field cursor (boxFormNav, box_nav_field.go,
+// linear with wrap, dragging the scroll offset along so the cursored field
+// is always in the viewport); enter opens the cursored field's editor
+// (boxFormActivateCursor, the same dispatch a click takes); left/right do
+// nothing; esc leaves the region (in layoutDetail, which has no other, it is
+// the list views' esc: escBack).
 func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	b := m.focusedBean()
-	if b == nil { // defensive guard: orphan-root cursor, no focusable bean
-		// F01 (Review Fix-Runde 1, bean bt-13l7, Schwere hoch): inside
-		// fullscreenDetail this guard is ALSO the landing spot when
-		// fullscreenBeanID vanished externally (live watch-reload, repo
-		// switch, parallel-agent delete -- real in the dogfooding repo,
-		// Reviewer-Repro: "user is trapped in a dead fullscreenDetail with
-		// no keyboard exit"). Clearing only detailFocus left m.fullscreen
-		// stuck: every subsequent key (esc included) routed right back here
-		// via handleKey's fullscreenDetail condition and died in this same
-		// guard -- Quit was the only escape. Leaving the Vollbild here too
-		// rescues EVERY trigger at the single choke point they all pass
-		// through (Reviewer-Minimal-Fix, verbatim).
-		if m.fullscreen == fullscreenDetail {
-			m.fullscreen = fullscreenNone
-			// F01 History-Stack (Supervisor-Entscheid, E9 Task 8, bean
-			// bt-1vbp): EVERY Vollbild-Exit clears navBack/navForward -- this
-			// guard is one of the two choke points a fullscreenDetail session
-			// can leave through (the other is the Back-case below), and
-			// leaving either stack populated here would let a stale
-			// History-Path leak into whatever the PO opens next (types.go's
-			// own navBack/navForward doc-stamp has the full ERRATA
-			// rationale vs. design-spec.md §15's original "NICHT geleert"
-			// text).
-			m.navBack, m.navForward = nil, nil
+	if keybind.Matches(msg, keys.Back) {
+		if m.layout == layoutDetail {
+			return m.escBack(), nil
 		}
 		m.detailFocus = false
 		return m, nil
 	}
-	// width is render-time only; section COUNT is fixed (beanSectionCount).
-	// focused/secCursor/fieldCursor are passed for signature parity with the
-	// render call sites (view_browse_repo.go) -- this call only reads
-	// secs[...].fields for navigation, which metaFields/relationsSectionBody
-	// build independently of these 3 params (they only affect a section's
-	// rendered BODY string, e.g. Meta's ▷/▶ marker placement, unused here).
-	secs := beanSections(m.idx, b, 40, m.detailFocus, m.secCursor, m.fieldCursor, m.detailLevel)
-
-	// B02 (Review-Runde 2, bean bt-2jve, Critical): clamp secCursor/
-	// fieldCursor against the just-computed secs BEFORE any branch below
-	// indexes into them. m.secCursor/m.fieldCursor are model state that
-	// survives a beansLoadedMsg reload untouched -- a watch-reload between
-	// keystrokes can shrink the focused bean's Beziehungen fields while the
-	// user is still parked at field level, and secs[m.secCursor].
-	// fields[m.fieldCursor] further down would then index out of range.
-	// Single defensive clamp point, not sprinkled per-branch.
-	if m.secCursor >= len(secs) {
-		m.secCursor = len(secs) - 1
-	}
-	if m.secCursor < 0 {
-		m.secCursor = 0
-	}
-	if fc := len(secs[m.secCursor].fields); m.fieldCursor >= fc {
-		if fc == 0 {
-			m.fieldCursor = 0
-			m.detailLevel = 0 // no fields left in this section -- back to section level
-		} else {
-			m.fieldCursor = fc - 1
+	b := m.focusedBean()
+	if b == nil { // defensive guard: orphan-root cursor, no focusable bean
+		if m.layout != layoutDetail { // layoutDetail keeps focus: it shows no other region
+			m.detailFocus = false
 		}
-	}
-
-	if s := msg.String(); len(s) == 1 && s[0] >= '1' && s[0]-'0' <= byte(beanSectionCount) {
-		m.secCursor = int(s[0]-'0') - 1
-		m.accOpen = int(s[0] - '0')
-		m.detailLevel = 0
-		m.fieldCursor = 0
 		return m, nil
-	}
-
-	// F1 (bean bt-ze10) + N8 (bean bt-1o4g) + bt-s90e + bt-8d35, epic bt-vy1q:
-	// while boxFormEnabled(), the Accordion nav below has "no effect" (box-form
-	// has no Section/Field two-level machine of its own), so the keys are
-	// repurposed here.
-	//
-	// bt-8d35 (PO-Fokus-Modell, PO-Entscheidung 3) replaced the former
-	// split-vs-Vollbild Fallunterscheidung with ONE rule for both geometries:
-	//
-	//   up/down -> PLAIN VIEWPORT SCROLL, everywhere. bt-1o4g had put the field
-	//     cursor on the arrows in the split pane; the PO took that back
-	//     ("Pfeiltasten im Detail scrollen die GESAMTE Ansicht") so the region
-	//     model reads the same in the Vollbild and in the split. Both go through
-	//     the very same adjustBoxFormScroll mutation point the wheel uses, so
-	//     keyboard and wheel cannot drift on the reset/clamp rules. bt-s90e made
-	//     boxFormScrollBounds fullscreen-aware (mouse.go's accW branch), so it
-	//     clamps against whichever budget is actually on screen.
-	//
-	//   tab/shift+tab -> FIELD CURSOR, split pane only. boxFormNav
-	//     (box_nav_field.go) steps linearly through boxFormFieldOrder with WRAP
-	//     and drags bt-ze10's scroll offset along, so a field tab jumps to can
-	//     never sit outside the viewport. enter opens the cursored field's
-	//     editor through activateBoxFormTarget (mouse.go) -- the same dispatch a
-	//     click takes.
-	//
-	//     NOT in the Vollbild: renderFullscreenBody passes fieldCursor -1 on
-	//     purpose (view_fullscreen.go), so there is no cursor rendered there to
-	//     walk -- moving an invisible one would be a Fokus-Modell without a
-	//     visible focus. tab/shift+tab keep their global meaning there
-	//     (handleKey, which only routes them here for the split geometry).
-	//
-	// boxFormEnabled() off falls straight through to the ORIGINAL switch below,
-	// unchanged -- the whole Fokus-Modell is experiment-gated (epic bt-vy1q:
-	// "alles additiv + gated").
-	if boxFormEnabled() {
-		switch navKey(msg.String()) {
-		case "up":
-			return m.adjustBoxFormScroll(b, -1), nil
-		case "down":
-			return m.adjustBoxFormScroll(b, 1), nil
-		}
-		// pgup/pgdn are NOT handled here anymore (bean bt-adkn Rework B1): they
-		// are a FOCUS-INDEPENDENT global paging checkpoint in handleKey now, so
-		// they page the Body without a prior tab into the Detail region. This
-		// function is only reached AFTER that checkpoint, so pgup/pgdn never
-		// arrive here.
-		if m.fullscreen != fullscreenDetail {
-			switch {
-			case keybind.Matches(msg, boxFormFieldNext):
-				return m.boxFormNav(b, "next"), nil
-			case keybind.Matches(msg, boxFormFieldPrev):
-				return m.boxFormNav(b, "prev"), nil
-			}
-			if keybind.Matches(msg, keys.Enter) {
-				return m.boxFormActivateCursor(b)
-			}
-		}
 	}
 
 	switch navKey(msg.String()) {
 	case "up":
-		if m.detailLevel == 0 && m.secCursor > 0 {
-			m.secCursor--
-			m.accOpen = m.secCursor + 1
-		} else if m.detailLevel == 1 && m.fieldCursor > 0 {
-			m.fieldCursor--
-		}
-		return m, nil
+		return m.boxFormNav(b, "prev"), nil
 	case "down":
-		if m.detailLevel == 0 && m.secCursor < len(secs)-1 {
-			m.secCursor++
-			m.accOpen = m.secCursor + 1
-		} else if m.detailLevel == 1 && m.fieldCursor < len(secs[m.secCursor].fields)-1 {
-			m.fieldCursor++
-		}
+		return m.boxFormNav(b, "next"), nil
+	case "left", "right":
 		return m, nil
-	case "right":
-		if m.detailLevel == 0 && len(secs[m.secCursor].fields) > 0 {
-			m.detailLevel = 1
-			m.fieldCursor = 0
-		}
-		return m, nil
-	case "left":
-		// B01 (design-spec.md §15 PF-16, bean bt-ntoz, PF-13-Pfeil-Revision):
-		// the former `else { m.detailFocus = false }` branch is REMOVED --
-		// arrow keys are pure Section/Feld navigation now, never a focus-
-		// exit (right never entered detail focus either, so left exiting it
-		// was asymmetric, PO verbatim "für Nutzer murks"). At section level
-		// (detailLevel==0) left is now simply a no-op; the two-stage
-		// cascade this branch used to perform (Feld->Sektion->Fokus
-		// verlassen) moves to esc instead (D03, below).
-		if m.detailLevel == 1 {
-			m.detailLevel = 0
-		}
-		return m, nil
+	}
+	if keybind.Matches(msg, keys.Enter) {
+		return m.boxFormActivateCursor(b)
 	}
 
-	// D03 (design-spec.md §15 PF-16, bean bt-ntoz): esc is the universal
-	// "back", exactly one rung per press -- the Detail-Kaskade was the one
-	// gap (E2-era no-op, validation.md D03) now that B01 removed the
-	// equivalent two-stage walk from left/j. Field level steps back to
-	// section level first; a SECOND esc (now at section level) exits detail
-	// focus entirely -- same two rungs the old left-case used to collapse
-	// into one keypress, now spread across two esc presses (one rung each,
-	// matching every other esc-site's contract, see audit table in this
-	// task's commit body).
-	if keybind.Matches(msg, keys.Back) {
-		if m.detailLevel == 1 {
-			m.detailLevel = 0
-			return m, nil
-		}
-		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): a NEW rung in
-		// D03's "eine Ebene pro Druck" cascade -- section-level esc inside
-		// fullscreenDetail leaves the Vollbild ENTIRELY (IMMER direkt zu
-		// Browse/Backlog, NICHT schrittweise durch die Relations-Sprung-Kette
-		// -- die History-Rückwärtsnavigation ist keys.HistoryBack/
-		// ctrl+left/`[`s eigene Aufgabe, view_fullscreen.go). The
-		// Split-Detail stays focused afterward (PO: "mit dem AKTUELLEN Bean
-		// selektiert" -- the just-shown Vollbild-Detail bean, not a jump
-		// back to the Tree/Backlog's own focus), and the Tree-/Backlog-
-		// cursor syncs onto m.fullscreenBeanID so Split-Modus shows the
-		// SAME bean the PO was just looking at.
-		if m.fullscreen == fullscreenDetail {
-			id := m.fullscreenBeanID
-			m.fullscreen = fullscreenNone
-			// F01 History-Stack (Supervisor-Entscheid, E9 Task 8, bean
-			// bt-1vbp): EVERY Vollbild-Exit clears navBack/navForward -- see
-			// the b==nil guard's identical clear above (the OTHER choke
-			// point a fullscreenDetail session can leave through) and
-			// types.go's navBack/navForward doc-stamp for the full ERRATA
-			// rationale vs. design-spec.md §15's original "NICHT geleert"
-			// text.
-			m.navBack, m.navForward = nil, nil
-			m.detailFocus = true
-			if m.view == viewBacklog {
-				// F02 (Review Fix-Runde 1, bean bt-13l7, SUPERVISOR-
-				// ENTSCHEID "Fallback = View-Wechsel"): after Relations-
-				// Sprünge the exit target is USUALLY no longer
-				// backlogVisible() (has a Parent / is Epic/Milestone /
-				// status outside todo+draft -- almost every jump leaves
-				// the Backlog set). The pre-fix loop then silently matched
-				// nothing and left backlogList.cursor stale -- the Split-
-				// Backlog showed a DIFFERENT bean selected, a silent
-				// violation of the PO criterion "mit dem aktuellen Bean
-				// selektiert". Fallback: switch to Browse/Tree, which can
-				// show EVERY bean -- cursor on the target + ancestors
-				// expanded, exactly the Tree-exit branch below. Only a
-				// still-backlogVisible target keeps the Backlog sync.
-				found := false
-				for i, bb := range m.backlogVisible() {
-					if bb.ID == id {
-						m.backlogList.cursor = i
-						found = true
-						break
-					}
-				}
-				if !found {
-					m.view = viewBrowseRepo
-					m.expanded = expandAncestorsOf(m.idx, m.expanded, id)
-					m.cursorID = id
-				}
-			} else {
-				m.expanded = expandAncestorsOf(m.idx, m.expanded, id)
-				m.cursorID = id
-			}
-			return m, nil
-		}
-		m.detailFocus = false
-		return m, nil
-	}
-
-	// PF-5 (design-spec.md §15, E7 T6, bean bt-t1uy): section-level enter is
-	// an ALIAS for right/l -- same guard (only sections that carry fields),
-	// entering field level at fieldCursor 0. tab remains the ONLY way to
-	// enter detail focus itself (D01 revidiert, PO-Nachtrag 3) -- this alias
-	// only fires once m.detailFocus is already true.
-	if keybind.Matches(msg, keys.Enter) && m.detailLevel == 0 {
-		// B10-Revision (design-spec.md §15 PF-17, bean bt-z4b1, D01): enter
-		// on Section [2] BODY briefly opened $EDITOR (E8-B10) -- that
-		// special case is REMOVED ersatzlos ("PO's neues Mentalmodell
-		// reserviert '$EDITOR öffnen' ausschließlich für e"). BODY carries
-		// no .fields, so it falls straight through to the generic
-		// fields>0 guard below and does nothing -- exactly the pre-E8
-		// state, restored (TestKeyDetailFocusEnterOnBodyIsNoOpAgain,
-		// update_test.go).
-		if len(secs[m.secCursor].fields) > 0 {
-			m.detailLevel = 1
-			m.fieldCursor = 0
-		}
-		return m, nil
-	}
-
-	if keybind.Matches(msg, keys.Enter) && m.detailLevel == 1 {
-		f := secs[m.secCursor].fields[m.fieldCursor]
-		return m.activateDetailField(b, f)
-	}
 	return m, nil
 }
 
-// activateDetailField dispatches a Meta-/Relations-field kind onto its
-// matching Overlay/Form/Jump -- the SHARED helper between keyDetailFocus's
-// field-level enter (Tastatur, PF-5, above) and mouseDetailClick's
-// Doppelklick (Maus, B07, design-spec.md §15 PF-16, bean bt-duz7, mouse.go)
-// -- extracted verbatim from keyDetailFocus's former inline switch so there
-// is exactly ONE place that dispatches a field kind onto its overlay/form/
-// jump (bt-duz7 Architektur-Vorgabe #1 + Akzeptanz-Checkliste). status/type/
-// priority open the combined Value-Menu seeded on that group; tags opens the
-// Tag-Picker; title opens the Title-Edit-Form; the default ("") is the
-// Relations section's UNCHANGED E2 jump behavior. The former "readonly"
-// case (created_at/updated_at, a no-op) was REMOVED by bt-lg68 (PO-
-// Nebenbefund, US-Review Runde 3): metaFields no longer produces "readonly"
-// entries (HISTORY is now the sole Created/Updated source), so that branch
-// was genuinely dead code -- any (hypothetical) future "readonly" kind would
-// now fall through to default, which is ALSO a no-op for beanID=="" (every
-// Meta field's beanID is always empty), so behavior is unchanged either way.
-func (m model) activateDetailField(b *data.Bean, f relationField) (tea.Model, tea.Cmd) {
-	switch f.kind {
-	case "status", "type", "priority":
-		// Design decision (Task 6 Step 7): m.detailFocus stays true here --
-		// the overlay lays on top as its own capture state (a2), so closing
-		// it lands the user back on the SAME field (D02 "schnell/einfach").
-		// Only the jump case below (a DIFFERENT bean) exits detail focus.
-		return m.openValueMenu(f.kind), nil
-	case "tags":
-		// PF-15/D01 (design-spec.md §15, E8 Task 1, bean bt-e6q9): enter on
-		// the tags field opens the SAME Tag-Picker the `t` key opens -- m.
-		// detailFocus stays true, mirroring status/type/priority above (the
-		// overlay is its own capture state).
-		return m.openTagPicker()
-	case "title":
-		return m.openEditTitleForm(b)
-	default: // "" -- Relations jump, unchanged E2 behavior
-		if f.beanID == "" {
-			return m, nil // unresolved reference -- nothing to jump to
-		}
-		// F01 (design-spec.md §15, E9 Task 7, bean bt-13l7): inside
-		// fullscreenDetail, a Relations-Sprung must NOT exit to the
-		// Split-Tree/Backlog (the branch below, m.detailFocus = false) -- it
-		// stays in fullscreenDetail, now showing the JUMP TARGET, mirroring
-		// the SAME Detail-Fokus-Maschine reset keyFullscreen's own
-		// Listen-Vollbild-entry uses (Meta/section level, field cursor 0).
-		// The Split-Modus-Sprung branch below stays byte-for-byte unchanged
-		// -- no PO-Wortlaut requires History there either (design-spec.md
-		// §15 Scope-Entscheidung).
-		//
-		// History-Push (F01 History-Stack, E9 Task 8, bean bt-1vbp, "Notes
-		// for T8" in bt-13l7): pushes the bean being LEFT onto navBack and
-		// kappt navForward (Standard-Browser-Semantik, a fresh jump discards
-		// any stale forward-history) -- BEFORE m.fullscreenBeanID is
-		// overwritten below, so the pushed value is the bean the PO is
-		// actually leaving, not the jump target.
-		if m.fullscreen == fullscreenDetail {
-			m.navBack = append(cloneStringSlice(m.navBack), m.fullscreenBeanID)
-			m.navForward = nil
-			m.fullscreenBeanID = f.beanID
-			m.secCursor, m.accOpen, m.detailLevel, m.fieldCursor = 0, 1, 0, 0
-			return m, nil
-		}
-		m.expanded = expandAncestorsOf(m.idx, m.expanded, f.beanID) // I01: clone-based
-		m.cursorID = f.beanID
-		m.detailFocus = false
-		return m, nil
-	}
-}
-
 // expandAncestorsOf returns a NEW expanded map (I01 copy-on-write) with every
-// ancestor of id (walking Parent up to a root) marked expanded, so a
-// relation-jump target is guaranteed visible in the next visibleNodes() call.
-// B01 (Review-Runde 2, bean bt-2jve, Critical): visited guards the walk --
-// beans' frontmatter is hand-editable, so a Parent cycle (A -> B -> A) is a
-// data error but must never hang/freeze the TUI; same defensive pattern as
-// appendBeanNode's per-path ancestors map (view_browse_repo.go).
-func expandAncestorsOf(idx *data.Index, expanded map[string]bool, id string) map[string]bool {
+// tree ancestor of id (walking treeParent up to a root, synthetic roots
+// included) marked expanded, so a relation-jump target is guaranteed visible
+// in the next visibleNodes() call. visited guards the walk against a cyclic
+// treeParent map (defensive; the roadmap tree itself is acyclic).
+func expandAncestorsOf(treeParent map[string]string, expanded map[string]bool, id string) map[string]bool {
 	out := cloneBoolMap(expanded)
 	visited := map[string]bool{id: true}
-	b, ok := idx.ByID[id]
-	for ok && b.Parent != "" && !visited[b.Parent] {
-		visited[b.Parent] = true
-		out[b.Parent] = true
-		b, ok = idx.ByID[b.Parent]
+	for p := treeParent[id]; p != "" && !visited[p]; p = treeParent[p] {
+		visited[p] = true
+		out[p] = true
 	}
 	return out
 }
@@ -1633,8 +1280,8 @@ func expandAncestorsOf(idx *data.Index, expanded map[string]bool, id string) map
 // openSearchInput enters the search-input capture state (E2 Task 3, bean
 // bt-4ep2): pre-loads the input with the CURRENT query (re-opening a
 // committed search resumes editing it, mirrors devd's SetValue(m.treeQuery)).
-// Factored out of keyTree (E2 Task 5, bean bt-gzu6): keyBacklog
-// (view_browse_backlog.go) shares this verbatim -- the search head/live
+// Factored out of keyTree (E2 Task 5, bean bt-gzu6): keyReady
+// (view_browse_ready.go) shares this verbatim -- the search head/live
 // filter is ONE piece of shared model state, not a per-view concept.
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	m.searchActive = true
@@ -1644,56 +1291,11 @@ func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	return m, textinput.Blink
 }
 
-// openFilterMenu opens the shared facet-filter menu (E2 Task 4, bean
-// bt-9ldr), port devd openTreeFilter minus the loadAllIssues call. Factored
-// out of keyTree (E2 Task 5): keyBacklog (view_browse_backlog.go) shares this
-// verbatim -- ONE filter menu for Tree AND Backlog (design-spec.md US-05,
-// box_filter_facets.go doc comment).
-func (m model) openFilterMenu() (tea.Model, tea.Cmd) {
-	m.filterItems = m.buildFilterItems()
-	m.filterMenu = listState{}
-	m.filterMenu.setLen(len(m.filterItems))
-	// bt-2p9m (Querformat Tab-Kategorien): always reopen on tab 0 (Status)
-	// -- PO-Klickpfad step 1, "f für Filter, erster tab aktiviert". Combined
-	// with the listState{} reset above (cursor 0), this lands on Status'
-	// own first row -- the "erstes Element vorselektiert" half of the same
-	// step, since buildFilterItems always emits Status first.
-	m.filterTab = 0
-	m.filterOpen = true
-	return m, nil
-}
-
-// openFilterMenuAt is openFilterMenu (above) plus a SEED: after the same
-// reset, it jumps m.filterTab (and m.filterMenu.cursor) to the given facet's
-// own tab/first row instead of always landing on tab 0 (Status) -- bt-wtqs
-// (epic bt-vy1q): a click on one of the filter strip's four chips
-// (box_filter_bar.go) must open the menu already focused on THAT chip's own
-// facet, not force the PO to tab/shift+tab there manually. Mirrors
-// filterMenuSwitchTab's own "jump the cursor to the new tab's first element"
-// contract (box_filter_facets.go) -- it reuses filterFacetOrder/
-// filterFacetRange rather than duplicating that lookup. facet not found in
-// filterFacetOrder (cannot happen in practice: buildFilterItems always emits
-// all four chip facets) leaves tab 0 untouched, openFilterMenu's own default.
-func (m model) openFilterMenuAt(facet string) (tea.Model, tea.Cmd) {
-	tm, cmd := m.openFilterMenu()
-	mm := tm.(model)
-	facets := filterFacetOrder(mm.filterItems)
-	for i, f := range facets {
-		if f == facet {
-			mm.filterTab = i
-			start, _ := filterFacetRange(mm.filterItems, f)
-			mm.filterMenu.cursor = start
-			break
-		}
-	}
-	return mm, cmd
-}
-
 // keyTree drives the tree: up/down move the cursor, right/left expand/
-// collapse, enter toggles expand (no-op on a leaf, per task scope). `/`, `f`,
-// `X`, and the esc-cascade's search/filter-clearing rung (E2 Task 3+4) are
+// collapse, enter toggles expand (no-op on a leaf, per task scope). `/`, `X`,
+// and the esc-cascade's search/filter-clearing rung (E2 Task 3+4) are
 // checked FIRST, ahead of the len(nodes)==0 short-circuit below -- opening
-// the search box/filter menu or clearing an active query/facet must work
+// the search box or clearing an active query/facet must work
 // even on an empty/pre-load tree.
 func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
@@ -1702,48 +1304,24 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// minus loadAllIssues -- beans-tui already holds the full Index in
 		// memory (no separate "load everything for search" step needed).
 		return m.openSearchInput()
-	case keybind.Matches(msg, keys.Filter):
-		// E2 Task 4 (bean bt-9ldr), port devd openTreeFilter
-		// (view_browse_project.go:865-874) minus the loadAllIssues call --
-		// beans-tui already holds the full Index in memory.
-		return m.openFilterMenu()
-	case keybind.Matches(msg, keys.Backlog):
-		// E2 Task 5 (bean bt-gzu6): `b` opens the Backlog view -- search/
-		// filter state carries over unchanged (ONE shared m.beanMatches
-		// predicate, Task 3/4), only the master list's data source and
-		// cursor representation (backlogList) differ from the Tree.
-		m.view = viewBacklog
-		m.backlogList.setLen(len(m.backlogVisible()))
-		return m, nil
+
 	case keybind.Matches(msg, keys.FilterClear):
-		// X as a direct top-level reset even with the menu closed (design-
+		// X as a direct top-level reset (design-
 		// spec.md, mirrors devd's esc-cascade also clearing filters below) --
-		// wired to the SAME clearFacets() helper keyFilterMenu's own X-case
-		// uses (box_filter_facets.go).
+		// wired to the SAME clearFacets() helper keyFilterField's and
+		// keyFilterMenu's X-cases use.
 		m = m.clearFacets()
 		return m.resetCursorToFirstVisible(), nil
 	case keybind.Matches(msg, keys.Back):
-		if m.treeActive() { // esc-cascade Rung 2: committed query AND/OR active facets -> clear both in one step (Task 4 generalizes Task 3's search-only rung, devd parity view_browse_project.go:725-736)
-			m.searchQuery = ""
-			m.searchPrefixFacets = nil // bt-2kfl D02: typed prefixes are part of the query being cleared here
-			m.searchPrefixRest = ""
-			m.searchBleveIDs = nil
-			m.searchBleveFor = ""
-			m = m.clearFacets()
-			return m.resetCursorToFirstVisible(), nil
-		}
-		// Rung 3 (existing behavior): no-op -- no Lobby fallback in E2
-		// (design-spec.md §12 E5, plan Task 3 Port-Referenzen: the cascade
-		// ends here, a documented Scope-Cut rather than a TBD).
-		return m, nil
+		// esc-cascade: clear a committed query and active facets, else leave the
+		// flat list for the Roadmap (escBack, layout.go); no-op in the Roadmap.
+		return m.escBack(), nil
 	}
 
-	// S5 (jira-style-ui experiment, Nested/Flat Browse toggle `G`,
-	// keymap.go/view_browse_flat.go): once the shared search/filter/Backlog/
-	// FilterClear/Back handling above has run (identical in both modes --
-	// flat mode narrows/widens the SAME m.beanMatches-filtered set the Tree
-	// does), flat mode's own up/down-only cursor takes over instead of the
-	// Tree's node walk below.
+	// Flat list mode: once the shared search/filter/FilterClear/Back handling
+	// above has run (identical in both modes -- flat mode narrows/widens the
+	// SAME m.beanMatches-filtered set the Tree does), flat mode's own
+	// up/down-only cursor takes over instead of the Tree's node walk below.
 	if m.flatView {
 		return m.keyFlat(msg)
 	}
@@ -1753,6 +1331,18 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	pos := m.cursorPos(nodes)
+
+	switch {
+	case keybind.Matches(msg, keys.NextSibling), keybind.Matches(msg, keys.PrevSibling):
+		dir := 1
+		if keybind.Matches(msg, keys.PrevSibling) {
+			dir = -1
+		}
+		if i := siblingPos(nodes, pos, dir); i >= 0 {
+			m.cursorID = nodes[i].id
+		}
+		return m, nil
+	}
 
 	switch navKey(msg.String()) {
 	case "up":
@@ -1835,7 +1425,7 @@ func (m model) resetCursorToFirstVisible() model {
 		m.cursorID = ""
 		return m
 	}
-	m.cursorID = nodes[0].id
+	m.cursorID = nodes[skipPlaceholder(nodes, 0, 1)].id
 	return m
 }
 
@@ -1869,7 +1459,7 @@ func (m model) maybeBleveCmd() tea.Cmd {
 	if len(q) < 3 || q == m.searchBleveFor {
 		return nil
 	}
-	return searchCmd(m.client, q)
+	return searchCmd(m.store, q)
 }
 
 // setExpanded sets n's expand state in m.expanded; a no-op for leaves. I01
@@ -1884,6 +1474,88 @@ func (m model) setExpanded(n treeNode, open bool) model {
 		m.expanded[n.id] = true
 	} else {
 		delete(m.expanded, n.id)
+	}
+	return m
+}
+
+// foldPrefixKey starts the roadmap fold sequences (zo/zc/zR/zM, keys.ExpandNode ...).
+const foldPrefixKey = "z"
+
+// siblingPos returns the index of the previous (dir<0) or next (dir>0) visible
+// sibling of nodes[pos]: same depth under the same parent, expanded children
+// skipped. -1 at the edge, where the cursor stays.
+func siblingPos(nodes []treeNode, pos, dir int) int {
+	d := nodes[pos].depth
+	for i := pos + dir; i >= 0 && i < len(nodes); i += dir {
+		if nodes[i].depth < d {
+			return -1 // left the parent: no further sibling
+		}
+		if nodes[i].depth == d && !nodes[i].unselectable() {
+			return i
+		}
+	}
+	return -1
+}
+
+// foldTargets returns every node with children that is id or lies below id in
+// the tree ("" = every node), the set zo/zc/zR/zM expand or collapse.
+func (m model) foldTargets(id string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, p := range m.treeParent {
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		for x, n := p, 0; x != "" && n <= len(m.treeParent); x, n = m.treeParent[x], n+1 {
+			if id == "" || x == id {
+				out = append(out, p)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// keyFold runs a completed fold sequence on the roadmap tree. A collapse can
+// hide the cursor row; it then moves to the nearest visible ancestor.
+func (m model) keyFold(seq string) model {
+	nodes := m.visibleNodes()
+	if len(nodes) == 0 {
+		return m
+	}
+	var id string
+	open := true
+	switch {
+	case bindHas(keys.ExpandAll, seq):
+	case bindHas(keys.CollapseAll, seq):
+		open = false
+	case bindHas(keys.ExpandNode, seq), bindHas(keys.CollapseNode, seq):
+		n := nodes[m.cursorPos(nodes)]
+		if n.placeholder {
+			return m
+		}
+		id, open = n.id, bindHas(keys.ExpandNode, seq)
+	default:
+		return m
+	}
+	m.expanded = cloneBoolMap(m.expanded)
+	for _, t := range m.foldTargets(id) {
+		if open {
+			m.expanded[t] = true
+		} else {
+			delete(m.expanded, t)
+		}
+	}
+	visible := map[string]bool{}
+	for _, n := range m.visibleNodes() {
+		visible[n.id] = true
+	}
+	for x, n := m.cursorID, 0; x != "" && n <= len(m.treeParent); x, n = m.treeParent[x], n+1 {
+		if visible[x] {
+			m.cursorID = x
+			break
+		}
 	}
 	return m
 }

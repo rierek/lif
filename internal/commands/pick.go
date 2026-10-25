@@ -140,7 +140,7 @@ func (m pickModel) View() string {
 }
 
 // runPick is pickCmd's RunE. Candidates come from the already-loaded store
-// (R-16: core is populated exclusively by resolveStorePath inside
+// (R-16: core is populated exclusively by storeroot.Resolve inside
 // NewRootCmd's PersistentPreRunE; pick adds itself to no skip-list and
 // opens no second, independent store-resolution path). Every interactive
 // frame is drawn on the process's controlling terminal (opened explicitly
@@ -260,10 +260,10 @@ func parseScopeTypes(scope string) (map[string]bool, error) {
 }
 
 // roadmapScopeTypes returns the item types occupying the container ranks
-// that roadmap.go's own validateRoadmapRootType/isContainerRank already
+// that roadmap.go's own roadmap.ValidateRootType/roadmap.IsContainerRank already
 // define as the roadmap command's root-type constraint. It reads
 // config.Config.ContainerTypeNames -- the single, shared loop over
-// config.MaxContainerRank that isContainerRank, validateRoadmapRootType and
+// config.MaxContainerRank that roadmap.IsContainerRank, roadmap.ValidateRootType and
 // the ready filter also route through (beans-v2ox) -- rather than defining a
 // type table, or a second 1..MaxContainerRank loop, of its own (AC4).
 func roadmapScopeTypes() map[string]bool {

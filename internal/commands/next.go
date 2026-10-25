@@ -7,6 +7,7 @@ import (
 
 	"github.com/rierek/lif/internal/output"
 	"github.com/rierek/lif/internal/ui"
+	"github.com/rierek/lif/pkg/itemgraph"
 	"github.com/rierek/lif/pkg/itemgraph/model"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +44,7 @@ query can be moved between the two commands unchanged.`,
 		if nextParent != "" {
 			filter.ParentID = &nextParent
 		}
-		applyReadyFilter(filter, cfg)
+		itemgraph.ApplyReadyFilter(filter, cfg)
 
 		items, err := resolver.Items(ctx, filter)
 		if err != nil {

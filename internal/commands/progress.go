@@ -13,6 +13,7 @@ import (
 	"github.com/rierek/lif/internal/ui"
 	"github.com/rierek/lif/pkg/config"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +61,7 @@ With an ID argument (for example a milestone or epic), the counts cover that ite
 			if root == nil {
 				return cmdError(progressJSON, output.ErrNotFound, "item not found: %s", args[0])
 			}
-			idx := buildChildrenIndex(allItems)
+			idx := roadmap.ChildrenIndex(allItems)
 			scope = descendants(root.ID, idx)
 		}
 

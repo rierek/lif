@@ -18,9 +18,8 @@ package tui
 // themselves never reach Bleve.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
-
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // searchPrefixKeys maps a search-prefix token's keyword (case-insensitive,
@@ -99,7 +98,7 @@ func (m model) applySearchPrefixes() model {
 // collected values (OR within the facet), and every present key must hold
 // (AND across facets) -- exactly the "st:completed ty:epic foo" ->
 // status=completed AND type=epic PO-Akzeptanz.
-func (m model) beanMatchesSearchPrefixFacets(b *data.Bean) bool {
+func (m model) beanMatchesSearchPrefixFacets(b *item.Item) bool {
 	for facet, values := range m.searchPrefixFacets {
 		if !searchPrefixFacetHit(b, facet, values) {
 			return false
@@ -112,7 +111,7 @@ func (m model) beanMatchesSearchPrefixFacets(b *data.Bean) bool {
 // insensitively (strings.EqualFold) -- parseSearchPrefixes already lower-
 // cases the stored values, but b.Status/b.Type/b.Priority/b.Tags are
 // compared fold-safe regardless in case a caller ever stores mixed case.
-func searchPrefixFacetHit(b *data.Bean, facet string, values []string) bool {
+func searchPrefixFacetHit(b *item.Item, facet string, values []string) bool {
 	switch facet {
 	case "status":
 		return containsFold(values, b.Status)

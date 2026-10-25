@@ -14,6 +14,7 @@ package tui
 // the pane (dropdownBox floors at 8 cells) but never collapse to 1-up.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -95,7 +96,7 @@ func gridRow(cells []scalarCell, width, focusedCol int) string {
 // (box_panel.go) reusing view_detail_bean.go's own content renderers. idx is
 // needed to resolve Relations (parent/children/blocking). width = inner pane
 // width in cells.
-func detailBoxForm(idx *data.Index, b *data.Bean, width, cursor int) string {
+func detailBoxForm(idx *data.Index, b *item.Item, width, cursor int) string {
 	return strings.Join(boxFormBlocks(idx, b, width, cursor), "\n")
 }
 
@@ -110,9 +111,9 @@ func detailBoxForm(idx *data.Index, b *data.Bean, width, cursor int) string {
 //
 // cursor is an index into boxFormFieldOrder (box_nav_field.go), or -1 for no
 // cursor at all -- which is the state EVERY pre-bt-1o4g call site is in
-// (unfocused Detail pane, fullscreen, the flag-on goldens), so the -1 render
+// (unfocused Detail pane, the flag-on goldens), so the -1 render
 // is exactly the previous output, every box focused=false.
-func boxFormBlocks(idx *data.Index, b *data.Bean, width, cursor int) []string {
+func boxFormBlocks(idx *data.Index, b *item.Item, width, cursor int) []string {
 	focusRow, focusCol := -1, -1
 	if cursor >= 0 && cursor < len(boxFormFieldOrder) {
 		focusRow = boxFormFieldOrder[cursor].row
@@ -157,13 +158,13 @@ func boxFormBlocks(idx *data.Index, b *data.Bean, width, cursor int) []string {
 	}
 
 	rowA := gridRow([]scalarCell{
-		{"Status", theme.StatusStyle(b.Status).Render(b.Status), "s"},
-		{"Type", theme.TypeStyle(b.Type).Render(b.Type), "o"},
-		{"Priority", theme.Priority(priority), "u"},
+		{"Status", theme.StatusStyle(b.Status).Render(b.Status), keys.Status.Help().Key},
+		{"Type", theme.TypeStyle(b.Type).Render(b.Type), keys.Type.Help().Key},
+		{"Priority", theme.Priority(priority), keys.Priority.Help().Key},
 	}, width, colIn(boxFormRowScalarsA))
 	rowB := gridRow([]scalarCell{
-		{"Parent", parent, "a"},
-		{"Tags", tags, "t"},
+		{"Parent", parent, keys.Assign.Help().Key},
+		{"Tags", tags, keys.TagAssign.Help().Key},
 	}, width, colIn(boxFormRowScalarsB))
 
 	relationsBody, _, _ := relationsSectionBody(idx, b, width-4, false, 0)
@@ -176,7 +177,7 @@ func boxFormBlocks(idx *data.Index, b *data.Bean, width, cursor int) []string {
 		// follows its content, so its bottom border can scroll out of the
 		// pane -- its (e) badge rides in the TOP border instead.
 		panelBoxTopHotkey("Body", bodySectionBody(b, width-4), "e", width, on(boxFormRowBody)),
-		panelBox("Relations", relationsBody, "r", width, on(boxFormRowRelations)),
+		panelBox("Relations", relationsBody, keys.Blocking.Help().Key, width, on(boxFormRowRelations)),
 		panelBox("History", historieSectionBody(b, width-4), "", width, on(boxFormRowHistory)),
 	}
 }
@@ -212,7 +213,7 @@ func boxFormFieldSpan(blocks []string, field int) (start, height int) {
 // render, duplicated here rather than shared because mouse.go's
 // adjustBoxFormScroll needs the CLAMPED OFFSET ITSELF to store back onto
 // model.boxFormScroll, not scrollView's windowed string + indicator return
-// shape. Render-time windowing (renderAccordionPane, view_browse_repo.go)
+// shape. Render-time windowing (renderDetailBox, view_browse_repo.go)
 // still goes through scrollView directly, which self-clamps regardless --
 // this function only keeps the STORED offset (and the tests asserting it)
 // sane between keystrokes/wheel ticks.

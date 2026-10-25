@@ -17,7 +17,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // valueMenuItemClickAt finds substr (an item's own value text, e.g.
@@ -55,14 +54,15 @@ func valueMenuItemClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 // core contract at 80 AND 120 columns: clicking the "completed" row in the
 // open Status menu sets menu.cursor to it, applies it (the SAME
 // applyValueMenuSelection enter already drives -- proven here via the
-// REAL data.Client's error message pointed at a nonexistent repo dir,
+// REAL data.Store's error message pointed at a nonexistent repo dir,
 // mirrors box_menu_value_test.go's own TestValueMenuEnterAppliesCursored
 // ValueAndCloses precedent) and closes the overlay.
 func TestValueMenuMouseClickOnItemAppliesSelectionAndCloses(t *testing.T) {
 	for _, width := range []int{80, 120} {
 		t.Run(width2str(width), func(t *testing.T) {
 			m := anchorModel(t, width, 40)
-			m.client = &data.Client{RepoDir: "/nonexistent-bt-f0y9-slice-d-scratch-dir"}
+			store := fixtureStore(t)
+			m.store = store
 			m = step(t, m, runeMsg('s'))
 			if m.overlay != overlayValueMenu {
 				t.Fatalf("setup: overlay = %v, want overlayValueMenu", m.overlay)
@@ -86,8 +86,11 @@ func TestValueMenuMouseClickOnItemAppliesSelectionAndCloses(t *testing.T) {
 			if !ok {
 				t.Fatalf("cmd() = %T, want mutationDoneMsg", res)
 			}
-			if mdm.err == nil || !strings.Contains(mdm.err.Error(), "lif update") {
-				t.Fatalf("mutationDoneMsg.err = %v, want an error containing %q (proves SetStatus dispatched)", mdm.err, "lif update")
+			if mdm.err != nil {
+				t.Fatalf("mutationDoneMsg.err = %v, want nil", mdm.err)
+			}
+			if got := storeItem(t, store, m.mutTarget).Status; got != "completed" {
+				t.Fatalf("status on disk = %q, want completed (proves SetStatus dispatched)", got)
 			}
 		})
 	}
@@ -131,38 +134,6 @@ func TestValueMenuMouseClickOutsidePopupClosesWithoutMutation(t *testing.T) {
 				t.Fatalf("mutTarget changed by an outside click that must not mutate: got %q, want unchanged %q", nm.mutTarget, m.mutTarget)
 			}
 		})
-	}
-}
-
-// TestValueMenuMouseClickInertWithoutBoxFormFlag guards the OFF-by-default
-// contract: accordion mode (LIF_TUI_BOXFORM unset) renders the value menu
-// CENTERED (Slice C), out of Slice D's scope -- a click anywhere must stay
-// the pre-existing no-op the blanket overlay guard already gave it (no
-// regression, and deliberately no new capability either).
-func TestValueMenuMouseClickInertWithoutBoxFormFlag(t *testing.T) {
-	m := fixtureModel(t, fixtureBeans())
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-
-	if boxFormEnabled() {
-		t.Fatal("setup: LIF_TUI_BOXFORM must be unset for this test")
-	}
-	m = step(t, m, runeMsg('s'))
-	if m.overlay != overlayValueMenu {
-		t.Fatalf("setup: overlay = %v, want overlayValueMenu", m.overlay)
-	}
-
-	msg := tea.MouseMsg{Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, X: 40, Y: 15}
-	tm, cmd := m.handleMouse(msg)
-	nm, ok := tm.(model)
-	if !ok {
-		t.Fatalf("handleMouse(click) did not return a model, got %T", tm)
-	}
-	if nm.overlay != overlayValueMenu {
-		t.Fatalf("overlay after click (LIF_TUI_BOXFORM off) = %v, want unchanged overlayValueMenu (blanket guard, unaffected by Slice D)", nm.overlay)
-	}
-	if cmd != nil {
-		t.Fatal("click while LIF_TUI_BOXFORM is off must not return any Cmd")
 	}
 }
 

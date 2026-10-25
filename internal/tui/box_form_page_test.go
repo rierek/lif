@@ -18,13 +18,13 @@ package tui
 
 import (
 	"fmt"
+	"github.com/rierek/lif/pkg/item"
 	"regexp"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rierek/lif/internal/tui/data"
 )
 
 // dotRun extracts the first contiguous run of page-indicator glyphs
@@ -47,7 +47,7 @@ func dotRun(s string) string {
 }
 
 // TestBoxFormPageDownUpScrollsByPage guards the headline Akzeptanz: while the
-// Detail pane is focused and boxFormEnabled(), pgdn moves boxFormScroll down by
+// Detail pane is focused, pgdn moves boxFormScroll down by
 // exactly one page (the pane's visible line budget) and pgup moves it back --
 // both through adjustBoxFormScroll, which records the owning bean.
 func TestBoxFormPageDownUpScrollsByPage(t *testing.T) {
@@ -135,21 +135,6 @@ func TestBoxFormPageDownClampsAtEnd(t *testing.T) {
 	}
 }
 
-// TestBoxFormPageInertWithoutFlag guards the OFF-by-default contract: without
-// LIF_TUI_BOXFORM, pgdn/pgup must never touch box-form scroll state (the whole
-// paging path is experiment-gated, epic bt-vy1q "alles additiv + gated").
-func TestBoxFormPageInertWithoutFlag(t *testing.T) {
-	m := fixtureModel(t, boxFormLongBodyBeans()) // LIF_TUI_BOXFORM left unset
-	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m = focusBean(m, "tk-2")
-	m.detailFocus = true
-
-	m = step(t, m, keyMsg(tea.KeyPgDown))
-	if m.boxFormScroll != 0 || m.boxFormScrollBean != "" {
-		t.Fatalf("boxFormScroll/boxFormScrollBean = %d/%q, want 0/\"\" (flag off: paging must be inert)", m.boxFormScroll, m.boxFormScrollBean)
-	}
-}
-
 // --- Page indicator (part b) ---
 
 // TestBoxFormPageIndexMapsOffsetToPage guards the pure page-arithmetic: count
@@ -213,14 +198,14 @@ func TestBoxFormPageIndicatorTracksPage(t *testing.T) {
 	}
 }
 
-// paneLines renders the box-form Detail pane in isolation (LIF_TUI_BOXFORM on) at
+// paneLines renders the box-form Detail pane in isolation at
 // the given scroll offset, using the SAME accW/height the live pipeline hands
-// renderAccordionPane, and returns its lines ANSI-stripped. Line 0 is the
+// renderDetailBox, and returns its lines ANSI-stripped. Line 0 is the
 // outer ╭ top border, line len-1 the outer ╰ bottom border, the rest content.
-func paneLines(t *testing.T, m model, b *data.Bean, boxScroll int) []string {
+func paneLines(t *testing.T, m model, b *item.Item, boxScroll int) []string {
 	t.Helper()
 	accW, height := boxFormPaneMetrics(m, b)
-	pane := renderAccordionPane(m.idx, b, accW+2, height, 1, 0, 0, 0, true, boxScroll, -1)
+	pane := renderDetailBox(m.idx, b, accW+2, height, true, boxScroll, -1)
 	raw := strings.Split(pane, "\n")
 	out := make([]string, len(raw))
 	for i, l := range raw {
@@ -303,7 +288,6 @@ func TestBoxFormBodyHeaderStickyWhenPaged(t *testing.T) {
 // a narrow pane makes the page count exceed the header's dot budget so the n/N
 // path is exercised.
 func TestBoxFormBodyIndicatorRendersWhenPagesExceedDotBudget(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	// A 500-item body yields far more pages than fit as dots, at a pane wide
 	// enough that the Body header itself still renders its "(e)" badge cleanly
 	// (so the only question under test is whether the indicator survives).
@@ -347,7 +331,6 @@ var pageCountRe = regexp.MustCompile(`\d+/\d+`)
 // box-form mode stay byte-identical to their pre-bt-adkn render (no golden
 // drift for the fits case).
 func TestBoxFormPageIndicatorAbsentWhenFits(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "1")
 	m := fixtureModel(t, fixtureBeans()) // default fixture bodies are short
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = focusBean(m, "tk-1")
@@ -377,16 +360,5 @@ func TestBoxFormPageBadgeConstantWidthAcrossPages(t *testing.T) {
 	}
 	if w1 != w50 || w50 != w100 {
 		t.Fatalf("badge width not constant across pages: 1->%d 50->%d 100->%d -- a widening page number must not shift or drop the indicator mid-paging", w1, w50, w100)
-	}
-}
-
-func TestBoxFormDefaultOn(t *testing.T) {
-	t.Setenv("LIF_TUI_BOXFORM", "")
-	if !boxFormEnabled() {
-		t.Fatal("box-form must be on by default")
-	}
-	t.Setenv("LIF_TUI_BOXFORM", "0")
-	if boxFormEnabled() {
-		t.Fatal("LIF_TUI_BOXFORM=0 must select the classic detail")
 	}
 }

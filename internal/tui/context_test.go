@@ -7,11 +7,12 @@ package tui
 // (keyNodeAction). Mirrors devd's own precedent (dd2_217_test.go: "der
 // clip.Copy-Pfad selbst wird nicht getestet, Seiteneffekt OSC52/pbcopy") --
 // the toast-dispatch tests below exercise the REAL clip.Copy call (same as
-// devd's TestBacklogYankKeyWired) and assert on the resulting toast, not on
+// devd's TestReadyYankKeyWired) and assert on the resulting toast, not on
 // actual clipboard content; a pure content assertion is only made against
 // beanContext directly, which takes no clipboard action.
 
 import (
+	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
@@ -21,8 +22,8 @@ import (
 // contextFixtureBeans is a small Epic -> 2 Tasks hierarchy with a resolvable
 // Blocking relation -- the exact shape TestBeanContextResolvesParentTitle
 // AndRelations needs (fixtureBeans has no Blocking set on any bean).
-func contextFixtureBeans() []data.Bean {
-	return []data.Bean{
+func contextFixtureBeans() []*item.Item {
+	return []*item.Item{
 		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1", Blocking: []string{"tk-2"}},
 		{ID: "tk-2", Title: "Task Two", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-1"},
@@ -118,7 +119,7 @@ func TestYankShowsConfirmationToast(t *testing.T) {
 func TestYankOnOrphanRootNoop(t *testing.T) {
 	beans := append(fixtureBeans(), fixtureOrphanBean())
 	m := fixtureModel(t, beans)
-	m.cursorID = orphanRootID
+	m.cursorID = notOnRoadmapRootID
 	if m.focusedBean() != nil {
 		t.Fatal("test setup invalid: focusedBean() != nil on the orphan root")
 	}

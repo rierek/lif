@@ -2,7 +2,7 @@ package data
 
 // tagdefs.go — the Tag-Registry persistence layer (E10 Task 1, bean
 // bt-49hh, epic bt-362n D01-D04): a repo-local ".beans-tags.yml" (Sibling
-// to .beans.yml, resolved via Client.RepoDir -- no new discovery logic)
+// to .beans.yml, resolved via Store.RepoDir -- no new discovery logic)
 // that records which tag names are "defined" (as opposed to "free" tags
 // that merely sit on some Bean but were never registered here, D09).
 //
@@ -17,7 +17,7 @@ package data
 // read is fast enough for a direct call in the update path, same
 // convention LoadSettings itself uses.
 //
-// D04 -- lives in package data (Client-scoped, repo I/O), NOT
+// D04 -- lives in package data (Store-scoped, repo I/O), NOT
 // internal/config (that package is user-global scope,
 // ~/.config/beans-tui/, a different authority than repo-local, team-shared
 // data).
@@ -31,7 +31,7 @@ import (
 )
 
 // tagDefsFileName is the Tag-Registry's file name, resolved against
-// Client.RepoDir (Sibling to .beans.yml, D01). Deliberately NOT inside
+// Store.RepoDir (Sibling to .beans.yml, D01). Deliberately NOT inside
 // .beans/ -- beans' own scanner tolerates foreign files there (verified,
 // epic bt-362n body), but the repo root is the cleaner, fully-decoupled
 // location, mirroring .beans.yml itself.
@@ -67,7 +67,7 @@ type tagDefsFile struct {
 // hand-edited, partially-broken file -- an invalid line is skipped, not
 // escalated, same philosophy as the rest of beans-tui's loading code). The
 // returned slice is sorted and deduplicated.
-func (c *Client) LoadTagDefs() ([]string, error) {
+func (c *Store) LoadTagDefs() ([]string, error) {
 	path := tagDefsPath(c.RepoDir)
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -90,7 +90,7 @@ func (c *Client) LoadTagDefs() ([]string, error) {
 // writing (deterministic diffs). No directory create -- the repo root
 // exists by definition (unlike ~/.config/beans-tui, which SaveUserSettings
 // must MkdirAll).
-func (c *Client) SaveTagDefs(tags []string) error {
+func (c *Store) SaveTagDefs(tags []string) error {
 	path := tagDefsPath(c.RepoDir)
 	f := tagDefsFile{Tags: sortDedupTagNames(tags)}
 	out, err := yaml.Marshal(f)

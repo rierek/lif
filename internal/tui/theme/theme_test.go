@@ -5,22 +5,25 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/rierek/lif/internal/ui"
 )
 
-// TestStatusColorMapping — alle 5 beans-Status → erwartete Catppuccin-Macchiato-Hex
-// UND ihr Buchstaben-Icon (PF-6, design-spec.md §15, 2026-07-15). Unbekannter Status
-// fällt neutral auf Subtext + den generischen Fallback-Glyph zurück.
+// TestStatusColorMapping — configured status colour wins, else Text; the glyph
+// is the config short (ui table). Unknown status: Text + fallback glyph.
 func TestStatusColorMapping(t *testing.T) {
+	SetConfiguredColors(map[string]lipgloss.Color{"draft": Blue, "todo": Green}, nil, nil)
+	t.Cleanup(func() { SetConfiguredColors(nil, nil, nil) })
 	cases := []struct {
 		status string
 		want   lipgloss.Color
 		letter string
 	}{
-		{"draft", Blue, "d"},
-		{"todo", Green, "t"},
-		{"in-progress", Yellow, "i"},
-		{"completed", Subtext, "c"},
-		{"scrapped", Subtext, "s"},
+		{"draft", Blue, "D"},
+		{"todo", Green, "T"},
+		{"in-progress", Text, "I"},
+		{"completed", Text, "C"},
+		{"scrapped", Text, "S"},
 	}
 	for _, c := range cases {
 		if got := StatusColor(c.status); got != c.want {
@@ -31,18 +34,29 @@ func TestStatusColorMapping(t *testing.T) {
 		}
 	}
 
-	if got := StatusColor("some-unknown-status"); got != Subtext {
-		t.Errorf("StatusColor(unknown) = %q, want fallback Subtext %q", got, Subtext)
+	if got := StatusColor("some-unknown-status"); got != Text {
+		t.Errorf("StatusColor(unknown) = %q, want fallback Text %q", got, Text)
 	}
 	if icon := StatusIcon("some-unknown-status"); !strings.Contains(icon, fallbackGlyphChar) {
 		t.Errorf("StatusIcon(unknown) = %q, want fallback glyph %q", icon, fallbackGlyphChar)
 	}
 }
 
-// TestAsciiFallback — LIF_TUI_ASCII_ICONS ist seit PF-6 nur noch für Priorität relevant:
-// Status-/Type-Buchstaben sind bereits ASCII/EAW-neutral und bleiben in BEIDEN Modi
-// identisch (kein Unicode-vs-ASCII-Branch mehr). Per-Aufruf-Read via os.Getenv, daher
-// mit t.Setenv pro Sub-Case steuerbar (kein Package-State-Caching).
+// TestStatusGlyphUsesConfigShort — a configured status short reaches the glyph.
+func TestStatusGlyphUsesConfigShort(t *testing.T) {
+	ui.SetStatusShorts(map[string]string{"to-review": "R"})
+	t.Cleanup(func() { ui.SetStatusShorts(nil) })
+	if got := statusIconGlyph("to-review"); got != "R" {
+		t.Errorf("statusIconGlyph(to-review) = %q, want R", got)
+	}
+	if icon := StatusIcon("to-review"); !strings.Contains(icon, "R") {
+		t.Errorf("StatusIcon(to-review) = %q, want contains R", icon)
+	}
+}
+
+// TestAsciiFallback — LIF_TUI_ASCII_ICONS ist nur noch für Priorität relevant:
+// Status-/Type-Kürzel sind ASCII und bleiben in BEIDEN Modi identisch.
+// Per-Aufruf-Read via os.Getenv, daher mit t.Setenv steuerbar.
 func TestAsciiFallback(t *testing.T) {
 	t.Setenv("LIF_TUI_ASCII_ICONS", "1")
 
@@ -52,8 +66,8 @@ func TestAsciiFallback(t *testing.T) {
 	if strings.Contains(Priority("critical"), "‼") {
 		t.Errorf("Priority(critical) with LIF_TUI_ASCII_ICONS=1 should not contain unicode glyph %q", "‼")
 	}
-	if !strings.Contains(StatusIcon("todo"), "t") {
-		t.Errorf("StatusIcon(todo) with LIF_TUI_ASCII_ICONS=1 should still contain letter %q (no-op for status)", "t")
+	if !strings.Contains(StatusIcon("todo"), "T") {
+		t.Errorf("StatusIcon(todo) with LIF_TUI_ASCII_ICONS=1 should still contain letter %q (no-op for status)", "T")
 	}
 	if !strings.Contains(TypeIcon("bug"), "B") {
 		t.Errorf("TypeIcon(bug) with LIF_TUI_ASCII_ICONS=1 should still contain letter %q (no-op for type)", "B")
@@ -69,10 +83,11 @@ func TestAsciiFallback(t *testing.T) {
 	}
 }
 
-// TestTypeIconAllTypes — alle 5 beans-Typen → erwarteter Buchstabe + Farbe (PF-6,
-// design-spec.md §15, 2026-07-15). Unbekannter Typ fällt auf den generischen
-// Fallback-Glyph zurück (siehe fallbackGlyph).
+// TestTypeIconAllTypes — alle 5 Typen → Kürzel aus der ui-Tabelle + konfigurierte
+// Farbe (sonst Text). Unbekannter Typ fällt auf den Fallback-Glyph zurück.
 func TestTypeIconAllTypes(t *testing.T) {
+	SetConfiguredColors(nil, map[string]lipgloss.Color{"milestone": Blue, "epic": Mauve, "feature": Mauve, "bug": Red}, nil)
+	t.Cleanup(func() { SetConfiguredColors(nil, nil, nil) })
 	cases := []struct {
 		typ   string
 		glyph string
@@ -81,15 +96,15 @@ func TestTypeIconAllTypes(t *testing.T) {
 		{"milestone", "M", Blue},
 		{"epic", "E", Mauve},
 		{"feature", "F", Mauve},
-		{"task", "T", Sky},
+		{"task", "T", Text},
 		{"bug", "B", Red},
 	}
 	for _, c := range cases {
 		if got := typeGlyph(c.typ); got != c.glyph {
 			t.Errorf("typeGlyph(%q) = %q, want %q", c.typ, got, c.glyph)
 		}
-		if got, ok := typeColor[c.typ]; !ok || got != c.color {
-			t.Errorf("typeColor[%q] = %q, want %q", c.typ, got, c.color)
+		if got := typeColorOf(c.typ); got != c.color {
+			t.Errorf("typeColorOf(%q) = %q, want %q", c.typ, got, c.color)
 		}
 		if rendered := TypeIcon(c.typ); !strings.Contains(rendered, c.glyph) {
 			t.Errorf("TypeIcon(%q) = %q, want contains %q", c.typ, rendered, c.glyph)
@@ -99,11 +114,11 @@ func TestTypeIconAllTypes(t *testing.T) {
 	if got := typeGlyph("unknown-type"); got != fallbackGlyphChar {
 		t.Errorf("typeGlyph(unknown) = %q, want fallback %q", got, fallbackGlyphChar)
 	}
-	if _, ok := typeColor["unknown-type"]; ok {
-		t.Fatal("typeColor should have no entry for an unknown type")
+	if got := typeColorOf("unknown-type"); got != Text {
+		t.Errorf("typeColorOf(unknown) = %q, want Text %q", got, Text)
 	}
 	if got := TypeIcon("unknown-type"); !strings.Contains(got, fallbackGlyphChar) {
-		t.Errorf("TypeIcon(unknown) = %q, want contains fallback %q", got, fallbackGlyphChar)
+		t.Errorf("TypeIcon(unknown) = %q, want contains %q", got, fallbackGlyphChar)
 	}
 }
 
@@ -139,11 +154,12 @@ func TestSetAccentOverridesThenNoOpOnEmptyOrInvalid(t *testing.T) {
 	}
 }
 
-// TestPriorityColorMapping — beans-Priorität → erwartete Farbe + Glyph (PF-6,
-// design-spec.md §15, 2026-07-15). Priority() liefert jetzt den Glyph statt des
-// ausgeschriebenen Worts. Unbekannte Priorität fällt auf Text-Farbe + den
-// generischen Fallback-Glyph zurück (deckt sich zufällig mit dem "normal"-Glyph).
+// TestPriorityColorMapping — configured priority colour wins, else Text. The
+// glyph comes from the ui symbol table; normal (no symbol) and unknown
+// priorities get the fallback glyph.
 func TestPriorityColorMapping(t *testing.T) {
+	SetConfiguredColors(nil, nil, map[string]lipgloss.Color{"critical": Red, "high": Yellow})
+	t.Cleanup(func() { SetConfiguredColors(nil, nil, nil) })
 	cases := []struct {
 		priority string
 		want     lipgloss.Color
@@ -152,8 +168,8 @@ func TestPriorityColorMapping(t *testing.T) {
 		{"critical", Red, "‼"},
 		{"high", Yellow, "!"},
 		{"normal", Text, "·"},
-		{"low", Subtext, "↓"},
-		{"deferred", Subtext, "→"},
+		{"low", Text, "↓"},
+		{"deferred", Text, "→"},
 	}
 	for _, c := range cases {
 		if got := priorityColor(c.priority); got != c.want {
@@ -174,6 +190,26 @@ func TestPriorityColorMapping(t *testing.T) {
 	}
 	if rendered := Priority("unknown-priority"); !strings.Contains(rendered, fallbackGlyphChar) {
 		t.Errorf("Priority(unknown) = %q, want contains fallback glyph %q", rendered, fallbackGlyphChar)
+	}
+}
+
+// TestThemeApplyLatteChangesBase — Apply puts a flavour's palette in force and
+// rebuilds the styles; the fixed Hint/Select stay.
+func TestThemeApplyLatteChangesBase(t *testing.T) {
+	t.Cleanup(func() { Apply(ui.DefaultTheme()) })
+	latte, ok := ui.ThemeByName("latte")
+	if !ok {
+		t.Fatal("latte theme missing")
+	}
+	Apply(latte)
+	if Base != "#eff1f5" {
+		t.Errorf("Base = %q, want #eff1f5", Base)
+	}
+	if got := Accent.GetForeground(); got != lipgloss.Color("#7287fd") {
+		t.Errorf("Accent foreground = %v, want latte lavender #7287fd", got)
+	}
+	if got := Dim.GetForeground(); got != Overlay {
+		t.Errorf("Dim foreground = %v, want rebuilt Overlay %v", got, Overlay)
 	}
 }
 

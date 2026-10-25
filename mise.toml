@@ -1,5 +1,5 @@
 [tools]
-go = "1.26"  # keep in step with go.mod; Go 1.27 needs golang.org/x/tools >= v0.52 for gqlgen
+go = "1.26.10"  # single Go for local just recipes and CI (test, release, docs); go.mod `go` stays the language minimum. Go 1.27 needs golang.org/x/tools >= v0.52 for gqlgen
 node = "24"
 pnpm = "10"
 svu = "latest"

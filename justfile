@@ -1,6 +1,10 @@
 # lif dev CLI — just ist der Einstieg (dev-cli-canon), mise bleibt die
 # Build-Implementierung des Upstream-Forks.
 
+# Every recipe runs with mise.toml's pinned Go first on PATH and without the
+# mise shims dir (scripts/go-path.sh explains why) (beans-zcex).
+export PATH := `bash scripts/go-path.sh`
+
 # Zielverzeichnis der Installation. NICHT ~/.local/bin wie `mise run install`:
 # in Eriks PATH gewinnt /opt/homebrew/bin, und dort liegt das aktive Binary.
 bin_dir := env_var_or_default("LIF_BIN_DIR", "/opt/homebrew/bin")

@@ -111,6 +111,8 @@ release-check:
 # Build every release platform locally without publishing (goreleaser --snapshot)
 release-snapshot: release-check
     mise run build:embed
+    # GoReleaser uses a newer Go toolchain than this project; clear mixed compiler cache first.
+    go clean -cache
     mise exec goreleaser@latest -- goreleaser release --snapshot --clean --skip=publish
 
 # Validate canonical wiki release prose without contacting GitHub.

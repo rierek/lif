@@ -21,9 +21,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - name: Set up Go (mise.toml)
+        uses: jdx/mise-action@v5
         with:
-          go-version-file: go.mod
+          install_args: go
       - uses: actions/setup-node@v7
         with:
           node-version: 24

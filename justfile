@@ -80,7 +80,7 @@ gqlgen:
 
 # Run the Go test suite, e.g. `just test ./pkg/item/...`
 test ARGS='./...':
-    go test -count=1 {{ARGS}}
+    go test -p 4 -count=1 {{ARGS}}
 
 # Run the frontend unit tests, e.g. `just test-web --project server`
 test-web ARGS='':
@@ -97,7 +97,7 @@ test-e2e ARGS='':
 
 # Run the Go test suite under the race detector
 test-race ARGS='./...':
-    go test -race -count=1 {{ARGS}}
+    go test -p 4 -race -count=1 {{ARGS}}
 
 # Lint the Go code: go vet plus a gofmt check (lists unformatted files)
 lint:

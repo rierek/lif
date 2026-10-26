@@ -21,8 +21,9 @@ import (
 // pick feature; two Downs pick priority high; the parent is picked by filter.
 var (
 	cnForm1 = []string{keyEnter, keyDown, keyDown, keyEnter, keyDown, keyDown, keyEnter, "/", "e1", keyEnter, keyEnter}
-	// Follow-up form with every field carried: only the title is typed.
-	cnForm2Carried = []string{"B", keyEnter, keyEnter, keyEnter, keyEnter}
+	// Follow-up form with every field carried: only the title is typed; the
+	// direct body step follows it.
+	cnForm2Carried = []string{"B", keyEnter}
 )
 
 // cnFixture installs the fixture with a type cursor on the first option and
@@ -81,6 +82,7 @@ func TestCreateInteractiveCreateNextCarriesTicked(t *testing.T) {
 		cmNext,
 		[]string{keyEnter}, // checklist: all four ticked on first open
 		cnForm2Carried,
+		[]string{"body of B", keyEnter},
 		[]string{keyEnter}, // menu: create
 	)
 	if err != nil {
@@ -96,8 +98,8 @@ func TestCreateInteractiveCreateNextCarriesTicked(t *testing.T) {
 	if b.Type != a.Type || b.Priority != a.Priority || b.Parent != a.Parent || !slices.Equal(b.Tags, a.Tags) {
 		t.Errorf("item B = %s %s %s %v, want carried from A", b.Type, b.Priority, b.Parent, b.Tags)
 	}
-	if b.Body != "" {
-		t.Errorf("body of B = %q, want empty", b.Body)
+	if b.Body != "body of B" {
+		t.Errorf("body of B = %q, want the typed body from the direct body step", b.Body)
 	}
 	if a.Status == cfg.GetDefaultStatus() {
 		t.Fatal("test setup: A must have a non-default status")
@@ -119,12 +121,14 @@ func TestCreateInteractiveCreateNextUntickedFallsBackAndChecklistRemembers(t *te
 		// untick priority and tags
 		[]string{keyDown, "x", keyDown, keyDown, "x", keyEnter},
 		// B: priority high again, tag tagb on top of the default tag
-		[]string{"B", keyEnter, keyEnter, keyDown, keyDown, keyEnter, keyEnter},
+		[]string{"B", keyEnter, keyDown, keyDown, keyEnter},
+		[]string{keyEnter},
 		cmTags, []string{",tagb", keyEnter},
 		cmNext,
 		// second checklist must start with type and parent ticked only
 		[]string{keyEnter},
-		[]string{"C", keyEnter, keyEnter, keyEnter, keyEnter},
+		[]string{"C", keyEnter, keyEnter},
+		[]string{keyEnter},
 		[]string{keyEnter},
 	)
 	if err != nil {
@@ -150,9 +154,11 @@ func TestCreateInteractiveCreateNextCarriedParentDroppedForOtherType(t *testing.
 	got, _, _, err := cnRun(t, []string{"A"},
 		cnForm1,
 		cmNext,
+		// Type unticked, parent ticked
+		[]string{"x", keyEnter},
+		// B (title, type, parent): the unticked type starts on the first option (milestone), Down picks epic; feature parent pp-e1 is no epic parent
+		[]string{"B", keyEnter, keyDown, keyEnter, keyEnter},
 		[]string{keyEnter},
-		// B: type feature -> epic (Up once); feature parent pp-e1 is no epic parent
-		[]string{"B", keyEnter, keyUp, keyEnter, keyEnter, keyEnter},
 		[]string{keyEnter},
 	)
 	if err != nil {
@@ -170,7 +176,8 @@ func TestCreateInteractiveCreateNextEscInChecklistFilterKeepsItOpen(t *testing.T
 		cmNext,
 		// filter, Esc ends the filter, x unticks priority, Enter confirms
 		[]string{"/", "pri", keyEsc, "x", keyEnter},
-		[]string{"B", keyEnter, keyEnter, keyEnter, keyEnter},
+		[]string{"B", keyEnter, keyEnter},
+		[]string{keyEnter},
 		[]string{keyEnter},
 	)
 	if err != nil {
@@ -186,11 +193,11 @@ func TestCreateInteractiveCreateNextEscInChecklistFilterKeepsItOpen(t *testing.T
 
 func TestCreateInteractiveCreateNextCtrlCEndsSeriesWithExitZero(t *testing.T) {
 	cases := map[string][][]string{
-		"checklist":      {{keyCtrlC}},
-		"form title":     {{keyEnter}, {keyCtrlC}},
-		"form later":     {{keyEnter}, {"B", keyEnter, keyEnter, keyCtrlC}},
-		"menu":           {{keyEnter}, cnForm2Carried, {keyCtrlC}},
-		"body of form 2": {{keyEnter}, cnForm2Carried, cmBody, {keyCtrlC}},
+		"checklist":   {{keyCtrlC}},
+		"form title":  {{keyEnter}, {keyCtrlC}},
+		"direct body": {{keyEnter}, cnForm2Carried, {keyCtrlC}},
+		"menu":        {{keyEnter}, cnForm2Carried, {keyEnter}, {keyCtrlC}},
+		"menu body":   {{keyEnter}, cnForm2Carried, {keyEnter}, cmBody, {keyCtrlC}},
 	}
 	for name, tail := range cases {
 		t.Run(name, func(t *testing.T) {

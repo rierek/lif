@@ -47,11 +47,11 @@ Lif writes the fields in this order.
 | Type (rank) | `milestone` (1), `epic` (2), `feature` (3), `bug` (4), `task` (4) |
 | Priority | `critical`, `high`, `normal`, `low`, `deferred` (highest urgency first) |
 
-Defaults: status `todo`, type `task`, no priority written. Custom entries and the hierarchy rules: [Configuration](../configuration/#statuses-types-and-priorities). Lif checks the values against the tables when it writes (CLI, GraphQL). `update` checks only the fields it sets.
+Defaults: status `todo`, type `task`, no priority written. Custom entries and the hierarchy rules: [Configuration](../configuration/types-and-statuses/#statuses-types-and-priorities). Lif checks the values against the tables when it writes (CLI, GraphQL). `update` checks only the fields it sets.
 
 ## Relationships
 
-- `parent`: a single parent. On write, the rank rule applies ([Configuration](../configuration/#types-ranks-and-hierarchy-rules)).
+- `parent`: a single parent. On write, the rank rule applies ([Configuration](../configuration/types-and-statuses/#types-ranks-and-hierarchy-rules)).
 - `blocking` and `blocked_by`: two separate lists. A link is stored only in the file of the item you changed; the other side is not written. On read, Lif merges both directions. `lif check` does not report a difference between the two sides.
 - `lif delete` removes incoming references (`parent`, `blocking`, `blocked_by`) from other files.
 
@@ -61,7 +61,7 @@ Meaning of blocked and ready: [Dependencies](../../features/dependencies/). Comm
 
 Every other front matter key is kept and written alphabetically after the fields above. The reserved keys are `title`, `status`, `type`, `priority`, `tags`, `created_at`, `updated_at`, `order`, `parent`, `blocking`, `blocked_by`; `--set` and `--unset` reject them.
 
-`summary:` is an ordinary extra key with no special handling. `lif list --where key=value` filters on it; repeat the flag for AND. Extra keys are not searchable ([Search syntax](../search-syntax/)). `require_fields_on` and `commit_field` use extra keys: [Configuration](../configuration/#status-dependent-required-fields).
+`summary:` is an ordinary extra key with no special handling. `lif list --where key=value` filters on it; repeat the flag for AND. Extra keys are not searchable ([Search syntax](../search-syntax/)). `require_fields_on` and `commit_field` use extra keys: [Configuration](../configuration/types-and-statuses/#status-dependent-required-fields).
 
 An extra key must not hold `.nan`, `.inf` or `-.inf`, alone or inside a list or map: JSON cannot carry them. Loading stops with `loading <path>: parsing front matter: key "<key>" holds NaN: ...`. Quote the value (`".nan"`) to keep it as text.
 

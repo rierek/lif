@@ -90,7 +90,7 @@ export default defineConfig({
 						'reference',
 						{ label: 'Commands', items: [{ autogenerate: { directory: 'reference/commands' } }] },
 						'reference/item-file-format',
-						'reference/configuration',
+						{ label: 'Configuration', items: ['reference/configuration', 'reference/configuration/tasks', 'reference/configuration/hooks', 'reference/configuration/types-and-statuses'] },
 						'reference/search-syntax',
 						'reference/json-output',
 						'reference/graphql',

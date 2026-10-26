@@ -31,6 +31,10 @@ The pages are alphabetical, without categories, and are generated from the comma
 
 [Configuration](configuration/) covers `.lif.yml`, how Lif finds it, keys and defaults. It is also the canonical page for types, ranks, hierarchy rules and the shipped presets (`classic`, `todo`, `simple`, `complex`). It answers: Which types exist? What does `lif check` check? What does Lif enforce on writes?
 
+- [Tasks and TUI actions](configuration/tasks/): named shell tasks, `lif run`, and the keys and palette entries that start a task in the TUI.
+- [Hooks and gates](configuration/hooks/): run a task on item create or change, or refuse a write with a gate; item fields, trust and limits.
+- [Statuses, types and hierarchy](configuration/types-and-statuses/): built-in statuses and priorities, type ranks, hierarchy rules, presets and status-dependent required fields.
+
 For the task-oriented view (store location, `LIF_PATH`, `--lif-path`, anchor, several projects) see [Store management](../overview/store-management/). The precedence table stays on the Configuration page.
 
 ## Interfaces

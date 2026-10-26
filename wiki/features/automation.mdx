@@ -100,7 +100,7 @@ tasks:
 lif run wt start lif-ab12 milestone/0.16   # runs: just -g wt start lif-ab12 milestone/0.16
 ```
 
-Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run. Every step runs with `sh -ec`: inside a multi-line step the first failing command stops the step, as in `po-accept` above. End a command with `|| true` when its failure is deliberate and the step goes on. Hooks and gates run their tasks the same way. A signal (Ctrl-C, SIGTERM) goes to the step, and `lif run` waits for the step to end. When stdin is not a terminal, the signal goes to the whole process group of the step, so its child processes get it too; with a terminal on stdin, only the step gets SIGTERM and SIGHUP, and the terminal sends Ctrl-C itself. `lif run` has no `--json`. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
+Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run. Every step runs with `sh -ec`: inside a multi-line step the first failing command stops the step, as in `po-accept` above. End a command with `|| true` when its failure is deliberate and the step goes on. Hooks and gates run their tasks the same way. A signal (Ctrl-C, SIGTERM) goes to the step, and `lif run` waits for the step to end. When stdin is not a terminal, the signal goes to the whole process group of the step, so its child processes get it too; with a terminal on stdin, only the step gets SIGTERM and SIGHUP, and the terminal sends Ctrl-C itself. `lif run` has no `--json`. See [Tasks](../../reference/configuration/tasks/) in the configuration reference for the schema, the rules and the trust note.
 
 Exit code of `lif run`:
 
@@ -199,7 +199,7 @@ With `--json`, the same text is the `error` and the `code` is `POLICY_VIOLATION`
 
 - A gate fails closed. A gate that cannot run, for example an unknown task, blocks the change with `could not run: <error>`.
 - A gate in a project config that is not allowed does not run. Lif warns and counts the gates: `hooks in <path> are not allowed (1 gates not enforced)`.
-- A gate does not guard creation (`lif create -s completed`, `createItem`), and it does not run with `--config` or `--lif-path` from another directory. Editing `.lif.yml` takes the allow back, and the gates stop until the next `lif hooks allow`. [Paths that fire nothing](../../reference/configuration/#paths-that-fire-nothing) lists them.
+- A gate does not guard creation (`lif create -s completed`, `createItem`), and it does not run with `--config` or `--lif-path` from another directory. Editing `.lif.yml` takes the allow back, and the gates stop until the next `lif hooks allow`. [Paths that fire nothing](../../reference/configuration/hooks/#paths-that-fire-nothing) lists them.
 - `LIF_NO_HOOKS` with any non-empty value skips after hooks and gates. It is a deliberate bypass, and every process that a hook starts inherits it. An agent must fix what the gate reports and must not set it.
 
 ### Limits
@@ -208,7 +208,7 @@ With `--json`, the same text is the `error` and the `code` is `POLICY_VIOLATION`
 - A task that wants to write an item can run `"$LIF" update ...`: such a call fires no hooks, so hooks do not chain.
 - The CLI can show a stale item after a hook wrote it. Read it again with `lif show --json`.
 
-See [Hooks](../../reference/configuration/#hooks) in the configuration reference for every key, the item fields, the trust rules and all limits.
+See [Hooks](../../reference/configuration/hooks/) in the configuration reference for every key, the item fields, the trust rules and all limits.
 
 ## Errors
 

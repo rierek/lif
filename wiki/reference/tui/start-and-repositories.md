@@ -3,7 +3,7 @@ title: "Start and repositories"
 description: "Start lif tui and choose the repository to work in."
 ---
 
-`lif tui` is the terminal UI of Lif, built into the `lif` binary. It is a companion to the CLI: it reads and writes the repository store in the same process; it does not run `lif` as a subprocess. The command page is [`lif tui`](../../commands/lif-tui/). Checked against Lif 0.17.
+`lif tui` is the terminal UI of Lif, built into the `lif` binary. It is a companion to the CLI: it reads and writes the repository store in the same process; it does not run `lif` as a subprocess. The command page is [`lif tui`](../../commands/lif-tui/).
 
 ## Starting the TUI
 

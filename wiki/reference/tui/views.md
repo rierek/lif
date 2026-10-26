@@ -3,7 +3,7 @@ title: "Views"
 description: "Roadmap tree, flat, ready and detail views of the TUI."
 ---
 
-Screenshots and key names checked on Lif 0.17 (2026-10-24), test repository of 34 items. Key names: [Key bindings](../key-bindings/).
+Screenshots from a test repository of 34 items. Key names: [Key bindings](../key-bindings/).
 
 ## Overview of the views
 

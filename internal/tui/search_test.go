@@ -68,13 +68,10 @@ func TestLocalSearchPreservesAncestorPathOfMatch(t *testing.T) {
 	}
 }
 
-// TestLocalSearchCollapsedAncestorHidesMatchingDescendant guards DD2-178
-// parity (devd view_browse_project.go:215-238, PO decision carried over
-// verbatim per the plan's Port-Referenzen): a manually collapsed ancestor
-// stays collapsed even though it contains a match -- it renders as a single
-// context row, its matching child stays hidden, and it is NEVER
-// auto-expanded.
-func TestLocalSearchCollapsedAncestorHidesMatchingDescendant(t *testing.T) {
+// TestLocalSearchOpensCollapsedAncestorOfMatch (beans-leh5, replaces the
+// DD2-178 "collapsed ancestor stays collapsed" rule): a search opens every
+// ancestor of a hit, without touching m.expanded.
+func TestLocalSearchOpensCollapsedAncestorOfMatch(t *testing.T) {
 	beans := []*item.Item{
 		{ID: "root-1", Title: "Container", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "leaf-1", Title: "Findme", Status: "todo", Type: "task", Priority: "normal", Parent: "root-1"},
@@ -83,8 +80,11 @@ func TestLocalSearchCollapsedAncestorHidesMatchingDescendant(t *testing.T) {
 	m = setSearchQuery(m, "findme")
 
 	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "root-1"}) {
-		t.Fatalf("filtered nodes = %v, want [unscheduled root-1] only -- collapsed ancestor must hide the matching descendant, never auto-expand", got)
+	if got := nodeIDs(nodes); !equalStrings(got, []string{unscheduledRootID, "root-1", "leaf-1"}) {
+		t.Fatalf("filtered nodes = %v, want [unscheduled root-1 leaf-1]: the ancestor opens for the hit", got)
+	}
+	if m.expanded["root-1"] {
+		t.Fatalf("search must not write m.expanded")
 	}
 }
 

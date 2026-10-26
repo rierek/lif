@@ -351,7 +351,7 @@ func (m model) mouseTreeClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m.mouseDetailClick(msg)
 	}
 	n := nodes[idx]
-	if n.placeholder {
+	if n.unselectable() {
 		// D01 (bean bt-39cl): the archive-hint row is non-selectable -- a
 		// click on it is a No-Op (mirrors skipPlaceholder's keyboard-side
 		// decision: it is never a legitimate cursor target).

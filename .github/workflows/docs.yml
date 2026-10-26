@@ -4,7 +4,6 @@ name: docs
 on:
   push:
     branches: ["main"]
-    paths: ["wiki/**", "site/**", "cmd/lif-docgen/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -21,10 +20,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - name: Set up Go (mise.toml)
+        uses: jdx/mise-action@v5
         with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v4
+          install_args: go
+      - name: Install VHS (ttyd, ffmpeg, JetBrains Mono)
+        uses: charmbracelet/vhs-action@v2
+        with:
+          version: v0.12.1
+      - name: Generate TUI screenshots and GIFs
+        run: bash scripts/doc-media.sh "$RUNNER_TEMP/lif-doc-media"
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -33,7 +39,7 @@ jobs:
         run: go run ./cmd/lif-docgen wiki/reference/commands
       - name: Build site
         run: cd site && npm ci && npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site/dist
 
@@ -45,4 +51,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

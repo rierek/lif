@@ -3,7 +3,7 @@ title: "Key bindings"
 description: "All TUI key bindings, from the key map."
 ---
 
-Measured on Lif 0.13, code unchanged in 0.14 (checked 2026-10-14). The in-app help (`?`) is generated from the same key map (`keyMap` in `internal/tui/keymap.go`). This page is written by hand; no generator or test ties it to the key map yet, so it can drift. Press `?` in the TUI for the keys of your version. See [Help](#help) for search and scrolling.
+The in-app help (`?`) is generated from the same key map (`keyMap` in `internal/tui/keymap.go`). This page is written by hand; no generator or test ties it to the key map yet, so it can drift. Press `?` in the TUI for the keys of your version. See [Help](#help) for search and scrolling.
 
 Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by `/`. Navigation uses the `i/j/k/l` diamond, not vim `h/j/k/l`.
 
@@ -23,6 +23,8 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `enter` | Open or confirm |
 | `esc` | Back; leaves the detail pane and menus; in the flat list and Ready, see Views |
 | `pgup` / `pgdown` | Page the detail body (not listed in `?`) |
+
+The roadmap footer shows the sibling and open/close keys above at its right edge when the terminal is wide enough. Not in the flat list, Ready or open menus.
 
 ## Views
 

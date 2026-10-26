@@ -3,11 +3,13 @@ title: "Views"
 description: "Roadmap tree, flat, ready and detail views of the TUI."
 ---
 
-Measured on Lif 0.13 with a test repository of 17 items; the TUI code is unchanged in 0.14 (checked 2026-10-14). Key names: [Key bindings](../key-bindings/).
+Screenshots from a test repository of 34 items. Key names: [Key bindings](../key-bindings/).
 
 ## Overview of the views
 
 There are five views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
+
+![The roadmap as it opens](../../screenshots/tui-roadmap.png)
 
 The in-app help (`?`) has a Views section with one line per view and layout and the keys that reach it. This page is the long form. In the help, `/` searches the lines.
 
@@ -32,17 +34,29 @@ The header reads `> <repo>: <View>`. The focused pane is marked by color only. H
 - Tree and flat lists have no column header.
 - Sorting and menus use the status, type and priority lists of `.lif.yml` in configured order. Values the config does not name sort last.
 
-Screenshot follows.
+Closed at start, opened with `zR`:
+
+![The roadmap with every milestone, epic and task open](../../screenshots/tui-roadmap-expanded.png)
+
+Moving through the roadmap: `l` opens, `zo` opens a node with its children, `]` and `[` jump between siblings, `zc` closes, `zR` and `zM` open and close everything.
+
+![Roadmap navigation: open, jump between siblings, close, open all, close all](../../assets/tui-roadmap-navigation.gif)
 
 ## Flat view
 
 `L` shows the flat list; `M` returns to the Roadmap (nested), and so does `esc` once no search or filter is active. The flat list helps when you search across all items and the hierarchy does not matter. Search and filters apply the same way. Rows look like the roadmap rows without tree lines: type word, title, status word, priority, ID. Beside the detail pane they stay compact (one glyph row per item).
 
+![The flat list of all items](../../screenshots/tui-flat.png)
+
 ## Ready view
 
 `R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
-Screenshot follows.
+![The Ready view: items that can be started now](../../screenshots/tui-ready.png)
+
+Switching between the views with `L`, `R` and `M`:
+
+![Roadmap, flat list and Ready one after the other](../../assets/tui-views.gif)
 
 ## Waves view
 
@@ -87,6 +101,10 @@ When a layout change leaves the focused region out, focus moves to the list, or 
 
 When focus moves to a detail box, the box cursor moves there and the detail scrolls to keep it visible. `enter` still opens the box. Ready uses the same layouts and rings.
 
+Layout Roadmap + filter + details (`v`): filter bar on top, roadmap left, detail right.
+
+![The roadmap with filter bar and detail pane](../../screenshots/tui-roadmap-detail.png)
+
 ## Detail view
 
 The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`, `Type (t)`, `Priority (p)`, `Parent (a)`, `Tags (g)`, `Body (e)`, `Relations (b)`, `History`. The letter is the key that edits the box.
@@ -94,17 +112,25 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 - While the detail has focus, `↑`/`↓` step through the boxes. `esc` returns to the list (not in layout Details, which has no list). `tab` and `shift+tab` move between the boxes too (see Focus ring).
 - `enter` on a box opens its menu, picker or the editor.
 
+![The detail at full width](../../screenshots/tui-detail.png)
+
 ## Moving around
 
 - Movement uses the `i/j/k/l` diamond (`i` up, `k` down, `j` left, `l` right) and the arrow keys, not vim keys.
 - In the roadmap, `[` and `]` jump to the previous or next item of the same level under the same parent (epic to epic, milestone to milestone), skipping open children; the cursor stays at the first or last one. `zo`/`zc` open or close the cursor item with all its children, `zR`/`zM` open or close every item (`zM` returns to the start state: only milestones and the roots show). These keys do nothing in the flat list and in Ready.
+- When the last footer line has room, the roadmap footer shows these keys at its right edge (`[ ]`, `zo zc`, `zR zM`). The block is not shown in the flat list, in Ready, or while a menu or overlay is open.
 - `enter` opens, `esc` goes back. `ctrl+r` reloads. `K` opens the command palette.
 - The TUI watches the store: a change from another process appears without a key press.
 - Mouse: always on. Wheel scrolls the list (or the detail body). A left click selects a row; a second click within 500 ms expands or collapses an item with children. Clicking a detail box opens its editor or picker. A click on a filter field focuses it and opens its value menu; in the open menu a click on a value toggles it and a click outside closes the menu. The mouse is ignored in forms, other overlays, the lobby and tag management. Without a detail pane, a click does not reach the former detail area.
 
 ## Search and filters
 
+![Search for "Login": the hits and the path to them stay, the rest is gone](../../screenshots/tui-roadmap-search.png)
+
+![The filter menu with the Type values](../../screenshots/tui-filter-menu.png)
+
 - `/` starts the search in tree, flat and ready. Each keystroke can trigger a search.
+- In the roadmap an active search opens every ancestor of a hit without changing the open and closed state you set; clearing the search brings that state back. Ancestors without a hit of their own are shown muted. The cursor, `[` and `]`, and the mouse only land on hits. `zo`, `zc`, `zR`, `zM` and `←` `→` change the saved state and show their effect once the search is cleared.
 - Text of three or more bytes also goes to the same full-text search as `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`). The result is always the union with a local substring match on title and ID: `team` finds `Teams und Rechte`, `Bei*` finds `Beispiel-Plugin` (`*` any run, `?` one character, case-insensitive). An ID substring always matches.
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, with the error text of the search, for example a syntax error. Incomplete queries such as `title:` flash this while you type.

@@ -129,10 +129,13 @@ func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*
 }
 
 // runCreateFormWith runs the steps title, type, priority, parent from the
-// values in *d and writes the results back. An untouched "(none)" priority
-// leaves Priority empty; the parent step drops a parent that is no candidate
-// for the chosen type.
-func runCreateFormWith(d *createDraft, in createInput, out io.Writer) error {
+// values in *d and writes the results back. Steps carried by `create next`
+// (skip) are not asked: type and priority when ticked, the parent when parent
+// and type are ticked (a parent is valid per type, so an unticked type
+// re-asks the pre-filled parent). An untouched "(none)" priority leaves
+// Priority empty; the parent step drops a parent that is no candidate for the
+// chosen type.
+func runCreateFormWith(d *createDraft, skip createCarry, in createInput, out io.Writer) error {
 	resolver := newResolver()
 
 	typeOpts := make([]huh.Option[string], 0)
@@ -145,12 +148,17 @@ func runCreateFormWith(d *createDraft, in createInput, out io.Writer) error {
 	}
 
 	picker := newParentPicker(context.Background(), resolver, cfg, &d.Type, &d.Parent)
-	return runCreateForm(in, out, picker,
-		huh.NewGroup(huh.NewInput().Title("Title").Value(&d.Title)),
-		huh.NewGroup(huh.NewSelect[string]().Title("Type").Options(typeOpts...).Value(&d.Type)),
-		huh.NewGroup(huh.NewSelect[string]().Title("Priority").Options(prioOpts...).Value(&d.Priority)),
-		picker.group,
-	)
+	groups := []*huh.Group{huh.NewGroup(huh.NewInput().Title("Title").Value(&d.Title))}
+	if !skip.Type {
+		groups = append(groups, huh.NewGroup(huh.NewSelect[string]().Title("Type").Options(typeOpts...).Value(&d.Type)))
+	}
+	if !skip.Priority {
+		groups = append(groups, huh.NewGroup(huh.NewSelect[string]().Title("Priority").Options(prioOpts...).Value(&d.Priority)))
+	}
+	if !(skip.Parent && skip.Type) {
+		groups = append(groups, picker.group)
+	}
+	return runCreateForm(in, out, picker, groups...)
 }
 
 // writeCreateDraft is the sole CreateItem call site for plain create and -i.
@@ -224,10 +232,13 @@ func printCreated(b *item.Item) error {
 // runCreateInteractiveWith is runCreateInteractive's testable core. It
 // repeats form, menu and write while the user picks "create next". A cancel
 // after at least one written item ends the run with success; before that it
-// returns errCreateAborted.
+// returns errCreateAborted. Rounds after the first skip the carried form
+// steps and open the body field right after the form.
 func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput, out io.Writer) (err error) {
 	d := newCreateDraft(args)
 	carry := newCreateCarry()
+	skip := createCarry{}
+	followUp := false
 	wrote := false
 	defer func() {
 		if wrote && err == errCreateAborted {
@@ -235,8 +246,13 @@ func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput,
 		}
 	}()
 	for {
-		if err := runCreateFormWith(&d, in, out); err != nil {
+		if err := runCreateFormWith(&d, skip, in, out); err != nil {
 			return err
+		}
+		if followUp {
+			if err := runCreateBodyStep(&d, in, out); err != nil {
+				return err
+			}
 		}
 		next, err := runCreateMenuWith(&d, createJSON, in, out)
 		if err != nil {
@@ -256,6 +272,7 @@ func runCreateInteractiveWith(cmd *cobra.Command, args []string, in createInput,
 		if err := runCreateCarryStep(&carry, in, out); err != nil {
 			return err
 		}
+		skip, followUp = carry, true
 		d = nextCreateDraft(d, carry)
 	}
 }

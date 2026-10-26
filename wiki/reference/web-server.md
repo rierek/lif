@@ -3,7 +3,7 @@ title: "Web server"
 description: "lif-serve: the web UI and GraphQL HTTP server."
 ---
 
-`lif-serve` is a separate binary. It serves the web interface, the GraphQL HTTP API and a terminal WebSocket for one Lif store. Measured on Lif 0.14, 2026-10-14. The web UI itself was read from the code, not run (frontend not built in the test checkout). The network behaviour (bind address, access token, host and origin checks, terminal) changed in 0.15; those parts were checked on a built 0.15 development binary, 2026-10-15.
+`lif-serve` is a separate binary. It serves the web interface, the GraphQL HTTP API and a terminal WebSocket for one Lif store. The web UI itself was read from the code, not run (frontend not built in the test checkout).
 
 :::caution[Network access, TLS and the terminal [8h4v]]
 Since 0.15 `lif-serve` listens on `127.0.0.1` only, so only this machine can reach it. There is **no authentication on loopback**: every local user of the machine can use the port. A web page cannot: the server refuses a request whose `Host` names a host outside the origin list, and a request that changes something when its `Origin` is neither in the list nor the server's own address.

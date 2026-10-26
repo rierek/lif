@@ -19,7 +19,7 @@ There is no separate Data model, Hierarchy, Presets or Dependencies page. The da
 
 The [Command overview](commands/) is the hand-written introduction. Every visible command has its own generated page. The four `completion` shells share one page. Hidden commands have no page, and Cobra's built-in `help` has none either.
 
-The pages are alphabetical, without categories, and are generated from the command tree of the `lif` binary; do not edit them by hand. The overview shows how the commands relate to their parents. `lif --help` lists 28 commands, 27 of them have a page (Lif 0.14).
+The pages are alphabetical, without categories, and are generated from the command tree of the `lif` binary; do not edit them by hand. The overview shows how the commands relate to their parents. Every command that `lif --help` lists has a page, except Cobra's built-in `help`.
 
 ## Data and formats
 
@@ -30,6 +30,10 @@ The pages are alphabetical, without categories, and are generated from the comma
 ## Configuration
 
 [Configuration](configuration/) covers `.lif.yml`, how Lif finds it, keys and defaults. It is also the canonical page for types, ranks, hierarchy rules and the shipped presets (`classic`, `todo`, `simple`, `complex`). It answers: Which types exist? What does `lif check` check? What does Lif enforce on writes?
+
+- [Tasks and TUI actions](configuration/tasks/): named shell tasks, `lif run`, and the keys and palette entries that start a task in the TUI.
+- [Hooks and gates](configuration/hooks/): run a task on item create or change, or refuse a write with a gate; item fields, trust and limits.
+- [Statuses, types and hierarchy](configuration/types-and-statuses/): built-in statuses and priorities, type ranks, hierarchy rules, presets and status-dependent required fields.
 
 For the task-oriented view (store location, `LIF_PATH`, `--lif-path`, anchor, several projects) see [Store management](../overview/store-management/). The precedence table stays on the Configuration page.
 

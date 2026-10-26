@@ -9,7 +9,7 @@ import { Content as CommandTree } from './_command-tree.md';
 
 Lif ships two binaries. `lif` is the CLI; it also contains the [TUI](../tui/start-and-repositories/) and [GraphQL](../graphql/) in process. `lif-serve` is the [web server](../web-server/) with a single command, `serve`.
 
-The root command is described as "A file-based issue tracker for AI-first workflows". `lif --help` lists 28 commands (Lif 0.14, 2026-10-14). 27 of them have a page here. Cobra's built-in `help` has no page. The four `completion` shells (bash, zsh, fish, powershell) share one page. Hidden commands, such as the `lif serve` placeholder, are not documented.
+The root command is described as "A file-based issue tracker for AI-first workflows". Every command that `lif --help` lists has a page here, except Cobra's built-in `help`. The four `completion` shells (bash, zsh, fish, powershell) share one page. Hidden commands, such as the `lif serve` placeholder, are not documented.
 
 `init`, `path`, `version`, `help` and `completion` are plumbing: you rarely type them interactively. All other commands are user-facing.
 
@@ -35,7 +35,7 @@ The order of flag, config and `LIF_PATH` is in [Configuration](../configuration/
 
 - **Item ID:** the full ID, or the short ID without the configured prefix (`ix1n` for `f014j-ix1n`).
 - **`--json`:** a flag of most commands. `graph` uses `--format json`. `path`, `pick`, `prime`, `tui` and the Cobra commands have no JSON output. Details: [JSON output](../json-output/).
-- **Exit codes:** 0 on success, 1 on error. Errors print once and Cobra's usage text is suppressed. `lif check` returns 1 on at least one finding. Only `lif run` uses other codes: the exit code of the failing step, 128 plus the signal number for a step that a signal killed, and 2 for an error of Lif itself (unknown task, missing argument, cycle, invalid config). A step failure prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer. See [Tasks](../configuration/#tasks).
+- **Exit codes:** 0 on success, 1 on error. Errors print once and Cobra's usage text is suppressed. `lif check` returns 1 on at least one finding. Only `lif run` uses other codes: the exit code of the failing step, 128 plus the signal number for a step that a signal killed, and 2 for an error of Lif itself (unknown task, missing argument, cycle, invalid config). A step failure prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer. See [Tasks](../configuration/tasks/).
 - **Commands without a store:** `init`, `prime`, `version`, `tui` and `run`. All other commands load the config and the items first. A missing store is an error.
 - **Several IDs:** `start`, `complete`, `scrap`, `update`, `tag` and `delete` take several IDs. These commands resolve all IDs, and `update` and `complete` also run their checks, before the first write. For `update` that covers the status policy, the parent and type rules and the `--blocking` and `--blocked-by` links, cycles included. An unknown ID, or the same item named twice (`item <id> named more than once`), fails with nothing written. After the writes begin, each item is written on its own, so a later failure such as an etag conflict leaves earlier items changed.
 - **`update`:** needs at least one change flag (`--set` and `--unset` count). `--set` rejects reserved fields, for example `"status" is a reserved field; use --status instead`.

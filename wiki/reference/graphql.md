@@ -3,7 +3,7 @@ title: "GraphQL"
 description: "The GraphQL API for items: invoke it, read the schema, run queries and mutations."
 ---
 
-GraphQL is the third way to reach items, next to the Markdown files and the CLI. Measured on Lif 0.14, 2026-10-14. JSON shapes of other commands: [JSON output](../json-output/).
+GraphQL is the third way to reach items, next to the Markdown files and the CLI. JSON shapes of other commands: [JSON output](../json-output/).
 
 ## What the API is and when to use it
 
@@ -98,7 +98,7 @@ GraphQL has no `ready` argument. `lif next` and `lif list --ready` build "ready"
 
 ## Examples
 
-Real runs in a fresh store (Lif 0.14, 2026-10-14). IDs are shortened by the store prefix `f014j-`.
+Real runs in a fresh store. IDs are shortened by the store prefix `f014j-`.
 
 **Filter items (query)** with a variable:
 

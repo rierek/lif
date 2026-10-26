@@ -4,7 +4,6 @@ name: docs
 on:
   push:
     branches: ["main"]
-    paths: ["wiki/**", "site/**", "cmd/lif-docgen/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +24,12 @@ jobs:
         uses: jdx/mise-action@v5
         with:
           install_args: go
+      - name: Install VHS (ttyd, ffmpeg, JetBrains Mono)
+        uses: charmbracelet/vhs-action@v2
+        with:
+          version: v0.12.1
+      - name: Generate TUI screenshots and GIFs
+        run: bash scripts/doc-media.sh "$RUNNER_TEMP/lif-doc-media"
       - uses: actions/setup-node@v7
         with:
           node-version: 24

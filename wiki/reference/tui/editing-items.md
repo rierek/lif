@@ -11,6 +11,8 @@ The TUI has no write logic of its own. Every change goes through the same item c
 
 ## Create an item
 
+![The create form](../../screenshots/tui-create-form.png)
+
 `c` opens the form `New item`. Fields in order: Title (required), Type, Priority, Status, Parent (optional), Tags (optional, space or comma separated), Body (optional). `enter` moves to the next field; `enter` in Body submits. `esc` discards. Then a dialog `Create?` shows `Item (<type>): <title>`: `enter` creates, `esc` or `n` goes back to the form with your values.
 
 - Prefill: type `task`, priority `normal`, status `todo`. These are fixed, not `lif.default_type` or `lif.default_status`.
@@ -21,11 +23,15 @@ CLI equivalent: [`lif create`](../../commands/lif-create/).
 
 ## Quick changes
 
+![The status menu](../../screenshots/tui-status-menu.png)
+
 - `s` status menu, `t` type menu, `p` priority menu. `enter` applies at once; `esc` closes.
 - The menus list the statuses, types and priorities of the project: the built-in ones plus those in `.lif.yml`, in configured order.
 - Title: there is no key. Use the command palette (`K`, `set: title`). In the classic detail layout `enter` on `title:` also works. The form saves on `enter` without confirmation.
 
 ## Pickers
+
+![The parent picker](../../screenshots/tui-parent-picker.png)
 
 - `a` parent picker: first row `(No parent)`, then candidates. A type may hang under every type of a lower rank, using the ranks of the project config, the same rule the CLI enforces.
 - `b` blocking picker: toggles `blocking` for the selected item. `space` toggles, `enter` saves. It does not exclude cycles; the check happens on save.
@@ -43,9 +49,13 @@ CLI equivalent: [`lif create`](../../commands/lif-create/).
 
 ## Delete
 
+![The delete confirmation](../../screenshots/tui-delete-confirm.png)
+
 `d` opens `Delete <type>` with the title. The dialog counts direct children (`N children lose their parent — become their own roots`) and items that link to it, and says `Irreversible.` `enter` deletes permanently; `esc` or `n` cancels. Children are not deleted. Incoming `parent`, `blocking` and `blocked_by` references are removed from other items, like `lif delete`.
 
 ## Tag management
+
+![The tag management view](../../screenshots/tui-tag-management.png)
 
 Open it with the command palette entry `view: tags`; it has no key. It lists tag definitions from the repository file `.lif-tags.yml` and tags in use. Keys: `n` new definition (or register a free tag), `e` rename, `d` delete a definition, `esc` back.
 

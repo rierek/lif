@@ -5,6 +5,10 @@ description: "TUI settings file, editor, accent colour and themes."
 
 ## Settings file
 
+The settings form opens from the palette (`view: settings`).
+
+![The settings form](../../screenshots/tui-settings.png)
+
 The TUI reads `~/.config/lif/tui/config.yaml`. A second file, `state.json` in the same directory, stores `last_repo`. If the new file does not exist, a legacy `~/.config/beans-tui/config.yaml` is read; it is never written. The same fallback applies to `state.json`. The former key `repo_beans_paths` is still accepted as `repo_store_paths`; the new key wins when both are set. Starting `lif tui` creates nothing.
 
 | Key | Meaning | Default |

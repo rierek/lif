@@ -5,7 +5,7 @@ description: "Reach lif-serve from another machine: Tailscale, SSH tunnel, Caddy
 
 `lif-serve` listens on `127.0.0.1` and needs no token there. To use it from a phone, a laptop or another server, pick one recipe on this page. Each recipe keeps the access token, the terminal gate and the agent gate of [Network and CORS](../web-server/#network-and-cors). The options are described on [Web server](../web-server/#starting-the-server).
 
-Measured on a 0.16 development build, 2026-10-18, on macOS with Tailscale 1.102.4 and Caddy 2.11.7. The numbers in the recipes are HTTP status codes seen with `curl`. Every recipe below that is not marked "by review" ran once. Three parts were not run: the SSH tunnel (the test machine has no passwordless SSH login), nginx (not installed) and the systemd unit (needs Linux). Each is marked.
+Measured on macOS with Tailscale 1.102.4 and Caddy 2.11.7. The numbers in the recipes are HTTP status codes seen with `curl`. Every recipe below that is not marked "by review" ran once. Three parts were not run: the SSH tunnel (the test machine has no passwordless SSH login), nginx (not installed) and the systemd unit (needs Linux). Each is marked.
 
 Pick a recipe:
 

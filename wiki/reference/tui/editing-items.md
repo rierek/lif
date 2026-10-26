@@ -3,7 +3,7 @@ title: "Editing items"
 description: "Menus, pickers and dialogs for changing items in the TUI."
 ---
 
-Measured on Lif 0.13 in a terminal session; the TUI code is unchanged in 0.14 (checked 2026-10-14), except that the CLI the TUI calls now re-checks the hierarchy on a type change. Keys: [Key bindings](../key-bindings/).
+On a type change the CLI the TUI calls re-checks the hierarchy. Keys: [Key bindings](../key-bindings/).
 
 ## Principles
 

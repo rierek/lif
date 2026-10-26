@@ -3,7 +3,7 @@ title: "Item file format"
 description: "Structure of an item file: Markdown with YAML front matter."
 ---
 
-Canonical description of the data model. Measured on Lif 0.14, 2026-10-14. Hierarchy and status rules: [Configuration](../configuration/).
+Canonical description of the data model. Hierarchy and status rules: [Configuration](../configuration/).
 
 ## What an item file is
 

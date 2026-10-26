@@ -7,7 +7,7 @@ description: "Open defects and limits of Lif, each with a short ID that release 
 
 `[abcd]` is the ID of a tracking item without the store prefix. The same form appears on feature and reference pages and in release notes. This list is maintained by hand. Each entry shows its status: open, or fixed in a version.
 
-Measured on Lif 0.14 (development build), 2026-10-14. Workarounds marked as convention are not enforced by Lif.
+Workarounds marked as convention are not enforced by Lif.
 
 ## Open limitations
 

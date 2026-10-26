@@ -190,7 +190,7 @@ schemas:
     go run ./cmd/lif-schemagen schemas
 
 # Build the public docs site into site/dist
-docs-build: docs-gen
+docs-build: docs-gen doc-media
     cd site && npm ci && npm run build
 
 # Serve the docs site with live reload

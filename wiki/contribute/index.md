@@ -42,6 +42,8 @@ Then use `just`:
 | `just docs-build` | Generates the command pages and builds the docs site. |
 | `just docs-dev` | Serves the docs site with live reload. |
 
+TUI screenshots and GIFs are generated, not committed: `just doc-media` needs vhs, ttyd and ffmpeg; `just docs-build` runs it, and the docs workflow runs it on every deploy.
+
 ### Nix development shell
 
 `nix develop` opens a shell with Go, `gopls`, `gotools`, `go-tools`, Node.js, pnpm 10, `just` and `mise`.

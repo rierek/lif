@@ -5,7 +5,8 @@
 # <root> kommt vom Aufrufer (justfile: doc_media_root); der Pfad steht hinter
 # einem `rm -rf`, deshalb hier kein eigener Default. Idempotent: jeder Lauf
 # baut Binary und Store neu und überschreibt wiki/screenshots/tui-*.png und
-# wiki/assets/tui-*.gif.
+# wiki/assets/tui-*.gif. Die Medien sind nicht eingecheckt; der docs-Workflow
+# erzeugt sie bei jedem Deploy.
 set -euo pipefail
 
 root="${1:?Wurzel des Wegwerf-Verzeichnisses fehlt}"
@@ -60,4 +61,6 @@ mkdir -p "$repo/wiki/screenshots" "$repo/wiki/assets"
 shopt -s nullglob
 for f in "$work"/tui-*.png; do mv "$f" "$repo/wiki/screenshots/"; done
 for f in "$work"/tui-*.gif; do mv "$f" "$repo/wiki/assets/"; done
+# README bettet dieses Bild über die Pages-URL ein (beans-mfkq).
+if [ -f "$repo/wiki/screenshots/tui-roadmap-detail.png" ]; then mkdir -p "$repo/site/public/media" && cp "$repo/wiki/screenshots/tui-roadmap-detail.png" "$repo/site/public/media/"; fi
 echo "==> fertig"

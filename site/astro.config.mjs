@@ -68,6 +68,8 @@ export default defineConfig({
 						'features',
 						'features/files-in-your-repo',
 						'features/automation',
+						'features/tasks-and-hooks',
+						'features/interactive-shell',
 						'features/dependencies',
 						'features/project-planning',
 						'features/surface-independence',

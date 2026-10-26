@@ -42,7 +42,7 @@ tasks:
 - `lif rename` keeps the `tasks:` block.
 - An invalid task makes every lif command in that project fail with the config error, not only `lif run`.
 
-See [Automation](../../../features/automation/#tasks) for examples.
+See [Tasks and hooks](../../../features/tasks-and-hooks/#tasks) for examples.
 
 ## TUI actions
 

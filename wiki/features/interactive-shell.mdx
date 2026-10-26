@@ -1,0 +1,64 @@
+---
+title: "Interactive shell"
+description: "Create and find items in the terminal without typing IDs: a guided create form, shell completion and an item picker."
+---
+
+import WhyItMatters from '../../site/src/components/WhyItMatters.astro';
+
+**Lif helps in the terminal, so you do not type IDs.** A guided form creates items, completion fills in commands and item IDs, and a picker returns the ID of the item that you choose.
+
+## How it looks
+
+```sh
+lif create -i "Fix login bug" --type bug   # a guided form, pre-filled from the flags
+id=$(lif pick)                             # choose an item, get its ID
+lif show <TAB>                             # the shell lists the item IDs
+```
+
+## Guided create
+
+`lif create -i [title]` opens a form with four steps: title, type, priority and parent. Flags and config defaults pre-fill the steps. After the parent step an action menu offers `go to body`, `create`, `create next` and the `set ...` entries for tags, `blocked_by`, `blocking` and status. The cursor starts on `create`, so Enter writes the item.
+
+`create next` writes the item and then shows a checklist of the fields that the next item carries over: `type`, `priority`, `parent` and `tags`. The next round asks only for the fields that you did not carry over, then the body, and then shows the action menu again. This captures a series of similar items in one run.
+
+The form needs a terminal on stdin. Without one, the command exits at once and never waits, so scripts and agents are safe. `lif create` without `-i` never opens a form. For every step, the cancel rules and the other flags, see [`lif create`](../../reference/commands/lif-create/).
+
+## Shell completion
+
+Set up completion once per shell. From the [installation page](../../overview/installation/#shell-completion):
+
+> `lif completion bash|zsh|fish|powershell` prints a completion script for your shell. It completes commands, flags and item IDs. Run `lif completion zsh --help` for how to load it.
+
+For zsh, `source <(lif completion zsh)` loads it in the current session.
+
+Item IDs complete with a description of each item: its type, title and status. Items that you can still work on come first (`todo` and `in-progress`), then other statuses, then `completed` and `scrapped`. Every item stays a candidate, so a typed prefix still reaches any ID. Flag values complete too: `--status` offers the configured statuses.
+
+## Pick an item
+
+`lif pick` draws a filterable list of the items on the controlling terminal. After you choose one, it prints only that ID to stdout, so `id=$(lif pick)` captures it.
+
+- `--scope <types>` limits the list to a comma-separated list of item types, for example `lif pick --scope epic,feature`.
+- If you abort the picker, or if there is no terminal on stdin, `lif pick` prints nothing to stdout and exits with a non-zero code. A script can test the result safely.
+
+### zsh widget
+
+The widget `lif-pick-widget` runs `lif pick` on a key and inserts the chosen ID into the command line at the cursor. It does not run the line. The file is `extras/zsh/lif-pick.zsh` in the Lif source repository. To set it up, source it from `.zshrc`, next to the line that loads `lif completion zsh`:
+
+```zsh
+source /path/to/lif-pick.zsh
+```
+
+The default key is `Alt+i` (`^[i`). To use another key, set `LIF_PICK_KEYBIND` to a `bindkey` key spec before the `source` line. Tab is not bound, so it keeps its binding, for example `fzf-tab-complete`.
+
+With text on the line, the widget passes the line and the cursor to `lif pick`, and the picker narrows the items to the position of the cursor, for example to the valid parents after `--parent`. On an empty line it offers all items.
+
+<WhyItMatters>
+**The form, completion and the picker let you create and find items without copying an ID from another window.**
+</WhyItMatters>
+
+## Reference
+
+- [`lif create`](../../reference/commands/lif-create/): the guided form, `create next`, cancel rules and flags.
+- [`lif pick`](../../reference/commands/lif-pick/): `--scope`, `--line`, `--cursor` and the parent rules.
+- [`lif completion`](../../reference/commands/lif-completion/): the scripts for each shell.
+- [Installation](../../overview/installation/): where completion is set up.

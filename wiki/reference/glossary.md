@@ -14,11 +14,11 @@ Each entry has one line of definition and the page with the details.
 ## Core terms
 
 - **item, Liff:** an item is a unit of work (task, feature, epic, milestone, ...). A Liff is the Markdown file for it. [Item file format](../item-file-format/).
-- **type, rank:** the type names the kind of item. The integer `rank` decides which type may sit under which: the child rank must be strictly greater than the parent rank. [Configuration](../configuration/#types-ranks-and-hierarchy-rules).
-- **status, priority:** status is the state of the work (`in-progress`, `todo`, `draft`, `completed`, `scrapped`). Priority is the urgency (`critical` to `deferred`). [Item file format](../item-file-format/#allowed-values-and-defaults), [Configuration](../configuration/#statuses-types-and-priorities).
+- **type, rank:** the type names the kind of item. The integer `rank` decides which type may sit under which: the child rank must be strictly greater than the parent rank. [Configuration](../configuration/types-and-statuses/#types-ranks-and-hierarchy-rules).
+- **status, priority:** status is the state of the work (`in-progress`, `todo`, `draft`, `completed`, `scrapped`). Priority is the urgency (`critical` to `deferred`). [Item file format](../item-file-format/#allowed-values-and-defaults), [Configuration](../configuration/types-and-statuses/#statuses-types-and-priorities).
 - **tag, parent:** a tag is a lower case label with hyphens. `parent` is the ID of the one item above. [Item file format](../item-file-format/#front-matter-fields).
 - **blocking, blocked_by:** two lists of IDs. `blocking` names what this item blocks, `blocked_by` names what blocks it. A link is stored on one side only. [Dependencies](../../features/dependencies/), [Item file format](../item-file-format/#relationships).
-- **preset:** a type table that `lif init --profile` writes once into `.lif.yml` (`classic`, `todo`, `simple`, `complex`). [Configuration](../configuration/#presets).
+- **preset:** a type table that `lif init --profile` writes once into `.lif.yml` (`classic`, `todo`, `simple`, `complex`). [Configuration](../configuration/types-and-statuses/#presets).
 
 ## Store and files
 
@@ -31,11 +31,11 @@ Each entry has one line of definition and the page with the details.
 
 ## Planning terms
 
-- **container, leaf:** a container is an item on rank 1 to 3, a leaf is on rank 4 (built-in scale). Custom types can have other ranks. [Configuration](../configuration/#types-ranks-and-hierarchy-rules).
+- **container, leaf:** a container is an item on rank 1 to 3, a leaf is on rank 4 (built-in scale). Custom types can have other ranks. [Configuration](../configuration/types-and-statuses/#types-ranks-and-hierarchy-rules).
 - **order:** the manual order key (`order` in the front matter, a base62 fractional index) that places an item among its siblings. Set it with `lif order`. [Concepts](../../overview/concepts/), [Item file format](../item-file-format/#front-matter-fields).
 - **ready:** a leaf (not a container type) that is not blocked (directly or through an ancestor), whose status is not `in-progress`, `draft` or an archive status, and that has no ancestor `completed` or `scrapped`. [Dependencies](../../features/dependencies/), [`lif next`](../commands/lif-next/).
 - **blocked, explicit and implicit:** explicit means the item has active blockers itself. Implicit means an ancestor has active blockers. Active means the blocker's status is not `completed` or `scrapped`. [Dependencies](../../features/dependencies/).
-- **roadmap:** a tree of milestones, epics and their children. Types with `roadmap: false` do not appear. [`lif roadmap`](../commands/lif-roadmap/), [Configuration](../configuration/#presets).
+- **roadmap:** a tree of milestones, epics and their children. Types with `roadmap: false` do not appear. [`lif roadmap`](../commands/lif-roadmap/), [Configuration](../configuration/types-and-statuses/#presets).
 
 ## Interface terms
 

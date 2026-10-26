@@ -3,11 +3,13 @@ title: "Views"
 description: "Roadmap tree, flat, ready and detail views of the TUI."
 ---
 
-Screenshots and key names checked on Lif 0.17 (2026-10-24), test repository of 34 items. Key names: [Key bindings](../key-bindings/).
+Screenshots from a test repository of 34 items. Key names: [Key bindings](../key-bindings/).
 
 ## Overview of the views
 
 There are four views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
+
+![The roadmap as it opens](../../screenshots/tui-roadmap.png)
 
 The in-app help (`?`) has a Views section with one line per view and layout and the keys that reach it. This page is the long form. In the help, `/` searches the lines.
 
@@ -106,6 +108,8 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 ## Search and filters
 
 ![Search for "Login": the hits and the path to them stay, the rest is gone](../../screenshots/tui-roadmap-search.png)
+
+![The filter menu with the Type values](../../screenshots/tui-filter-menu.png)
 
 - `/` starts the search in tree, flat and ready. Each keystroke can trigger a search.
 - In the roadmap an active search opens every ancestor of a hit without changing the open and closed state you set; clearing the search brings that state back. Ancestors without a hit of their own are shown muted. The cursor, `[` and `]`, and the mouse only land on hits. `zo`, `zc`, `zR`, `zM` and `←` `→` change the saved state and show their effect once the search is cleared.

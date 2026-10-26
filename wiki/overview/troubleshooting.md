@@ -81,7 +81,7 @@ Symptom: `lif init --profile <name>` fails with `unknown profile "<name>" (must 
 
 Both errors are validated before any file is written, so a typo never leaves a half-initialized project behind. Diagnose by rereading `lif init --help`, which lists the exact profile names accepted at that moment. Fix an initial setup by rerunning `lif init` with a valid `--profile` name in the intended project directory, without `--lif-path`.
 
-Do not rerun `lif init` over an established project without first preserving `.lif.yml`: the command rewrites that file with generated defaults. To change an existing project's profile or type model, edit and review the `types`, `types_exclusive`, and `lif.default_type` settings in `.lif.yml` deliberately; see [Configuration](../../reference/configuration/#presets).
+Do not rerun `lif init` over an established project without first preserving `.lif.yml`: the command rewrites that file with generated defaults. To change an existing project's profile or type model, edit and review the `types`, `types_exclusive`, and `lif.default_type` settings in `.lif.yml` deliberately; see [Configuration](../../reference/configuration/types-and-statuses/#presets).
 
 ## A store from an earlier release behaves unexpectedly
 

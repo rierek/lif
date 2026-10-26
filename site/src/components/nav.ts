@@ -29,6 +29,8 @@ export const nav: NavEntry[] = [
 			{ title: 'All features', description: 'Everything Lif does, at a glance', href: '/features/' },
 			{ title: 'Files in your repo', description: 'Plain files that Git versions with your code', href: '/features/files-in-your-repo/' },
 			{ title: 'Automation and agents', description: 'JSON, GraphQL and lif prime', href: '/features/automation/' },
+			{ title: 'Tasks and hooks', description: 'Run your scripts when items change', href: '/features/tasks-and-hooks/' },
+			{ title: 'Interactive shell', description: 'Create and find items without typing IDs', href: '/features/interactive-shell/' },
 			{ title: 'Dependencies', description: 'Blockers and what is ready next', href: '/features/dependencies/' },
 			{ title: 'Flexible planning', description: 'Types, statuses and hierarchy presets', href: '/features/project-planning/' },
 			{ title: 'Surface independence', description: 'CLI, TUI, web UI or any editor', href: '/features/surface-independence/' },

@@ -3,7 +3,7 @@ title: "GraphQL"
 description: "The GraphQL API for items: invoke it, read the schema, run queries and mutations."
 ---
 
-GraphQL is the third way to reach items, next to the Markdown files and the CLI. Measured on Lif 0.14, 2026-10-14. JSON shapes of other commands: [JSON output](../json-output/).
+GraphQL is the third way to reach items, next to the Markdown files and the CLI. JSON shapes of other commands: [JSON output](../json-output/).
 
 ## What the API is and when to use it
 
@@ -90,7 +90,7 @@ GraphQL has no `ready` argument. `lif next` and `lif list --ready` build "ready"
 
 `bodyMod` edits the body in place: `replace: [{old, new}]` or `append`. It cannot be combined with `body`, and `tags` cannot be combined with `addTags` or `removeTags`.
 
-`ifMatch` compares the ETag with the current file. If the item changed meanwhile, the call fails with a conflict. The item file is locked from the compare to the write, so of two simultaneous writers with the same ETag only one succeeds; a write without `ifMatch` takes no lock. Once a hook task ran in the server, a write without `ifMatch` also expects the ETag that it read and fails with a conflict when the item changed meanwhile (see [hooks](../configuration/#running-hooks)). After a hook ran for the item, the result holds the item as the task left it. The `etag` field gives the current value. With `lif.require_if_match: true` the value is mandatory.
+`ifMatch` compares the ETag with the current file. If the item changed meanwhile, the call fails with a conflict. The item file is locked from the compare to the write, so of two simultaneous writers with the same ETag only one succeeds; a write without `ifMatch` takes no lock. Once a hook task ran in the server, a write without `ifMatch` also expects the ETag that it read and fails with a conflict when the item changed meanwhile (see [hooks](../configuration/hooks/#running-hooks)). After a hook ran for the item, the result holds the item as the task left it. The `etag` field gives the current value. With `lif.require_if_match: true` the value is mandatory.
 
 ## Subscriptions
 
@@ -98,7 +98,7 @@ GraphQL has no `ready` argument. `lif next` and `lif list --ready` build "ready"
 
 ## Examples
 
-Real runs in a fresh store (Lif 0.14, 2026-10-14). IDs are shortened by the store prefix `f014j-`.
+Real runs in a fresh store. IDs are shortened by the store prefix `f014j-`.
 
 **Filter items (query)** with a variable:
 
@@ -153,7 +153,7 @@ lif graphql --json '{ items(filter:{type:["epic"]}) { id children { id status } 
 - A write that fails with an ETag conflict, a status policy, a blocking gate or a validation error also has `errors[0].extensions.code`: `CONFLICT`, `POLICY_VIOLATION` or `VALIDATION_ERROR`, the codes of `--json`. A blocking gate adds `extensions.hook` (name of the gate), `extensions.itemId` and `extensions.output` (the first 8 KiB of the gate output). Other errors have no `extensions`.
 - `updateItem` has no input for extra front-matter keys, so a hook that watches an extra key (`changed: [target]`) never fires from the web UI or GraphQL. The schema has no query or mutation for tasks, hooks or trust state.
 - Write validation is the same as in the CLI: title not empty, without control characters (NUL, newline, escape), and at most 1000 characters, body at most 1 MiB, tags match the tag pattern, `body` and `bodyMod` exclusive. Type, status and priority names are checked against the configured tables for the supplied fields.
-- Parent rules apply on `createItem` (with `parent`), `setParent` and `updateItem` with `parent` or a changed `type`: rank rule and cycle check, as in [Configuration](../configuration/#types-ranks-and-hierarchy-rules).
+- Parent rules apply on `createItem` (with `parent`), `setParent` and `updateItem` with `parent` or a changed `type`: rank rule and cycle check, as in [Configuration](../configuration/types-and-statuses/#types-ranks-and-hierarchy-rules).
 
 ```text
 Error: graphql: invalid title: must not be empty

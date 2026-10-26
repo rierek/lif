@@ -44,7 +44,7 @@ Other options: variables with `-v`, a query on stdin, `--schema`. See [`lif grap
 ## What you get
 
 <KeyValueList>
-  <KeyValueItem term="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error; `lif run` has its own codes, see [Tasks](#tasks).</KeyValueItem>
+  <KeyValueItem term="JSON from the shell">Many commands take `--json`, for example `list`, `next`, `create`, `complete`, `progress`, `roadmap`, `check`. Errors carry codes such as `NOT_FOUND` or `VALIDATION_ERROR`. Exit code: 0 on success, 1 on error; `lif run` has its own codes, see [Tasks](../tasks-and-hooks/#tasks).</KeyValueItem>
   <KeyValueItem term="GraphQL without a server">`lif graphql '<query>'` (alias `lif query`) also reads stdin. A mutation through the CLI works the same way, for example `createItem` with `title` and `type`.</KeyValueItem>
   <KeyValueItem term="Agents that learn Lif from Lif">`lif prime` prints a prompt that teaches a coding agent how to use Lif, and it runs without a loaded store. Agents learn from `lif prime` and `--help`, not from prior knowledge.</KeyValueItem>
   <KeyValueItem term="Review findings become items">`lif promote <artifact> <finding-id>...` creates items from the findings of a review artifact. It writes nothing if a chosen finding is malformed and skips findings that were already taken over.</KeyValueItem>
@@ -64,155 +64,15 @@ lif update <id> --if-match "$ETAG" --status in-progress              # fails if 
 
 Parallel `lif` calls on one item are safe: every write checks that the file is still the one it read, under a lock on the item file. A call that lost the race reads the item again and applies its change on top, so no change is lost. `--if-match` is never retried; it fails with `CONFLICT`. Item IDs are checked against the store when they are generated, and `lif check` reports an ID that two files carry.
 
-## Tasks
+## Tasks and hooks
 
-A task is a named list of shell steps. `lif run` lists the tasks, and `lif run <task> [args...]` runs one. A person and an agent run the same steps the same way.
+A task is a named list of shell steps, and `lif run` runs it the same way for a person and an agent. A hook runs a task by itself when an item is created or changes, and a gate can refuse a change before it is written.
 
-A project task in `.lif.yml`. `args: [id]` makes `$id` a required argument:
-
-```yaml
-tasks:
-  po-accept:
-    desc: Accept an item as PO and commit the item file
-    args: [id]
-    steps:
-      - |
-        "$LIF" update "$id" --tag accepted --body-append "## PO acceptance $(date +%F)"
-        file="$("$LIF" path)/$("$LIF" show "$id" --json | jq -r .path)"
-        git add -- "$file"
-        git commit -m "chore($id): PO acceptance" -- "$file"
-```
-
-```sh
-lif run po-accept lif-ab12
-```
-
-A global task in `~/.lif/tasks.yml`, available in every project. The step passes all arguments on with `"$@"`:
-
-```yaml
-tasks:
-  wt:
-    desc: Work with worktrees
-    steps: ['just -g wt "$@"']
-```
-
-```sh
-lif run wt start lif-ab12 milestone/0.16   # runs: just -g wt start lif-ab12 milestone/0.16
-```
-
-Steps get `LIF`, `LIF_ROOT`, `LIF_TASK` and `LIF_TASK_ORIGIN` in the environment. A failing step stops the run. Every step runs with `sh -ec`: inside a multi-line step the first failing command stops the step, as in `po-accept` above. End a command with `|| true` when its failure is deliberate and the step goes on. Hooks and gates run their tasks the same way. A signal (Ctrl-C, SIGTERM) goes to the step, and `lif run` waits for the step to end. When stdin is not a terminal, the signal goes to the whole process group of the step, so its child processes get it too; with a terminal on stdin, only the step gets SIGTERM and SIGHUP, and the terminal sends Ctrl-C itself. `lif run` has no `--json`. See [Tasks](../../reference/configuration/#tasks) in the configuration reference for the schema, the rules and the trust note.
-
-Exit code of `lif run`:
-
-| Exit code | Meaning |
-| --- | --- |
-| 0 | Every step succeeded. |
-| n | The step failed with its own exit code n. The code passes through unchanged. |
-| 128+n | A signal n killed the step, for example 143 for SIGTERM. |
-| 2 | Lif itself failed: unknown task, missing arguments, unknown flag, dependency cycle, bad task config. |
-| 1 | Lif got SIGINT, SIGTERM or SIGHUP, passed it to the step, and the step exited with 0. |
-
-## Hooks
-
-A hook runs a task by itself when an item is created or one of its fields changes: `status`, `type`, `parent`, `tags` or any extra front matter key of your workflow. Tasks are the *what*, hooks are the *when*. Nobody has to remember the step, neither a person nor an agent. A hook reacts after the change is written. A gate checks before the write and can refuse the change.
-
-Project hooks run only after you have read them and run `lif hooks allow`. An edit of the hooks or tasks in `.lif.yml` takes the allow back, also an edit by an agent and also a `.lif.yml` in a fresh clone or worktree. Until the next `lif hooks allow`, project gates do not run: the change succeeds with exit code 0 and Lif only prints a warning on stderr. `--json` output does not carry that warning, so a script that reads only the JSON does not see that the gates stayed off. `lif hooks` lists every hook and gate and says whether the project hooks run. While the project is not allowed, the list shows the global hooks that run and marks a project hook of the same name `not allowed`. `lif hooks --steps` prints the steps that the hooks can run: read them before you allow.
-
-### Open and close a container worktree
-
-Two hooks do what a `just` recipe did by hand. `todo -> in-progress` opens the worktree of the item, and `-> completed` closes it:
-
-```yaml
-tasks:
-  wt-open:
-    desc: Create the container worktree for an item
-    args: [id, line]
-    steps:
-      - |
-        [ -n "$line" ] || { echo "item $id has no 'line' field" >&2; exit 1; }
-        common="$(git rev-parse --path-format=absolute --git-common-dir)"
-        [ -d "$(dirname "$common")/../worktrees/$id" ] && exit 0
-        just -g wt start "$id" "$line"
-  wt-close:
-    desc: Remove the container worktree after acceptance
-    args: [id]
-    steps:
-      - |
-        common="$(git rev-parse --path-format=absolute --git-common-dir)"
-        [ -d "$(dirname "$common")/../worktrees/$id" ] || exit 0
-        just -g wt finish "$id"
-hooks:
-  open-worktree:
-    event: [created, updated]
-    changed: [status]
-    to: [in-progress]
-    type: [feature, task, bug]
-    run: wt-open
-    args: [id, line]
-  close-worktree:
-    event: [updated]
-    changed: [status]
-    to: [completed]
-    run: wt-close
-    args: [id]
-```
-
-- **Safe to fire twice.** Each task checks its own precondition and exits 0 when there is nothing to do: `wt-open` does nothing when the worktree exists, `wt-close` does nothing when it does not.
-- **Two path rules.** `git rev-parse --git-common-dir` gives the same hull from the main checkout and from every container worktree, so the task does not depend on where Lif runs. The integration line comes from the item field `line`, because the current branch of a container worktree is the container branch, not the line. Set it with `lif update lif-ab12 --set line=milestone/0.16`. `line` is an extra key: Lif passes it as the argument `line` without any declaration.
-- **Complete from the integration checkout.** `just -g wt finish` refuses to remove the worktree that it runs in. If you complete an item from inside `worktrees/<id>/`, `wt-close` fails with a warning. The item is still completed.
-
-### Gates
-
-A gate has `stage: before`. It runs before the write, and a non-zero exit refuses the change: nothing is written. With several targets, the ones before the blocked target stay written ([Gates](../../reference/configuration/)). This gate refuses `completed` until the item is listed in the file that its field `target_entry` names:
-
-```yaml
-tasks:
-  check-target-entry:
-    args: [id, target_entry]
-    steps:
-      - |
-        [ -n "$target_entry" ] || { echo "field target_entry is empty" >&2; exit 1; }
-        grep -qF -- "$id" "$target_entry" || { echo "$id not found in $target_entry" >&2; exit 1; }
-hooks:
-  require-target-entry:
-    stage: before
-    event: [updated]
-    changed: [status]
-    to: [completed]
-    run: check-target-entry
-    args: [id, target_entry]
-    message: "Entry missing in the target file. Add it, then complete the item."
-```
-
-```sh
-lif complete lif-ab12 --set target_entry=docs/RELEASE.md
-```
-
-If `docs/RELEASE.md` does not list `lif-ab12`, the command exits with code 1, writes nothing and prints the fixed `message` first and the output of the task below it:
-
-```text
-Error: hook "require-target-entry" blocked the change of lif-ab12: Entry missing in the target file. Add it, then complete the item.
-lif-ab12 not found in docs/RELEASE.md
-```
-
-With `--json`, the same text is the `error` and the `code` is `POLICY_VIOLATION`.
-
-- A gate fails closed. A gate that cannot run, for example an unknown task, blocks the change with `could not run: <error>`.
-- A gate in a project config that is not allowed does not run. Lif warns and counts the gates: `hooks in <path> are not allowed (1 gates not enforced)`.
-- A gate does not guard creation (`lif create -s completed`, `createItem`), and it does not run with `--config` or `--lif-path` from another directory. Editing `.lif.yml` takes the allow back, and the gates stop until the next `lif hooks allow`. [Paths that fire nothing](../../reference/configuration/#paths-that-fire-nothing) lists them.
-- `LIF_NO_HOOKS` with any non-empty value skips after hooks and gates. It is a deliberate bypass, and every process that a hook starts inherits it. An agent must fix what the gate reports and must not set it.
-
-### Limits
-
-- A hook sees only changes that go through Lif. Delete, `lif check --fix`, `lif rename`, `lif order`, hand edits of item files and git merges fire nothing.
-- A task that wants to write an item can run `"$LIF" update ...`: such a call fires no hooks, so hooks do not chain.
-- The CLI can show a stale item after a hook wrote it. Read it again with `lif show --json`.
-
-See [Hooks](../../reference/configuration/#hooks) in the configuration reference for every key, the item fields, the trust rules and all limits.
+See [Tasks and hooks](../tasks-and-hooks/) for examples, exit codes, the trust rules and the limits.
 
 ## Errors
 
-Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is an exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer, and exits with the exit code of the failing step, 128+n for a step that a signal killed, or 2 for an error of Lif itself (see the [exit code table](#tasks)). A change that an item command's gate blocks is an error with the code `POLICY_VIOLATION` and also prints no `--help` pointer: see [Gates](#gates). `lif graphql` prints its usage line for any resolver error.
+Without `--json`, an error goes to stderr as `Error: <message>` plus `Run '<command> --help' for usage.`, and stdout stays empty. With `--json`, the error is a JSON object on stdout and stderr stays empty. Errors before JSON handling, such as an unreadable config or a missing store, still go to stderr. `lif run` is an exception: it prints only `Error: task "<name>": step <n> of <total> failed (exit code <c>)`, without the `--help` pointer, and exits with the exit code of the failing step, 128+n for a step that a signal killed, or 2 for an error of Lif itself (see the [exit code table](../tasks-and-hooks/#tasks)). A change that an item command's gate blocks is an error with the code `POLICY_VIOLATION` and also prints no `--help` pointer: see [Gates](../tasks-and-hooks/#gates). `lif graphql` prints its usage line for any resolver error.
 
 ## Tips
 

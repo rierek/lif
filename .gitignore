@@ -16,3 +16,6 @@
 /site/.astro/
 /wiki/reference/commands/lif*.md
 /wiki/reference/commands/_command-tree.md
+/wiki/screenshots/tui-*.png
+/wiki/assets/tui-*.gif
+/site/public/media/tui-*.png

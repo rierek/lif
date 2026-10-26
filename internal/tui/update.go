@@ -925,10 +925,20 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	// a vanished bean can clamp near its old spot instead of resetting to 0.
 	oldPos := 0
 	if m.idx != nil {
-		oldPos = m.cursorPos(flattenTree(m.roadmapScheduled, m.roadmapUnscheduled, m.notOnRoadmap, m.expanded))
+		// The VISIBLE rows, not the raw tree: hidden rows (archive default,
+		// search/facets) above the cursor would inflate the position and
+		// push the clamp past the real next row.
+		oldPos = m.cursorPos(m.visibleNodes())
 	}
 
+	// Flat and Ready cursors are plain indexes: remember the selected bean's
+	// ID so a reload that re-sorts the list keeps the selection on it.
+	flatID := selectedID(m.idx != nil, m.flatVisible(), m.flatList.cursor)
+	readyID := selectedID(m.idx != nil, m.readyVisible(), m.readyList.cursor)
+
 	m = m.setItems(msg.beans, msg.ready)
+	m.flatList = restoreListCursor(m.flatList, m.flatVisible(), flatID)
+	m.readyList = restoreListCursor(m.readyList, m.readyVisible(), readyID)
 	nodes := m.visibleNodes()
 
 	if len(nodes) == 0 {
@@ -958,6 +968,27 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	}
 
 	return m.showWarn(msg.warn)
+}
+
+// selectedID returns the ID of vis[cursor], or "" when out of range.
+func selectedID(loaded bool, vis []*item.Item, cursor int) string {
+	if !loaded || cursor < 0 || cursor >= len(vis) {
+		return ""
+	}
+	return vis[cursor].ID
+}
+
+// restoreListCursor moves l's cursor onto the bean with the given id in vis;
+// when it vanished the old index is kept, clamped to the new length.
+func restoreListCursor(l listState, vis []*item.Item, id string) listState {
+	for i, b := range vis {
+		if id != "" && b.ID == id {
+			l.cursor = i
+			break
+		}
+	}
+	l.setLen(len(vis))
+	return l
 }
 
 // handleKey is the top-level key dispatch (devd keys.go port pattern):

@@ -9,7 +9,7 @@ import { Content as CommandTree } from './_command-tree.md';
 
 Lif ships two binaries. `lif` is the CLI; it also contains the [TUI](../tui/start-and-repositories/) and [GraphQL](../graphql/) in process. `lif-serve` is the [web server](../web-server/) with a single command, `serve`.
 
-The root command is described as "A file-based issue tracker for AI-first workflows". `lif --help` lists 28 commands (Lif 0.14, 2026-10-14). 27 of them have a page here. Cobra's built-in `help` has no page. The four `completion` shells (bash, zsh, fish, powershell) share one page. Hidden commands, such as the `lif serve` placeholder, are not documented.
+The root command is described as "A file-based issue tracker for AI-first workflows". Every command that `lif --help` lists has a page here, except Cobra's built-in `help`. The four `completion` shells (bash, zsh, fish, powershell) share one page. Hidden commands, such as the `lif serve` placeholder, are not documented.
 
 `init`, `path`, `version`, `help` and `completion` are plumbing: you rarely type them interactively. All other commands are user-facing.
 

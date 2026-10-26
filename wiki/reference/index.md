@@ -19,7 +19,7 @@ There is no separate Data model, Hierarchy, Presets or Dependencies page. The da
 
 The [Command overview](commands/) is the hand-written introduction. Every visible command has its own generated page. The four `completion` shells share one page. Hidden commands have no page, and Cobra's built-in `help` has none either.
 
-The pages are alphabetical, without categories, and are generated from the command tree of the `lif` binary; do not edit them by hand. The overview shows how the commands relate to their parents. `lif --help` lists 28 commands, 27 of them have a page (Lif 0.14).
+The pages are alphabetical, without categories, and are generated from the command tree of the `lif` binary; do not edit them by hand. The overview shows how the commands relate to their parents. Every command that `lif --help` lists has a page, except Cobra's built-in `help`.
 
 ## Data and formats
 

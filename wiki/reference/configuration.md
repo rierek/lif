@@ -3,7 +3,7 @@ title: "Configuration"
 description: "The .lif.yml file: discovery, keys, defaults, types, statuses, priorities and presets."
 ---
 
-Canonical page for the `.lif.yml` file, for types, ranks and hierarchy rules, and for the shipped presets. It states what Lif enforces on write and what `lif check` verifies. Measured on Lif 0.14, 2026-10-14.
+Canonical page for the `.lif.yml` file, for types, ranks and hierarchy rules, and for the shipped presets. It states what Lif enforces on write and what `lif check` verifies.
 
 ## Config file and discovery
 
@@ -34,7 +34,7 @@ The task-oriented view, with worktrees, a shared store and the ID prefix, is [St
 
 ## Keys and defaults
 
-`lif init` writes a file like this (excerpt, Lif 0.14):
+`lif init` writes a file like this (excerpt):
 
 ```yaml
 project:
@@ -310,7 +310,7 @@ See [Automation](../../features/automation/#hooks) for the worktree example and 
 
 ### Recipes
 
-Add a status and a type, set colors. Verified with `lif check` and `lif create` (Lif 0.14):
+Add a status and a type, set colors. Verified with `lif check` and `lif create`:
 
 ```yaml
 statuses:

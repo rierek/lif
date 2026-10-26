@@ -32,7 +32,11 @@ echo "==> Store seeden"
 bash "$tapes/seed.sh" "$root/acme-app" "$root/bin/lif"
 
 # Tapes nach $work kopieren: Screenshot-/Output-Pfade sind dort relativ.
+# Ein Screenshot als letzter Befehl geht oft verloren: vhs beendet sich vor
+# dem nächsten Frame (gemessen: 7 von 16 Läufen ohne PNG, mit Nachlauf 20/20).
+# Deshalb bekommt jedes Screenshot-Tape einen kurzen Nachlauf.
 cp "$tapes"/*.tape "$work"/
+for t in "$work"/tui-*.tape; do grep -q '^Output' "$t" || echo 'Sleep 500ms' >>"$t"; done
 export LIF_DOC_ROOT="$root/acme-app" LIF_DOC_BIN="$root/bin"
 
 for tape in "$work"/tui-*.tape; do

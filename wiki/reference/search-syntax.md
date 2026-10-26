@@ -3,7 +3,7 @@ title: "Search syntax"
 description: "Query syntax for lif list --search and the GraphQL search filter."
 ---
 
-Full-text search runs through `lif list --search <query>` (short form `-S`) and through the GraphQL filter `ItemFilter.search`. Both use the same code and the same query syntax: the [Bleve](https://blevesearch.com/) *query string* syntax. Measured on Lif 0.14, 2026-10-14.
+Full-text search runs through `lif list --search <query>` (short form `-S`) and through the GraphQL filter `ItemFilter.search`. Both use the same code and the same query syntax: the [Bleve](https://blevesearch.com/) *query string* syntax.
 
 :::caution[AND, OR and NOT do not work]
 The words `AND`, `OR` and `NOT`, parentheses, `&&`, `||` and `!` are **not** operators. Every list of terms is an OR. Use `+term` (required) and `-term` (excluded) instead.
@@ -87,7 +87,7 @@ Within one flag the values are OR (`--status todo,in-progress`, `--tag a,b`). A 
 
 ## Examples
 
-Real output from a 19-item test store, Lif 0.14, 2026-10-14. Item IDs are shortened here.
+Real output from a 19-item test store. Item IDs are shortened here.
 
 ```sh
 lif list -S login

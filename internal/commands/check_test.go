@@ -59,6 +59,10 @@ func TestCheckHelperProcess(t *testing.T) {
 	if tags := os.Getenv("BEANS_CHECK_DEFAULT_TAGS"); tags != "" {
 		testCfg.Items.DefaultTags = strings.Split(tags, ",")
 	}
+	if os.Getenv("BEANS_CHECK_PARENTLESS") == "1" {
+		epic := []string{"epic"}
+		testCfg.Types = []config.TypeOverride{{Name: "task", Parents: &epic}}
+	}
 	testCore := itemcore.New(itemsDir, testCfg)
 	if err := testCore.Load(); err != nil {
 		os.Stderr.WriteString("loading core: " + err.Error() + "\n")
@@ -66,6 +70,12 @@ func TestCheckHelperProcess(t *testing.T) {
 	}
 	if os.Getenv("BEANS_CHECK_BROKEN_PARENT") == "1" {
 		if err := testCore.Create(&item.Item{ID: "aaa1", Title: "A", Status: "todo", Parent: "nonexistent"}); err != nil {
+			os.Stderr.WriteString("creating item: " + err.Error() + "\n")
+			os.Exit(2)
+		}
+	}
+	if os.Getenv("BEANS_CHECK_PARENTLESS") == "1" && os.Getenv("BEANS_CHECK_NOSEED") != "1" {
+		if err := testCore.Create(&item.Item{ID: "aaa1", Slug: "aaa1", Title: "A", Status: "todo", Type: "task"}); err != nil {
 			os.Stderr.WriteString("creating item: " + err.Error() + "\n")
 			os.Exit(2)
 		}

@@ -83,3 +83,30 @@ func TestParentsListIsEnforcedOnGraphQLWritePaths(t *testing.T) {
 		}
 	})
 }
+
+func TestParentsListAcceptCasesAndUpdateItemParent(t *testing.T) {
+	ctx := context.Background()
+	r := parentsResolver(t)
+	createTyped(t, r, "beans-ep01", "epic", "")
+	createTyped(t, r, "beans-ft01", "feature", "beans-ep01")
+	createTyped(t, r, "beans-ft02", "feature", "beans-ep01")
+	createTyped(t, r, "beans-tk01", "task", "beans-ft01")
+
+	if _, err := r.SetParent(ctx, "beans-tk01", strptr("beans-ft02"), nil); err != nil {
+		t.Fatalf("setParent to a listed type: %v", err)
+	}
+	if _, err := r.UpdateItem(ctx, "beans-tk01", model.UpdateItemInput{Parent: strptr("beans-ep01")}); err == nil {
+		t.Fatal("updateItem moved a task under an epic despite parents: [feature]")
+	}
+	if _, err := r.UpdateItem(ctx, "beans-tk01", model.UpdateItemInput{Parent: strptr("beans-ft01")}); err != nil {
+		t.Fatalf("updateItem parent change to a listed type: %v", err)
+	}
+	// Removing the parent stays allowed: parentless is a check warning, not a write reject.
+	if _, err := r.SetParent(ctx, "beans-tk01", nil, nil); err != nil {
+		t.Fatalf("clearing the parent: %v", err)
+	}
+	// A type change into a listed relation works.
+	if _, err := r.UpdateItem(ctx, "beans-ft01", model.UpdateItemInput{Type: strptr("feature")}); err != nil {
+		t.Fatalf("no-op type change: %v", err)
+	}
+}

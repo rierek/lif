@@ -199,6 +199,45 @@ func (m model) treeSearchActive() bool {
 	return strings.TrimSpace(m.searchQuery) != ""
 }
 
+// searchTarget returns the item whose ID the search text names exactly
+// (full ID, or the part after the prefix dash when that is unique), nil
+// otherwise. Such a query is a lookup, not a text search: it shows the item,
+// its parent, children and blocking relations only, and never asks Bleve
+// (which tokenizes "SPF-8urk" into "spf" and matches nearly every item).
+func (m model) searchTarget() *item.Item {
+	q := strings.TrimSpace(m.searchPrefixRest)
+	if q == "" || m.idx == nil {
+		return nil
+	}
+	if b := m.idx.ByID[q]; b != nil {
+		return b
+	}
+	var hit *item.Item
+	for id, b := range m.idx.ByID {
+		short := id[strings.LastIndex(id, "-")+1:]
+		if strings.EqualFold(id, q) || strings.EqualFold(short, q) {
+			if hit != nil {
+				return nil // ambiguous: fall back to text search
+			}
+			hit = b
+		}
+	}
+	return hit
+}
+
+// relatedTo reports whether b is t's parent, child or blocking relation.
+func relatedTo(t, b *item.Item) bool {
+	if b.ID == t.Parent || b.Parent == t.ID {
+		return true
+	}
+	for _, id := range append(append([]string{}, t.Blocking...), t.BlockedBy...) {
+		if id == b.ID {
+			return true
+		}
+	}
+	return false
+}
+
 // beanMatchesSearch is the search half of the combined filter predicate
 // (Task 4 AND-combines this with facet criteria as beanMatches,
 // box_filter_facets.go). A bean matches when the local title+ID substring
@@ -219,6 +258,9 @@ func (m model) treeSearchActive() bool {
 func (m model) beanMatchesSearch(b *item.Item) bool {
 	if !m.beanMatchesSearchPrefixFacets(b) {
 		return false
+	}
+	if t := m.searchTarget(); t != nil {
+		return b.ID == t.ID || relatedTo(t, b)
 	}
 	if strings.TrimSpace(m.searchPrefixRest) == "" {
 		return true

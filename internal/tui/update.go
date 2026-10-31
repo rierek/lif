@@ -1468,6 +1468,14 @@ func (m model) resetCursorToFirstVisible() model {
 		return m
 	}
 	m.cursorID = nodes[skipPlaceholder(nodes, 0, 1)].id
+	if t := m.searchTarget(); t != nil {
+		for _, n := range nodes {
+			if n.id == t.ID {
+				m.cursorID = t.ID
+				break
+			}
+		}
+	}
 	return m
 }
 
@@ -1498,7 +1506,7 @@ func (m model) dispatchBleveIfDue(extra tea.Cmd) (tea.Model, tea.Cmd) {
 // themselves never reach Bleve -- only rest is ever passed to searchCmd.
 func (m model) maybeBleveCmd() tea.Cmd {
 	q := m.searchPrefixRest
-	if len(q) < 3 || q == m.searchBleveFor {
+	if len(q) < 3 || q == m.searchBleveFor || m.searchTarget() != nil {
 		return nil
 	}
 	return searchCmd(m.store, q)

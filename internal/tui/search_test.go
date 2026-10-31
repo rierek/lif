@@ -36,17 +36,22 @@ func TestLocalSearchFiltersTreeByTitleSubstringCaseInsensitive(t *testing.T) {
 	}
 }
 
-// TestLocalSearchMatchesBeanIDSubstring guards the "+ID" half of the filter
-// (task brief: "title+ID substring, case-insensitive") -- the plan's own
-// beanMatchesSearch snippet only checked Title; the ID half is required
-// here explicitly, so it gets its own dedicated coverage.
+// TestLocalSearchMatchesBeanIDSubstring guards the "+ID" half of the filter.
+// A full-ID query is a lookup: the item plus its children, parent and
+// relations are shown, the cursor sits on the item itself, and Bleve is
+// never asked.
 func TestLocalSearchMatchesBeanIDSubstring(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	m = setSearchQuery(m, "ms-1") // ID substring -- "Milestone One" the TITLE does not contain "ms-1"
+	m = setSearchQuery(m, "ep-1")
 
-	nodes := m.visibleNodes()
-	if got := nodeIDs(nodes); !equalStrings(got, []string{"ms-1"}) {
-		t.Fatalf("filtered nodes = %v, want [ms-1] (search must match bean ID substring, not just title)", got)
+	if got := nodeIDs(m.visibleNodes()); !equalStrings(got, []string{"ms-1", "ep-1", "tk-1", "tk-2"}) {
+		t.Fatalf("filtered nodes = %v, want [ms-1 ep-1 tk-1 tk-2] (parent, item, children)", got)
+	}
+	if m = m.resetCursorToFirstVisible(); m.cursorID != "ep-1" {
+		t.Fatalf("cursor = %q, want the looked-up item ep-1", m.cursorID)
+	}
+	if m.maybeBleveCmd() != nil {
+		t.Fatal("ID lookup must not dispatch a Bleve search")
 	}
 }
 

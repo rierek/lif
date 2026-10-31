@@ -1462,12 +1462,21 @@ func (m model) keySearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // bean ID, not an index, is beans-tui's own cursor representation (T8), so
 // the equivalent reset is "first visible node's ID" rather than a bare 0.
 func (m model) resetCursorToFirstVisible() model {
+	m.flatList.cursor = 0
 	nodes := m.visibleNodes()
 	if len(nodes) == 0 {
 		m.cursorID = ""
 		return m
 	}
 	m.cursorID = nodes[skipPlaceholder(nodes, 0, 1)].id
+	if t := m.searchTarget(); t != nil {
+		for _, n := range nodes {
+			if n.id == t.ID {
+				m.cursorID = t.ID
+				break
+			}
+		}
+	}
 	return m
 }
 
@@ -1498,7 +1507,7 @@ func (m model) dispatchBleveIfDue(extra tea.Cmd) (tea.Model, tea.Cmd) {
 // themselves never reach Bleve -- only rest is ever passed to searchCmd.
 func (m model) maybeBleveCmd() tea.Cmd {
 	q := m.searchPrefixRest
-	if len(q) < 3 || q == m.searchBleveFor {
+	if len(q) < 3 || q == m.searchBleveFor || m.searchTarget() != nil {
 		return nil
 	}
 	return searchCmd(m.store, q)

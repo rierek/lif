@@ -15,18 +15,38 @@ import (
 // rule is unioned with it so partial words ("team" in "Teams") and wildcards
 // with capitals ("Bei*") find items too. An empty query matches nothing.
 func LocalMatcher(query string) func(*item.Item) bool {
+	return fieldMatcher(query, func(b *item.Item) string { return b.Title }, func(b *item.Item) string { return b.ID })
+}
+
+// BodyMatcher applies LocalMatcher's rule (case-insensitive substring, `*`/`?`
+// wildcards, empty query matches nothing) to the item body.
+func BodyMatcher(query string) func(*item.Item) bool {
+	return fieldMatcher(query, func(b *item.Item) string { return b.Body })
+}
+
+func fieldMatcher(query string, fields ...func(*item.Item) string) func(*item.Item) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	if q == "" {
 		return func(*item.Item) bool { return false }
 	}
 	if !strings.ContainsAny(q, "*?") {
 		return func(b *item.Item) bool {
-			return strings.Contains(strings.ToLower(b.Title), q) || strings.Contains(strings.ToLower(b.ID), q)
+			for _, f := range fields {
+				if strings.Contains(strings.ToLower(f(b)), q) {
+					return true
+				}
+			}
+			return false
 		}
 	}
 	re := globRegexp(q)
 	return func(b *item.Item) bool {
-		return re.MatchString(b.Title) || re.MatchString(b.ID)
+		for _, f := range fields {
+			if re.MatchString(f(b)) {
+				return true
+			}
+		}
+		return false
 	}
 }
 

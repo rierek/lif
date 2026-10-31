@@ -45,6 +45,25 @@ type promptData struct {
 	// TypeRanks lists one formatted line per occupied hierarchy rank, e.g.
 	// "rank 1: milestone", reflecting this project's actual config.
 	TypeRanks []string
+	// TypeParents lists one line per type that configures `parents`; for
+	// those types the list, not the rank rule, decides the allowed parents.
+	TypeParents []string
+}
+
+// parentLines renders one line per type with an explicit parents list.
+func parentLines(c *config.Config) []string {
+	var out []string
+	for _, t := range c.TypeList() {
+		if t.Parents == nil {
+			continue
+		}
+		allowed := "no parent (top level only)"
+		if len(t.Parents) > 0 {
+			allowed = strings.Join(t.Parents, ", ")
+		}
+		out = append(out, fmt.Sprintf("%s: %s", t.Name, allowed))
+	}
+	return out
 }
 
 // rankLines renders one line per occupied hierarchy rank. The prompt template
@@ -148,6 +167,7 @@ var primeCmd = &cobra.Command{
 			CommitFieldGated:      commitFieldGated,
 			CompletionCommitGated: completionCommitGated,
 			TypeRanks:             rankLines(loadedCfg),
+			TypeParents:           parentLines(loadedCfg),
 		}
 
 		return tmpl.Execute(os.Stdout, data)

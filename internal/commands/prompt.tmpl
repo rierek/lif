@@ -87,7 +87,9 @@ Use `lif <command> --help` for full options. Use `--json` for machine-readable o
 
 - **Parent**: An item may hang under any item of a higher rank. Ranks may be skipped, and two items of the same rank are never parent and child. The ranks in this project:
 {{range .TypeRanks}}  - {{.}}
-{{end}}  Set a parent with `--parent <id>`.
+{{end}}{{if .TypeParents}}  These types name their allowed parent types; for them this list replaces the rank rule:
+{{range .TypeParents}}  - {{.}}
+{{end}}{{end}}  Set a parent with `--parent <id>`.
 - **Blocking**: Use `--blocking <id>` when THIS item blocks another (the other item can't proceed until this is done).
 - **Blocked-by**: Use `--blocked-by <id>` when THIS item is blocked by another (this item can't proceed until the other is done). **Prefer this when creating dependent work.**
 - **Implicit blocking**: An item is also considered blocked if any of its ancestors (via parent chain) are blocked. Commands like `list --ready` and `next` respect this automatically.

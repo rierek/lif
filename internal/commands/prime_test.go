@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"text/template"
@@ -492,5 +493,29 @@ func TestPrimeGraphqlSectionNamesRegisteredCommand(t *testing.T) {
 		if !strings.Contains(section, want) {
 			t.Errorf("GraphQL section missing %q", want)
 		}
+	}
+}
+
+// Only types that set `parents` get a line; an explicit empty list reads as
+// top level only. Rank-only types must not appear, so a project without
+// `parents` primes exactly as before.
+func TestParentLinesListOnlyTypesWithParents(t *testing.T) {
+	r1, r2, r3 := 1, 2, 3
+	none := []string{}
+	c := &config.Config{
+		TypesExclusive: true,
+		Types: []config.TypeOverride{
+			{Name: "release", Rank: &r1, Parents: &none},
+			{Name: "epic", Rank: &r2, Parents: &[]string{"release"}},
+			{Name: "task", Rank: &r3},
+		},
+	}
+	got := parentLines(c)
+	want := []string{"release: no parent (top level only)", "epic: release"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("parentLines() = %v, want %v", got, want)
+	}
+	if got := parentLines(&config.Config{}); len(got) != 0 {
+		t.Fatalf("parentLines(defaults) = %v, want none", got)
 	}
 }

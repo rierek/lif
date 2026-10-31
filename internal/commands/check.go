@@ -68,14 +68,14 @@ func itemFieldIssues(allItems []*item.Item) []string {
 
 // parentRuleHint names what the configuration allows as parent for a type.
 func parentRuleHint(itemType string) string {
-	valid := itemcore.ValidParentTypes(cfg, itemType)
-	if len(valid) == 0 {
+	t := cfg.GetType(itemType)
+	if t == nil || t.Parents == nil {
+		return "parent must rank higher"
+	}
+	if len(t.Parents) == 0 {
 		return "this type has no parent"
 	}
-	if t := cfg.GetType(itemType); t != nil && t.Parents != nil {
-		return "allowed parent types: " + strings.Join(valid, ", ")
-	}
-	return "parent must rank higher"
+	return "allowed parent types: " + strings.Join(t.Parents, ", ")
 }
 
 // parentlessPolicyWarnings reports every parentless item whose type carries a

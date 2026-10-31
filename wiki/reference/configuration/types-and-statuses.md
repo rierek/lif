@@ -50,6 +50,7 @@ types:
   - name: feature
     parents: [epic]
 ```
+
 - Enforced on write: on `lif create --parent`, `lif update --parent`, `lif update --type` and the GraphQL mutations `createItem`, `updateItem`, `setParent`. The CLI, GraphQL and the TUI go through the same checks. Errors:
 
 ```text

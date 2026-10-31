@@ -1241,17 +1241,17 @@ func TestUnknownTypeBehavesLikeALeaf(t *testing.T) {
 
 func TestSameRankIsNotAParentRelation(t *testing.T) {
 	cfg := &config.Config{}
-	if IsValidParent(cfg, "feature", "feature") {
+	if IsValidParentRank(cfg, "feature", "feature") {
 		t.Error("feature under feature must stay rejected")
 	}
-	if IsValidParent(cfg, "epic", "epic") {
+	if IsValidParentRank(cfg, "epic", "epic") {
 		t.Error("epic under epic must stay rejected")
 	}
 }
 
 func TestRankJumpStaysAllowed(t *testing.T) {
 	cfg := &config.Config{}
-	if !IsValidParent(cfg, "task", "milestone") {
+	if !IsValidParentRank(cfg, "task", "milestone") {
 		t.Error("task directly under a milestone must stay allowed")
 	}
 }
@@ -1259,10 +1259,10 @@ func TestRankJumpStaysAllowed(t *testing.T) {
 func TestConfiguredSiblingRankForbidsNesting(t *testing.T) {
 	rank := 2
 	cfg := &config.Config{Types: []config.TypeOverride{{Name: "feature", Rank: &rank}}}
-	if IsValidParent(cfg, "feature", "epic") {
+	if IsValidParentRank(cfg, "feature", "epic") {
 		t.Error("with feature on epic's rank, nesting must be rejected")
 	}
-	if !IsValidParent(cfg, "feature", "milestone") {
+	if !IsValidParentRank(cfg, "feature", "milestone") {
 		t.Error("feature under milestone must stay allowed")
 	}
 }

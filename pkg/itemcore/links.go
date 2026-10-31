@@ -739,6 +739,12 @@ func IsValidParent(cfg *config.Config, childType, parentType string) bool {
 	if t := cfg.GetType(childType); t != nil && t.Parents != nil {
 		return slices.Contains(t.Parents, parentType)
 	}
+	return IsValidParentRank(cfg, childType, parentType)
+}
+
+// IsValidParentRank is the rank rule alone: the parent ranks strictly lower.
+// IsValidParent falls back to it for a type without a parents list.
+func IsValidParentRank(cfg *config.Config, childType, parentType string) bool {
 	return cfg.RankOf(childType) > cfg.RankOf(parentType)
 }
 

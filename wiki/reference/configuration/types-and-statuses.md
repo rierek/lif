@@ -7,7 +7,7 @@ description: "Built-in statuses and priorities, custom types and ranks, hierarch
 
 - Built-in statuses: `in-progress`, `todo`, `draft`, `completed`, `scrapped`. Types: `milestone`, `epic`, `feature`, `bug`, `task`. Priorities: `critical`, `high`, `normal`, `low`, `deferred`. See [Item file format](../../item-file-format/#allowed-values-and-defaults).
 - Entries under `statuses:`, `types:` and `priorities:` override a built-in entry by name or are appended.
-- Fields. `statuses`: `name`, `color`, `archive`, `short`, `description`. `types`: `name`, `color`, `rank`, `emphasis`, `roadmap`, `short`, `description`. `priorities`: `name`, `color`, `symbol`, `description`. Omitting `archive` keeps the default of a built-in entry. `lif archive` moves items with an archive status to `archive/`.
+- Fields. `statuses`: `name`, `color`, `archive`, `short`, `description`. `types`: `name`, `color`, `rank`, `parents`, `emphasis`, `roadmap`, `short`, `description`. `priorities`: `name`, `color`, `symbol`, `description`. Omitting `archive` keeps the default of a built-in entry. `lif archive` moves items with an archive status to `archive/`.
 - `types_exclusive: true`: `types` is the complete table; built-in types are not added. `lif init --profile` sets it.
 - Colors: a Catppuccin tone name or a hex value (`#rgb` or `#rrggbb`, for example `#ff8800`). Tones: `rosewater`, `flamingo`, `pink`, `mauve`, `red`, `maroon`, `peach`, `yellow`, `green`, `teal`, `sky`, `sapphire`, `blue`, `lavender`, `text`, `subtext1`, `subtext0`, `overlay2`, `overlay1`, `overlay0`, `surface2`, `surface1`, `surface0`, `base`. The legacy names `gray`, `grey`, `purple` and `cyan` still work. An empty color is valid. `lif check` reports an invalid one: `✗ invalid color 'notacolor' for type 'spike'`. The web UI applies these colors to badges and borders too, see [Web UI](../../web-server/#web-ui).
 - Blocking logic: "resolved" means `completed` or `scrapped`, fixed. The flag `archive: true` does not count there, so an item in a custom archive status keeps blocking. The ready logic, in contrast, excludes every status with `archive: true`.
@@ -43,6 +43,13 @@ To rename a type, add the new type, then change the old items: `lif update <id> 
 - Every type has an integer `rank`. A parent is valid if the child's rank is **strictly greater** than the parent's. Types of equal rank do not nest. "Level" is only a prose synonym for rank.
 - Ranks 1 to 3 are container ranks, rank 4 is the leaf rank. A type without `rank` gets 4, an unknown type counts as 4. Gaps are allowed. Container ranks also decide what is ready: `lif next` and `lif list --ready` never return an item whose type sits on rank 1 to 3.
 - Depth: the built-in types and the preset `classic` have four levels (`milestone` > `epic` > `feature` > `bug`/`task`). Custom types can go deeper; there is no upper limit (ranks 5 to 7 were accepted). "Four levels" describes the built-in scale, not a maximum.
+- Optional `parents` per type (since 0.18): a list of type names that names the **complete** set of allowed parent types. Absent: the rank rule above decides. `parents: []`: the type sits at the top level only. A non-empty list does not include the top level; an item without parent stays allowed on write, and `lif check` reports it as a policy warning. Config load rejects a name that is no known type (after `types_exclusive`) or whose rank is not smaller than the owning type's rank, which keeps cycles impossible. Every write path, the parent pickers and shell completion honour the list; `lif check --fix` never reparents.
+
+```yaml
+types:
+  - name: feature
+    parents: [epic]
+```
 - Enforced on write: on `lif create --parent`, `lif update --parent`, `lif update --type` and the GraphQL mutations `createItem`, `updateItem`, `setParent`. The CLI, GraphQL and the TUI go through the same checks. Errors:
 
 ```text
@@ -63,7 +70,8 @@ would create cycle: [...]
 | Type of every item against the type table | Front matter syntax beyond loading |
 | Status and priority values, tag format | |
 | File name against the ID the file records in its `# <id>` line, with the links that dangle (a hand rename, since 0.15) | |
-| Parent of the wrong type rank: `✗ item <id> (epic) cannot sit under parent <id> (task): parent must rank higher` | |
+| Parent of a type the type table does not allow (`parents` list or rank rule): `✗ item <id> (feature) cannot sit under parent <id> (milestone): allowed parent types: epic` | |
+| Item without parent whose type carries a non-empty `parents` list (policy warning, an issue only under `--strict`) | |
 | Broken links, self-references, cycles in `parent`, `blocking`, `blocked_by` | |
 | Orphaned `attachments/<id>` directories | |
 | Required fields and commit SHAs (warnings) | |

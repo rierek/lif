@@ -460,3 +460,26 @@ func TestDuplicateIDIssues(t *testing.T) {
 		t.Fatalf("no duplicates gave %q", got)
 	}
 }
+
+func TestCheckReportsParentTypeViolationsAndParentlessPolicy(t *testing.T) {
+	prev := cfg
+	epics := []string{"epic"}
+	cfg = &config.Config{Types: []config.TypeOverride{{Name: "feature", Parents: &epics}}}
+	defer func() { cfg = prev }()
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Status: "todo"},
+		{ID: "e1", Type: "epic", Status: "todo", Parent: "m1"},
+		{ID: "ok", Type: "feature", Status: "todo", Priority: "normal", Parent: "e1"},
+		{ID: "bad", Type: "feature", Status: "todo", Priority: "normal", Parent: "m1"},
+		{ID: "top", Type: "feature", Status: "todo", Priority: "normal"},
+	}
+	issues := itemFieldIssues(items)
+	if len(issues) != 1 || !strings.Contains(issues[0], "bad (feature)") || !strings.Contains(issues[0], "m1 (milestone)") {
+		t.Fatalf("issues = %v, want one naming bad/feature and m1/milestone", issues)
+	}
+	warns := parentlessPolicyWarnings(items)
+	if len(warns) != 1 || !strings.HasPrefix(warns[0], "top:") {
+		t.Fatalf("warnings = %v, want only top", warns)
+	}
+}

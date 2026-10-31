@@ -59,8 +59,32 @@ func itemFieldIssues(allItems []*item.Item) []string {
 			}
 		}
 		if p, ok := byID[b.Parent]; ok && cfg.IsValidType(b.Type) && cfg.IsValidType(p.Type) &&
-			!itemcore.IsValidParentRank(cfg, b.Type, p.Type) {
-			out = append(out, fmt.Sprintf("item %s (%s) cannot sit under parent %s (%s): parent must rank higher", b.ID, b.Type, p.ID, p.Type))
+			!itemcore.IsValidParent(cfg, b.Type, p.Type) {
+			out = append(out, fmt.Sprintf("item %s (%s) cannot sit under parent %s (%s): %s", b.ID, b.Type, p.ID, p.Type, parentRuleHint(b.Type)))
+		}
+	}
+	return out
+}
+
+// parentRuleHint names what the configuration allows as parent for a type.
+func parentRuleHint(itemType string) string {
+	valid := itemcore.ValidParentTypes(cfg, itemType)
+	if len(valid) == 0 {
+		return "this type has no parent"
+	}
+	if t := cfg.GetType(itemType); t != nil && t.Parents != nil {
+		return "allowed parent types: " + strings.Join(valid, ", ")
+	}
+	return "parent must rank higher"
+}
+
+// parentlessPolicyWarnings reports every parentless item whose type carries a
+// non-empty parents list. A policy warning only: writes never require a parent.
+func parentlessPolicyWarnings(allItems []*item.Item) []string {
+	var out []string
+	for _, b := range allItems {
+		if t := cfg.GetType(b.Type); b.Parent == "" && t != nil && len(t.Parents) > 0 {
+			out = append(out, fmt.Sprintf("%s: %s has no parent (allowed parent types: %s)", b.ID, b.Type, strings.Join(t.Parents, ", ")))
 		}
 	}
 	return out
@@ -237,7 +261,7 @@ var checkCmd = &cobra.Command{
 	Long: `Checks configuration and item integrity, including:
 - Configuration settings (colors, default type, priority and tags, ID prefix)
 - Item types that the configuration still defines
-- Item fields: unknown status or priority, invalid tags, parent of the wrong type rank
+- Item fields: unknown status or priority, invalid tags, parent of a type the configuration does not allow, parentless items of a type with a non-empty parents list (policy warning)
 - Item file names: a file whose name gives another ID than the file records in its "# <id>" line (a file renamed by hand), with the links that now dangle
 - Broken links (links to non-existent items)
 - Self-references (items linking to themselves)
@@ -572,6 +596,7 @@ Note: Cycles cannot be auto-fixed and require manual intervention.`,
 
 		// Redundant blocking edges are policy warnings too. They print without
 		// require_fields_on; with it they continue the section above.
+		redundantWarnings = append(redundantWarnings, parentlessPolicyWarnings(allItems)...)
 		if len(redundantWarnings) > 0 {
 			policyWarnings = append(policyWarnings, redundantWarnings...)
 			if !checkJSON {

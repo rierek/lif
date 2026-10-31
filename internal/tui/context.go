@@ -1,70 +1,121 @@
 package tui
 
-// context.go — Yank `y`'s Markdown-Kontext-Generator (E5 Task 3, bean
-// bt-e4a6, epic-E5-plan.md »Task 3«, design decision b): ONE view-agnostic
-// beanContext(idx, b) instead of devd's three separate milestoneClip/
-// sprintClip/readyClip functions (internal/tui/context.go in devd's own
-// cli-go) -- beans has no devd Milestone/Sprint/Issue three-way split, so a
-// single generator covers both a leaf Issue (no "## Children" section) and
-// an Epic/Milestone (idx.Children[b.ID] non-empty -> "## Children" table)
-// via the same code path. `y` always acts on m.focusedBean() (Tree/Ready
-// identical, update.go's keyNodeAction) -- the Review-Cockpit used to be a
-// view-local exception here (its own reviewStandMarkdown override instead of
-// beanContext), removed by E7 T1 (PF-14, bean bt-wmtb, 2026-07-15).
+// context.go — Yank's clipboard text generator. `y` is a prefix (update.go
+// handleKey, yankPrefixKey); the second key picks one of three variants of
+// the focused item:
 //
-// Relation resolution (Parent/Blocking/Blocked By) mirrors view_detail_bean.
-// go's resolveSorted: resolved via idx.ByID to "ID Title", canonically
-// sorted (data.SortBeans) among the resolved half, with a dangling
-// reference (beans-legal) rendered as "ID (unresolved)" rather than
-// silently dropped.
+//	yy  full: the item file as on disk (front matter + body), plus a
+//	    "## Children" table when the item has children
+//	ym  meta: the complete front matter, no body (same text as a piped
+//	    `lif show --meta`)
+//	yt  meta + toc: the front matter plus the body's heading outline
+//
+// The front matter comes from item.Render, never a hand-picked field list,
+// so every field the file carries (Extra, created/updated, order, ...) lands
+// in the clipboard.
 
 import (
 	"fmt"
-	"github.com/rierek/lif/pkg/item"
 	"strings"
 
 	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/pkg/item"
 )
 
-// beanContext renders b as Markdown for the clipboard: a header (ID/Title/
-// Status/Type/Priority/Tags/Parent/Blocking/Blocked By) + Body, PLUS a
-// "## Children" table when idx.Children[b.ID] is non-empty. nil b returns
-// an empty string (defensive -- callers already guard the orphan-root
-// cursor before reaching here, update.go keyNodeAction Plan Step 6).
-func beanContext(idx *data.Index, b *item.Item) string {
+// yankMode selects the variant yankText renders.
+type yankMode int
+
+const (
+	yankFull yankMode = iota
+	yankMeta
+	yankTOC
+)
+
+// yankText renders b in the chosen mode. nil b returns "" (defensive --
+// callers already guard the orphan-root cursor).
+func yankText(idx *data.Index, b *item.Item, mode yankMode) (string, error) {
 	if b == nil {
-		return ""
+		return "", nil
+	}
+	source := b
+	if mode != yankFull {
+		source = b.Clone()
+		source.Body = ""
+	}
+	content, err := source.Render()
+	if err != nil {
+		return "", fmt.Errorf("render item %s: %w", b.ID, err)
 	}
 
-	var out strings.Builder
-	fmt.Fprintf(&out, "# %s — %s\n\n", b.ID, b.Title)
-	fmt.Fprintf(&out, "- Status: %s\n", b.Status)
-	fmt.Fprintf(&out, "- Type: %s\n", b.Type)
-	fmt.Fprintf(&out, "- Priority: %s\n", contextPriority(b.Priority))
-	if len(b.Tags) > 0 {
-		fmt.Fprintf(&out, "- Tags: %s\n", strings.Join(b.Tags, ", "))
+	text := string(content)
+	if mode != yankFull {
+		text = stripFrontMatterFence(text)
 	}
-	if b.Parent != "" {
-		fmt.Fprintf(&out, "- Parent: %s\n", contextRelLabel(idx, b.Parent))
+	section := func(title, body string) string {
+		return strings.TrimRight(text, "\n") + "\n\n## " + title + "\n\n" + body
 	}
-	if len(b.Blocking) > 0 {
-		fmt.Fprintf(&out, "- Blocking: %s\n", contextRelLabels(idx, b.Blocking))
-	}
-	if len(b.BlockedBy) > 0 {
-		fmt.Fprintf(&out, "- Blocked By: %s\n", contextRelLabels(idx, b.BlockedBy))
-	}
-
-	if strings.TrimSpace(b.Body) != "" {
-		fmt.Fprintf(&out, "\n%s\n", b.Body)
-	}
-
-	if idx != nil {
-		if children := idx.Children[b.ID]; len(children) > 0 {
-			out.WriteString("\n## Children\n\n")
-			out.WriteString(contextBeanTable(children))
+	switch mode {
+	case yankFull:
+		if idx != nil {
+			if children := idx.Children[b.ID]; len(children) > 0 {
+				return section("Children", contextBeanTable(children)), nil
+			}
+		}
+	case yankTOC:
+		if toc := bodyTOC(b.Body); toc != "" {
+			return section("TOC", toc), nil
 		}
 	}
+	return text, nil
+}
 
+// stripFrontMatterFence drops the opening and closing "---" lines of a
+// rendered front matter block, leaving only the key: value lines.
+func stripFrontMatterFence(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "---\n")
+	s = strings.TrimSuffix(s, "\n---")
+	return s + "\n"
+}
+
+// bodyTOC returns the ATX headings of a Markdown body as a nested list, one
+// two-space indent per level below the shallowest heading. Lines inside
+// fenced code blocks (``` or ~~~) are not headings.
+func bodyTOC(body string) string {
+	type heading struct {
+		level int
+		text  string
+	}
+	var hs []heading
+	minLevel := 7
+	fence := ""
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if fence != "" {
+			if strings.HasPrefix(trimmed, fence) {
+				fence = ""
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			fence = trimmed[:3]
+			continue
+		}
+		level := len(trimmed) - len(strings.TrimLeft(trimmed, "#"))
+		if level == 0 || level > 6 || (len(trimmed) > level && trimmed[level] != ' ') {
+			continue
+		}
+		text := strings.TrimSpace(strings.TrimRight(strings.TrimSpace(trimmed[level:]), "#"))
+		if text == "" {
+			continue
+		}
+		hs = append(hs, heading{level, text})
+		minLevel = min(minLevel, level)
+	}
+	var out strings.Builder
+	for _, h := range hs {
+		fmt.Fprintf(&out, "%s- %s\n", strings.Repeat("  ", h.level-minLevel), h.text)
+	}
 	return out.String()
 }
 
@@ -77,52 +128,9 @@ func contextPriority(p string) string {
 	return p
 }
 
-// contextRelLabel resolves a single bean ID against idx.ByID to "ID Title"
-// -- falls back to "ID (unresolved)" for a dangling reference (beans-legal,
-// mirrors view_detail_bean.go's resolveSorted fallback).
-func contextRelLabel(idx *data.Index, id string) string {
-	if idx != nil {
-		if rel, ok := idx.ByID[id]; ok {
-			return id + " " + rel.Title
-		}
-	}
-	return id + " (unresolved)"
-}
-
-// contextRelLabels resolves a slice of IDs (Blocking/Blocked By) to
-// comma-joined "ID Title" labels: the resolved half canonically sorted
-// (data.SortBeans, mirrors resolveSorted), unresolved IDs appended last in
-// their input order.
-func contextRelLabels(idx *data.Index, ids []string) string {
-	var resolved []*item.Item
-	var unresolved []string
-	for _, id := range ids {
-		if idx != nil {
-			if rel, ok := idx.ByID[id]; ok {
-				resolved = append(resolved, rel)
-				continue
-			}
-		}
-		unresolved = append(unresolved, id)
-	}
-	data.SortBeans(resolved)
-
-	labels := make([]string, 0, len(resolved)+len(unresolved))
-	for _, rel := range resolved {
-		labels = append(labels, rel.ID+" "+rel.Title)
-	}
-	for _, id := range unresolved {
-		labels = append(labels, id+" (unresolved)")
-	}
-	return strings.Join(labels, ", ")
-}
-
 // contextBeanTable renders an already-resolved, already-sorted bean slice
 // (idx.Children -- NewIndex sorts via sortBeans at build time, no re-sort
 // needed here) as a Markdown table: ID | Type | Status | Prio | Title.
-// Used by beanContext's Children table (the former Review-Cockpit's
-// reviewStandMarkdown per-group/Rework tables shared this too, removed by
-// E7 T1, PF-14, bean bt-wmtb, 2026-07-15).
 func contextBeanTable(beans []*item.Item) string {
 	var out strings.Builder
 	out.WriteString("| ID | Type | Status | Prio | Title |\n|---|---|---|---|---|\n")

@@ -143,6 +143,7 @@ type model struct {
 	expanded   map[string]bool // node ID (item ID or a synthetic root ID) -> expanded
 	cursorID   string          // currently selected node's ID (item ID or a synthetic root ID)
 	foldPrefix bool            // "z" was just pressed in the roadmap: the next key completes a fold sequence (update.go handleKey)
+	yankPrefix bool            // "y" was just pressed on an item: the next key picks the yank variant (update.go handleKey)
 
 	// detailFocus: the Detail pane holds the focus, one stop of the focus
 	// ring (stepFocus, layout.go); tab/shift+tab are deliberately NOT routed

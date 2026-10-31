@@ -1270,8 +1270,8 @@ func (m model) focusedBean() *item.Item {
 // up/down walk the box-form field cursor (boxFormNav, box_nav_field.go,
 // linear with wrap, dragging the scroll offset along so the cursored field
 // is always in the viewport); enter opens the cursored field's editor
-// (boxFormActivateCursor, the same dispatch a click takes); left/right do
-// nothing; esc leaves the region (in layoutDetail, which has no other, it is
+// (boxFormActivateCursor, the same dispatch a click takes); left/right (j/l)
+// page the body up/down; esc leaves the region (in layoutDetail, which has no other, it is
 // the list views' esc: escBack).
 func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if keybind.Matches(msg, keys.Back) {
@@ -1294,8 +1294,12 @@ func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.boxFormNav(b, "prev"), nil
 	case "down":
 		return m.boxFormNav(b, "next"), nil
-	case "left", "right":
-		return m, nil
+	case "left": // j/←: page body up (no column move exists here)
+		_, page := boxFormScrollBounds(m, b)
+		return m.adjustBoxFormScroll(b, -page), nil
+	case "right": // l/→: page body down
+		_, page := boxFormScrollBounds(m, b)
+		return m.adjustBoxFormScroll(b, page), nil
 	}
 	if keybind.Matches(msg, keys.Enter) {
 		return m.boxFormActivateCursor(b)

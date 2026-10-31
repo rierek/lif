@@ -40,6 +40,8 @@ type keyMap struct {
 	// bindings hold the whole sequence, handleKey buffers the prefix.
 	PrevSibling  keybind.Binding // [ — previous sibling
 	NextSibling  keybind.Binding // ] — next sibling
+	PageUp       keybind.Binding // pgup — page the Detail body up
+	PageDown     keybind.Binding // pgdn — page the Detail body down
 	ExpandNode   keybind.Binding // zo — expand the cursor node and all its descendants
 	CollapseNode keybind.Binding // zc — collapse the cursor node and all its descendants
 	ExpandAll    keybind.Binding // zR — expand every node
@@ -172,6 +174,8 @@ func newKeyMap() keyMap {
 		ExpandNode:   keybind.NewBinding(keybind.WithKeys("zo"), keybind.WithHelp("zo", "expand node and children")),
 		CollapseNode: keybind.NewBinding(keybind.WithKeys("zc"), keybind.WithHelp("zc", "collapse node and children")),
 		ExpandAll:    keybind.NewBinding(keybind.WithKeys("zR"), keybind.WithHelp("zR", "expand all")),
+		PageUp:       boxFormPageUp,
+		PageDown:     boxFormPageDown,
 		CollapseAll:  keybind.NewBinding(keybind.WithKeys("zM"), keybind.WithHelp("zM", "collapse all")),
 
 		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next focus")),
@@ -247,7 +251,7 @@ type helpGroup struct {
 // a later task — the help view itself is out of scope here).
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
-		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
+		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.PageUp, k.PageDown, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
 		{"Dialogs", []keybind.Binding{k.Confirm, k.Cancel}},
 		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Waves, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
 		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},

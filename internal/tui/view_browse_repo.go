@@ -199,6 +199,77 @@ func (m model) treeSearchActive() bool {
 	return strings.TrimSpace(m.searchQuery) != ""
 }
 
+// searchTarget returns the item whose ID the search text names exactly
+// (full ID, or the part after the prefix dash when that is unique), nil
+// otherwise. Such a query is a lookup, not a text search: the roadmap shows
+// the item, its parent, children and blocking relations (both directions),
+// and the search never asks Bleve (which tokenizes "SPF-8urk" into "spf" and
+// matches nearly every item).
+func (m model) searchTarget() *item.Item {
+	q := strings.TrimSpace(m.searchPrefixRest)
+	if q == "" || m.idx == nil {
+		return nil
+	}
+	if b := m.idx.ByID[q]; b != nil {
+		return b
+	}
+	var hit *item.Item
+	for id, b := range m.idx.ByID {
+		short := id[strings.LastIndex(id, "-")+1:]
+		if strings.EqualFold(id, q) || strings.EqualFold(short, q) {
+			if hit != nil {
+				return nil // ambiguous: fall back to text search
+			}
+			hit = b
+		}
+	}
+	return hit
+}
+
+// searchGroup is the section a search hit belongs to in the flat list; the
+// constant order is the section order. groupNone = not a hit.
+type searchGroup int
+
+const (
+	groupNone searchGroup = iota
+	groupItem
+	groupParent
+	groupChildren
+	groupRelations
+	groupTitle
+	groupBody
+	groupFullText
+)
+
+var searchGroupLabels = [...]string{"", "Item", "Parent", "Children", "Relations", "Title / ID", "Body", "Full text"}
+
+// searchGroupOf returns b's section for the current query; t is
+// m.searchTarget(), passed in so callers look it up once per list.
+func (m model) searchGroupOf(t, b *item.Item) searchGroup {
+	if t != nil {
+		switch {
+		case b.ID == t.ID:
+			return groupItem
+		case b.ID == t.Parent:
+			return groupParent
+		case b.Parent == t.ID:
+			return groupChildren
+		case t.IsBlocking(b.ID) || t.IsBlockedBy(b.ID) || b.IsBlocking(t.ID) || b.IsBlockedBy(t.ID):
+			return groupRelations
+		}
+	}
+	q := m.searchPrefixRest
+	switch {
+	case search.LocalMatcher(q)(b):
+		return groupTitle
+	case search.BodyMatcher(q)(b):
+		return groupBody
+	case len(strings.TrimSpace(q)) >= 3 && m.searchBleveFor == q && m.searchBleveIDs[b.ID]:
+		return groupFullText
+	}
+	return groupNone
+}
+
 // beanMatchesSearch is the search half of the combined filter predicate
 // (Task 4 AND-combines this with facet criteria as beanMatches,
 // box_filter_facets.go). A bean matches when the local title+ID substring
@@ -219,6 +290,10 @@ func (m model) treeSearchActive() bool {
 func (m model) beanMatchesSearch(b *item.Item) bool {
 	if !m.beanMatchesSearchPrefixFacets(b) {
 		return false
+	}
+	if t := m.searchTarget(); t != nil {
+		g := m.searchGroupOf(t, b)
+		return g != groupNone && g <= groupRelations
 	}
 	if strings.TrimSpace(m.searchPrefixRest) == "" {
 		return true
@@ -992,6 +1067,8 @@ func (m model) View() string {
 		// E10 Task 2 (bean bt-r92i): the Tag-Management page -- a full
 		// top-level view (view_tag_management.go), not an overlay.
 		out = m.viewTagManagement()
+	case viewWaves:
+		out = m.viewWaves()
 	default:
 		out = m.viewBrowseRepo()
 	}

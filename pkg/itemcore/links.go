@@ -717,10 +717,14 @@ func (c *Core) FixBrokenLinks() (int, error) {
 	return fixed, nil
 }
 
-// ValidParentTypes returns the type names an item of itemType may hang under:
-// every type on a strictly lower rank, in rank order. Returns nil when no such
-// type exists, which is how "cannot have a parent" is expressed.
+// ValidParentTypes returns the type names an item of itemType may hang under.
+// A type with a parents list gets that list; otherwise every type on a
+// strictly lower rank, in rank order. Returns nil when no such type exists,
+// which is how "cannot have a parent" is expressed.
 func ValidParentTypes(cfg *config.Config, itemType string) []string {
+	if t := cfg.GetType(itemType); t != nil && t.Parents != nil {
+		return slices.Clone(t.Parents)
+	}
 	childRank := cfg.RankOf(itemType)
 	var out []string
 	for rank := 1; rank < childRank; rank++ {
@@ -729,7 +733,17 @@ func ValidParentTypes(cfg *config.Config, itemType string) []string {
 	return out
 }
 
-// IsValidParentRank reports whether parentType may hold childType.
+// IsValidParent reports whether parentType may hold childType: the child's
+// parents list when set, the rank rule otherwise. The only place that decides.
+func IsValidParent(cfg *config.Config, childType, parentType string) bool {
+	if t := cfg.GetType(childType); t != nil && t.Parents != nil {
+		return slices.Contains(t.Parents, parentType)
+	}
+	return IsValidParentRank(cfg, childType, parentType)
+}
+
+// IsValidParentRank is the rank rule alone: the parent ranks strictly lower.
+// IsValidParent falls back to it for a type without a parents list.
 func IsValidParentRank(cfg *config.Config, childType, parentType string) bool {
 	return cfg.RankOf(childType) > cfg.RankOf(parentType)
 }
@@ -746,7 +760,7 @@ func (c *Core) ValidateParent(b *item.Item, parentID string) error {
 		return Invalid("parent item not found: %s", parentID)
 	}
 
-	if IsValidParentRank(c.config, b.Type, parent.Type) {
+	if IsValidParent(c.config, b.Type, parent.Type) {
 		return nil
 	}
 
@@ -934,4 +948,47 @@ func (c *Core) implicitStatusLocked(itemID string) (status, fromID string) {
 	})
 
 	return result.status, result.fromID
+}
+
+// BlockingEdge is one ordering edge between two items: Waiting waits for Blocker.
+type BlockingEdge struct {
+	Blocker string
+	Waiting string
+}
+
+// RemoveBlockingEdges removes every given edge from the item that declares it:
+// from the blocked_by list of the waiting item and from the blocking list of
+// the blocker, wherever the edge is declared (one or both). Every other link,
+// including parent, stays. Each changed item is saved once, through the same
+// path as FixBrokenLinks. An edge nobody declares is ignored.
+func (c *Core) RemoveBlockingEdges(edges []BlockingEdge) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	drop := make(map[BlockingEdge]bool, len(edges))
+	touched := make([]string, 0, 2*len(edges))
+	for _, e := range edges {
+		drop[e] = true
+		touched = append(touched, e.Blocker, e.Waiting)
+	}
+	slices.Sort(touched)
+	touched = slices.Compact(touched)
+
+	for _, id := range touched {
+		b, ok := c.items[id]
+		if !ok {
+			continue
+		}
+		blockedBy, blocking := len(b.BlockedBy), len(b.Blocking)
+		b.BlockedBy = slices.DeleteFunc(b.BlockedBy, func(x string) bool { return drop[BlockingEdge{Blocker: x, Waiting: id}] })
+		b.Blocking = slices.DeleteFunc(b.Blocking, func(x string) bool { return drop[BlockingEdge{Blocker: id, Waiting: x}] })
+		if len(b.BlockedBy) == blockedBy && len(b.Blocking) == blocking {
+			continue
+		}
+		c.invalidateIncomingLocked()
+		if err := c.saveToDisk(b); err != nil {
+			return err
+		}
+	}
+	return nil
 }

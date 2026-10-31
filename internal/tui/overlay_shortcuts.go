@@ -33,6 +33,7 @@ func helpViews() []helpEntry {
 		{g, keys.Roadmap.Help().Key, "Roadmap: milestones and their items as a tree"},
 		{g, keys.FlatList.Help().Key, "Flat list: all items in one list"},
 		{g, keys.Ready.Help().Key, "Ready: items ready to work on, in one list"},
+		{g, keys.Waves.Help().Key, "Waves: the children of an item as columns that follow blocked_by; also palette entry view: waves (graph)"},
 		{g, keys.Picker.Help().Key, "Lobby: pick a repository"},
 		{g, palette, "Tag management: command palette, entry view: tags"},
 		{g, palette, "Settings: command palette, entry view: settings"},

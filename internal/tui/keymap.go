@@ -40,6 +40,8 @@ type keyMap struct {
 	// bindings hold the whole sequence, handleKey buffers the prefix.
 	PrevSibling  keybind.Binding // [ — previous sibling
 	NextSibling  keybind.Binding // ] — next sibling
+	PageUp       keybind.Binding // pgup — page the Detail body up
+	PageDown     keybind.Binding // pgdn — page the Detail body down
 	ExpandNode   keybind.Binding // zo — expand the cursor node and all its descendants
 	CollapseNode keybind.Binding // zc — collapse the cursor node and all its descendants
 	ExpandAll    keybind.Binding // zR — expand every node
@@ -62,10 +64,15 @@ type keyMap struct {
 	Palette keybind.Binding // K or : — Command-Center
 	Picker  keybind.Binding // P — repo-picker (Lobby)
 	Ready   keybind.Binding // R — Ready
+	Waves   keybind.Binding // W — Waves view of the focused item
 	Search  keybind.Binding // / — search
 	Filter  keybind.Binding // f — facet filter
-	Yank    keybind.Binding // y — copy context (OSC52 + native)
-	Refresh keybind.Binding // ctrl+r — manual data reload
+	Yank    keybind.Binding // y — prefix of the yank sequences below (OSC52 + native)
+	// Yank sequences (yankPrefixKey + one key): handleKey buffers the prefix.
+	YankFull keybind.Binding // yy — copy item file + children table
+	YankMeta keybind.Binding // ym — copy full front matter
+	YankTOC  keybind.Binding // yt — copy front matter + body heading outline
+	Refresh  keybind.Binding // ctrl+r — manual data reload
 
 	FilterClear keybind.Binding // X — reset filters
 	Toggle      keybind.Binding // space/x — toggle facet checkbox (E2 Task 4, bean bt-9ldr)
@@ -171,6 +178,8 @@ func newKeyMap() keyMap {
 		ExpandNode:   keybind.NewBinding(keybind.WithKeys("zo"), keybind.WithHelp("zo", "expand node and children")),
 		CollapseNode: keybind.NewBinding(keybind.WithKeys("zc"), keybind.WithHelp("zc", "collapse node and children")),
 		ExpandAll:    keybind.NewBinding(keybind.WithKeys("zR"), keybind.WithHelp("zR", "expand all")),
+		PageUp:       boxFormPageUp,
+		PageDown:     boxFormPageDown,
 		CollapseAll:  keybind.NewBinding(keybind.WithKeys("zM"), keybind.WithHelp("zM", "collapse all")),
 
 		FocusIn:  keybind.NewBinding(keybind.WithKeys("tab"), keybind.WithHelp("tab", "next focus")),
@@ -191,10 +200,15 @@ func newKeyMap() keyMap {
 		Palette: keybind.NewBinding(keybind.WithKeys("K", ":"), keybind.WithHelp("K/:", "commands")),
 		Picker:  keybind.NewBinding(keybind.WithKeys("P"), keybind.WithHelp("P", "repos")),
 		Ready:   keybind.NewBinding(keybind.WithKeys("R"), keybind.WithHelp("R", "Ready")),
+		Waves:   keybind.NewBinding(keybind.WithKeys("W"), keybind.WithHelp("W", "Waves")),
 		Search:  keybind.NewBinding(keybind.WithKeys("/"), keybind.WithHelp("/", "search")),
 		Filter:  keybind.NewBinding(keybind.WithKeys("f"), keybind.WithHelp("f", "Filter")),
-		Yank:    keybind.NewBinding(keybind.WithKeys("y"), keybind.WithHelp("y", "Yank")),
-		Refresh: keybind.NewBinding(keybind.WithKeys("ctrl+r"), keybind.WithHelp("ctrl+r", "reload")),
+		Yank:    keybind.NewBinding(keybind.WithKeys(yankPrefixKey), keybind.WithHelp(yankPrefixKey, "Yank")),
+
+		YankFull: keybind.NewBinding(keybind.WithKeys("yy"), keybind.WithHelp("yy", "copy item + children")),
+		YankMeta: keybind.NewBinding(keybind.WithKeys("ym"), keybind.WithHelp("ym", "copy front matter")),
+		YankTOC:  keybind.NewBinding(keybind.WithKeys("yt"), keybind.WithHelp("yt", "copy front matter + TOC")),
+		Refresh:  keybind.NewBinding(keybind.WithKeys("ctrl+r"), keybind.WithHelp("ctrl+r", "reload")),
 
 		FilterClear: keybind.NewBinding(keybind.WithKeys("X"), keybind.WithHelp("X", "Clear filters")),
 		Toggle:      keybind.NewBinding(keybind.WithKeys(" ", "x"), keybind.WithHelp("space/x", "Toggle facet")),
@@ -245,10 +259,10 @@ type helpGroup struct {
 // a later task — the help view itself is out of scope here).
 func (k keyMap) helpGroups() []helpGroup {
 	return []helpGroup{
-		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
+		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.PageUp, k.PageDown, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
 		{"Dialogs", []keybind.Binding{k.Confirm, k.Cancel}},
-		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
-		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
+		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Waves, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
+		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.YankFull, k.YankMeta, k.YankTOC, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are
 		// overlay-local controls that only exist while a picker is open, and

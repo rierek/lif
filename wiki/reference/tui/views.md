@@ -7,7 +7,7 @@ Screenshots from a test repository of 34 items. Key names: [Key bindings](../key
 
 ## Overview of the views
 
-There are four views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
+There are five views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
 
 ![The roadmap as it opens](../../screenshots/tui-roadmap.png)
 
@@ -18,6 +18,7 @@ The in-app help (`?`) has a Views section with one line per view and layout and 
 | Browse, tree | The roadmap: milestones, epics, features, tasks. | Default after start; `M` |
 | Browse, flat | All items in one list. | `L` |
 | Ready | Items `lif list --ready` lists, flat. | `R` |
+| Waves | The children of one item as cards in columns that follow `blocked_by`. | `W` on the focused item; command palette `K`, entry `view: waves (graph)`. |
 | Lobby | Repository picker. | `P` |
 | Tag management | Tag definitions. | Command palette `K`, entry `view: tags`. |
 | Detail pane | Fields, relations, body of the selected item. Not shown at start. | `v` / `shift+v` change the [layout](#layouts). |
@@ -56,6 +57,23 @@ Moving through the roadmap: `l` opens, `zo` opens a node with its children, `]` 
 Switching between the views with `L`, `R` and `M`:
 
 ![Roadmap, flat list and Ready one after the other](../../assets/tui-views.gif)
+
+## Waves view
+
+`W` on the focused item of the Roadmap, the flat list or Ready opens the Waves view with that item as root. The command palette lists the same action as `view: waves (graph)`. The view shows the direct children of the root (`scrapped` ones are hidden) as fixed-size cards. A card stands in the column after its last blocker; lines with an arrow `▶` connect blocker and waiter. Cards without edges and without `order` stand in a loose column at the left. The view has no filter. The view reads items only; the single write is a second `b` (see below).
+
+| Key | Action |
+|---|---|
+| `i` `k` `j` `l`, arrows | Move the focus: up and down inside the column, left and right to the card of the next column at the nearest row. `[` and `]` do nothing. |
+| `Enter` | Detail panel of the focus item; `esc` returns to the board. |
+| `o` | Go into the focus card: it becomes the root. Needs visible children. |
+| `Backspace` | Root becomes its parent; the former root has the focus. |
+| `Tab` | Level picker: the root and its siblings that have visible children. |
+| `b` | Edge mode. First `b` marks the focus card (teal frame) as blocker. Second `b` on another card writes "this card waits on the mark" into its `blocked_by`, or removes it when it is there. `b` on the mark or `esc` cancels. Cards that would form a cycle are dimmed and refuse the key. |
+| `c` | Show or hide the critical path (shown when the view opens). |
+| `esc` | Cancels edge mode; without a mark, back to the view the Waves view was opened from. |
+
+The footer shows `column n/m` for the focus column and `n redundant` when the focus card has redundant `blocked_by` edges (not drawn). `?`, `K`/`:` and `q` keep their global meaning. The mouse is ignored. After every reload the board is rebuilt; root and focus stay, a vanished root returns to the origin view.
 
 ## Layouts
 
@@ -114,6 +132,8 @@ The detail is a box form. The boxes are, from top: `Title · <id>`, `Status (s)`
 - `/` starts the search in tree, flat and ready. Each keystroke can trigger a search.
 - In the roadmap an active search opens every ancestor of a hit without changing the open and closed state you set; clearing the search brings that state back. Ancestors without a hit of their own are shown muted. The cursor, `[` and `]`, and the mouse only land on hits. `zo`, `zc`, `zR`, `zM` and `←` `→` change the saved state and show their effect once the search is cleared.
 - Text of three or more bytes also goes to the same full-text search as `lif list --search`, so [search syntax](../../search-syntax/) applies, including its limits (no `AND`/`OR`/`NOT`). The result is always the union with a local substring match on title and ID: `team` finds `Teams und Rechte`, `Bei*` finds `Beispiel-Plugin` (`*` any run, `?` one character, case-insensitive). An ID substring always matches.
+- A search for an item ID (the full ID such as `SPF-8urk`, or the part after the dash such as `8urk` when only one item has it, any case) is a lookup and skips the full-text search. The roadmap shows the item, its parent, its children and the items it blocks or is blocked by; the cursor lands on the item.
+- The flat list (`L`) sorts the hits of a text search into sections, in this order: `Item`, `Parent`, `Children`, `Relations` (these four only for an ID lookup), then `Title / ID` (substring in title or ID), `Body` (substring in the body) and `Full text` (other full-text hits). Each hit shows once, in the first section that fits; inside a section the usual order applies, and the cursor starts on the first hit. A search for `SPF-8urk` shows its parent under `Parent` and the items that mention it under `Body`. Facet prefixes alone (`st:todo`) leave the list ungrouped.
 - The TUI splits off its own prefixes before the search: `st:`, `ty:`, `pr:`, `tag:` followed by a value become facet filters (status, type, priority, tag). `tag:auth` in the TUI is a facet, not a search field.
 - A bad query shows an error toast, with the error text of the search, for example a syntax error. Incomplete queries such as `title:` flash this while you type.
 - The filter bar fields (Type, Status, Priority, Tags, Archive) are focus targets. `f` jumps to the Type field; from layout Roadmap or Details it first switches to layout Roadmap + filter. `←`/`→` (or `j`/`l`) or `tab`/`shift+tab` move between the fields, `enter`, `space` or `↓` open the value menu of the focused field. In the menu `space`, `x` or `enter` toggles a value and the list filters at once; `esc` closes the menu, a second `esc` returns to the list. `X` clears Type, Status, Priority and Tags and keeps the layout. Archive is a view switch, not a facet: `X` leaves it as set. A long Tags list scrolls inside the menu. Facets combine with AND across fields and OR within one.

@@ -36,6 +36,8 @@ func TestCheckHelperProcess(t *testing.T) {
 	if os.Getenv("BEANS_CHECK_JSON") == "1" {
 		checkJSON = true
 	}
+	checkFix = os.Getenv("BEANS_CHECK_FIX") == "1"
+	checkStrict = os.Getenv("BEANS_CHECK_STRICT") == "1"
 
 	itemsDir := os.Getenv("BEANS_CHECK_DIR")
 	testCfg := config.Default()
@@ -57,6 +59,10 @@ func TestCheckHelperProcess(t *testing.T) {
 	if tags := os.Getenv("BEANS_CHECK_DEFAULT_TAGS"); tags != "" {
 		testCfg.Items.DefaultTags = strings.Split(tags, ",")
 	}
+	if os.Getenv("BEANS_CHECK_PARENTLESS") == "1" {
+		epic := []string{"epic"}
+		testCfg.Types = []config.TypeOverride{{Name: "task", Parents: &epic}}
+	}
 	testCore := itemcore.New(itemsDir, testCfg)
 	if err := testCore.Load(); err != nil {
 		os.Stderr.WriteString("loading core: " + err.Error() + "\n")
@@ -68,7 +74,13 @@ func TestCheckHelperProcess(t *testing.T) {
 			os.Exit(2)
 		}
 	}
-	if scenario := os.Getenv("BEANS_CHECK_CYCLES"); scenario != "" {
+	if os.Getenv("BEANS_CHECK_PARENTLESS") == "1" && os.Getenv("BEANS_CHECK_NOSEED") != "1" {
+		if err := testCore.Create(&item.Item{ID: "aaa1", Slug: "aaa1", Title: "A", Status: "todo", Type: "task"}); err != nil {
+			os.Stderr.WriteString("creating item: " + err.Error() + "\n")
+			os.Exit(2)
+		}
+	}
+	if scenario := os.Getenv("BEANS_CHECK_CYCLES"); scenario != "" && os.Getenv("BEANS_CHECK_NOSEED") != "1" {
 		for _, b := range checkCycleItems(scenario) {
 			if err := testCore.Create(b); err != nil {
 				os.Stderr.WriteString("creating item: " + err.Error() + "\n")
@@ -366,6 +378,22 @@ func checkCycleItems(scenario string) []*item.Item {
 			{ID: "bbb2", Title: "B", Status: "todo"},
 			{ID: "ccc3", Title: "C", Status: "todo", BlockedBy: []string{"bbb2"}, Blocking: []string{"aaa1"}},
 		}
+	case "redundant":
+		// a->b only on A, b->c only on C, a->c declared on both ends. A keeps a parent.
+		return []*item.Item{
+			{ID: "ppp0", Title: "P", Status: "todo", Type: "epic"},
+			{ID: "aaa1", Title: "A", Status: "todo", Type: "task", Parent: "ppp0", Blocking: []string{"bbb2", "ccc3"}},
+			{ID: "bbb2", Title: "B", Status: "todo"},
+			{ID: "ccc3", Title: "C", Status: "todo", BlockedBy: []string{"aaa1", "bbb2"}},
+		}
+	case "longpath":
+		// a->d holds through b and c; b->d through c.
+		return []*item.Item{
+			{ID: "aaa1", Title: "A", Status: "todo", Blocking: []string{"bbb2", "ddd4"}},
+			{ID: "bbb2", Title: "B", Status: "todo", Blocking: []string{"ccc3", "ddd4"}},
+			{ID: "ccc3", Title: "C", Status: "todo", Blocking: []string{"ddd4"}},
+			{ID: "ddd4", Title: "D", Status: "todo"},
+		}
 	case "subtree":
 		// An epic that waits for its own child.
 		return []*item.Item{
@@ -440,5 +468,28 @@ func TestDuplicateIDIssues(t *testing.T) {
 	}
 	if got := duplicateIDIssues(nil); len(got) != 0 {
 		t.Fatalf("no duplicates gave %q", got)
+	}
+}
+
+func TestCheckReportsParentTypeViolationsAndParentlessPolicy(t *testing.T) {
+	prev := cfg
+	epics := []string{"epic"}
+	cfg = &config.Config{Types: []config.TypeOverride{{Name: "feature", Parents: &epics}}}
+	defer func() { cfg = prev }()
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Status: "todo"},
+		{ID: "e1", Type: "epic", Status: "todo", Parent: "m1"},
+		{ID: "ok", Type: "feature", Status: "todo", Priority: "normal", Parent: "e1"},
+		{ID: "bad", Type: "feature", Status: "todo", Priority: "normal", Parent: "m1"},
+		{ID: "top", Type: "feature", Status: "todo", Priority: "normal"},
+	}
+	issues := itemFieldIssues(items)
+	if len(issues) != 1 || !strings.Contains(issues[0], "bad (feature)") || !strings.Contains(issues[0], "m1 (milestone)") {
+		t.Fatalf("issues = %v, want one naming bad/feature and m1/milestone", issues)
+	}
+	warns := parentlessPolicyWarnings(items)
+	if len(warns) != 1 || !strings.HasPrefix(warns[0], "top:") {
+		t.Fatalf("warnings = %v, want only top", warns)
 	}
 }

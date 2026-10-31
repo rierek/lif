@@ -51,7 +51,7 @@ Defaults: status `todo`, type `task`, no priority written. Custom entries and th
 
 ## Relationships
 
-- `parent`: a single parent. On write, the rank rule applies ([Configuration](../configuration/types-and-statuses/#types-ranks-and-hierarchy-rules)).
+- `parent`: a single parent. On write, the parent rule (`parents` list or rank rule) applies ([Configuration](../configuration/types-and-statuses/#types-ranks-and-hierarchy-rules)).
 - `blocking` and `blocked_by`: two separate lists. A link is stored only in the file of the item you changed; the other side is not written. On read, Lif merges both directions. `lif check` does not report a difference between the two sides.
 - `lif delete` removes incoming references (`parent`, `blocking`, `blocked_by`) from other files.
 
@@ -89,7 +89,7 @@ Editing files by hand is allowed. Lif loads and reloads without validating hiera
 | Unknown status or priority | Front matter syntax errors beyond loading |
 | Invalid tags | |
 | File name that gives another ID than the file records in `# <id>` (a hand rename, since 0.15) | |
-| Parent of the wrong type rank | |
+| Parent of a type the type table does not allow | |
 | Broken links, self-references, cycles | |
 | Missing required fields (warning), unknown commit SHAs (warning) | |
 | Orphaned `attachments/<id>` | |

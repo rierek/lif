@@ -215,7 +215,7 @@ Run `lif check` afterwards; it must print no `Legacy names` section. Having a le
 
 ## After upgrading: validate your project
 
-Run `lif check` against your project to validate configuration and item integrity, including broken links, self-references, and circular dependencies; `lif check --strict` additionally treats policy warnings as failures, and `lif check --fix` can automatically remove broken links and self-references (cycles still require manual resolution; a link to the ID that a file renamed by hand still records is kept).
+Run `lif check` against your project to validate configuration and item integrity, including broken links, self-references, and circular dependencies; `lif check --strict` additionally treats policy warnings as failures, and `lif check --fix` can automatically remove broken links, self-references and redundant blocking edges (cycles still require manual resolution; a link to the ID that a file renamed by hand still records is kept).
 
 Run `lif path` to confirm which data directory the binary resolved. Precedence is `--lif-path`, then a found or explicitly named `.lif.yml` (or the legacy config file, when no `.lif.yml` exists) and its anchored path, then `LIF_PATH` only when no config was found, then the default `.lif` directory.
 

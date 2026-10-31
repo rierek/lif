@@ -44,8 +44,8 @@ import (
 // reported height, so line-wise and page-wise scrolling can never drift on the
 // reset/clamp rules (SSTD load-bearing constraint).
 var (
-	boxFormPageUp   = keybind.NewBinding(keybind.WithKeys("pgup"), keybind.WithHelp("pgup", "page up"))
-	boxFormPageDown = keybind.NewBinding(keybind.WithKeys("pgdown"), keybind.WithHelp("pgdn", "page down"))
+	boxFormPageUp   = keybind.NewBinding(keybind.WithKeys("pgup"), keybind.WithHelp("pgup/j", "scroll body up (detail focus: j)"))
+	boxFormPageDown = keybind.NewBinding(keybind.WithKeys("pgdown"), keybind.WithHelp("pgdn/l", "scroll body down (detail focus: l)"))
 )
 
 // boxFormRow* index detailBoxForm's block slice (boxFormBlocks,

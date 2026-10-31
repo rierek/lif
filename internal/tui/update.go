@@ -832,21 +832,45 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		}
 		return true, m, nil // unreachable: msg matched one of the eight keys in this case's condition above
 	case keybind.Matches(msg, keys.Yank):
-		// E5 Task 3 (bean bt-e4a6, design decision b): `y` always acts on
-		// m.focusedBean() -- Tree/Ready identical (focusedBean is already
-		// the view-agnostic dispatcher E2 Task 2 built).
-		b := m.focusedBean()
-		if b == nil {
-			return true, m, nil // orphan-root cursor: handled, silent no-op (Plan Step 6)
+		// `y` is a prefix: the next key picks the variant (handleKey ->
+		// keyYank). The hint toast names the choices. orphan-root cursor:
+		// handled, silent no-op.
+		if m.focusedBean() == nil {
+			return true, m, nil
 		}
-		if err := clip.Copy(beanContext(m.idx, b)); err != nil {
-			nm, cmd := m.showToast(toastWarn, "Yank failed", "", nil, false)
-			return true, nm, cmd
-		}
-		nm, cmd := m.showToast(toastInfo, "Copied: "+b.ID, "", nil, false)
+		m.yankPrefix = true
+		nm, cmd := m.showToast(toastInfo, "Yank: y item · m meta · t meta+toc", "any other key cancels", nil, false)
 		return true, nm, cmd
 	}
 	return false, m, nil
+}
+
+// keyYank completes a yank sequence (yy/ym/yt) on m.focusedBean(). Any other
+// sequence cancels and drops the hint toast.
+func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
+	var mode yankMode
+	switch {
+	case bindHas(keys.YankFull, seq):
+		mode = yankFull
+	case bindHas(keys.YankMeta, seq):
+		mode = yankMeta
+	case bindHas(keys.YankTOC, seq):
+		mode = yankTOC
+	default:
+		return m.clearToastUnlessSticky(), nil
+	}
+	b := m.focusedBean()
+	if b == nil {
+		return m.clearToastUnlessSticky(), nil
+	}
+	text, err := yankText(m.idx, b, mode)
+	if err == nil {
+		err = clip.Copy(text)
+	}
+	if err != nil {
+		return m.showToast(toastWarn, "Yank failed", err.Error(), nil, false)
+	}
+	return m.showToast(toastInfo, "Copied: "+b.ID, "", nil, false)
 }
 
 // keyOverlay routes to the currently open node-action overlay's own key
@@ -937,6 +961,9 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	readyID := selectedID(m.idx != nil, m.readyVisible(), m.readyList.cursor)
 
 	m = m.setItems(msg.beans, msg.ready)
+	if m.view == viewWaves {
+		m = m.wavesReload()
+	}
 	m.flatList = restoreListCursor(m.flatList, m.flatVisible(), flatID)
 	m.readyList = restoreListCursor(m.readyList, m.readyVisible(), readyID)
 	nodes := m.visibleNodes()
@@ -1002,9 +1029,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.String() == "ctrl+c" {
 		return m, tea.Quit
 	}
-	// A buffered fold prefix lives for exactly one key press, whatever that key does.
-	foldPending := m.foldPrefix
-	m.foldPrefix = false
+	// A buffered fold/yank prefix lives for exactly one key press, whatever that key does.
+	foldPending, yankPending := m.foldPrefix, m.yankPrefix
+	m.foldPrefix, m.yankPrefix = false, false
 	if m.confirmQuit {
 		return m.keyConfirmQuit(msg)
 	}
@@ -1100,6 +1127,21 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// existing precedent this file already establishes end to end.
 	if m.helpOpen {
 		return m.keyHelp(msg)
+	}
+	// Waves (bean beans-wrj0): full-capture view like the Lobby, but the global
+	// keys wavesPassthrough lists keep their meaning, so it sits BELOW the
+	// palette/help full-capture states and ABOVE their bare key matches.
+	if m.view == viewWaves && !m.wavesPassthrough(msg) {
+		return m.keyWaves(msg)
+	}
+	// Yank sequences (yy/ym/yt): intercepted AHEAD of every bare key below
+	// for the same reason as the fold keys (m, t would swallow the second key).
+	switch s := msg.String(); {
+	case yankPending:
+		return m.keyYank(yankPrefixKey + s)
+	case len(s) == 2 && s[:1] == yankPrefixKey && msg.Type == tea.KeyRunes:
+		// both keys in one terminal read (fast typing, paste)
+		return m.keyYank(s)
 	}
 	// Roadmap fold keys (zo/zc/zR/zM): intercepted AHEAD of every bare key
 	// below, whose letters (c, R, M, ...) would otherwise swallow the second
@@ -1233,6 +1275,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // (viewReady case below, bean bt-gzu6) reuses keyDetailFocus verbatim.
 func (m model) focusedBean() *item.Item {
 	switch m.view {
+	case viewWaves: // beans-wrj0: the Waves focus card
+		return m.wavesFocusItem()
 	case viewReady: // E2 Task 5: the Ready list's own selection, NOT the (possibly stale/irrelevant) tree cursor
 		return m.readySelected()
 	default: // viewBrowseRepo (T8)
@@ -1259,8 +1303,8 @@ func (m model) focusedBean() *item.Item {
 // up/down walk the box-form field cursor (boxFormNav, box_nav_field.go,
 // linear with wrap, dragging the scroll offset along so the cursored field
 // is always in the viewport); enter opens the cursored field's editor
-// (boxFormActivateCursor, the same dispatch a click takes); left/right do
-// nothing; esc leaves the region (in layoutDetail, which has no other, it is
+// (boxFormActivateCursor, the same dispatch a click takes); left/right (j/l)
+// page the body up/down; esc leaves the region (in layoutDetail, which has no other, it is
 // the list views' esc: escBack).
 func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if keybind.Matches(msg, keys.Back) {
@@ -1283,8 +1327,12 @@ func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.boxFormNav(b, "prev"), nil
 	case "down":
 		return m.boxFormNav(b, "next"), nil
-	case "left", "right":
-		return m, nil
+	case "left": // j/←: page body up (no column move exists here)
+		_, page := boxFormScrollBounds(m, b)
+		return m.adjustBoxFormScroll(b, -page), nil
+	case "right": // l/→: page body down
+		_, page := boxFormScrollBounds(m, b)
+		return m.adjustBoxFormScroll(b, page), nil
 	}
 	if keybind.Matches(msg, keys.Enter) {
 		return m.boxFormActivateCursor(b)
@@ -1451,12 +1499,21 @@ func (m model) keySearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // bean ID, not an index, is beans-tui's own cursor representation (T8), so
 // the equivalent reset is "first visible node's ID" rather than a bare 0.
 func (m model) resetCursorToFirstVisible() model {
+	m.flatList.cursor = 0
 	nodes := m.visibleNodes()
 	if len(nodes) == 0 {
 		m.cursorID = ""
 		return m
 	}
 	m.cursorID = nodes[skipPlaceholder(nodes, 0, 1)].id
+	if t := m.searchTarget(); t != nil {
+		for _, n := range nodes {
+			if n.id == t.ID {
+				m.cursorID = t.ID
+				break
+			}
+		}
+	}
 	return m
 }
 
@@ -1487,7 +1544,7 @@ func (m model) dispatchBleveIfDue(extra tea.Cmd) (tea.Model, tea.Cmd) {
 // themselves never reach Bleve -- only rest is ever passed to searchCmd.
 func (m model) maybeBleveCmd() tea.Cmd {
 	q := m.searchPrefixRest
-	if len(q) < 3 || q == m.searchBleveFor {
+	if len(q) < 3 || q == m.searchBleveFor || m.searchTarget() != nil {
 		return nil
 	}
 	return searchCmd(m.store, q)
@@ -1511,6 +1568,9 @@ func (m model) setExpanded(n treeNode, open bool) model {
 
 // foldPrefixKey starts the roadmap fold sequences (zo/zc/zR/zM, keys.ExpandNode ...).
 const foldPrefixKey = "z"
+
+// yankPrefixKey starts the yank sequences (yy/ym/yt, keys.YankFull ...).
+const yankPrefixKey = "y"
 
 // siblingPos returns the index of the previous (dir<0) or next (dir>0) visible
 // sibling of nodes[pos]: same depth under the same parent, expanded children

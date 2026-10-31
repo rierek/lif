@@ -111,6 +111,12 @@ func (l cancelHintLayout) View(f *huh.Form) string {
 // runCreateForm builds and runs one wizard form: the single place that sets
 // theme, keymap and the input/output pair.
 func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*huh.Group) error {
+	return runForm(errCreateAborted, in, out, layout, groups...)
+}
+
+// runForm is runCreateForm with the cancel error chosen by the caller, so
+// list -i and roadmap -i share theme, layout and cancel hint.
+func runForm(aborted error, in createInput, out io.Writer, layout huh.Layout, groups ...*huh.Group) error {
 	if layout == nil {
 		layout = huh.LayoutDefault
 	}
@@ -121,7 +127,7 @@ func runCreateForm(in createInput, out io.Writer, layout huh.Layout, groups ...*
 		WithTheme(ui.FormTheme(ui.FlavourFormPalette(ui.ActiveTheme())))
 	if err := f.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
-			return errCreateAborted
+			return aborted
 		}
 		return err
 	}

@@ -22,7 +22,8 @@ Notation: `ctrl+x` is Ctrl and `x`; several keys for one action are separated by
 | `↑` / `↓` in the detail pane | Previous or next box |
 | `enter` | Open or confirm |
 | `esc` | Back; leaves the detail pane and menus; in the flat list and Ready, see Views |
-| `pgup` / `pgdown` | Page the detail body (not listed in `?`) |
+| `pgup` / `pgdown` | Page the detail body from any pane; listed in `?` |
+| `j` / `l` | Page the detail body up / down while the detail pane has focus |
 
 The roadmap footer shows the sibling and open/close keys above at its right edge when the terminal is wide enough. Not in the flat list, Ready or open menus.
 
@@ -33,6 +34,7 @@ The roadmap footer shows the sibling and open/close keys above at its right edge
 | `M` | Roadmap |
 | `L` | Flat list |
 | `R` | Ready |
+| `W` | Waves of the focused item (Roadmap, flat list, Ready); keys inside the view: see [Waves view](views.md#waves-view) |
 | `P` | Repository picker (lobby) |
 | `v` / `shift+v` | Next or previous layout: roadmap, roadmap + filter, roadmap + filter + details, details; both wrap |
 
@@ -48,7 +50,9 @@ The Board view (`B`) is planned and not bound yet. `esc` in the flat list or Rea
 | `X` | Clear Type, Status, Priority and Tags (not Archive) |
 | `S` | Cycle ready sort |
 | `ctrl+r` | Reload |
-| `y` | Copy (yank) item context |
+| `yy` | Copy the item file (front matter + body), plus a children table for a parent |
+| `ym` | Copy the full front matter, no body (same as piped `lif show --meta`) |
+| `yt` | Copy the full front matter plus the body's heading outline (`## TOC`) |
 | `?` | Help ([search and scroll](#help)) |
 | `q` | Quit dialog |
 | `ctrl+c` | Quit at once from every state (lists, forms, menus, dialogs, lobby), no confirmation, no lobby |
@@ -75,7 +79,7 @@ The search matches the key, the description and the group name, ignoring case; a
 | `y` | Confirm (quit, create, delete, tag delete); `enter` confirms too |
 | `n` | Cancel; `esc` cancels too |
 
-In a dialog `y` confirms; everywhere else `y` copies the item context.
+In a dialog `y` confirms; everywhere else `y` starts a copy sequence (`yy`, `ym`, `yt`). A toast lists the choices; any other second key cancels.
 
 ## Item actions
 

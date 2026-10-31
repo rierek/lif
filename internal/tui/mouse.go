@@ -191,7 +191,7 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// route stray clicks against the tag page's foreign geometry.
 	if m.form != nil || m.overlay != overlayNone || m.paletteOpen ||
 		m.searchActive || m.helpOpen || m.confirmQuit || m.view == viewLobby ||
-		m.view == viewTagManagement {
+		m.view == viewTagManagement || m.view == viewWaves {
 		return m, nil
 	}
 
@@ -277,12 +277,17 @@ func (m model) paneGeometry() (bodyH, lw, rw, originX, originY, innerW int) {
 	}
 	innerW = w - 2
 	var head, localKeys string
-	if m.view == viewReady {
+	layout := m.layout
+	switch m.view {
+	case viewReady:
 		head, localKeys = m.readyChrome(innerW)
-	} else {
+	case viewWaves: // the Waves detail panel is the full-width detail layout
+		head, localKeys = m.wavesChrome(innerW)
+		layout = layoutDetail
+	default:
 		head, localKeys = m.browseRepoChrome(innerW)
 	}
-	bodyH, lw, rw, originX, originY = clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
+	bodyH, lw, rw, originX, originY = clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, layout)
 	return
 }
 

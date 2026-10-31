@@ -1462,6 +1462,7 @@ func (m model) keySearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // bean ID, not an index, is beans-tui's own cursor representation (T8), so
 // the equivalent reset is "first visible node's ID" rather than a bare 0.
 func (m model) resetCursorToFirstVisible() model {
+	m.flatList.cursor = 0
 	nodes := m.visibleNodes()
 	if len(nodes) == 0 {
 		m.cursorID = ""

@@ -201,9 +201,10 @@ func (m model) treeSearchActive() bool {
 
 // searchTarget returns the item whose ID the search text names exactly
 // (full ID, or the part after the prefix dash when that is unique), nil
-// otherwise. Such a query is a lookup, not a text search: it shows the item,
-// its parent, children and blocking relations only, and never asks Bleve
-// (which tokenizes "SPF-8urk" into "spf" and matches nearly every item).
+// otherwise. Such a query is a lookup, not a text search: the roadmap shows
+// the item, its parent, children and blocking relations (both directions),
+// and the search never asks Bleve (which tokenizes "SPF-8urk" into "spf" and
+// matches nearly every item).
 func (m model) searchTarget() *item.Item {
 	q := strings.TrimSpace(m.searchPrefixRest)
 	if q == "" || m.idx == nil {
@@ -225,17 +226,48 @@ func (m model) searchTarget() *item.Item {
 	return hit
 }
 
-// relatedTo reports whether b is t's parent, child or blocking relation.
-func relatedTo(t, b *item.Item) bool {
-	if b.ID == t.Parent || b.Parent == t.ID {
-		return true
-	}
-	for _, id := range append(append([]string{}, t.Blocking...), t.BlockedBy...) {
-		if id == b.ID {
-			return true
+// searchGroup is the section a search hit belongs to in the flat list; the
+// constant order is the section order. groupNone = not a hit.
+type searchGroup int
+
+const (
+	groupNone searchGroup = iota
+	groupItem
+	groupParent
+	groupChildren
+	groupRelations
+	groupTitle
+	groupBody
+	groupFullText
+)
+
+var searchGroupLabels = [...]string{"", "Item", "Parent", "Children", "Relations", "Title / ID", "Body", "Full text"}
+
+// searchGroupOf returns b's section for the current query; t is
+// m.searchTarget(), passed in so callers look it up once per list.
+func (m model) searchGroupOf(t, b *item.Item) searchGroup {
+	if t != nil {
+		switch {
+		case b.ID == t.ID:
+			return groupItem
+		case b.ID == t.Parent:
+			return groupParent
+		case b.Parent == t.ID:
+			return groupChildren
+		case t.IsBlocking(b.ID) || t.IsBlockedBy(b.ID) || b.IsBlocking(t.ID) || b.IsBlockedBy(t.ID):
+			return groupRelations
 		}
 	}
-	return false
+	q := m.searchPrefixRest
+	switch {
+	case search.LocalMatcher(q)(b):
+		return groupTitle
+	case search.BodyMatcher(q)(b):
+		return groupBody
+	case len(strings.TrimSpace(q)) >= 3 && m.searchBleveFor == q && m.searchBleveIDs[b.ID]:
+		return groupFullText
+	}
+	return groupNone
 }
 
 // beanMatchesSearch is the search half of the combined filter predicate
@@ -260,7 +292,8 @@ func (m model) beanMatchesSearch(b *item.Item) bool {
 		return false
 	}
 	if t := m.searchTarget(); t != nil {
-		return b.ID == t.ID || relatedTo(t, b)
+		g := m.searchGroupOf(t, b)
+		return g != groupNone && g <= groupRelations
 	}
 	if strings.TrimSpace(m.searchPrefixRest) == "" {
 		return true

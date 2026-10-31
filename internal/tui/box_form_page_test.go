@@ -362,3 +362,42 @@ func TestBoxFormPageBadgeConstantWidthAcrossPages(t *testing.T) {
 		t.Fatalf("badge width not constant across pages: 1->%d 50->%d 100->%d -- a widening page number must not shift or drop the indicator mid-paging", w1, w50, w100)
 	}
 }
+
+// With the Detail pane focused, l/→ pages the body down and j/← pages it back
+// up, one page each, without moving the Tree cursor.
+func TestBoxFormJLPageTheBodyAtDetailFocus(t *testing.T) {
+	for _, keys := range [][2]tea.KeyMsg{
+		{{Type: tea.KeyRunes, Runes: []rune{'l'}}, {Type: tea.KeyRunes, Runes: []rune{'j'}}},
+		{keyMsg(tea.KeyRight), keyMsg(tea.KeyLeft)},
+	} {
+		m := boxFormScrollModel(t)
+		_, height := requireOverflow(t, m, m.focusedBean())
+		m.detailFocus = true
+		cursor := m.cursorID
+
+		m = step(t, m, keys[0])
+		if m.boxFormScroll != height {
+			t.Fatalf("%q: boxFormScroll = %d, want one page (%d)", keys[0].String(), m.boxFormScroll, height)
+		}
+		m = step(t, m, keys[1])
+		if m.boxFormScroll != 0 || m.cursorID != cursor {
+			t.Fatalf("%q: scroll=%d cursor=%q, want 0 and %q", keys[1].String(), m.boxFormScroll, m.cursorID, cursor)
+		}
+	}
+}
+
+// ? help lists the page keys in its Navigation group.
+func TestHelpNavigationListsPageKeys(t *testing.T) {
+	var nav []string
+	for _, g := range newKeyMap().helpGroups() {
+		if g.title == "Navigation" {
+			for _, b := range g.bindings {
+				nav = append(nav, b.Help().Key)
+			}
+		}
+	}
+	joined := strings.Join(nav, " ")
+	if !strings.Contains(joined, "pgup") || !strings.Contains(joined, "pgdn") {
+		t.Fatalf("Navigation help keys = %q, want pgup and pgdn", joined)
+	}
+}

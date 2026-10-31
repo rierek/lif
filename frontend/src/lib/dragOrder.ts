@@ -70,15 +70,6 @@ export function computeOrder(items: Item[], targetIndex: number, draggedId: stri
  * Reparent an item: make it a child of newParentId (or top-level if null),
  * placing it at the end of the new parent's children.
  */
-/** Valid parent types per item type (must match backend's ValidParentTypes) */
-const VALID_PARENT_TYPES: Record<string, string[]> = {
-  milestone: [],
-  epic: ['milestone'],
-  feature: ['milestone', 'epic'],
-  task: ['milestone', 'epic', 'feature'],
-  bug: ['milestone', 'epic', 'feature']
-};
-
 export function applyReparent(
   draggedId: string,
   newParentId: string | null,
@@ -94,13 +85,9 @@ export function applyReparent(
   // Prevent creating cycles: newParentId must not be a descendant of draggedId
   if (newParentId && isDescendant(newParentId, draggedId)) return;
 
-  // Validate type hierarchy client-side
-  if (newParentId) {
-    const parent = itemsStore.get(newParentId);
-    if (!parent) return;
-    const validTypes = VALID_PARENT_TYPES[item.type] ?? ['milestone', 'epic', 'feature'];
-    if (!validTypes.includes(parent.type)) return;
-  }
+  // The parent rule (type table, parents list, ranks) is enforced by the
+  // backend; a refused drop rolls back below and shows the error.
+  if (newParentId && !itemsStore.get(newParentId)) return;
 
   // Compute order key at end of new sibling list
   const orderedChildren = ensureOrdered(targetChildren);
@@ -159,13 +146,8 @@ export function applyDrop(
   const newParentId = opts?.newParentId;
   const changingParent = newParentId !== undefined && item.parentId !== newParentId;
 
-  // Validate type hierarchy if reparenting
-  if (changingParent && newParentId) {
-    const parent = itemsStore.get(newParentId);
-    if (!parent) return;
-    const validTypes = VALID_PARENT_TYPES[item.type] ?? ['milestone', 'epic', 'feature'];
-    if (!validTypes.includes(parent.type)) return;
-  }
+  // Parent rule: enforced by the backend, a refused drop rolls back below.
+  if (changingParent && newParentId && !itemsStore.get(newParentId)) return;
 
   const orderedItems = ensureOrdered(items);
   const newOrder = computeOrder(orderedItems, targetIndex, draggedId);

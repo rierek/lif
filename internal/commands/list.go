@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/rierek/lif/internal/output"
@@ -41,6 +42,7 @@ var (
 	listView        string
 	listMaxWidth    int
 	listTags        bool
+	listInteractive bool
 )
 
 var listCmd = &cobra.Command{
@@ -64,7 +66,13 @@ Search Syntax (--search/-S):
   login -user    "login" without "user"
   slug:auth      Search only in slug field
   title:login    Search only in title field
-  body:auth      Search only in body field`,
+  body:auth      Search only in body field
+
+--interactive (-i) asks for a query (pre-filled from --search), runs the same
+search, lists the hits as "id  status  title" and prints the chosen item as
+"lif show" does. No hits: it says so and exits 0. It needs a terminal on stdin
+and stdout, cannot be combined with --json, and Ctrl+C cancels with a non-zero
+exit.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Flag validation comes before any data access and before every
 		// early return: an empty result set or --json must not swallow a
@@ -78,6 +86,29 @@ Search Syntax (--search/-S):
 		// running the query, analogous to validateExtraKeys in create.go/update.go.
 		if err := validateWhereKeys(listWhere); err != nil {
 			return err
+		}
+
+		// -i: guard and open the terminal before anything else reads input,
+		// then ask the query (pre-filled from -S); the search below is the
+		// same code path as plain -S.
+		var ttyIn createInput
+		var ttyOut io.Writer
+		if listInteractive {
+			if listJSON {
+				return cmdError(true, output.ErrValidation, "%s", errPickJSON("list"))
+			}
+			if err := requirePickTerminal("list"); err != nil {
+				return cmdError(false, output.ErrValidation, "%s", err)
+			}
+			in, out, closeTTY, err := openPickTTY("list")
+			if err != nil {
+				return cmdError(false, output.ErrFileError, "%s", err)
+			}
+			defer closeTTY()
+			ttyIn, ttyOut = in, out
+			if err := askQuery(&listSearch, ttyIn, ttyOut); err != nil {
+				return err
+			}
 		}
 
 		// Build GraphQL filter from CLI flags
@@ -156,6 +187,25 @@ Search Syntax (--search/-S):
 
 		// Sort items
 		sortItems(items, listSort, listDesc, cfg)
+
+		// -i: choose one hit and show it as `lif show` does.
+		if listInteractive {
+			if len(items) == 0 {
+				fmt.Println(ui.Muted.Render("No items match."))
+				return nil
+			}
+			picked, err := selectItem("Items", items, ttyIn, ttyOut)
+			if err != nil {
+				return err
+			}
+			out, err := showOutputAll([]*item.Item{picked}, true, false,
+				resolveWidth(listMaxWidth, cmd.Flags().Changed("max-width"), cfg))
+			if err != nil {
+				return err
+			}
+			fmt.Print(out)
+			return nil
+		}
 
 		// JSON output (flat list)
 		if listJSON {
@@ -443,6 +493,8 @@ func RegisterListCmd(root *cobra.Command) {
 		listCmd.Flags().IntVar(&listMaxWidth, "max-width", 0,
 			"Cap the rendered width; 0 disables the cap (default: display.max_width, else 110)")
 		listCmd.Flags().BoolVar(&listTags, "tags", false, "Render each item's tags")
+		listCmd.Flags().BoolVarP(&listInteractive, "interactive", "i", false,
+			"Ask a search query, pick a hit from a list and show it (needs a terminal)")
 		// AC-01/AC-02/AC-03/AC-04: only the affirmative enum-valued filter
 		// flags gain completion (beans-pkq3 Non-Goals) -- the boolean and
 		// --no-* exclusion flags take no enum value. --parent uses

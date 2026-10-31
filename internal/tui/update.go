@@ -1294,8 +1294,12 @@ func (m model) keyDetailFocus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.boxFormNav(b, "prev"), nil
 	case "down":
 		return m.boxFormNav(b, "next"), nil
-	case "left", "right":
-		return m, nil
+	case "left": // j/←: page body up (no column move exists here)
+		_, page := boxFormScrollBounds(m, b)
+		return m.adjustBoxFormScroll(b, -page), nil
+	case "right": // l/→: page body down
+		_, page := boxFormScrollBounds(m, b)
+		return m.adjustBoxFormScroll(b, page), nil
 	}
 	if keybind.Matches(msg, keys.Enter) {
 		return m.boxFormActivateCursor(b)

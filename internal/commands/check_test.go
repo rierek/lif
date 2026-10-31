@@ -59,6 +59,10 @@ func TestCheckHelperProcess(t *testing.T) {
 	if tags := os.Getenv("BEANS_CHECK_DEFAULT_TAGS"); tags != "" {
 		testCfg.Items.DefaultTags = strings.Split(tags, ",")
 	}
+	if os.Getenv("BEANS_CHECK_PARENTLESS") == "1" {
+		epic := []string{"epic"}
+		testCfg.Types = []config.TypeOverride{{Name: "task", Parents: &epic}}
+	}
 	testCore := itemcore.New(itemsDir, testCfg)
 	if err := testCore.Load(); err != nil {
 		os.Stderr.WriteString("loading core: " + err.Error() + "\n")
@@ -66,6 +70,12 @@ func TestCheckHelperProcess(t *testing.T) {
 	}
 	if os.Getenv("BEANS_CHECK_BROKEN_PARENT") == "1" {
 		if err := testCore.Create(&item.Item{ID: "aaa1", Title: "A", Status: "todo", Parent: "nonexistent"}); err != nil {
+			os.Stderr.WriteString("creating item: " + err.Error() + "\n")
+			os.Exit(2)
+		}
+	}
+	if os.Getenv("BEANS_CHECK_PARENTLESS") == "1" && os.Getenv("BEANS_CHECK_NOSEED") != "1" {
+		if err := testCore.Create(&item.Item{ID: "aaa1", Slug: "aaa1", Title: "A", Status: "todo", Type: "task"}); err != nil {
 			os.Stderr.WriteString("creating item: " + err.Error() + "\n")
 			os.Exit(2)
 		}
@@ -458,5 +468,28 @@ func TestDuplicateIDIssues(t *testing.T) {
 	}
 	if got := duplicateIDIssues(nil); len(got) != 0 {
 		t.Fatalf("no duplicates gave %q", got)
+	}
+}
+
+func TestCheckReportsParentTypeViolationsAndParentlessPolicy(t *testing.T) {
+	prev := cfg
+	epics := []string{"epic"}
+	cfg = &config.Config{Types: []config.TypeOverride{{Name: "feature", Parents: &epics}}}
+	defer func() { cfg = prev }()
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Status: "todo"},
+		{ID: "e1", Type: "epic", Status: "todo", Parent: "m1"},
+		{ID: "ok", Type: "feature", Status: "todo", Priority: "normal", Parent: "e1"},
+		{ID: "bad", Type: "feature", Status: "todo", Priority: "normal", Parent: "m1"},
+		{ID: "top", Type: "feature", Status: "todo", Priority: "normal"},
+	}
+	issues := itemFieldIssues(items)
+	if len(issues) != 1 || !strings.Contains(issues[0], "bad (feature)") || !strings.Contains(issues[0], "m1 (milestone)") {
+		t.Fatalf("issues = %v, want one naming bad/feature and m1/milestone", issues)
+	}
+	warns := parentlessPolicyWarnings(items)
+	if len(warns) != 1 || !strings.HasPrefix(warns[0], "top:") {
+		t.Fatalf("warnings = %v, want only top", warns)
 	}
 }

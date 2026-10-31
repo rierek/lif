@@ -23,7 +23,7 @@ import (
 // none of this machinery.
 
 // validParentTypes returns the type names an item of beanType may hang under:
-// every type on a strictly lower rank of the project's configured type table
+// the type's configured parents list, else every type on a strictly lower rank
 // (the same rule the CLI enforces, itemcore.ValidParentTypes). nil means "cannot
 // have a parent". An unknown type sits at the leaf rank.
 func validParentTypes(beanType string) []string {

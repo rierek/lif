@@ -89,7 +89,7 @@ Editing files by hand is allowed. Lif loads and reloads without validating hiera
 | Unknown status or priority | Front matter syntax errors beyond loading |
 | Invalid tags | |
 | File name that gives another ID than the file records in `# <id>` (a hand rename, since 0.15) | |
-| Parent of the wrong type rank | |
+| Parent of a type the type table does not allow | |
 | Broken links, self-references, cycles | |
 | Missing required fields (warning), unknown commit SHAs (warning) | |
 | Orphaned `attachments/<id>` | |

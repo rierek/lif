@@ -717,10 +717,14 @@ func (c *Core) FixBrokenLinks() (int, error) {
 	return fixed, nil
 }
 
-// ValidParentTypes returns the type names an item of itemType may hang under:
-// every type on a strictly lower rank, in rank order. Returns nil when no such
-// type exists, which is how "cannot have a parent" is expressed.
+// ValidParentTypes returns the type names an item of itemType may hang under.
+// A type with a parents list gets that list; otherwise every type on a
+// strictly lower rank, in rank order. Returns nil when no such type exists,
+// which is how "cannot have a parent" is expressed.
 func ValidParentTypes(cfg *config.Config, itemType string) []string {
+	if t := cfg.GetType(itemType); t != nil && t.Parents != nil {
+		return slices.Clone(t.Parents)
+	}
 	childRank := cfg.RankOf(itemType)
 	var out []string
 	for rank := 1; rank < childRank; rank++ {
@@ -729,7 +733,17 @@ func ValidParentTypes(cfg *config.Config, itemType string) []string {
 	return out
 }
 
-// IsValidParentRank reports whether parentType may hold childType.
+// IsValidParent reports whether parentType may hold childType: the child's
+// parents list when set, the rank rule otherwise. The only place that decides.
+func IsValidParent(cfg *config.Config, childType, parentType string) bool {
+	if t := cfg.GetType(childType); t != nil && t.Parents != nil {
+		return slices.Contains(t.Parents, parentType)
+	}
+	return IsValidParentRank(cfg, childType, parentType)
+}
+
+// IsValidParentRank is the rank rule alone: the parent ranks strictly lower.
+// IsValidParent falls back to it for a type without a parents list.
 func IsValidParentRank(cfg *config.Config, childType, parentType string) bool {
 	return cfg.RankOf(childType) > cfg.RankOf(parentType)
 }
@@ -746,7 +760,7 @@ func (c *Core) ValidateParent(b *item.Item, parentID string) error {
 		return Invalid("parent item not found: %s", parentID)
 	}
 
-	if IsValidParentRank(c.config, b.Type, parent.Type) {
+	if IsValidParent(c.config, b.Type, parent.Type) {
 		return nil
 	}
 

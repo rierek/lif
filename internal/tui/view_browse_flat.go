@@ -21,8 +21,14 @@ package tui
 // Browse golden stay byte-identical.
 
 import (
+	"cmp"
+	"slices"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/internal/tui/theme"
 	"github.com/rierek/lif/pkg/item"
 )
 
@@ -35,17 +41,51 @@ import (
 // data.SortBeans (Status -> Priority -> Type -> Title), the SAME canonical
 // order the roadmap tree and notOnRoadmap already use for the identical
 // "iterate idx.ByID, filter, SortBeans" pattern.
+//
+// With search text, the list is grouped per searchGroupOf: hits are the wider
+// set (body substring, and in ID mode the title/body mentions) and sorted by
+// section, canonical order inside a section. Facet prefixes alone stay
+// ungrouped.
 func (m model) flatVisible() []*item.Item {
 	if m.idx == nil {
 		return nil
 	}
+	grouped := strings.TrimSpace(m.searchPrefixRest) != ""
+	t := m.searchTarget()
+	groups := map[string]searchGroup{}
 	var out []*item.Item
 	for _, b := range m.idx.ByID {
-		if m.beanMatches(b) {
+		if !grouped {
+			if m.beanMatches(b) {
+				out = append(out, b)
+			}
+			continue
+		}
+		if !m.beanMatchesSearchPrefixFacets(b) || !m.beanMatchesFacets(b) || !m.beanMatchesArchive(b) {
+			continue
+		}
+		if g := m.searchGroupOf(t, b); g != groupNone {
+			groups[b.ID] = g
 			out = append(out, b)
 		}
 	}
 	data.SortBeans(out)
+	if grouped {
+		slices.SortStableFunc(out, func(a, b *item.Item) int { return cmp.Compare(groups[a.ID], groups[b.ID]) })
+	}
+	return out
+}
+
+// flatGroups returns each vis entry's section, or nil when the flat list is not grouped.
+func (m model) flatGroups(vis []*item.Item) []searchGroup {
+	if strings.TrimSpace(m.searchPrefixRest) == "" {
+		return nil
+	}
+	t := m.searchTarget()
+	out := make([]searchGroup, len(vis))
+	for i, b := range vis {
+		out[i] = m.searchGroupOf(t, b)
+	}
 	return out
 }
 
@@ -86,8 +126,13 @@ func (m model) flatRows(vis []*item.Item, focused bool, bodyH, width int) []stri
 func (m model) flatBlocks(vis []*item.Item, focused bool, width int) [][]string {
 	pos := m.flatList.cursor
 	blocks := m.flatListBlocks(vis, width-1)
+	groups := m.flatGroups(vis)
 	for i := range blocks {
 		blocks[i] = decorateRowBlock(blocks[i], i == pos, focused)
+		if groups != nil && (i == 0 || groups[i] != groups[i-1]) {
+			head := " " + theme.Muted.Render(ansi.Truncate(searchGroupLabels[groups[i]], width-1, ""))
+			blocks[i] = append([]string{head}, blocks[i]...)
+		}
 	}
 	return blocks
 }

@@ -96,7 +96,7 @@ func (r *CoreResolver) ValidateTypeChange(b *item.Item) error {
 	}
 	for _, link := range r.Core.FindIncomingLinks(b.ID) {
 		child := link.FromItem
-		if link.LinkType != "parent" || itemcore.IsValidParentRank(r.Core.Config(), child.Type, b.Type) {
+		if link.LinkType != "parent" || itemcore.IsValidParent(r.Core.Config(), child.Type, b.Type) {
 			continue
 		}
 		return itemcore.Invalid("%s: %s items cannot be a child of %s items (child %s)", b.ID, child.Type, b.Type, child.ID)

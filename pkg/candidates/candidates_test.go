@@ -383,3 +383,15 @@ func TestBlockingAndTagCandidates_KeepArchivedItems(t *testing.T) {
 		t.Fatalf("TagCandidates must count tags of archived items, got %v", tags)
 	}
 }
+
+func TestParentCandidates_HonoursTheTypesParentsList(t *testing.T) {
+	resolver, cfg := fixture(t)
+	feature := []string{"feature"}
+	cfg.Types = []config.TypeOverride{{Name: "task", Parents: &feature}}
+
+	got, err := ParentCandidates(context.Background(), resolver, cfg, []string{"beans-t1"}, []string{"task"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustEqual(t, ids(got), []string{"beans-f1", "beans-f2"})
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/rierek/lif/pkg/config"
@@ -1297,5 +1298,42 @@ func TestLinkIssueJSONKeysUseItemID(t *testing.T) {
 		if _, ok := entry["bean_id"]; ok {
 			t.Errorf("%s[0] still carries legacy key bean_id", list)
 		}
+	}
+}
+
+func TestIsValidParentHonoursParentsList(t *testing.T) {
+	pkgs, none := []string{"epic"}, []string{}
+	cfg := &config.Config{Types: []config.TypeOverride{
+		{Name: "feature", Parents: &pkgs},
+		{Name: "milestone", Parents: &none},
+	}}
+	if !IsValidParent(cfg, "feature", "epic") {
+		t.Error("listed parent must be allowed")
+	}
+	if IsValidParent(cfg, "feature", "milestone") {
+		t.Error("rank rule must not apply once parents is set")
+	}
+	if IsValidParent(cfg, "milestone", "epic") || len(ValidParentTypes(cfg, "milestone")) != 0 {
+		t.Error("empty list means top level only")
+	}
+	if got := ValidParentTypes(cfg, "feature"); !slices.Equal(got, pkgs) {
+		t.Errorf("ValidParentTypes = %v", got)
+	}
+}
+
+func TestValidateParentUsesParentsList(t *testing.T) {
+	epics := []string{"epic"}
+	cfg := &config.Config{Types: []config.TypeOverride{{Name: "feature", Parents: &epics}}}
+	cfg.SetConfigDir(t.TempDir())
+	c := newTestCoreWithConfig(t, cfg, map[string]string{
+		"ms-aaaa--m.md": "---\ntitle: M\nstatus: todo\ntype: milestone\n---\n",
+		"ep-bbbb--e.md": "---\ntitle: E\nstatus: todo\ntype: epic\n---\n",
+	})
+	f := &item.Item{Type: "feature"}
+	if err := c.ValidateParent(f, "ep-bbbb"); err != nil {
+		t.Errorf("epic parent: %v", err)
+	}
+	if err := c.ValidateParent(f, "ms-aaaa"); err == nil || !strings.Contains(err.Error(), "epic") {
+		t.Errorf("milestone parent: err = %v, want rejection naming epic", err)
 	}
 }

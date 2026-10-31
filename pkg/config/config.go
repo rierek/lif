@@ -156,6 +156,9 @@ type TypeConfig struct {
 	// hides its whole subtree; on the leaf rank it is inert, since a leaf is
 	// never itself a container to hide beneath.
 	Roadmap *bool `yaml:"roadmap,omitempty"`
+	// Parents names the complete set of allowed parent types. Nil: the rank
+	// rule decides. Non-nil empty: top level only.
+	Parents []string `yaml:"parents,omitempty"`
 	// Short is the single-character code the narrow list view renders. Empty
 	// means the first letter of the name, upper-cased.
 	Short       string `yaml:"short,omitempty"`
@@ -230,6 +233,9 @@ type TypeOverride struct {
 	Rank        *int   `yaml:"rank,omitempty"`
 	Description string `yaml:"description,omitempty"`
 	Emphasis    *bool  `yaml:"emphasis,omitempty"`
+	// Parents is a pointer so that an omitted key (rank rule) stays apart
+	// from an explicit empty list (top level only).
+	Parents *[]string `yaml:"parents,omitempty"`
 	// Roadmap decides whether this type gets its own section in `lif roadmap`
 	// and an entry in `lif milestones`. Nil means visible; only an explicit
 	// roadmap: false hides the type. On a container rank (1-3) this also
@@ -808,6 +814,10 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
 
+	if err := cfg.validateTypeParents(); err != nil {
+		return nil, fmt.Errorf("%s: %w", configPath, err)
+	}
+
 	if err := validateTasks(cfg.Tasks); err != nil {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
@@ -851,6 +861,29 @@ func (c *Config) validateRequireFieldsOn() error {
 			}
 			if _, known := item.ReservedKeyFlag(field); known {
 				return fmt.Errorf("%s.require_fields_on[%q] names reserved front matter field %q (managed by lif, not an extra key)", c.SectionKey(), status, field)
+			}
+		}
+	}
+	return nil
+}
+
+// validateTypeParents rejects a parents list that names an unknown type or a
+// type whose rank is not smaller than the owning type's. Runs on the merged
+// table, so types_exclusive is honoured. Smaller rank keeps cycles impossible.
+func (c *Config) validateTypeParents() error {
+	types := c.TypeList()
+	rank := make(map[string]int, len(types))
+	for _, t := range types {
+		rank[t.Name] = t.Rank
+	}
+	for _, t := range types {
+		for _, p := range t.Parents {
+			pr, ok := rank[p]
+			if !ok {
+				return fmt.Errorf("unknown type %q in %s.types[%q].parents (valid: %s)", p, c.SectionKey(), t.Name, strings.Join(c.TypeNames(), ", "))
+			}
+			if pr >= t.Rank {
+				return fmt.Errorf("%s.types[%q].parents names %q (rank %d), which does not rank below %q (rank %d)", c.SectionKey(), t.Name, p, pr, t.Name, t.Rank)
 			}
 		}
 	}
@@ -1270,6 +1303,16 @@ func (c *Config) toYAMLNode() *yaml.Node {
 		}
 		if t.Roadmap != nil {
 			m.Content = append(m.Content, strNode("roadmap"), scalar(fmt.Sprintf("%t", *t.Roadmap), "!!bool"))
+		}
+		if t.Parents != nil {
+			seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+			if len(*t.Parents) == 0 {
+				seq.Style = yaml.FlowStyle
+			}
+			for _, p := range *t.Parents {
+				seq.Content = append(seq.Content, strNode(p))
+			}
+			m.Content = append(m.Content, strNode("parents"), seq)
 		}
 		if t.shortSet || t.Short != "" {
 			m.Content = append(m.Content, strNode("short"), strNode(t.Short))
@@ -1693,6 +1736,11 @@ func (c *Config) TypeList() []TypeConfig {
 			// through the merged TypeList() reach back into c.Types.
 			if o.Roadmap != nil {
 				t.Roadmap = boolPtr(*o.Roadmap)
+			}
+			// Parents keeps "not named" (nil) apart from an explicit empty
+			// list (top level only). Copy it: never alias the override.
+			if o.Parents != nil {
+				t.Parents = append([]string{}, *o.Parents...)
 			}
 			if o.shortSet || o.Short != "" {
 				t.Short = o.Short

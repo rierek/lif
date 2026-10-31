@@ -8,6 +8,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
+	"github.com/rierek/lif/pkg/item"
 )
 
 // TestKeysLAndMSwitchFlatView guards the basic contract: `L` sets
@@ -166,5 +168,89 @@ func TestBrowseFlatDefaultOffMatchesTree(t *testing.T) {
 	}
 	if out != string(want) {
 		t.Errorf("default (flatView off) browse view diverged from tree.golden -- G toggle must be fully inert when off")
+	}
+}
+
+func flatIDs(vis []*item.Item) []string {
+	ids := make([]string, len(vis))
+	for i, b := range vis {
+		ids[i] = b.ID
+	}
+	return ids
+}
+
+// TestFlatSearchGroupsIDLookup guards the grouped flat list for an ID query:
+// the item first, then parent, children, relations (also when only the
+// blocker stores the edge), then body mentions; the roadmap keeps relatives only.
+func TestFlatSearchGroupsIDLookup(t *testing.T) {
+	m := fixtureModel(t, []*item.Item{
+		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
+		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
+		{ID: "tk-1", Title: "Task One", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-1"},
+		{ID: "bg-1", Title: "Blocker", Status: "todo", Type: "bug", Priority: "normal", Blocking: []string{"ep-1"}},
+		{ID: "nt-1", Title: "Notes", Status: "todo", Type: "task", Priority: "normal", Body: "see ep-1 for details"},
+		{ID: "un-1", Title: "Unrelated", Status: "todo", Type: "task", Priority: "normal"},
+	})
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.flatView = true
+	m = setSearchQuery(m, "ep-1")
+	m = m.resetCursorToFirstVisible()
+
+	vis := m.flatVisible()
+	if got, want := flatIDs(vis), []string{"ep-1", "ms-1", "tk-1", "bg-1", "nt-1"}; !slices.Equal(got, want) {
+		t.Fatalf("flat IDs = %v, want %v", got, want)
+	}
+	wantGroups := []searchGroup{groupItem, groupParent, groupChildren, groupRelations, groupBody}
+	if got := m.flatGroups(vis); !slices.Equal(got, wantGroups) {
+		t.Fatalf("groups = %v, want %v", got, wantGroups)
+	}
+	if sel := m.flatSelected(); sel == nil || sel.ID != "ep-1" {
+		t.Fatalf("cursor on %v, want ep-1", sel)
+	}
+	view := ansi.Strip(m.View())
+	pos := 0
+	for _, h := range []string{" Item", " Parent", " Children", " Relations", " Body"} {
+		i := strings.Index(view[pos:], h)
+		if i < 0 {
+			t.Fatalf("header %q missing or out of order after offset %d in:\n%s", h, pos, view)
+		}
+		pos += i + len(h)
+	}
+
+	m.flatView = false
+	var ids []string
+	for _, n := range m.visibleNodes() {
+		ids = append(ids, n.id)
+	}
+	for _, id := range []string{"nt-1", "un-1"} {
+		if slices.Contains(ids, id) {
+			t.Errorf("roadmap shows %s, want relatives only: %v", id, ids)
+		}
+	}
+	if !slices.Contains(ids, "bg-1") {
+		t.Errorf("roadmap misses reverse relation bg-1: %v", ids)
+	}
+}
+
+// TestFlatSearchGroupsTextQuery guards the text-search sections: title hit,
+// body substring hit, then Bleve-only hit.
+func TestFlatSearchGroupsTextQuery(t *testing.T) {
+	m := fixtureModel(t, []*item.Item{
+		{ID: "a-1", Title: "Alpha task", Status: "todo", Type: "task", Priority: "normal"},
+		{ID: "a-2", Title: "Other", Status: "todo", Type: "task", Priority: "normal", Body: "mentions alpha"},
+		{ID: "x-1", Title: "Unrelated words", Status: "todo", Type: "task", Priority: "normal"},
+		{ID: "u-1", Title: "Nothing", Status: "todo", Type: "task", Priority: "normal"},
+	})
+	m = setSearchQuery(m, "alpha")
+	m.searchBleveFor = "alpha"
+	m.searchBleveIDs = map[string]bool{"x-1": true}
+
+	vis := m.flatVisible()
+	if got, want := flatIDs(vis), []string{"a-1", "a-2", "x-1"}; !slices.Equal(got, want) {
+		t.Fatalf("flat IDs = %v, want %v", got, want)
+	}
+	want := []searchGroup{groupTitle, groupBody, groupFullText}
+	if got := m.flatGroups(vis); !slices.Equal(got, want) {
+		t.Fatalf("groups = %v, want %v", got, want)
 	}
 }

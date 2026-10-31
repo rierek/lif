@@ -832,21 +832,45 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		}
 		return true, m, nil // unreachable: msg matched one of the eight keys in this case's condition above
 	case keybind.Matches(msg, keys.Yank):
-		// E5 Task 3 (bean bt-e4a6, design decision b): `y` always acts on
-		// m.focusedBean() -- Tree/Ready identical (focusedBean is already
-		// the view-agnostic dispatcher E2 Task 2 built).
-		b := m.focusedBean()
-		if b == nil {
-			return true, m, nil // orphan-root cursor: handled, silent no-op (Plan Step 6)
+		// `y` is a prefix: the next key picks the variant (handleKey ->
+		// keyYank). The hint toast names the choices. orphan-root cursor:
+		// handled, silent no-op.
+		if m.focusedBean() == nil {
+			return true, m, nil
 		}
-		if err := clip.Copy(beanContext(m.idx, b)); err != nil {
-			nm, cmd := m.showToast(toastWarn, "Yank failed", "", nil, false)
-			return true, nm, cmd
-		}
-		nm, cmd := m.showToast(toastInfo, "Copied: "+b.ID, "", nil, false)
+		m.yankPrefix = true
+		nm, cmd := m.showToast(toastInfo, "Yank: y item · m meta · t meta+toc", "any other key cancels", nil, false)
 		return true, nm, cmd
 	}
 	return false, m, nil
+}
+
+// keyYank completes a yank sequence (yy/ym/yt) on m.focusedBean(). Any other
+// sequence cancels and drops the hint toast.
+func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
+	var mode yankMode
+	switch {
+	case bindHas(keys.YankFull, seq):
+		mode = yankFull
+	case bindHas(keys.YankMeta, seq):
+		mode = yankMeta
+	case bindHas(keys.YankTOC, seq):
+		mode = yankTOC
+	default:
+		return m.clearToastUnlessSticky(), nil
+	}
+	b := m.focusedBean()
+	if b == nil {
+		return m.clearToastUnlessSticky(), nil
+	}
+	text, err := yankText(m.idx, b, mode)
+	if err == nil {
+		err = clip.Copy(text)
+	}
+	if err != nil {
+		return m.showToast(toastWarn, "Yank failed", err.Error(), nil, false)
+	}
+	return m.showToast(toastInfo, "Copied: "+b.ID, "", nil, false)
 }
 
 // keyOverlay routes to the currently open node-action overlay's own key
@@ -1005,9 +1029,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.String() == "ctrl+c" {
 		return m, tea.Quit
 	}
-	// A buffered fold prefix lives for exactly one key press, whatever that key does.
-	foldPending := m.foldPrefix
-	m.foldPrefix = false
+	// A buffered fold/yank prefix lives for exactly one key press, whatever that key does.
+	foldPending, yankPending := m.foldPrefix, m.yankPrefix
+	m.foldPrefix, m.yankPrefix = false, false
 	if m.confirmQuit {
 		return m.keyConfirmQuit(msg)
 	}
@@ -1109,6 +1133,15 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// palette/help full-capture states and ABOVE their bare key matches.
 	if m.view == viewWaves && !m.wavesPassthrough(msg) {
 		return m.keyWaves(msg)
+	}
+	// Yank sequences (yy/ym/yt): intercepted AHEAD of every bare key below
+	// for the same reason as the fold keys (m, t would swallow the second key).
+	switch s := msg.String(); {
+	case yankPending:
+		return m.keyYank(yankPrefixKey + s)
+	case len(s) == 2 && s[:1] == yankPrefixKey && msg.Type == tea.KeyRunes:
+		// both keys in one terminal read (fast typing, paste)
+		return m.keyYank(s)
 	}
 	// Roadmap fold keys (zo/zc/zR/zM): intercepted AHEAD of every bare key
 	// below, whose letters (c, R, M, ...) would otherwise swallow the second
@@ -1535,6 +1568,9 @@ func (m model) setExpanded(n treeNode, open bool) model {
 
 // foldPrefixKey starts the roadmap fold sequences (zo/zc/zR/zM, keys.ExpandNode ...).
 const foldPrefixKey = "z"
+
+// yankPrefixKey starts the yank sequences (yy/ym/yt, keys.YankFull ...).
+const yankPrefixKey = "y"
 
 // siblingPos returns the index of the previous (dir<0) or next (dir>0) visible
 // sibling of nodes[pos]: same depth under the same parent, expanded children

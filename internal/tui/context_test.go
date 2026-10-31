@@ -1,34 +1,19 @@
 package tui
 
-// context_test.go — TDD coverage for Yank `y` (E5 Task 3, bean bt-e4a6,
-// epic-E5-plan.md »Task 3«): beanContext (design decision b, ONE
-// view-agnostic Markdown generator covering both a leaf Issue and an
-// Epic/Milestone via an optional Children table) + the y-dispatch itself
-// (keyNodeAction). Mirrors devd's own precedent (dd2_217_test.go: "der
-// clip.Copy-Pfad selbst wird nicht getestet, Seiteneffekt OSC52/pbcopy") --
-// the toast-dispatch tests below exercise the REAL clip.Copy call (same as
-// devd's TestReadyYankKeyWired) and assert on the resulting toast, not on
-// actual clipboard content; a pure content assertion is only made against
-// beanContext directly, which takes no clipboard action.
+// context_test.go — Yank (yy/ym/yt): yankText's three variants plus the
+// y-prefix dispatch. The dispatch tests exercise the REAL clip.Copy call and
+// assert on the resulting toast, not on clipboard content; content
+// assertions are made against yankText directly.
 
 import (
-	"github.com/rierek/lif/pkg/item"
 	"strings"
 	"testing"
 
 	"github.com/rierek/lif/internal/tui/data"
+	"github.com/rierek/lif/pkg/item"
 )
 
-// contextFixtureBeans is a small Epic -> 2 Tasks hierarchy with a resolvable
-// Blocking relation -- the exact shape TestBeanContextResolvesParentTitle
-// AndRelations needs (fixtureBeans has no Blocking set on any bean).
-func contextFixtureBeans() []*item.Item {
-	return []*item.Item{
-		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal"},
-		{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1", Blocking: []string{"tk-2"}},
-		{ID: "tk-2", Title: "Task Two", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-1"},
-	}
-}
+const yankBody = "Intro sentence.\n\n## Goal\n\nText.\n\n```sh\n# not a heading\n```\n\n### Detail ##\n\n#nospace\n"
 
 // tableRows returns every Markdown table body row (lines starting with
 // "| <prefix>") in md -- used to pin down exact row counts/order without
@@ -43,74 +28,106 @@ func tableRows(md, prefix string) []string {
 	return rows
 }
 
-// TestBeanContextLeafHasNoChildrenTable guards the leaf case (design
-// decision b): a Task with no children must not render a "## Children"
-// section at all.
-func TestBeanContextLeafHasNoChildrenTable(t *testing.T) {
+func mustYank(t *testing.T, idx *data.Index, id string, mode yankMode) string {
+	t.Helper()
+	out, err := yankText(idx, idx.ByID[id], mode)
+	if err != nil {
+		t.Fatalf("yankText(%s, %d): %v", id, mode, err)
+	}
+	return out
+}
+
+// TestYankFullLeafIsTheItemFile: a leaf yields exactly the rendered item
+// file -- no Children table, nothing hand-picked.
+func TestYankFullLeafIsTheItemFile(t *testing.T) {
 	idx := data.NewIndex(fixtureBeans())
 	b := idx.ByID["tk-2"]
-	md := beanContext(idx, b)
-	if strings.Contains(md, "## Children") {
-		t.Fatalf("leaf bean must not render a Children table:\n%s", md)
+	b.Body = yankBody
+	want, err := b.Render()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := mustYank(t, idx, "tk-2", yankFull); got != string(want) {
+		t.Fatalf("yy on a leaf = %q, want the item file %q", got, want)
 	}
 }
 
-// TestBeanContextParentHasChildrenTable guards the Epic/Milestone case
-// (design decision b): 2 children -> exactly 2 table rows, in
-// idx.Children (sortBeans) order -- fixtureBeans' own doc comment pins
-// tk-1 (in-progress/high) before tk-2 (todo/normal).
-func TestBeanContextParentHasChildrenTable(t *testing.T) {
+// TestYankFullParentHasChildrenTable: 2 children -> exactly 2 table rows,
+// in idx.Children (sortBeans) order -- tk-1 (in-progress/high) before tk-2.
+func TestYankFullParentHasChildrenTable(t *testing.T) {
 	idx := data.NewIndex(fixtureBeans())
-	b := idx.ByID["ep-1"]
-	md := beanContext(idx, b)
-	if !strings.Contains(md, "## Children") {
-		t.Fatalf("parent bean must render a Children table:\n%s", md)
-	}
+	md := mustYank(t, idx, "ep-1", yankFull)
 	rows := tableRows(md, "tk-")
-	if len(rows) != 2 {
-		t.Fatalf("Children table rows = %d, want 2:\n%s", len(rows), md)
-	}
-	if !strings.HasPrefix(rows[0], "| tk-1 ") || !strings.HasPrefix(rows[1], "| tk-2 ") {
-		t.Fatalf("Children table order = %v, want [tk-1, tk-2] (sortBeans order)", rows)
+	if len(rows) != 2 || !strings.HasPrefix(rows[0], "| tk-1 ") || !strings.HasPrefix(rows[1], "| tk-2 ") {
+		t.Fatalf("Children rows = %v, want [tk-1, tk-2]:\n%s", rows, md)
 	}
 }
 
-// TestBeanContextResolvesParentTitleAndRelations guards that Parent/
-// Blocking render as resolved "ID Title" labels, not bare IDs.
-func TestBeanContextResolvesParentTitleAndRelations(t *testing.T) {
-	idx := data.NewIndex(contextFixtureBeans())
+// TestYankMetaIsTheFullFrontMatter: ym parses back to the same front matter
+// (incl. fields the old curated header dropped) with an empty body, and the
+// source item keeps its body.
+func TestYankMetaIsTheFullFrontMatter(t *testing.T) {
+	idx := data.NewIndex(fixtureBeans())
 	b := idx.ByID["tk-1"]
-	md := beanContext(idx, b)
-	if !strings.Contains(md, "Parent: ep-1 Epic One") {
-		t.Fatalf("Parent not resolved to ID+Title:\n%s", md)
+	b.Body = yankBody
+	b.Extra = map[string]any{"goal": "ship it"}
+	md := mustYank(t, idx, "tk-1", yankMeta)
+	if strings.Contains(md, "---") {
+		t.Fatalf("ym must not carry the --- fence:\n%s", md)
 	}
-	if !strings.Contains(md, "Blocking: tk-2 Task Two") {
-		t.Fatalf("Blocking not resolved to ID+Title:\n%s", md)
+	got, err := item.Parse(strings.NewReader("---\n" + md + "---\n"))
+	if err != nil {
+		t.Fatalf("ym output does not parse as front matter: %v\n%s", err, md)
+	}
+	if got.Body != "" || got.Title != b.Title || got.Parent != b.Parent || got.Extra["goal"] != "ship it" {
+		t.Fatalf("ym front matter lost data, parsed %+v from:\n%s", got, md)
+	}
+	if b.Body != yankBody {
+		t.Fatal("ym mutated the source item's body")
 	}
 }
 
-// TestYankShowsConfirmationToast (US-11 Kern): `y` on a focused bean fires
-// clip.Copy and confirms via a toastInfo "Copied: <id>" toast.
-func TestYankShowsConfirmationToast(t *testing.T) {
+// TestYankTOCListsBodyHeadings: yt = ym + the heading outline, nested from
+// the shallowest level; fenced code and "#nospace" are not headings, closing
+// hashes are stripped, body prose is absent.
+func TestYankTOCListsBodyHeadings(t *testing.T) {
+	idx := data.NewIndex(fixtureBeans())
+	idx.ByID["tk-1"].Body = yankBody
+	meta := mustYank(t, idx, "tk-1", yankMeta)
+	got := mustYank(t, idx, "tk-1", yankTOC)
+	want := strings.TrimRight(meta, "\n") + "\n\n## TOC\n\n- Goal\n  - Detail\n"
+	if got != want {
+		t.Fatalf("yt = %q, want %q", got, want)
+	}
+}
+
+// TestYankSequenceCopies: y then m copies and confirms via a toastInfo
+// "Copied: <id>" toast.
+func TestYankSequenceCopies(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2")
+	nm, _ := m.handleKey(runeMsg('y'))
+	mm := nm.(model)
+	if !mm.yankPrefix {
+		t.Fatal("y must arm the yank prefix")
+	}
+	nm, _ = mm.handleKey(runeMsg('m'))
+	mm = nm.(model)
+	if mm.yankPrefix || mm.toast == nil || mm.toast.kind != toastInfo || mm.toast.title != "Copied: tk-2" {
+		t.Fatalf("ym did not confirm the copy: prefix=%v toast=%+v", mm.yankPrefix, mm.toast)
+	}
+}
 
-	handled, nm, _ := m.keyNodeAction(runeMsg('y'))
-	if !handled {
-		t.Fatal("y must be handled by keyNodeAction")
-	}
-	mm, ok := nm.(model)
-	if !ok {
-		t.Fatalf("keyNodeAction did not return a model, got %T", nm)
-	}
-	if mm.toast == nil {
-		t.Fatal("y did not show a confirmation toast")
-	}
-	if mm.toast.kind != toastInfo {
-		t.Fatalf("toast.kind = %v, want toastInfo", mm.toast.kind)
-	}
-	if !strings.Contains(mm.toast.title, "Copied") || !strings.Contains(mm.toast.title, "tk-2") {
-		t.Fatalf("toast.title = %q, want it to mention Copied + tk-2", mm.toast.title)
+// TestYankSequenceCancels: y then an unbound second key copies nothing and
+// drops the hint toast.
+func TestYankSequenceCancels(t *testing.T) {
+	m := fixtureModel(t, fixtureBeans())
+	m = focusBean(m, "tk-2")
+	nm, _ := m.handleKey(runeMsg('y'))
+	nm, _ = nm.(model).handleKey(runeMsg('x'))
+	mm := nm.(model)
+	if mm.yankPrefix || mm.toast != nil {
+		t.Fatalf("yx must cancel silently: prefix=%v toast=%+v", mm.yankPrefix, mm.toast)
 	}
 }
 

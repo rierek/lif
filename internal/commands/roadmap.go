@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +35,7 @@ var (
 	roadmapView        string
 	roadmapFormat      string
 	roadmapWidthFlag   int
+	roadmapInteractive bool
 )
 
 var roadmapCmd = &cobra.Command{
@@ -51,9 +53,35 @@ the tree -L n convention: the root itself never counts. Without an ID argument t
 the roadmap as a whole, so --depth 1 lists milestones only. With an ID
 argument the root is that item, so --depth 1 lists its direct children.
 
---tags renders each item's tags on a line of their own beneath its title.`,
+--tags renders each item's tags on a line of their own beneath its title.
+
+--interactive (-i) opens a list of the roadmap roots (the milestones the plain
+roadmap shows, honouring --status, --no-status and --include-done) and renders
+the roadmap of the chosen root, as with an ID argument. It needs a terminal on
+stdin and stdout and cannot be combined with --json or an ID argument. Ctrl+C
+cancels with a non-zero exit.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// -i: guard and open the terminal before anything reads input.
+		var ttyIn createInput
+		var ttyOut io.Writer
+		if roadmapInteractive {
+			if roadmapJSON {
+				return cmdError(true, output.ErrValidation, "%s", errPickJSON("roadmap"))
+			}
+			if len(args) == 1 {
+				return cmdError(false, output.ErrValidation, "--interactive cannot be combined with a roadmap root ID")
+			}
+			if err := requirePickTerminal("roadmap"); err != nil {
+				return cmdError(false, output.ErrValidation, "%s", err)
+			}
+			in, out, closeTTY, err := openPickTTY("roadmap")
+			if err != nil {
+				return cmdError(false, output.ErrFileError, "%s", err)
+			}
+			defer closeTTY()
+			ttyIn, ttyOut = in, out
+		}
 		// Query all items via GraphQL resolver
 		resolver := newResolver()
 		allItems, err := resolver.Items(context.Background(), nil)
@@ -99,6 +127,22 @@ argument the root is that item, so --depth 1 lists its direct children.
 			data = roadmap.BuildScoped(cfg, allItems, roadmapIncludeDone, root)
 		} else {
 			data = roadmap.Build(cfg, allItems, roadmapIncludeDone, roadmapStatus, roadmapNoStatus)
+			if roadmapInteractive {
+				if len(data.Milestones) == 0 {
+					fmt.Println(ui.Muted.Render("No roadmap roots found."))
+					return nil
+				}
+				roots := make([]*item.Item, len(data.Milestones))
+				for i, m := range data.Milestones {
+					roots[i] = m.Milestone
+				}
+				root, err := selectItem("Roadmap root", roots, ttyIn, ttyOut)
+				if err != nil {
+					return err
+				}
+				data = roadmap.BuildScoped(cfg, allItems, roadmapIncludeDone, root)
+				scoped = true
+			}
 		}
 		roadmap.PruneDepth(data, roadmapDepth, scoped)
 
@@ -320,6 +364,8 @@ func RegisterRoadmapCmd(root *cobra.Command) {
 	roadmapCmd.Flags().StringVar(&roadmapLinkPrefix, "link-prefix", "", "URL prefix for links")
 	roadmapCmd.Flags().IntVar(&roadmapDepth, "depth", 0, "Limit output to n levels below the roadmap root (default: no limit)")
 	roadmapCmd.Flags().BoolVar(&roadmapTags, "tags", false, "Render each item's tags")
+	roadmapCmd.Flags().BoolVarP(&roadmapInteractive, "interactive", "i", false,
+		"Pick a roadmap root from a list and render it (needs a terminal)")
 	roadmapCmd.Flags().StringVar(&roadmapView, "view", "tree",
 		"Arrangement: table (flat, sortable) or tree (nested)")
 	roadmapCmd.Flags().StringVar(&roadmapFormat, "format", "", `Output format: "tty" or "markdown" (default: detect)`)

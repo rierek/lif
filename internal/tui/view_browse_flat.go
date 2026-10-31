@@ -51,11 +51,8 @@ func (m model) flatVisible() []*item.Item {
 		return nil
 	}
 	grouped := strings.TrimSpace(m.searchPrefixRest) != ""
-	var t *item.Item
+	t := m.searchTarget()
 	groups := map[string]searchGroup{}
-	if grouped {
-		t = m.searchTarget()
-	}
 	var out []*item.Item
 	for _, b := range m.idx.ByID {
 		if !grouped {

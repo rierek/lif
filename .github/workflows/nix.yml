@@ -5,7 +5,7 @@ name: nix
 # Fix with `just nix-hashes`.
 on:
   push:
-    branches: ["main", "milestone/**"]
+    branches: ["main", "milestone/**", "release/**"]
     paths: &paths
       - flake.nix
       - flake.lock

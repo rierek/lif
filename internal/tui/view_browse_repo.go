@@ -84,16 +84,47 @@ func (m model) setItems(items []*item.Item, ready map[string]bool) model {
 		walk(n, unscheduledRootID)
 	}
 
-	m.notOnRoadmap = nil
+	// Unplaced items keep their own parent links: a child whose parent is
+	// also unplaced nests under it; anything else is a root of the section.
+	var loose []*item.Item
 	for _, it := range items {
 		if !placed[it.ID] {
-			m.notOnRoadmap = append(m.notOnRoadmap, it)
+			loose = append(loose, it)
+		}
+	}
+	roadmap.SortSiblings(cfg, loose)
+	nodes := make(map[string]*roadmap.Node, len(loose))
+	for _, it := range loose {
+		nodes[it.ID] = &roadmap.Node{Item: it}
+	}
+	m.notOnRoadmap = nil
+	for _, it := range loose {
+		if p, ok := nodes[it.Parent]; ok && !inParentCycle(it, nodes) {
+			p.Children = append(p.Children, nodes[it.ID])
+			parent[it.ID] = it.Parent
+		} else {
+			m.notOnRoadmap = append(m.notOnRoadmap, nodes[it.ID])
 			parent[it.ID] = notOnRoadmapRootID
 		}
 	}
-	roadmap.SortSiblings(cfg, m.notOnRoadmap)
 	m.treeParent = parent
 	return m
+}
+
+// inParentCycle reports whether it sits on a parent cycle among nodes. Such
+// items stay flat section roots so a cyclic chain remains visible.
+func inParentCycle(it *item.Item, nodes map[string]*roadmap.Node) bool {
+	for id, n := it.Parent, 0; n <= len(nodes); n++ {
+		if id == it.ID {
+			return true
+		}
+		p, ok := nodes[id]
+		if !ok {
+			return false
+		}
+		id = p.Item.Parent
+	}
+	return false
 }
 
 // sectionNode is the synthetic, bean-less root row of the "Unscheduled" and
@@ -107,7 +138,7 @@ func sectionNode(id, label string, open, context bool) treeNode {
 // depth 0, then the synthetic "Unscheduled" root (its nodes at depth 1) and
 // the synthetic "Not on roadmap" root (flat rows at depth 1), each only when
 // non-empty.
-func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, expanded map[string]bool) []treeNode {
+func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*roadmap.Node, expanded map[string]bool) []treeNode {
 	var nodes []treeNode
 	for _, n := range scheduled {
 		nodes = appendBeanNode(nodes, n, 0, expanded)
@@ -125,8 +156,8 @@ func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, exp
 		open := expanded[notOnRoadmapRootID]
 		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open, false))
 		if open {
-			for _, b := range notOn {
-				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1})
+			for _, n := range notOn {
+				nodes = appendBeanNode(nodes, n, 1, expanded)
 			}
 		}
 	}
@@ -313,7 +344,7 @@ func (m model) beanMatchesSearch(b *item.Item) bool {
 // Every scheduled root, the Unscheduled bucket AND the Not-on-roadmap bucket
 // go through the SAME predicate: a bucket with zero matches is omitted
 // entirely, matching entries render exactly like the unfiltered tree.
-func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*item.Item, expanded map[string]bool, match func(*item.Item) bool, archiveOnly, searching bool) []treeNode {
+func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*roadmap.Node, expanded map[string]bool, match func(*item.Item) bool, archiveOnly, searching bool) []treeNode {
 	var nodes []treeNode
 	for _, n := range scheduled {
 		if ns, hit := filteredBeanNode(n, 0, expanded, match, archiveOnly, searching); hit {
@@ -335,19 +366,17 @@ func flattenTreeFiltered(scheduled, unscheduled []*roadmap.Node, notOn []*item.I
 		}
 	}
 
-	var flatHits []*item.Item
-	for _, b := range notOn {
-		if match(b) {
-			flatHits = append(flatHits, b)
+	var notOnNodes []treeNode
+	for _, n := range notOn {
+		if ns, hit := filteredBeanNode(n, 1, expanded, match, archiveOnly, searching); hit {
+			notOnNodes = append(notOnNodes, ns...)
 		}
 	}
-	if len(flatHits) > 0 {
+	if len(notOnNodes) > 0 {
 		open := expanded[notOnRoadmapRootID] || searching
 		nodes = append(nodes, sectionNode(notOnRoadmapRootID, sectionNotOnRoadmap, open, searching))
 		if open {
-			for _, b := range flatHits {
-				nodes = append(nodes, treeNode{id: b.ID, bean: b, depth: 1})
-			}
+			nodes = append(nodes, notOnNodes...)
 		}
 	}
 	return nodes
@@ -1082,7 +1111,7 @@ func (m model) View() string {
 // construction (Golden-Rule-Drift-Schutz: one source instead of two that
 // could drift apart, mirrors windowStart's own shared-geometry rationale).
 func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
-	head = breadcrumb(m.repoLabel(), "Browse", renderBindings(globalBindings()), innerW)
+	head = breadcrumb(m.repoLabel(), "Roadmap", renderBindings(globalBindings()), innerW)
 	localKeys = footer(m.contextualLocalHint(m.footerBindings()), innerW)
 	return
 }

@@ -7,7 +7,7 @@ Screenshots from a test repository of 34 items. Key names: [Key bindings](../key
 
 ## Overview of the views
 
-There are five views. The item detail is a pane inside Browse and Ready; which panes show is a layout, not a view.
+There are five views. The item detail is a pane inside Roadmap and Ready; which panes show is a layout, not a view.
 
 ![The roadmap as it opens](../../screenshots/tui-roadmap.png)
 
@@ -15,8 +15,8 @@ The in-app help (`?`) has a Views section with one line per view and layout and 
 
 | View | Purpose | How to reach it |
 |---|---|---|
-| Browse, tree | The roadmap: milestones, epics, features, tasks. | Default after start; `M` |
-| Browse, flat | All items in one list. | `L` |
+| Roadmap, tree | The roadmap: milestones, epics, features, tasks. | Default after start; `M` |
+| Roadmap, flat | All items in one list. | `L` |
 | Ready | Items `lif list --ready` lists, flat. | `R` |
 | Waves | The children of one item as cards in columns that follow `blocked_by`. | `W` on the focused item; command palette `K`, entry `view: waves (graph)`. |
 | Lobby | Repository picker. | `P` |
@@ -50,7 +50,7 @@ Moving through the roadmap: `l` opens, `zo` opens a node with its children, `]` 
 
 ## Ready view
 
-`R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Browse. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
+`R` opens it; `esc` clears an active search or filter and then returns to the Roadmap (`M` returns at once). It shows the items `lif list --ready` lists (not blocked, no container types, not `in-progress` or `draft`, not archived, no archived ancestor), flat, in the same rows as the flat view: type word, title, status word, priority, ID; compact beside the detail pane. `v` and `shift+v` cycle the same [layouts](#layouts) as in Roadmap. `S` cycles the sort: `status`, `priority`, `created`, `updated`, then `status` again. `created` and `updated` sort newest first. Timestamps have one-second resolution. `S` is not in the footer; it appears in the `?` help and as the suffix `· sort <mode>` on the search line.
 
 ![The Ready view: items that can be started now](../../screenshots/tui-ready.png)
 
@@ -77,7 +77,7 @@ The footer shows `column n/m` for the focus column and `n redundant` when the fo
 
 ## Layouts
 
-`v` and `shift+v` cycle the layout of Browse (tree and flat) and Ready. `v` goes forward, `shift+v` backward, both wrap. In Ready the Ready list takes the place of the roadmap. The order is:
+`v` and `shift+v` cycle the layout of Roadmap (tree and flat) and Ready. `v` goes forward, `shift+v` backward, both wrap. In Ready the Ready list takes the place of the roadmap. The order is:
 
 | Layout | Shows |
 |---|---|

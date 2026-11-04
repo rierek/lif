@@ -10,6 +10,7 @@ package tui
 import (
 	"fmt"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 	"strings"
 	"testing"
 
@@ -871,5 +872,19 @@ func TestRepoSwitchClearsToast(t *testing.T) {
 	}
 	if m2.toast != nil {
 		t.Fatalf("m.toast = %+v after a successful repo switch, want nil (even a sticky toast from the OLD repo must clear)", m2.toast)
+	}
+}
+
+// Not-on-roadmap nodes render nested, not flat.
+func TestFlattenTreeNestsNotOnRoadmap(t *testing.T) {
+	child := &roadmap.Node{Item: &item.Item{ID: "act-b"}}
+	top := &roadmap.Node{Item: &item.Item{ID: "top-a"}, Children: []*roadmap.Node{child}}
+	nodes := flattenTree(nil, nil, []*roadmap.Node{top}, map[string]bool{notOnRoadmapRootID: true, "top-a": true})
+	depth := map[string]int{}
+	for _, n := range nodes {
+		depth[n.id] = n.depth
+	}
+	if depth["top-a"] != 1 || depth["act-b"] != 2 {
+		t.Fatalf("want top-a depth 1, act-b depth 2; got %v", depth)
 	}
 }

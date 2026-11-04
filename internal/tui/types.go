@@ -131,12 +131,12 @@ type model struct {
 
 	// The tree is the roadmap (roadmap.Build, rebuilt by applyLoaded on every
 	// load): roadmapScheduled = milestone roots, roadmapUnscheduled = the
-	// "Unscheduled" root's nodes, notOnRoadmap = items placed nowhere (flat
-	// rows under the "Not on roadmap" root). treeParent maps a node ID to its
+	// "Unscheduled" root's nodes, notOnRoadmap = items placed nowhere (nested
+	// by item parent under the "Not on roadmap" root). treeParent maps a node ID to its
 	// tree parent's ID (synthetic roots included) for expandAncestorsOf.
 	// readyIDs is the `lif list --ready` set the Ready view shows.
 	roadmapScheduled, roadmapUnscheduled []*roadmap.Node
-	notOnRoadmap                         []*item.Item
+	notOnRoadmap                         []*roadmap.Node
 	treeParent                           map[string]string
 	readyIDs                             map[string]bool
 

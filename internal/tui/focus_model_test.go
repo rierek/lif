@@ -55,7 +55,7 @@ func tabIntoDetail(t *testing.T, m model) model {
 
 // TestFocusRingTabVisitsEveryTargetAndWraps pins AC1-AC7 and SC-01: tab walks
 // the ring in order and wraps, shift+tab walks it backward and wraps, in
-// every layout with a ring, for Browse and Ready, and no key changes the
+// every layout with a ring, for Roadmap and Ready, and no key changes the
 // layout (AC8).
 func TestFocusRingTabVisitsEveryTargetAndWraps(t *testing.T) {
 	for _, l := range []layoutMode{layoutFilter, layoutFilterDetail, layoutDetail} {
@@ -107,7 +107,7 @@ func TestFocusRingRoadmapIgnoresTab(t *testing.T) {
 // TestFocusRingDetailFieldIsVisible pins AC9: tab and shift+tab onto a
 // detail field put the field cursor there and scroll it into the viewport.
 func TestFocusRingDetailFieldIsVisible(t *testing.T) {
-	m := layoutModels(t, layoutFilterDetail)["browse"]
+	m := layoutModels(t, layoutFilterDetail)["roadmap"]
 	m = step(t, m, tea.WindowSizeMsg{Width: layoutW, Height: 18})
 	for _, k := range []tea.KeyType{tea.KeyShiftTab, tea.KeyShiftTab, tea.KeyShiftTab, tea.KeyTab} {
 		m = step(t, m, keyMsg(k))
@@ -127,17 +127,17 @@ func TestFocusRingDetailFieldIsVisible(t *testing.T) {
 // TestFocusRingClickMovesTabStart: tab continues from the focus a click or
 // key set, because the ring position is derived from the model state.
 func TestFocusRingClickMovesTabStart(t *testing.T) {
-	m := layoutModels(t, layoutFilterDetail)["browse"].focusFilterField("priority")
+	m := layoutModels(t, layoutFilterDetail)["roadmap"].focusFilterField("priority")
 	m = step(t, m, keyMsg(tea.KeyTab))
 	if got := focusAt(m); got != "filter:tag" {
 		t.Fatalf("tab from the priority field = %q, want filter:tag", got)
 	}
 }
 
-// TestFocusTabDoesNotReachOtherViews: tab outside Browse and Ready never
+// TestFocusTabDoesNotReachOtherViews: tab outside Roadmap and Ready never
 // moves ring state.
 func TestFocusTabDoesNotReachOtherViews(t *testing.T) {
-	m := layoutModels(t, layoutFilterDetail)["browse"]
+	m := layoutModels(t, layoutFilterDetail)["roadmap"]
 	m.view = viewLobby
 	if got := m.stepFocus(1); focusAt(got) != focusAt(m) {
 		t.Fatalf("stepFocus in the Lobby moved focus to %q", focusAt(got))

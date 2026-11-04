@@ -93,7 +93,7 @@ func placeOverlay(bg, fg string, tw, th int) string {
 // the two variants (placeCompose, below) so they can never independently
 // drift on how a line actually gets spliced (mirrors panelBox/
 // panelBoxTopHotkey sharing panelBoxWith, box_panel.go's own precedent).
-// NOT wired into composeOverlays (view_browse_repo.go) yet — Slice C's job;
+// NOT wired into composeOverlays (view_roadmap_repo.go) yet — Slice C's job;
 // this is the primitive plus its own unit tests only (overlay_test.go).
 //
 // Overflow (S6/D09 grounding Q3, deliberately UNRESOLVED here — see bt-f0y9's

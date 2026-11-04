@@ -103,14 +103,14 @@ func TestTagRegistryRowsNilIndexNoPanic(t *testing.T) {
 
 // --- keyTagManagement: nav / esc / enter no-op (D06/D08) ---
 
-// TestKeyTagManagementEscReturnsToBrowse is the bean's own named RED test
+// TestKeyTagManagementEscReturnsToRoadmap is the bean's own named RED test
 // (bt-r92i TDD section, quoted verbatim).
-func TestKeyTagManagementEscReturnsToBrowse(t *testing.T) {
+func TestKeyTagManagementEscReturnsToRoadmap(t *testing.T) {
 	m := newModel(nil, "")
 	m.view = viewTagManagement
 	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if nm.(model).view != viewBrowseRepo {
-		t.Fatalf("want viewBrowseRepo, got %v", nm.(model).view)
+	if nm.(model).view != viewRoadmapRepo {
+		t.Fatalf("want viewRoadmapRepo, got %v", nm.(model).view)
 	}
 }
 
@@ -318,7 +318,7 @@ func TestViewTagManagementNoNewRegistryFileOnRender(t *testing.T) {
 
 // TestViewTagManagementLinesFitExactlyNoWrap is a regression guard (found
 // live during this task's OWN tmux-smoke run, same "B01" bug class as
-// view_lobby.go's own doc-stamp / view_browse_repo.go's single-pane precedent
+// view_lobby.go's own doc-stamp / view_roadmap_repo.go's single-pane precedent
 // paneW note): a single full-width pane's renderPane `w` argument is a
 // CONTENT width (its own RoundedBorder adds +2 more) -- passing innerW
 // unadjusted (instead of innerW-2) double-counts the border, and
@@ -359,11 +359,11 @@ func TestViewDispatcherRoutesTagManagementView(t *testing.T) {
 	mm := nm.(model)
 
 	out := mm.View()
-	// viewBrowseRepo's own breadcrumb title is "Browse" -- viewTagManagement's
+	// viewRoadmapRepo's own breadcrumb title is "Roadmap" -- viewTagManagement's
 	// is "Tags" (tagManagementChrome). A dispatcher bug (falling through to
-	// the `default: viewBrowseRepo()` case) would render "Browse" instead.
-	if strings.Contains(out, "Browse") {
-		t.Errorf("View() while viewTagManagement is active still rendered the Browse breadcrumb (dispatcher not wired):\n%s", out)
+	// the `default: viewRoadmapRepo()` case) would render "Roadmap" instead.
+	if strings.Contains(out, "Roadmap") {
+		t.Errorf("View() while viewTagManagement is active still rendered the Roadmap breadcrumb (dispatcher not wired):\n%s", out)
 	}
 }
 
@@ -1594,7 +1594,7 @@ func TestTagMgmtDeleteConfirmBoxSingularOneBean(t *testing.T) {
 
 // TestViewTagManagementRendersDeleteConfirmCentered guards the D15/D06
 // compositing wiring: viewTagManagement (via composeOverlays,
-// view_browse_repo.go) paints the Confirm modal over the row list when
+// view_roadmap_repo.go) paints the Confirm modal over the row list when
 // tagMgmtDeleteConfirm is set -- mirrors confirmQuit's own composeOverlays
 // branch (D15's explicit "exakt wie es bereits m.confirmQuit kennt"
 // wording).

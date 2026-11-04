@@ -195,7 +195,7 @@ func TestCursorMovesAndExpands(t *testing.T) {
 // fixtureModel/newModel never load config.yaml, so m.settings.Repos is nil
 // here, which is exactly the "no repos configured" case that still quits
 // directly. RENAMED from the pre-B08 "TestQuitConfirm" (which read as if
-// q+enter from Browse always quit outright -- true before A2, now only true
+// q+enter from Roadmap always quit outright -- true before A2, now only true
 // in this Randfall) to avoid pinning stale behavior by name; the cascade's
 // other two stages (stage 1: repos configured -> Lobby; stage 2: already in
 // the Lobby -> Quit) are covered by box_confirm_quit_test.go's
@@ -478,7 +478,7 @@ func TestOrphanBucketUsesCanonicalOrderOverTitle(t *testing.T) {
 // TestTabTogglesDetailFocusAndPaneAccent guards Q01 end-to-end: tab flips
 // m.detailFocus, AND the rendered pane border actually swaps which side
 // carries the Mauve (focused) accent -- not just the model flag. Renders
-// through the exact same renderPane/renderDetailPane calls viewBrowseRepo
+// through the exact same renderPane/renderDetailPane calls viewRoadmapRepo
 // itself uses (I05 #1).
 func TestTabTogglesDetailFocusAndPaneAccent(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
@@ -624,10 +624,10 @@ func fixtureBeansWithBlocking() []*item.Item {
 	}
 }
 
-// TestFocusedBeanDispatchesOnTreeCursorInBrowseView guards focusedBean()'s
-// Browse-view dispatch (devd port focusedIssue, view_detail_issue.go:20-35):
-// in viewBrowseRepo it must return the currently tree-cursored bean.
-func TestFocusedBeanDispatchesOnTreeCursorInBrowseView(t *testing.T) {
+// TestFocusedBeanDispatchesOnTreeCursorInRoadmapView guards focusedBean()'s
+// Roadmap-view dispatch (devd port focusedIssue, view_detail_issue.go:20-35):
+// in viewRoadmapRepo it must return the currently tree-cursored bean.
+func TestFocusedBeanDispatchesOnTreeCursorInRoadmapView(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.cursorID = "ms-1"
 	b := m.focusedBean()

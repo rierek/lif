@@ -130,7 +130,7 @@ func relationRowMarker(active bool, fieldIdx, rowIdx int) string {
 // `marker` parameter, byte-identical to its pre-extraction behavior.
 //
 // slug (bean bt-pt1r) is the same repo prefix treeRowText/readyRowText
-// already strip via shortBeanID (view_browse_repo.go, bean bt-pl5p) --
+// already strip via shortBeanID (view_roadmap_repo.go, bean bt-pl5p) --
 // threaded in as a PARAMETER rather than resolved here, because the two
 // callers want opposite things and the difference is a deliberate design
 // decision, not an accident:
@@ -151,7 +151,7 @@ func relationRowPrefix(rel *item.Item, slug string) string {
 
 // relationRow renders one resolved relation as a marker-prefixed status-
 // icon+type-icon+ID+title row (mirrors treeRowText's glyph order, view_
-// browse_repo.go), wrapped via hangingIndentWrap (B04.3) so a long title's
+// roadmap_repo.go), wrapped via hangingIndentWrap (B04.3) so a long title's
 // continuation lines align under the title's own start on THIS row instead
 // of falling back to column 0. Passes slug "" on purpose -- see
 // relationRowPrefix's own note: the Detail pane keeps the FULL ID (bt-pl5p).
@@ -176,7 +176,7 @@ func relationRow(rel *item.Item, marker string, w int) string {
 // row/relation count), or -1 if none of this group's rows is the active one.
 // Threaded up through relationsSectionBody (below) into its own `activeLine`
 // return value -- replaces the removed activeRelationLine's post-render
-// "▶"-glyph rescan (view_browse_repo.go) with an index known exactly at
+// "▶"-glyph rescan (view_roadmap_repo.go) with an index known exactly at
 // construction time, so a relation TITLE that happens to contain "▶"/"▷"
 // can never be mistaken for the real cursor.
 func resolveSorted(idx *data.Index, ids []string, startIdx int, active bool, fieldIdx, w int) (lines []string, fields []relationField, nextIdx, activeOffset int) {
@@ -281,7 +281,7 @@ func beanListRow(beans []*item.Item, startIdx int, active bool, fieldIdx, w int)
 // between groups all count), Default 0 when no row is active (mirrors the
 // removed activeRelationLine's own "no active marker -> top" default).
 // Replaces windowRelationsSection's post-render activeRelationLine glyph
-// rescan (view_browse_repo.go) -- the caller now has the exact index instead
+// rescan (view_roadmap_repo.go) -- the caller now has the exact index instead
 // of re-deriving it from already-rendered text, which could be fooled by a
 // "▶"/"▷" character living inside a relation's own TITLE (Reviewer-Beleg,
 // bt-b0w0-Review).

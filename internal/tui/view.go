@@ -77,7 +77,7 @@ func wrapText(s string, w int) string {
 // Anbindung only, no dynamic footer height / layout rework) -- it now
 // carries ONLY the scroll indicator.
 // statusLine is the ONE source for the footer's optional status row across
-// viewBrowseRepo/viewReady/viewTagManagement AND their click-geometry
+// viewRoadmapRepo/viewReady/viewTagManagement AND their click-geometry
 // reconstructions (clickPaneGeometry, mouse.go) -- bean bt-oqsv: the row is
 // no longer RESERVED, it is rendered only when it carries something, so
 // view and hit-test must agree on "is it there?" from the same expression.
@@ -144,7 +144,7 @@ const nbsp = "\u00a0"
 // theme.BindingKey (Teal), description theme.BindingDesc (Subtext) --
 // replaces the previous plain "key:desc" colon-joined, blanket-Dim-washed
 // rendering. This is the ONE shared render path for BOTH Header Zone 1
-// (globalBindings()) AND Footer Zone 3 (browseRepoLocalBindings/
+// (globalBindings()) AND Footer Zone 3 (roadmapRepoLocalBindings/
 // readyLocalBindings, plus every overlay-local set in footer_context.go)
 // -- one function, one optic, "gilt einheitlich" (PO). Bindings without a
 // Help().Key are skipped (devd DD2-175: footer hints are derived from the

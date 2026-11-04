@@ -4,7 +4,7 @@ package tui
 // "mouse for box-form"): B6's filter-bar +3 click-Y offset
 // only), box-form Detail-Pane click-to-edit (a click on a field box fires
 // the SAME action its own hotkey does), and the flat-list row click (S5's
-// Nested/Flat Browse toggle `G`, view_browse_flat.go). Mirrors mouse_test.go's
+// Nested/Flat Roadmap toggle `G`, view_roadmap_flat.go). Mirrors mouse_test.go's
 // own render-grounded click pattern throughout (screenLines/leftPaneClickAt/
 // rightPaneClickAt) -- no coordinate is ever hand-derived from the click
 // formula itself (that would be circular, detailClickRow's own doc comment
@@ -26,7 +26,7 @@ import (
 // the header divider and the Tree/Detail split, pushing every rendered row
 // down by filterBarHeight (3) lines. treeClickAt locates "Task Two" in the
 // REAL rendered View() (already reflecting the +3 shift) -- without B6's
-// originY += filterBarHeight correction (view_browse_repo.go's treeClickRow),
+// originY += filterBarHeight correction (view_roadmap_repo.go's treeClickRow),
 // this click would resolve 3 rows too far and select the WRONG node (or
 // none).
 func TestBoxFormFilterBarOffsetTreeClickSelectsCorrectRow(t *testing.T) {
@@ -49,7 +49,7 @@ func TestBoxFormFilterBarOffsetTreeClickSelectsCorrectRow(t *testing.T) {
 
 // --- Box-form Detail-Pane click-to-edit ---
 
-// boxFormClickAt is rightPaneClickAt (mouse_test.go) scoped to Browse's own
+// boxFormClickAt is rightPaneClickAt (mouse_test.go) scoped to Roadmap's own
 // chrome, restricted further to Y >= the FIRST row past the filter bar (i.e.
 // the box-form's own content, not the filter bar's four chips one-column-
 // left-of-boundary text, which happens to share label words like "Status"
@@ -58,7 +58,7 @@ func TestBoxFormFilterBarOffsetTreeClickSelectsCorrectRow(t *testing.T) {
 // boxBottomBorder renders, box_dropdown.go).
 func boxFormClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
-	head, localKeys := m.browseRepoChrome(m.width - 2)
+	head, localKeys := m.roadmapRepoChrome(m.width - 2)
 	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	boundary := originX + lw
 	filterBarBottom := originY + filterBarHeight // filter bar occupies [originY, originY+filterBarHeight)
@@ -81,7 +81,7 @@ func boxFormClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 }
 
 // boxFormFocusModel builds a fixtureModel with and tk-2 focused
-// (Browse/Tree view, no detailFocus needed -- focusedBean() resolves via
+// (Roadmap/Tree view, no detailFocus needed -- focusedBean() resolves via
 // m.cursorID regardless, update.go).
 func boxFormFocusModel(t *testing.T) model {
 	t.Helper()
@@ -149,7 +149,7 @@ func TestBoxFormClickOnTagsBoxOpensTagPicker(t *testing.T) {
 	}
 }
 
-// --- Flat-list row click (S5 Nested/Flat Browse toggle) ---
+// --- Flat-list row click (S5 Nested/Flat Roadmap toggle) ---
 
 // TestFlatClickSelectsRow guards Task 3 ("Flat-mode row click"): a click on
 // a flat-list row (mirrors TestClickSetsTreeCursor's own render-grounded
@@ -166,7 +166,7 @@ func TestFlatClickSelectsRow(t *testing.T) {
 	m.flatList.setLen(len(vis))
 	m.flatList.cursor = 0
 
-	msg := treeClickAt(t, m, "Task Two") // treeClickAt = browseRepoChrome-scoped leftPaneClickAt, view-agnostic to Tree-vs-Flat
+	msg := treeClickAt(t, m, "Task Two") // treeClickAt = roadmapRepoChrome-scoped leftPaneClickAt, view-agnostic to Tree-vs-Flat
 	tm, _ := m.handleMouse(msg)
 	m2, ok := tm.(model)
 	if !ok {
@@ -185,7 +185,7 @@ func TestFlatClickSelectsRow(t *testing.T) {
 // TestFlatClickWithBoxFormOffsetSelectsRow combines S6's two flat-mode
 // requirements: the +3 filter-bar offset AND flatClickRow's own
 // windowStart/row math, both at once -- guards flatClickRow's own
-// filter-bar branch (view_browse_flat.go), the flat-list analog of the
+// filter-bar branch (view_roadmap_flat.go), the flat-list analog of the
 // Tree test above.
 func TestFlatClickWithBoxFormOffsetSelectsRow(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())

@@ -213,7 +213,7 @@ func TestToastBoxWidthFloorOnNarrowTerminal(t *testing.T) {
 // TestDismissToastJumpsToTarget guards dismissToast's target-adopt half: a
 // set target.view is applied to m.view before the toast is cleared.
 func TestDismissToastJumpsToTarget(t *testing.T) {
-	m := model{width: 90, height: 24, view: viewBrowseRepo}
+	m := model{width: 90, height: 24, view: viewRoadmapRepo}
 	m, _ = m.showToast(toastInfo, "moved", "", &toastTarget{view: viewReady}, false)
 
 	tm, _ := m.dismissToast()

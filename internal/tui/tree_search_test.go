@@ -21,7 +21,7 @@ func searchFixture(t *testing.T) model {
 		mk("ms-2", "milestone", "", "ms-2"), mk("ep-2a", "epic", "ms-2", "ep-2a"), mk("tk-3", "task", "ep-2a", "zz three"),
 	})
 	m.expanded = map[string]bool{}
-	m.view, m.flatView = viewBrowseRepo, false
+	m.view, m.flatView = viewRoadmapRepo, false
 	return keyMsgSeq(t, keys2(t, m, "/zz"), keyMsg(tea.KeyEnter))
 }
 

@@ -10,7 +10,7 @@ package tui
 // rework). This file pins the render-side half of the Akzeptanz ("untere
 // reservierte Zeile entfernt [Fehler-Anbindung], Toast ist der einzige
 // sichtbare Kanal") across all three top-level views that call statusBar
-// directly (viewBrowseRepo/viewReady/viewTagManagement) plus Chrome
+// directly (viewRoadmapRepo/viewReady/viewTagManagement) plus Chrome
 // itself. The Update-side half (the seven ex-silent m.err-only sites now
 // also firing a Toast) is covered per-site in each of their own owning
 // _test.go files (box_confirm_delete_test.go et al.), not duplicated here.
@@ -44,11 +44,11 @@ func TestChromeStatusBarNeverRendersErrNote(t *testing.T) {
 	}
 }
 
-// TestViewBrowseRepoNeverRendersMErr guards viewBrowseRepo's own statusBar
-// call (view_browse_repo.go): m.err set to errMarker must never reach the
+// TestViewRoadmapRepoNeverRendersMErr guards viewRoadmapRepo's own statusBar
+// call (view_roadmap_repo.go): m.err set to errMarker must never reach the
 // rendered frame, regardless of any legitimate scroll-indicator content
 // sharing the same status line slot.
-func TestViewBrowseRepoNeverRendersMErr(t *testing.T) {
+func TestViewRoadmapRepoNeverRendersMErr(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
@@ -62,12 +62,12 @@ func TestViewBrowseRepoNeverRendersMErr(t *testing.T) {
 
 	out := m.View()
 	if strings.Contains(out, errMarker) {
-		t.Fatalf("viewBrowseRepo's View() output contains m.err (%q), want it never rendered (bt-81f0)", errMarker)
+		t.Fatalf("viewRoadmapRepo's View() output contains m.err (%q), want it never rendered (bt-81f0)", errMarker)
 	}
 }
 
-// TestViewReadyNeverRendersMErr mirrors TestViewBrowseRepoNeverRendersMErr
-// for view_browse_ready.go's own statusBar call.
+// TestViewReadyNeverRendersMErr mirrors TestViewRoadmapRepoNeverRendersMErr
+// for view_roadmap_ready.go's own statusBar call.
 func TestViewReadyNeverRendersMErr(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)

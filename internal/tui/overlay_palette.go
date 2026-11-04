@@ -95,7 +95,7 @@ func paletteActions(m model) []paletteItem {
 	items = append(items,
 		paletteItem{kind: paletteKindAction, actionID: "create", label: "create: item"},
 		paletteItem{kind: paletteKindAction, actionID: "go_ready", label: "view: ready lifs"},
-		paletteItem{kind: paletteKindAction, actionID: "go_browse", label: "view: roadmap"},
+		paletteItem{kind: paletteKindAction, actionID: "go_roadmap", label: "view: roadmap"},
 		paletteItem{kind: paletteKindAction, actionID: "filter", label: "focus: filter"},
 		paletteItem{kind: paletteKindAction, actionID: "search", label: "search: items"},
 		paletteItem{kind: paletteKindAction, actionID: "reload", label: "reload: data"},
@@ -285,8 +285,8 @@ func (m model) dispatchPalette(it paletteItem) (tea.Model, tea.Cmd) {
 			m.view = viewReady
 			m.readyList.setLen(len(m.readyVisible()))
 			return m, nil
-		case "go_browse":
-			m.view = viewBrowseRepo
+		case "go_roadmap":
+			m.view = viewRoadmapRepo
 			return m, nil
 		case "go_waves":
 			// beans-wrj0 (R-10): the SAME entry as keys.Waves (keyView); the

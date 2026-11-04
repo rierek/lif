@@ -1,13 +1,13 @@
 package tui
 
-// view_browse_repo.go — the Browse Primat-View (design-spec.md §6 V2 basis):
+// view_roadmap_repo.go — the Roadmap Primat-View (design-spec.md §6 V2 basis):
 // a two-pane master-detail layout, left = expandable Tree (Milestones as
 // roots -> Epics/Features -> leaves, plus synthetic "Unscheduled" and "Not on
 // roadmap" roots; the tree is the roadmap, bean bt-7jr8/T3-review Q01), right = a placeholder
 // detail preview (full accordion lands in E2). Port-pattern reference: devd
-// view_browse_project.go (treeNode flattening + D08 cursor-bar rendering,
+// view_roadmap_project.go (treeNode flattening + D08 cursor-bar rendering,
 // ~/dev/DeveloperDashboard/apps/cli-go/internal/tui/
-// view_browse_project.go:382-398).
+// view_roadmap_project.go:382-398).
 
 import (
 	"fmt"
@@ -192,7 +192,7 @@ func appendBeanNode(nodes []treeNode, n *roadmap.Node, depth int, expanded map[s
 //
 // The `|| !m.showArchived` term is deliberately NOT folded into
 // treeActive() itself: treeActive() also drives treeSearchLine's "Filter
-// aktiv" red-line rendering (view_browse_repo.go), and a program default
+// aktiv" red-line rendering (view_roadmap_repo.go), and a program default
 // hiding archived beans must NOT flip that line red -- filterActive()/
 // treeActive() stay byte-for-byte unchanged, exactly the "kein PO-Facet"
 // acceptance requirement (box_filter_facets.go doc-stamps). This routing
@@ -339,7 +339,7 @@ func (m model) beanMatchesSearch(b *item.Item) bool {
 
 // flattenTreeFiltered mirrors flattenTree's depth-first walk but only shows
 // a subtree the caller has actually expanded (devd DD2-178 parity,
-// view_browse_project.go:215-238, wörtlich portiert per plan Port-Referenzen:
+// view_roadmap_project.go:215-238, wörtlich portiert per plan Port-Referenzen:
 // a manually collapsed ancestor stays collapsed even if a descendant
 // matches -- it renders as ONE collapsed context row, never force-expanded).
 // Every scheduled root, the Unscheduled bucket AND the Not-on-roadmap bucket
@@ -445,7 +445,7 @@ func filteredBeanNode(n *roadmap.Node, depth int, expanded map[string]bool, matc
 // subtreeHasMatch is a structural (expand-state-INDEPENDENT) scan used only
 // for a COLLAPSED node (filteredBeanNode): whether match hits anywhere below
 // it, so it still renders as a single collapsed context row without being
-// force-expanded (devd DD2-178, view_browse_project.go:215-238's documented
+// force-expanded (devd DD2-178, view_roadmap_project.go:215-238's documented
 // PO decision -- "a manually collapsed node stays collapsed even if it
 // contains a match"). It walks unconditionally downward, ignoring expand
 // state entirely.
@@ -622,17 +622,17 @@ func treeRowLines(n treeNode, slug string, width int) []string {
 }
 
 // treeRows renders every visible row, applying the D08 cursor treatment to
-// the cursor's row only (devd view_browse_project.go:382-398): a leading `▌`
+// the cursor's row only (devd view_roadmap_project.go:382-398): a leading `▌`
 // bar plus the WHOLE row accent-tinted (own per-cell colors stripped first).
 // focused=false (Detail pane has focus) freezes the cursor muted instead of
 // accent -- only the focused pane's cursor is highlighted (devd D03). bodyH
-// is the caller's own row-window height (viewBrowseRepo passes bodyH-1, the
+// is the caller's own row-window height (viewRoadmapRepo passes bodyH-1, the
 // pane's full content budget minus the 1-line search head -- PF-10, bean
 // bt-uyzf, removed renderPane's own title+separator budget entirely, so
 // nothing else is subtracted here anymore). Golden Rule #1 still holds:
 // windowing trims the ROWS handed to renderPane, it never forces a Height()
 // on the bordered style itself. B01 (T8 Opus quality review): rows are windowed around the
-// cursor (devd windowAround/windowStart port, view_browse_project.go:
+// cursor (devd windowAround/windowStart port, view_roadmap_project.go:
 // 647-670) so a tree taller than the pane never hides the cursor below the
 // fold.
 func (m model) treeRows(nodes []treeNode, focused bool, bodyH, width int) []string {
@@ -679,11 +679,11 @@ func (m model) treeBlocks(nodes []treeNode, focused bool, width int) [][]string 
 
 // decorateRowBlock prepends the 1-cell cursor column to every line of one
 // row's block: the D08 `▌` bar plus the whole-line accent tint on the cursor
-// row (own per-cell colors stripped first, devd view_browse_project.go:
+// row (own per-cell colors stripped first, devd view_roadmap_project.go:
 // 382-398), a plain space otherwise. focused=false (the Detail pane has focus)
 // freezes the cursor muted instead of accent -- only the focused pane's cursor
-// is highlighted (devd D03). Shared verbatim by the Tree, the Browse flat list
-// and the Ready (view_browse_flat.go / view_browse_ready.go), which all
+// is highlighted (devd D03). Shared verbatim by the Tree, the Roadmap flat list
+// and the Ready (view_roadmap_flat.go / view_roadmap_ready.go), which all
 // three used to carry their own copy of this five-line block.
 func decorateRowBlock(lines []string, isCursor, focused bool) []string {
 	out := make([]string, len(lines))
@@ -704,7 +704,7 @@ func decorateRowBlock(lines []string, isCursor, focused bool) []string {
 
 // windowStart computes the window start index so cursor stays visible --
 // centered when there's room, clamped at both edges (devd port:
-// view_browse_project.go:649-661, itself shared there by render + the
+// view_roadmap_project.go:649-661, itself shared there by render + the
 // mouse-click Y->row mapping). Deterministic in cursor+height alone (no
 // hidden state), which is what keeps it jitter-free: the same (n, height,
 // cursor) always yields the same window, it never "remembers" a previous
@@ -724,7 +724,7 @@ func windowStart(n, height, cursor int) int {
 }
 
 // windowAround windows rows to height entries so the cursor stays visible
-// (devd port: view_browse_project.go:663-670). A no-op when everything
+// (devd port: view_roadmap_project.go:663-670). A no-op when everything
 // already fits (including height<=0, an init/edge-case fallback -- renderPane
 // itself caps to its own h regardless of how many rows it's handed).
 func windowAround(rows []string, height, cursor int) []string {
@@ -738,7 +738,7 @@ func windowAround(rows []string, height, cursor int) []string {
 // renderDetailPane renders the Detail box form for the cursored bean.
 // Resolves the tree cursor's bean (or nil for "no selection") and hands off
 // to the shared renderBeanDetailBox (below), which renderReadyDetailPane
-// (view_browse_ready.go) and the flat list share too, so Tree, Ready
+// (view_roadmap_ready.go) and the flat list share too, so Tree, Ready
 // and layoutDetail can never drift apart on the Detail body.
 func (m model) renderDetailPane(nodes []treeNode, w, h int, focused bool) string {
 	pos := m.cursorPos(nodes)
@@ -847,14 +847,14 @@ func renderDetailBox(idx *data.Index, b *item.Item, w, h int, focused bool, boxS
 }
 
 // searchShield is the search head row's glyph (U+2315 TELEPHONE RECORDER,
-// port devd treeSearchLine view_browse_project.go:1099-1117 -- devd's own
+// port devd treeSearchLine view_roadmap_project.go:1099-1117 -- devd's own
 // comment there notes it replaced an ambiguous-width lookalike, DD2-53; kept
 // verbatim here for the same EAW-neutral reason).
 const searchShield = "⌕"
 
 // treeSearchLine renders the Tree/Ready pane's persistent search head row
 // (design-spec.md §6 V2 "Such-/Filterkopf", port devd treeSearchLine
-// view_browse_project.go:1099-1117): the live textinput while typing, the
+// view_roadmap_project.go:1099-1117): the live textinput while typing, the
 // committed query AND/OR the active-facet summary in Red once either is
 // active (DD2-53 "Filter aktiv" signal, E2 Task 4/bean bt-9ldr: extended to
 // cover facets alongside search), or a muted hint when neither is active.
@@ -871,7 +871,7 @@ const searchShield = "⌕"
 // footer()'s own doc comment for the general rule), so concatenating two
 // independently-rendered spans is the only way the suffix stays Muted even
 // inside the Red-styled treeActive branch. Tree's own call site
-// (viewBrowseRepo) always passes "" -- an empty suffix appends nothing, so
+// (viewRoadmapRepo) always passes "" -- an empty suffix appends nothing, so
 // the Tree's search line renders BYTE-IDENTICAL to before D02
 // (TestTreeSearchLineEmptySuffixUnchanged, tree.golden's own guarantee).
 // Ready's call site (viewReady) passes
@@ -978,11 +978,11 @@ func (m model) searchHeadBox(width int) []string {
 	return []string{boxTopBorder("Search", width, frame), mid, boxBottomBorder("/", width, frame)}
 }
 
-// treePaneHeadRows builds the rows that precede the bean rows in the Browse
+// treePaneHeadRows builds the rows that precede the bean rows in the Roadmap
 // left pane: the boxed search head (3 lines, bean bt-f68z #11). The list has
 // no column header (U4: the rows carry their own type, status and ID).
 //
-// This is the ONE place that decides how tall that head is. viewBrowseRepo
+// This is the ONE place that decides how tall that head is. viewRoadmapRepo
 // trades its length out of the row budget and treeClickRow/flatClickRow offset
 // their hit-test by exactly len(...) -- so a future head row can never desync
 // the render from the mouse (the failure bt-vpvu was filed for: the filter bar
@@ -1003,7 +1003,7 @@ func (m model) repoLabel() string {
 
 // composeOverlays layers every floating overlay onto out in a fixed
 // z-priority order (painter's algorithm, placeOverlay) -- E3 Task 1
-// extraction (bean bt-dlgk): viewBrowseRepo and viewReady used to
+// extraction (bean bt-dlgk): viewRoadmapRepo and viewReady used to
 // duplicate the overlay block; a new overlay is now wired in
 // exactly ONE place instead of two. Order: the node-action/menu overlay
 // (design decision a2 -- EXACTLY one overlayID active
@@ -1100,24 +1100,24 @@ func (m model) View() string {
 	case viewWaves:
 		out = m.viewWaves()
 	default:
-		out = m.viewBrowseRepo()
+		out = m.viewRoadmapRepo()
 	}
 	return m.renderToast(out)
 }
 
-// browseRepoChrome builds viewBrowseRepo's own head/localKeys strings --
+// roadmapRepoChrome builds viewRoadmapRepo's own head/localKeys strings --
 // factored out (E5 Task 4, bean bt-mne6) so treeClickRow (mouse.go) can
 // reconstruct this view's IDENTICAL geometry via clickPaneGeometry without a
 // second, independently maintained copy of this breadcrumb/footer
 // construction (Golden-Rule-Drift-Schutz: one source instead of two that
 // could drift apart, mirrors windowStart's own shared-geometry rationale).
-func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
+func (m model) roadmapRepoChrome(innerW int) (head, localKeys string) {
 	head = breadcrumb(m.repoLabel(), "Roadmap", renderBindings(globalBindings()), innerW)
 	localKeys = footer(m.contextualLocalHint(m.footerBindings()), innerW)
 	return
 }
 
-// footerBindings is the Browse and Ready footer's local key set (Footer Zone
+// footerBindings is the Roadmap and Ready footer's local key set (Footer Zone
 // 3): it lists exactly the keys that act in the current view, layout and
 // focus (beans-u4uu, AC16). The global four (K, P, ?, q) sit in the header.
 //
@@ -1135,8 +1135,8 @@ func (m model) browseRepoChrome(innerW int) (head, localKeys string) {
 // overlay lists them.
 func (m model) footerBindings() []keybind.Binding {
 	hasBean := m.focusedBean() != nil
-	inRoadmap := m.view == viewBrowseRepo && !m.flatView
-	inFlat := m.view == viewBrowseRepo && m.flatView
+	inRoadmap := m.view == viewRoadmapRepo && !m.flatView
+	inFlat := m.view == viewRoadmapRepo && m.flatView
 	list, filter, detail := m.focusRing()
 	ring := list+filter+detail >= 2
 	cands := []struct {
@@ -1189,12 +1189,12 @@ func (m model) footerBindings() []keybind.Binding {
 // holds this rule structurally against the real detailBoxForm render.
 var boxFormInlineKeys = map[string]bool{"e": true, "s": true, "a": true, "g": true}
 
-// viewBrowseRepo renders the two-pane master-detail Browse view. Mirrors
+// viewRoadmapRepo renders the two-pane master-detail Roadmap view. Mirrors
 // Chrome()'s own algebra exactly (view.go) so the frame always fills
 // width x height, just with a two-pane body instead of Chrome's single
 // scroll body -- Golden Rule #1 still applies (no Height() on a bordered
 // style; renderPane pads/caps to its h param instead).
-func (m model) viewBrowseRepo() string {
+func (m model) viewRoadmapRepo() string {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80
@@ -1204,7 +1204,7 @@ func (m model) viewBrowseRepo() string {
 	}
 	innerW := w - 2
 
-	head, localKeys := m.browseRepoChrome(innerW)
+	head, localKeys := m.roadmapRepoChrome(innerW)
 
 	div := theme.Dim.Render(strings.Repeat("─", innerW))
 	// I04 (T8 Opus quality review): a failed data.Watch start (no live
@@ -1248,8 +1248,8 @@ func (m model) viewBrowseRepo() string {
 			body = m.renderDetailPane(nodes, rw, bodyH, true)
 		}
 	} else if m.flatView {
-		// S5 (jira-style-ui experiment, Nested/Flat Browse toggle `G`,
-		// view_browse_flat.go): the LEFT pane renders the flat, sorted bean
+		// S5 (jira-style-ui experiment, Nested/Flat Roadmap toggle `G`,
+		// view_roadmap_flat.go): the LEFT pane renders the flat, sorted bean
 		// list instead of the Tree -- everything else (search head row
 		// budget trade, Detail pane via the SAME shared renderBeanDetailBox,
 		// master-detail Split) mirrors the Tree branch below verbatim, just
@@ -1295,10 +1295,10 @@ func (m model) viewBrowseRepo() string {
 
 // treeClickRow maps a mouse click to a Tree node index (E5 Task 4, bean
 // bt-mne6, design decision f; caller: mouse.go's mouseTreeClick) --
-// bodyH/lw/originX/originY are RECONSTRUCTED identically to viewBrowseRepo's
-// own render formula (above) via the shared browseRepoChrome +
+// bodyH/lw/originX/originY are RECONSTRUCTED identically to viewRoadmapRepo's
+// own render formula (above) via the shared roadmapRepoChrome +
 // clickPaneGeometry helpers (Golden-Rule-Drift-Schutz, Kommentar-Pflicht
-// analog windowStart's own doc comment): if viewBrowseRepo's algebra ever
+// analog windowStart's own doc comment): if viewRoadmapRepo's algebra ever
 // changes, it changes HERE too automatically (single source), so a click can
 // never silently land on the wrong row through independent drift. Row 0
 // (clickRow==0, right below the pane's own top border -- PF-10, bean bt-uyzf,
@@ -1317,12 +1317,12 @@ func treeClickRow(m model, nodes []treeNode, msg tea.MouseMsg) (idx int, ok bool
 		h = 24
 	}
 	innerW := w - 2
-	head, localKeys := m.browseRepoChrome(innerW)
+	head, localKeys := m.roadmapRepoChrome(innerW)
 
 	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	// B6 (S6, jira-style-ui experiment): the persistent
 	// filter bar (box_filter_bar.go) sits between the header divider and
-	// the Tree/Detail split (viewBrowseRepo, above) in the filter layouts --
+	// the Tree/Detail split (viewRoadmapRepo, above) in the filter layouts --
 	// it reclaims its 3 rows from bodyH BEFORE the split renders, but
 	// clickPaneGeometry's own originY has no knowledge of it (m.filterRows
 	// is 0 in the layouts without the bar).

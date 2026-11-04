@@ -2,7 +2,7 @@ package tui
 
 // messages.go — tea.Msg types + tea.Cmd producers ONLY (port convention from
 // devd messages.go: no dispatch/rendering lives here, see update.go/
-// view_browse_repo.go).
+// view_roadmap_repo.go).
 
 import (
 	"time"
@@ -270,7 +270,7 @@ type searchBleveResultMsg struct {
 // searchCmd runs an async Bleve full-text search via data.Store.Search,
 // tagging the result with query (design-spec.md §6 V2: "-S-Bleve-Modus ab 3
 // Zeichen"). Only the resolved bean IDs are kept -- beanMatchesSearch
-// (view_browse_repo.go) only ever needs ID membership, not the full Bean.
+// (view_roadmap_repo.go) only ever needs ID membership, not the full Bean.
 func searchCmd(c *data.Store, query string) tea.Cmd {
 	return func() tea.Msg {
 		beans, err := c.Search(query)

@@ -110,13 +110,13 @@ func TestWavesOpensFromRoadmapFlatListAndReady(t *testing.T) {
 		t.Fatalf("focus on open = %q, want the first card of the leftmost (loose) column k-l", got.waves.focus)
 	}
 
-	flat := m.showView(viewBrowseRepo, true)
+	flat := m.showView(viewRoadmapRepo, true)
 	flat.flatList.cursor = slices.IndexFunc(flat.flatVisible(), func(it *item.Item) bool { return it.ID == "ms-s" })
 	flat = step(t, flat, runeMsg('W'))
 	if flat.view != viewWaves || flat.waves.root != "ms-s" {
 		t.Fatalf("W in flat list: view=%v root=%q", flat.view, flat.waves.root)
 	}
-	if flat = step(t, flat, keyMsg(tea.KeyEsc)); flat.view != viewBrowseRepo || !flat.flatView {
+	if flat = step(t, flat, keyMsg(tea.KeyEsc)); flat.view != viewRoadmapRepo || !flat.flatView {
 		t.Fatalf("esc returns to flat list, got view=%v flat=%v", flat.view, flat.flatView)
 	}
 
@@ -338,7 +338,7 @@ func TestWavesEmptyRootShowsHint(t *testing.T) {
 
 func TestWavesEscWithoutMarkReturnsToOrigin(t *testing.T) {
 	m := openWavesOn(t, wavesModel(t), "ms-w")
-	if got := wavesKeys(t, m, "esc"); got.view != viewBrowseRepo || got.flatView {
+	if got := wavesKeys(t, m, "esc"); got.view != viewRoadmapRepo || got.flatView {
 		t.Fatalf("esc: view=%v flat=%v, want the roadmap", got.view, got.flatView)
 	}
 }
@@ -547,7 +547,7 @@ func TestWavesReloadRootGoneReturnsToOrigin(t *testing.T) {
 		}
 	}
 	m = step(t, m, beansLoadedMsg{beans: items})
-	if m.view != viewBrowseRepo {
+	if m.view != viewRoadmapRepo {
 		t.Fatalf("view after the root vanished = %v, want the origin view", m.view)
 	}
 }

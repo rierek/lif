@@ -1,6 +1,6 @@
 package tui
 
-// roadmap_tree_test.go — the Browse tree is the roadmap (roadmap.Build) and
+// roadmap_tree_test.go — the Roadmap tree is the roadmap (roadmap.Build) and
 // the Ready view is `lif list --ready` (Store.Ready).
 
 import (

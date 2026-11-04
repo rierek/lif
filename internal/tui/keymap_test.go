@@ -132,13 +132,13 @@ func TestGlobalBindingsOmitsRefreshBackEnter(t *testing.T) {
 
 // TestGlobalBindingsFitIn80Columns guards D04's explicit width constraint
 // (bean bt-ntoz Grilling-Nachtrag: "Passt in 80 Spalten ohne
-// Truncation/Wrap"): a realistic Browse header (breadcrumb repo+title, real
+// Truncation/Wrap"): a realistic Roadmap header (breadcrumb repo+title, real
 // renderBindings(globalBindings()) hint) rendered at an 80-column terminal's
-// innerW (78, matching browseRepoChrome's own w-2) must stay on ONE line --
+// innerW (78, matching roadmapRepoChrome's own w-2) must stay on ONE line --
 // no breadcrumb narrow-stack fallback, no truncate() ellipsis.
 func TestGlobalBindingsFitIn80Columns(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	head, _ := m.browseRepoChrome(78)
+	head, _ := m.roadmapRepoChrome(78)
 	if strings.Contains(head, "\n") {
 		t.Fatalf("header wrapped/stacked onto two lines at 80 columns (want one line): %q", head)
 	}
@@ -208,7 +208,7 @@ func TestNoDuplicateBindingBetweenGlobalAndAnyLocalHintList(t *testing.T) {
 		global[strings.Join(b.Keys(), ",")] = true
 	}
 	lists := map[string][]keybind.Binding{
-		"footerBindings (roadmap)": u10Browse(t).footerBindings(),
+		"footerBindings (roadmap)": u10Roadmap(t).footerBindings(),
 		"footerBindings (ready)":   u10Ready(t).footerBindings(),
 	}
 	for name, list := range lists {

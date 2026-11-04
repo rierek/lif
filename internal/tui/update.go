@@ -1,7 +1,7 @@
 package tui
 
 // update.go — the Update dispatcher (Elm architecture): routes tea.Msg to
-// state transitions only. No rendering here (view_browse_repo.go), no
+// state transitions only. No rendering here (view_roadmap_repo.go), no
 // Cmd-only definitions here (messages.go) -- port convention from devd
 // update.go.
 
@@ -208,7 +208,7 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 	m.watchUnavailable = msg.events == nil // I04 precedent: degrade visibly, never silently
 	applyRepoConfig(msg.store.Config())    // the new repo's value lists, BEFORE its index is sorted
 	m = m.setItems(msg.beans, msg.ready)
-	m.view = viewBrowseRepo
+	m.view = viewRoadmapRepo
 	m.err = ""
 
 	// T6-Review Prelude I01 (T6b, bean bt-pd22): a Toast from the OLD repo
@@ -973,7 +973,7 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	} else {
 		// B01 (bt-39cl Review R1): both restore paths must be placeholder-
 		// safe. (a) The id-match loop requires n.id != "" -- a placeholder's
-		// id IS "" (view_browse_repo.go treeNode doc), so a stale
+		// id IS "" (view_roadmap_repo.go treeNode doc), so a stale
 		// m.cursorID == "" (e.g. a previous empty load) would otherwise
 		// "find" the first placeholder and leave the cursor parked on a
 		// non-selectable row. (b) The positional oldPos fallback runs
@@ -1146,7 +1146,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Roadmap fold keys (zo/zc/zR/zM): intercepted AHEAD of every bare key
 	// below, whose letters (c, R, M, ...) would otherwise swallow the second
 	// key of the sequence.
-	if m.view == viewBrowseRepo && !m.flatView && !m.detailFocus && !m.filterFocus {
+	if m.view == viewRoadmapRepo && !m.flatView && !m.detailFocus && !m.filterFocus {
 		switch s := msg.String(); {
 		case foldPending:
 			return m.keyFold(foldPrefixKey + s), nil
@@ -1199,7 +1199,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// f jumps to the filter bar's Type field (switching to a layout with a
 	// filter bar when needed); while the bar has focus it owns the keys.
-	if keybind.Matches(msg, keys.Filter) && (m.view == viewBrowseRepo || m.view == viewReady) {
+	if keybind.Matches(msg, keys.Filter) && (m.view == viewRoadmapRepo || m.view == viewReady) {
 		return m.focusFilter(), nil
 	}
 	if m.filterFocus {
@@ -1279,8 +1279,8 @@ func (m model) focusedBean() *item.Item {
 		return m.wavesFocusItem()
 	case viewReady: // E2 Task 5: the Ready list's own selection, NOT the (possibly stale/irrelevant) tree cursor
 		return m.readySelected()
-	default: // viewBrowseRepo (T8)
-		// S5 (jira-style-ui experiment, Nested/Flat Browse toggle): in flat
+	default: // viewRoadmapRepo (T8)
+		// S5 (jira-style-ui experiment, Nested/Flat Roadmap toggle): in flat
 		// mode the flat list's OWN cursor (flatList) is the selection, not
 		// the (frozen, untouched-while-flat) Tree cursorID -- mirrors the
 		// viewReady case just above (a view/mode-local cursor overrides
@@ -1360,7 +1360,7 @@ func expandAncestorsOf(treeParent map[string]string, expanded map[string]bool, i
 // bt-4ep2): pre-loads the input with the CURRENT query (re-opening a
 // committed search resumes editing it, mirrors devd's SetValue(m.treeQuery)).
 // Factored out of keyTree (E2 Task 5, bean bt-gzu6): keyReady
-// (view_browse_ready.go) shares this verbatim -- the search head/live
+// (view_roadmap_ready.go) shares this verbatim -- the search head/live
 // filter is ONE piece of shared model state, not a per-view concept.
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	m.searchActive = true
@@ -1379,7 +1379,7 @@ func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case keybind.Matches(msg, keys.Search):
-		// Port devd keyTree's Search case (view_browse_project.go:689-699),
+		// Port devd keyTree's Search case (view_roadmap_project.go:689-699),
 		// minus loadAllIssues -- beans-tui already holds the full Index in
 		// memory (no separate "load everything for search" step needed).
 		return m.openSearchInput()
@@ -1426,7 +1426,7 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch navKey(msg.String()) {
 	case "up":
 		// E5 Task 4 (bean bt-mne6): factored into treeCursorMove
-		// (view_browse_repo.go) so the keyboard AND the wheel dispatch
+		// (view_roadmap_repo.go) so the keyboard AND the wheel dispatch
 		// (mouse.go handleMouse) share the exact same clamp logic instead
 		// of two independent copies.
 		return m.treeCursorMove(nodes, -1), nil
@@ -1460,7 +1460,7 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // keySearchInput drives the active search textinput (E2 Task 3, bean
-// bt-4ep2, port devd keyTreeSearch view_browse_project.go:1073-1097): every
+// bt-4ep2, port devd keyTreeSearch view_roadmap_project.go:1073-1097): every
 // keystroke updates m.searchQuery LIVE (immediate local filter, not just on
 // commit) and resets the cursor to the freshly filtered list's first row
 // (mirrors devd's unconditional treeCursor=0). enter commits (blurs the
@@ -1495,7 +1495,7 @@ func (m model) keySearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // resetCursorToFirstVisible parks the cursor on the (newly filtered) node
 // list's first row -- called on every search keystroke/clear, mirrors devd's
-// unconditional `m.treeCursor = 0` (view_browse_project.go:1073-1097): a
+// unconditional `m.treeCursor = 0` (view_roadmap_project.go:1073-1097): a
 // bean ID, not an index, is beans-tui's own cursor representation (T8), so
 // the equivalent reset is "first visible node's ID" rather than a bare 0.
 func (m model) resetCursorToFirstVisible() model {

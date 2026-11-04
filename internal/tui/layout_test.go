@@ -1,7 +1,7 @@
 package tui
 
 // layout_test.go — the v / shift+v layout cycle (layout.go): order, wrap,
-// what each layout renders, focus on layout change, Browse and Ready.
+// what each layout renders, focus on layout change, Roadmap and Ready.
 
 import (
 	"strings"
@@ -20,20 +20,20 @@ const (
 
 var cycleOrder = []layoutMode{layoutRoadmap, layoutFilter, layoutFilterDetail, layoutDetail}
 
-// layoutModels returns a Browse model and a Ready model, both sized and
+// layoutModels returns a Roadmap model and a Ready model, both sized and
 // focused on a bean, in layout l.
 func layoutModels(t *testing.T, l layoutMode) map[string]model {
 	t.Helper()
-	browse := fixtureModel(t, fixtureBeans())
-	browse = step(t, browse, tea.WindowSizeMsg{Width: layoutW, Height: layoutH})
-	browse = focusBean(browse, "tk-2")
+	roadmap := fixtureModel(t, fixtureBeans())
+	roadmap = step(t, roadmap, tea.WindowSizeMsg{Width: layoutW, Height: layoutH})
+	roadmap = focusBean(roadmap, "tk-2")
 
 	ready := readyBeansModel(t)
 	ready.view = viewReady
 	ready = step(t, ready, tea.WindowSizeMsg{Width: layoutW, Height: layoutH})
 	ready.readyList.setLen(len(ready.readyVisible()))
 
-	out := map[string]model{"browse": browse.setLayout(l), "ready": ready.setLayout(l)}
+	out := map[string]model{"roadmap": roadmap.setLayout(l), "ready": ready.setLayout(l)}
 	return out
 }
 
@@ -128,7 +128,7 @@ func TestLayoutChangeMovesFocusIntoShownRegion(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			m := layoutModels(t, c.from)["browse"]
+			m := layoutModels(t, c.from)["roadmap"]
 			m.detailFocus = c.focusDetail
 			m = step(t, m, runeMsg(c.key))
 			if m.layout != c.to || m.detailFocus != c.wantDetailFocus {
@@ -140,7 +140,7 @@ func TestLayoutChangeMovesFocusIntoShownRegion(t *testing.T) {
 
 func TestTabAndShiftTabNeverChangeLayout(t *testing.T) {
 	for _, l := range cycleOrder {
-		m := layoutModels(t, l)["browse"]
+		m := layoutModels(t, l)["roadmap"]
 		for _, k := range []tea.KeyType{tea.KeyTab, tea.KeyShiftTab} {
 			if got := step(t, m, keyMsg(k)); got.layout != l {
 				t.Fatalf("layout %v: %v changed the layout to %v", l, k, got.layout)
@@ -159,7 +159,7 @@ func TestKeyDIsUnbound(t *testing.T) {
 			}
 		}
 	}
-	m := layoutModels(t, layoutRoadmap)["browse"]
+	m := layoutModels(t, layoutRoadmap)["roadmap"]
 	if got := step(t, m, runeMsg('D')); got.layout != layoutRoadmap {
 		t.Fatalf("D changed the layout to %v", got.layout)
 	}
@@ -175,7 +175,7 @@ func TestLayoutKeysIgnoredInLobby(t *testing.T) {
 }
 
 func TestLayoutDetailHoldsFocusOnEsc(t *testing.T) {
-	m := layoutModels(t, layoutDetail)["browse"]
+	m := layoutModels(t, layoutDetail)["roadmap"]
 	m = step(t, m, keyMsg(tea.KeyEsc))
 	if !m.detailFocus {
 		t.Fatal("esc in layoutDetail dropped Detail focus: keys would reach the hidden list")

@@ -1,6 +1,6 @@
 package tui
 
-// view_browse_ready_test.go — TDD coverage for Ready-View V3 `b` (E2 Task
+// view_roadmap_ready_test.go — TDD coverage for Ready-View V3 `b` (E2 Task
 // 5, bean bt-gzu6, design-spec.md §6 V3): idx.Ready() reuse, the shared
 // search+facet predicate (m.beanMatches, Task 3/4), the Sort-Toggle `S`
 // cycle, Master-Detail focus reuse (focusedBean(), Task 2's Accordion, Task
@@ -203,7 +203,7 @@ func TestKeyReadyResyncsStaleCursorBeforeMove(t *testing.T) {
 // keypress every lap (state changes "status"->"", but the rendered order
 // does not) -- contradicting the bean's own "4 modes" Akzeptanz wording.
 // Fixed here with a 4-element canonical mode list (nextReadySort,
-// view_browse_ready.go) that treats "" as an ALIAS for "status" when
+// view_roadmap_ready.go) that treats "" as an ALIAS for "status" when
 // finding the current position, never re-entering "" once cycling starts.
 func TestReadySortCyclesThroughFourModesAndBackToStart(t *testing.T) {
 	beans := []*item.Item{
@@ -376,7 +376,7 @@ func TestReadyOpenFromTreeAndBackPreservesSharedFilterState(t *testing.T) {
 	}
 
 	m = step(t, m, runeMsg('M'))
-	if m.view != viewBrowseRepo {
+	if m.view != viewRoadmapRepo {
 		t.Fatalf("M should return to the Roadmap, view = %v", m.view)
 	}
 	if !m.filterStatus["draft"] {
@@ -393,7 +393,7 @@ func TestReadyEscReturnsToRoadmap(t *testing.T) {
 		t.Fatalf("R should open Ready, view = %v", m.view)
 	}
 	m = step(t, m, keyMsg(tea.KeyEsc))
-	if m.view != viewBrowseRepo || m.flatView {
+	if m.view != viewRoadmapRepo || m.flatView {
 		t.Fatalf("esc should return to the Roadmap, view = %v flat = %v", m.view, m.flatView)
 	}
 }
@@ -523,13 +523,13 @@ func TestReadyGoldenDeterministic(t *testing.T) {
 
 // --- readyChrome: PF-11 Header/Footer-Keybinding-Split (design-spec.md
 // §15, epic-E7-plan.md Task 7, bean bt-m6at). Mirrors
-// view_browse_repo_test.go's browseRepoChrome coverage exactly -- same
+// view_roadmap_repo_test.go's roadmapRepoChrome coverage exactly -- same
 // Header 7-Globals/Footer-context contract, just this view's own Chrome
 // function.
 
 // TestReadyChromeHeaderShowsExactlyFourGlobals guards D04 (design-spec.md
 // §15 PF-16, bean bt-ntoz/bt-d8kc, SUPERSEDES the previous 7-Globals
-// header): mirrors view_browse_repo_test.go's own coverage, this view's own
+// header): mirrors view_roadmap_repo_test.go's own coverage, this view's own
 // Chrome function.
 func TestReadyChromeHeaderShowsExactlyFourGlobals(t *testing.T) {
 	m := readyBeansModel(t)
@@ -569,13 +569,13 @@ func TestReadyChromeFooterShowsFocusInFocusOut(t *testing.T) {
 }
 
 // TestReadyChromeFooterMatchesQ06List guards Q06's finale, PO-verbatim
-// Footer-Liste (mirrors TestBrowseRepoChromeFooterMatchesQ06List,
-// view_browse_repo_test.go, EXACTLY -- D02, bean bt-tct9/bt-1e0t,
+// Footer-Liste (mirrors TestRoadmapRepoChromeFooterMatchesQ06List,
+// view_roadmap_repo_test.go, EXACTLY -- D02, bean bt-tct9/bt-1e0t,
 // PO-bestätigt Option b + Präzisierung, 2026-07-16, SUPERSEDES the former
 // TestReadyChromeFooterMatchesQ06ListPlusSort/bean bt-d8kc ERRATUM: Sort
 // no longer appends to the Ready footer, S stays functional but moves to
 // Help-overlay-only documentation). readyChrome's footer is now BYTE-
-// IDENTICAL to browseRepoChrome's -- both render browseRepoLocalBindings()
+// IDENTICAL to roadmapRepoChrome's -- both render roadmapRepoLocalBindings()
 // verbatim, no per-view divergence left.
 func TestReadyChromeFooterMatchesQ06List(t *testing.T) {
 	m := readyBeansModel(t)
@@ -594,12 +594,12 @@ func TestReadyChromeFooterMatchesQ06List(t *testing.T) {
 // asserted the exact OPPOSITE (Sort as a deliberate Ready-exclusive
 // footer addition). PO-bestätigt D02 (bean bt-tct9, Option b + Präzisierung)
 // reverses that call: `S Sort` flies out of the Ready footer entirely --
-// readyLocalBindings() now returns browseRepoLocalBindings() UNCHANGED,
+// readyLocalBindings() now returns roadmapRepoLocalBindings() UNCHANGED,
 // no appended Sort. The key stays fully functional (keyReady's Sort case,
 // below, untouched) and stays documented -- just Help-overlay-only now
 // (helpGroups(), keymap.go, already lists it under "Actions", no change
 // needed there). Neither view-local footer list carries it any more, so a
-// single loop suffices (no split browseRepoLocalBindings() assertion left
+// single loop suffices (no split roadmapRepoLocalBindings() assertion left
 // to make, both lists are now identical on this point).
 func TestReadyLocalBindingsOmitsSort(t *testing.T) {
 	for _, b := range readyBeansModel(t).footerBindings() {
@@ -610,7 +610,7 @@ func TestReadyLocalBindingsOmitsSort(t *testing.T) {
 }
 
 // TestReadyLocalBindingsOmitsNavigation mirrors
-// TestBrowseRepoLocalBindingsOmitsNavigation (view_browse_repo_test.go):
+// TestRoadmapRepoLocalBindingsOmitsNavigation (view_roadmap_repo_test.go):
 // Q06 removes Up/Down from the Ready footer too.
 func TestReadyLocalBindingsOmitsNavigation(t *testing.T) {
 	for _, nav := range []keybind.Binding{keys.Up, keys.Down} {

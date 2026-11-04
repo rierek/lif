@@ -166,7 +166,7 @@ func TestPaletteActionsNoFocusedBeanOmitsNodeActions(t *testing.T) {
 			t.Fatalf("paletteActions leaked node action %q with no focused bean", it.actionID)
 		}
 	}
-	wantGlobal := []string{"go_ready", "repo_picker", "go_browse", "settings", "go_tags", "create", "filter", "register_project", "reload", "search", "open_docs"}
+	wantGlobal := []string{"go_ready", "repo_picker", "go_roadmap", "settings", "go_tags", "create", "filter", "register_project", "reload", "search", "open_docs"}
 	if len(items) != len(wantGlobal) {
 		t.Fatalf("len(items) = %d, want %d (%v)", len(items), len(wantGlobal), wantGlobal)
 	}
@@ -321,8 +321,8 @@ func TestKeyPaletteEscClosesNoSideEffect(t *testing.T) {
 	if mm.paletteOpen {
 		t.Fatal("esc did not close the palette")
 	}
-	if mm.view != viewBrowseRepo {
-		t.Fatalf("view = %v, want viewBrowseRepo unchanged (esc must not dispatch)", mm.view)
+	if mm.view != viewRoadmapRepo {
+		t.Fatalf("view = %v, want viewRoadmapRepo unchanged (esc must not dispatch)", mm.view)
 	}
 }
 

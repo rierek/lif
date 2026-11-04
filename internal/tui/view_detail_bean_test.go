@@ -483,7 +483,7 @@ func TestRelationsSectionBodyLongTitleAlignsContinuationUnderTitleStartNotColumn
 // TestRelationsSectionBodyActiveLineIgnoresGlyphEmbeddedInTitle is the RED-
 // anchor: a relation whose TITLE itself contains the "▶" active-marker
 // glyph, rendered BEFORE the actually active row, must not fool the
-// cursor-centering. The OLD activeRelationLine (view_browse_repo.go)
+// cursor-centering. The OLD activeRelationLine (view_roadmap_repo.go)
 // rescanned the ALREADY-RENDERED lines for the first "▶" substring -- a
 // title containing that glyph would win over the real marker.
 // relationsSectionBody now hands back the numeric display-line index of the

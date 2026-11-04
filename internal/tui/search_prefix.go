@@ -3,7 +3,7 @@ package tui
 // search_prefix.go — Such-Präfixe `st:`/`ty:`/`pr:`/`tag:` in der `/`-Suche
 // (bt-2kfl, PO-Entscheidungen Grilling 2026-07-17 D02/D03 final,
 // epic-E13-plan.md »Item 3«). Kept in its own file (Implementer-Wahl per
-// plan step 1) so view_browse_repo.go's/box_filter_facets.go's diffs stay
+// plan step 1) so view_roadmap_repo.go's/box_filter_facets.go's diffs stay
 // small -- both files are shared with parallel worktree work in the same
 // wave (bt-d3ps/bt-nxuk, disjunct file families).
 //
@@ -91,7 +91,7 @@ func (m model) applySearchPrefixes() model {
 	return m
 }
 
-// beanMatchesSearchPrefixFacets is beanMatchesSearch's (view_browse_repo.go)
+// beanMatchesSearchPrefixFacets is beanMatchesSearch's (view_roadmap_repo.go)
 // prefix-facet half: an empty m.searchPrefixFacets imposes no constraint
 // (matches everything, mirrors beanMatchesFacets' own empty-map contract,
 // box_filter_facets.go); a present facet key requires membership among its

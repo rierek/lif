@@ -12,7 +12,7 @@ package tui
 // handled no-op, reserved for a future Master-Detail drilldown --
 // idx.WithTag(tag) already exists), and D09's Union/sort algebra.
 //
-// Render structurally mirrors viewReady() (view_browse_ready.go): same
+// Render structurally mirrors viewReady() (view_roadmap_ready.go): same
 // innerW/innerH algebra, same clickPaneGeometry-sourced bodyH (Golden-Rule-
 // Drift-Schutz, that helper's own doc-stamp), same renderPane wrapping --
 // just ONE pane instead of a JoinHorizontal master-detail pair (D08). Each
@@ -144,7 +144,7 @@ func (m model) openTagManagementPage() (tea.Model, tea.Cmd) {
 }
 
 // tagManagementChrome builds viewTagManagement's own head/localKeys strings
-// -- mirrors readyChrome's factoring-out rationale (view_browse_ready.go
+// -- mirrors readyChrome's factoring-out rationale (view_roadmap_ready.go
 // doc-stamp), even though this task wires no mouse-click geometry consumer
 // for it yet (T3-T5 may add row-level mouse targets later, out of scope
 // here). D07: GlobalHint is LEFT EMPTY (not renderBindings(globalBindings()))
@@ -214,8 +214,8 @@ func tagManagementRowText(r tagRegistryRow, w int) string {
 }
 
 // tagManagementRows renders every row using the SAME inline `▌`-cursor-bar
-// convention as readyRows/treeRows (view_browse_ready.go/
-// view_browse_repo.go) -- D08's own "structurally closer to Ready than to
+// convention as readyRows/treeRows (view_roadmap_ready.go/
+// view_roadmap_repo.go) -- D08's own "structurally closer to Ready than to
 // a floating overlay menu" call, NOT the Tag-Picker's ▸+Header style
 // (box_picker_tag.go's Picker-Stil-Divergenz doc-stamp, types.go). paneW is
 // renderPane's OWN outer width param (the caller passes the same value it
@@ -248,7 +248,7 @@ func (m model) tagManagementRows(rows []tagRegistryRow, focused bool, paneW, bod
 }
 
 // viewTagManagement renders the Tag-Management page -- mirrors viewReady's
-// own algebra (view_browse_ready.go) exactly (innerW/innerH via the
+// own algebra (view_roadmap_ready.go) exactly (innerW/innerH via the
 // established w-2/h-2 convention, clickPaneGeometry-sourced bodyH, Golden
 // Rule #1 via renderPane), just ONE renderPane call instead of a
 // JoinHorizontal master-detail pair (D08 -- no lw/rw split).
@@ -269,20 +269,20 @@ func (m model) viewTagManagement() string {
 	// status line's rendering slot -- Toast is the ONE visible channel now.
 	status := m.statusLine(innerW)
 
-	// Same shared geometry source viewBrowseRepo/viewReady use (mouse.go
+	// Same shared geometry source viewRoadmapRepo/viewReady use (mouse.go
 	// clickPaneGeometry) -- lw/rw are the SPLIT master-detail widths neither
 	// of THIS page's single pane needs (D08), only bodyH is consumed.
 	bodyH, _, _, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 	// paneW is the SINGLE pane's own CONTENT-width param passed to
-	// renderPane/tagManagementRows -- mirrors viewBrowseRepo's own single-pane
-	// single-pane precedent (view_browse_repo.go, F01, bean bt-13l7's own
+	// renderPane/tagManagementRows -- mirrors viewRoadmapRepo's own single-pane
+	// single-pane precedent (view_roadmap_repo.go, F01, bean bt-13l7's own
 	// doc-stamp there): renderPane's `w` argument is a CONTENT width, its OWN
 	// RoundedBorder adds +2 more on top (masterDetailWidths' lw+rw+4==innerW
 	// is the identical accounting for the TWO Split panes; here there is
 	// only ONE, so its content width is innerW-2, not innerW itself --
 	// passing innerW unadjusted double-counts the border and overflows the
-	// outer frame by 2 columns, exactly the class of bug view_browse_repo.go
+	// outer frame by 2 columns, exactly the class of bug view_roadmap_repo.go
 	// line ~798 already documents "caught live via tmux smoke" -- caught the
 	// SAME way here, this task's own tmux-smoke run).
 	paneW := innerW - 2
@@ -319,7 +319,7 @@ func (m model) viewTagManagement() string {
 // navKey, same convention as every other list cursor in this codebase);
 // enter is a documented HANDLED no-op (D08 -- reserved for a future
 // Master-Detail drilldown fast-follow, idx.WithTag(tag) already exists);
-// esc (keys.Back) returns to Browse (D03/D06-Pendant: exactly ONE level
+// esc (keys.Back) returns to Roadmap (D03/D06-Pendant: exactly ONE level
 // back, mirrors keyLobby's own esc-with-a-live-client case); `n` (keys.NewTag,
 // E10 Task 3, bean bt-604w, D11/D14) opens the shared Create/Rename input
 // sub-mode; `d` (keys.Delete, E10 Task 4, bean bt-1lsu, D12/D15) opens the
@@ -361,7 +361,7 @@ func (m model) keyTagManagement(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case keybind.Matches(msg, keys.Back):
-		m.view = viewBrowseRepo
+		m.view = viewRoadmapRepo
 		return m, nil
 	case keybind.Matches(msg, keys.Enter):
 		// D08: handled no-op -- a future Master-Detail drilldown fast-follow

@@ -21,16 +21,16 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-// viewID enumerates the top-level screens. T8 ships exactly one (the Browse
+// viewID enumerates the top-level screens. T8 ships exactly one (the Roadmap
 // Primat-View, design-spec.md §6 V2); later epics add Ready/Detail/
 // Command-Center/Review/Forms/Overlays as siblings — the switch in View()
-// (view_browse_repo.go) grows one case per view, never a branch here.
+// (view_roadmap_repo.go) grows one case per view, never a branch here.
 type viewID int
 
 const (
-	viewBrowseRepo viewID = iota
-	viewReady             // V3 Ready (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3)
-	viewLobby             // V1 Lobby/Repo-Picker (E5 Task 6, bean bt-zhwl, design-spec.md §6 V1)
+	viewRoadmapRepo viewID = iota
+	viewReady              // V3 Ready (E2 Task 5, bean bt-gzu6, design-spec.md §6 V3)
+	viewLobby              // V1 Lobby/Repo-Picker (E5 Task 6, bean bt-zhwl, design-spec.md §6 V1)
 	// viewTagManagement (E10 Task 2, bean bt-r92i, epic bt-362n D05): the
 	// Tag-Management page -- ALWAYS appended LAST (never resort the values
 	// above), see this const block's own doc comment above.
@@ -219,20 +219,20 @@ type model struct {
 	// handles and by the `b`-open case in keyTree, since readyVisible()'s
 	// LENGTH can change out from under it (search/filter routes through the
 	// SHARED keySearchInput/keyFilterMenu handlers, which know nothing about
-	// readyList -- view_browse_ready.go's doc comment has the full
+	// readyList -- view_roadmap_ready.go's doc comment has the full
 	// rationale). readySort is the active Sort-Toggle `S` mode: ""
 	// (default) leaves the canonical order in place;
 	// "status"/"priority"/"created"/"updated" are the four cycle stops
-	// (nextReadySort, view_browse_ready.go).
+	// (nextReadySort, view_roadmap_ready.go).
 	readyList listState
 	readySort string
 
-	// Nested/Flat Browse toggle `G` (jira-style-ui experiment S5, D07
-	// uppercase = view/global group): flatView switches the Browse view's
+	// Nested/Flat Roadmap toggle `G` (jira-style-ui experiment S5, D07
+	// uppercase = view/global group): flatView switches the Roadmap view's
 	// LEFT pane between the Tree (nested, default) and a flat, sorted list
 	// (columns) -- the master-detail split and the Detail pane itself are
-	// UNCHANGED (unlike the full-screen Ready view, view_browse_ready.go
-	// -- flat mode here is still Browse, master-detail stays intact). flatList
+	// UNCHANGED (unlike the full-screen Ready view, view_roadmap_ready.go
+	// -- flat mode here is still Roadmap, master-detail stays intact). flatList
 	// is a minimal index-based cursor (listState, mirrors readyList's own
 	// shape/rationale) over flatVisible()'s bean slice -- kept deliberately
 	// SEPARATE from the Tree's cursorID rather than reconciled into one
@@ -298,7 +298,7 @@ type model struct {
 	// click, Palette all funnel through openValueMenu(group) -- this is the
 	// ONE place that needs setting, not four). Only ever READ while
 	// m.overlay == overlayValueMenu (composeOverlays' placeValueMenuOverlay,
-	// view_browse_repo.go), which openValueMenu never sets without also
+	// view_roadmap_repo.go), which openValueMenu never sets without also
 	// freshly writing this field first -- so a stale value between opens can
 	// never be observed. boxFormFieldIndexForGroup returns -1 for an
 	// unrecognized group (defensive only, openValueMenu's callers never pass
@@ -382,7 +382,7 @@ type model struct {
 	// same semantics toggleTagPending gained under bt-9ipw/D01. The state
 	// is deliberately PICKER-LOCAL (box_picker_filter.go D1): it never
 	// touches m.filterStatus/Type/Priority/Tag, so opening a picker cannot
-	// re-filter the Browse view behind it.
+	// re-filter the Roadmap view behind it.
 	parentFilter   pickerFilter
 	parentFiltered []pickerItem
 
@@ -664,7 +664,7 @@ type model struct {
 	// it (this is not a PO-set facet, doc-stamp there) -- it lives as its
 	// own bool field instead, consulted by beanMatchesArchive
 	// (box_filter_facets.go) AND, separately, by visibleNodes()'s own
-	// routing condition (view_browse_repo.go) -- the latter is what makes
+	// routing condition (view_roadmap_repo.go) -- the latter is what makes
 	// the default actually apply with NO search/facet active (the fully-
 	// unfiltered flattenTree path is only reached when m.showArchived is
 	// true AND nothing else is narrowing; see visibleNodes()'s own doc
@@ -675,7 +675,7 @@ type model struct {
 	// repo B).
 	showArchived bool
 
-	// layout is the Browse/Ready layout cycled by v / shift+v (layout.go).
+	// layout is the Roadmap/Ready layout cycled by v / shift+v (layout.go).
 	// The zero value is layoutRoadmap, the start layout.
 	layout layoutMode
 
@@ -767,7 +767,7 @@ func newModel(store *data.Store, repoDir string) model {
 	repoIn.CharLimit = 200
 
 	m := model{
-		view:         viewBrowseRepo,
+		view:         viewRoadmapRepo,
 		store:        store,
 		repoDir:      repoDir,
 		expanded:     map[string]bool{},

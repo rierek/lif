@@ -136,7 +136,7 @@ func sectionNode(id, label string, open, context bool) treeNode {
 // flattenTree walks the roadmap tree depth-first (expand-state from
 // expanded) into the visible row list: the scheduled roots (milestones) at
 // depth 0, then the synthetic "Unscheduled" root (its nodes at depth 1) and
-// the synthetic "Not on roadmap" root (flat rows at depth 1), each only when
+// the synthetic "Not on roadmap" root (its items nested by parent from depth 1), each only when
 // non-empty.
 func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*roadmap.Node, expanded map[string]bool) []treeNode {
 	var nodes []treeNode
@@ -165,7 +165,8 @@ func flattenTree(scheduled, unscheduled []*roadmap.Node, notOn []*roadmap.Node, 
 }
 
 // appendBeanNode appends n (and, if expanded, its children) depth-first. The
-// roadmap tree is acyclic by construction (roadmap.Build), so no cycle guard.
+// roadmap tree is acyclic by construction (roadmap.Build; setItems keeps parent
+// cycles out of the Not-on-roadmap nodes), so no cycle guard.
 func appendBeanNode(nodes []treeNode, n *roadmap.Node, depth int, expanded map[string]bool) []treeNode {
 	b := n.Item
 	open := expanded[b.ID]

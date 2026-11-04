@@ -888,3 +888,24 @@ func TestFlattenTreeNestsNotOnRoadmap(t *testing.T) {
 		t.Fatalf("want top-a depth 1, act-b depth 2; got %v", depth)
 	}
 }
+
+// Default (archive-hiding, filtered) view: unplaced child nests under its
+// unplaced parent, and treeParent lets expandAncestorsOf reveal it.
+func TestNotOnRoadmapNestsInDefaultView(t *testing.T) {
+	m := realModel(t, []*item.Item{
+		{ID: "top-a", Title: "Topic", Status: "todo", Type: "task", Priority: "normal", Parent: "ghost-x"},
+		{ID: "act-b", Title: "Activity", Status: "todo", Type: "task", Priority: "normal", Parent: "top-a"},
+	})
+	if m.treeParent["act-b"] != "top-a" || m.treeParent["top-a"] != notOnRoadmapRootID {
+		t.Fatalf("treeParent = %v", m.treeParent)
+	}
+	m.expanded[notOnRoadmapRootID] = true
+	m.expanded["top-a"] = true
+	depth := map[string]int{}
+	for _, n := range m.visibleNodes() {
+		depth[n.id] = n.depth
+	}
+	if depth["top-a"] != 1 || depth["act-b"] != 2 {
+		t.Fatalf("want top-a depth 1, act-b depth 2; got %v", depth)
+	}
+}

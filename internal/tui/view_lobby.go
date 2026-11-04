@@ -240,7 +240,7 @@ func (m model) viewLobby() string {
 	// directly against the real m.width/m.height, this file's own
 	// overlay_show_toast.go doc-stamp) appearing pushed almost entirely
 	// off the top of the screen, just its bottom border edge visible.
-	// Every OTHER view (viewBrowseRepo/viewReady) already gets this right
+	// Every OTHER view (viewRoadmapRepo/viewReady) already gets this right
 	// via the identical innerW := w - 2 pattern -- this now matches that
 	// established convention exactly, no new arithmetic invented.
 	innerW := w - 2
@@ -385,7 +385,7 @@ func (m model) keyLobby(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.store != nil {
-			m.view = viewBrowseRepo // the Lobby was a side trip: one level back
+			m.view = viewRoadmapRepo // the Lobby was a side trip: one level back
 			return m, nil
 		}
 		return m, tea.Quit

@@ -15,15 +15,15 @@ package tui
 // insensitive substring filter recomputed only when the input's value
 // actually changed. The chip half reuses box_detail_form.go's scalarCell/
 // gridRow/dropdownBox primitives verbatim, the SAME widgets box_filter_bar.go
-// paints the Browse view's filter row with -- so the picker's strip and the
-// Browse strip read as one widget language (design-spec.md D01/D08).
+// paints the Roadmap view's filter row with -- so the picker's strip and the
+// Roadmap strip read as one widget language (design-spec.md D01/D08).
 //
 // DESIGN DECISIONS (bean bt-a3a8):
 //
 // D1 -- PICKER-LOCAL STATE, never the global facets. pickerFilter is a plain
 // value hung off the model per picker (blockFilter/parentFilter, types.go);
 // nothing here ever reads or writes m.filterStatus/Type/Priority/Tag or
-// m.searchQuery. Opening a picker must not silently re-filter the Browse
+// m.searchQuery. Opening a picker must not silently re-filter the Roadmap
 // view behind it (the bean's explicit "(Test!)" criterion, guarded by
 // TestBlockingPickerDoesNotMutateGlobalFilter).
 //
@@ -122,7 +122,7 @@ const pickerMinRows = 3
 // element cap rather than clamping to pickerMinRows: an unknown terminal
 // height is NOT a tiny one, and silently showing a single row there would
 // be a worse lie than the old estimate. Mirrors windowAround's own
-// "height <= 0 -> impose nothing" contract (view_browse_repo.go).
+// "height <= 0 -> impose nothing" contract (view_roadmap_repo.go).
 func pickerRowWindow(rows []string, cursor, termH int) []string {
 	if len(rows) == 0 {
 		return rows
@@ -262,7 +262,7 @@ func cycleFilterValue(cur string, options []string) string {
 // filterChipValue is one chip's rendered value: the set value in the shared
 // D08 "gesetzter Filter = Peach" salience style (filterBarActive,
 // box_filter_bar.go -- reused rather than re-declared, so the picker strip
-// and the Browse strip can never diverge on what "active" looks like), or a
+// and the Roadmap strip can never diverge on what "active" looks like), or a
 // muted "(any)" when unset.
 func filterChipValue(v string) string {
 	if v == "" {
@@ -274,7 +274,7 @@ func filterChipValue(v string) string {
 // pickerFilterStrip renders the four-chip Type/Status/Priority/Tags row at
 // exactly `width` cells -- structurally filterBar's twin (box_filter_bar.go),
 // but reading the PICKER's own chips (D1) and carrying the ctrl-chord hotkey
-// badges filterBar deliberately omits (its own D07: the Browse bar is a
+// badges filterBar deliberately omits (its own D07: the Roadmap bar is a
 // read-only status strip, whereas these chips ARE the control surface).
 func (f pickerFilter) strip(width int) string {
 	cells := []scalarCell{

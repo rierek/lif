@@ -1,6 +1,6 @@
 package tui
 
-// view_browse_tree_head_test.go — bean bt-f68z (PO-Befunde #11/#12/#13):
+// view_roadmap_tree_head_test.go — bean bt-f68z (PO-Befunde #11/#12/#13):
 // the boxed search head, the width-dependent column header, and the
 // hanging-indent title wrap, each asserted against the REAL rendered View()
 // rather than against the helper that produces it (the render-grounded

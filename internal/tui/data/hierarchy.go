@@ -12,7 +12,7 @@ import (
 // (internal/tui/box_picker_parent.go) pre-filters so the PO is never offered
 // a doomed choice. CollectDescendants/EligibleParents back the Picker's
 // cycle exclusion: a new parent from the bean's own subtree would corrupt
-// the Tree's depth-first flatten/render logic (view_browse_repo.go), so it
+// the Tree's depth-first flatten/render logic (view_roadmap_repo.go), so it
 // (and the bean itself) are pre-filtered here rather than left to the CLI to
 // reject after the fact.
 //

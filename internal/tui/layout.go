@@ -1,7 +1,7 @@
 package tui
 
-// layout.go — the Browse/Ready layout cycle and the view keys. v steps
-// forward, shift+v backward, both wrap. The same four layouts apply to Browse
+// layout.go — the Roadmap/Ready layout cycle and the view keys. v steps
+// forward, shift+v backward, both wrap. The same four layouts apply to Roadmap
 // (tree and flat) and Ready; in Ready the Ready list takes the place of the
 // roadmap. M, L and R switch between Roadmap, flat list and Ready; esc leaves
 // flat list and Ready for the Roadmap (escBack).
@@ -57,7 +57,7 @@ func (m model) setLayout(l layoutMode) model {
 
 // keyLayout handles v (next layout) and shift+v (previous layout).
 func (m model) keyLayout(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
-	if m.view != viewBrowseRepo && m.view != viewReady {
+	if m.view != viewRoadmapRepo && m.view != viewReady {
 		return false, m, nil
 	}
 	switch {
@@ -69,7 +69,7 @@ func (m model) keyLayout(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 	return false, m, nil
 }
 
-// showView switches to a list view: viewBrowseRepo (flat picks the flat list,
+// showView switches to a list view: viewRoadmapRepo (flat picks the flat list,
 // else the Roadmap) or viewReady. The layout stays; focus moves to the region
 // the layout shows, so a detail focus from the old view does not leak into the
 // new one.
@@ -86,9 +86,9 @@ func (m model) showView(v viewID, flat bool) model {
 func (m model) keyView(msg tea.KeyMsg) (bool, model) {
 	switch {
 	case keybind.Matches(msg, keys.Roadmap):
-		return true, m.showView(viewBrowseRepo, false)
+		return true, m.showView(viewRoadmapRepo, false)
 	case keybind.Matches(msg, keys.FlatList):
-		return true, m.showView(viewBrowseRepo, true)
+		return true, m.showView(viewRoadmapRepo, true)
 	case keybind.Matches(msg, keys.Ready):
 		return true, m.showView(viewReady, false)
 	case keybind.Matches(msg, keys.Waves):
@@ -118,7 +118,7 @@ func (m model) escBack() model {
 		}
 		return m.resetCursorToFirstVisible()
 	case m.view == viewReady || m.flatView:
-		return m.showView(viewBrowseRepo, false)
+		return m.showView(viewRoadmapRepo, false)
 	}
 	return m
 }
@@ -165,7 +165,7 @@ func (m model) focusPos() int {
 // puts the field cursor on its first (tab) or last (shift+tab) field;
 // inside the detail, boxFormNav steps the cursor and scrolls it into view.
 func (m model) stepFocus(d int) model {
-	if m.view != viewBrowseRepo && m.view != viewReady {
+	if m.view != viewRoadmapRepo && m.view != viewReady {
 		return m
 	}
 	list, filter, detail := m.focusRing()
@@ -198,9 +198,9 @@ func (m model) stepFocus(d int) model {
 
 // focusFilter is the f jump: it shows the filter bar when the layout has none
 // (roadmap and details switch to roadmap+filter), then focuses the Type
-// field. A no-op outside Browse and Ready, which have no layouts.
+// field. A no-op outside Roadmap and Ready, which have no layouts.
 func (m model) focusFilter() model {
-	if m.view != viewBrowseRepo && m.view != viewReady {
+	if m.view != viewRoadmapRepo && m.view != viewReady {
 		return m
 	}
 	if !m.layout.hasFilter() {

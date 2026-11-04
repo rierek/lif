@@ -18,7 +18,7 @@ import (
 	"github.com/rierek/lif/internal/tui/theme"
 )
 
-// ffItem is one facet-menu row (port devd view_browse_project.go:48-54,
+// ffItem is one facet-menu row (port devd view_roadmap_project.go:48-54,
 // struct shape 1:1). facet is one of "status"/"type"/"priority"/"tag".
 type ffItem struct {
 	facet string
@@ -27,7 +27,7 @@ type ffItem struct {
 }
 
 // facetHead groups the filter menu's rows under a muted sub-header per facet
-// (port devd view_browse_project.go:1003's facetHead map).
+// (port devd view_roadmap_project.go:1003's facetHead map).
 var facetHead = map[string]string{
 	"status":   "Status",
 	"type":     "Type",
@@ -117,7 +117,7 @@ func (m model) filterActive() bool {
 }
 
 // beanMatchesFacets is the facet half of the combined filter predicate
-// (beanMatches AND-combines this with beanMatchesSearch, view_browse_repo.go
+// (beanMatches AND-combines this with beanMatchesSearch, view_roadmap_repo.go
 // / search_test.go, E2 Task 3). An empty facet map imposes no constraint
 // (matches everything); a non-empty one requires membership.
 func (m model) beanMatchesFacets(b *item.Item) bool {
@@ -177,7 +177,7 @@ func (m model) beanMatches(b *item.Item) bool {
 }
 
 // treeActive generalizes Task 3's treeSearchActive() to "search OR facets are
-// narrowing the tree" -- visibleNodes() (view_browse_repo.go) switches to
+// narrowing the tree" -- visibleNodes() (view_roadmap_repo.go) switches to
 // the filtered flattening whenever this is true.
 func (m model) treeActive() bool {
 	return m.treeSearchActive() || m.filterActive()
@@ -236,7 +236,7 @@ func (m model) toggleFacet(it ffItem) model {
 
 // clearFacets resets all four facet maps to FRESH EMPTY maps, not nil --
 // keeps filterActive()/len() checks cheap and the map identity consistently
-// non-nil after any clear, mirroring devd's own X-clear (view_browse_project
+// non-nil after any clear, mirroring devd's own X-clear (view_roadmap_project
 // .go:955-960, `map[treeKind]bool{}` literals, not `nil`).
 func (m model) clearFacets() model {
 	m.filterStatus = map[string]bool{}
@@ -411,8 +411,8 @@ func (m model) mouseFilterMenuClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 // filterSummary summarizes the active facets for the Tree head row
-// (treeSearchLine, view_browse_repo.go) -- port devd filterSummary
-// (view_browse_project.go:1035-1060), generalized to beans-tui's 4-facet
+// (treeSearchLine, view_roadmap_repo.go) -- port devd filterSummary
+// (view_roadmap_project.go:1035-1060), generalized to beans-tui's 4-facet
 // shared state (no "Art" facet here, see the file doc comment above).
 //
 // bt-2kfl (D02, "eine Wahrheit mit Facetten-State" as a UNION display, NOT a
@@ -461,7 +461,7 @@ func (m model) filterSummary() string {
 
 // joinFilterKeys returns a facet map's set keys, comma-joined.
 //
-// ERRATUM vs. devd's own joinFilterKeys (view_browse_project.go:1062-1071):
+// ERRATUM vs. devd's own joinFilterKeys (view_roadmap_project.go:1062-1071):
 // that port source ranges over the map directly with no sort step -- Go map
 // iteration order is randomized per-process, so the SAME filter state would
 // render its summary keys in a different order from one View() call to the

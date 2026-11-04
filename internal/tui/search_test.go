@@ -3,8 +3,8 @@ package tui
 // search_test.go — TDD coverage for Suche `/` (E2 Task 3, bean bt-4ep2,
 // design-spec.md §6 V2): the local live filter (title+ID substring,
 // case-insensitive) over the flattened tree, DD2-178 ancestor/collapse
-// parity (port devd view_browse_project.go:161-241), the search-input key
-// machine (port devd keyTreeSearch, view_browse_project.go:1073-1097), and
+// parity (port devd view_roadmap_project.go:161-241), the search-input key
+// machine (port devd keyTreeSearch, view_roadmap_project.go:1073-1097), and
 // the async Bleve half (searchCmd/searchBleveResultMsg, staleness-guarded
 // instead of debounced -- see messages.go/update.go doc comments for the
 // "why"). Reuses fixtureBeans/fixtureModel/step/keyMsg/runeMsg/nodeIDs/
@@ -140,7 +140,7 @@ func TestLocalSearchOrphanBucketShowsMatchingOrphan(t *testing.T) {
 // `/` opens the input, then every subsequent rune keystroke updates
 // m.searchQuery immediately (not just on commit) and resets the cursor to
 // the filtered list's first row (mirrors devd's treeCursor=0 on every
-// keystroke, view_browse_project.go:1073-1097).
+// keystroke, view_roadmap_project.go:1073-1097).
 func TestSearchTypingUpdatesQueryLiveAndResetsCursor(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.expanded["ms-1"] = true

@@ -21,11 +21,11 @@ import (
 // (port-adaptation vs. devd's `> slug: Title`) plus the right-aligned global
 // hint, and the title-less `> repo` form.
 func TestBreadcrumbFormat(t *testing.T) {
-	out := breadcrumb("lif", "Browse", "q:quit", 60)
+	out := breadcrumb("lif", "Roadmap", "q:quit", 60)
 	if !strings.Contains(out, "> lif") {
 		t.Errorf("breadcrumb missing '> lif': %q", out)
 	}
-	if !strings.Contains(out, "Browse") {
+	if !strings.Contains(out, "Roadmap") {
 		t.Errorf("breadcrumb missing title: %q", out)
 	}
 	if !strings.Contains(out, "q:quit") {

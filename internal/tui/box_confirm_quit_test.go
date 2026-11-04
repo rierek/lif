@@ -32,14 +32,14 @@ func TestQuitBoxTextIsQuestion(t *testing.T) {
 }
 
 // TestKeyConfirmQuitEnterGoesToLobbyWhenReposConfiguredAndNotInLobby guards
-// A2's stage 1: Browse/Ready + at least one configured repo -> enter on
+// A2's stage 1: Roadmap/Ready + at least one configured repo -> enter on
 // the quit-confirm opens the Lobby instead of quitting (bean bt-ntoz B08
 // case 1).
 func TestKeyConfirmQuitEnterGoesToLobbyWhenReposConfiguredAndNotInLobby(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.width, m.height = 80, 24
 	m.settings.Repos = []string{"/repo/a"}
-	// fixtureModel/newModel defaults to viewBrowseRepo (types.go newModel).
+	// fixtureModel/newModel defaults to viewRoadmapRepo (types.go newModel).
 
 	m = step(t, m, runeMsg('q'))
 	if !m.confirmQuit {

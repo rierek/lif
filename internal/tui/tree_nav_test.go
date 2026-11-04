@@ -19,7 +19,7 @@ func navFixture(t *testing.T) model {
 		mk("ms-2", "milestone", ""), mk("ep-2a", "epic", "ms-2"), mk("tk-3", "task", "ep-2a"),
 	})
 	m.expanded = map[string]bool{}
-	m.view, m.flatView = viewBrowseRepo, false
+	m.view, m.flatView = viewRoadmapRepo, false
 	return m
 }
 

@@ -3,7 +3,7 @@ package tui
 // archive_placeholder_test.go — TDD coverage for D01 (bean bt-39cl, closes
 // the Investigation 2026-07-16 root cause): when an expanded Epic's Direct-
 // Children are ALL hidden by the archive default (m.showArchived == false),
-// filteredBeanNode (view_browse_repo.go) now renders a synthetic, non-
+// filteredBeanNode (view_roadmap_repo.go) now renders a synthetic, non-
 // selectable placeholder row ("N archiviert — f→Archive") in the child
 // indent instead of silently rendering zero rows below a marker that still
 // claims ▾ (hasKids=true). Reuses fixtureModel/step/keyMsg/nodeIDs

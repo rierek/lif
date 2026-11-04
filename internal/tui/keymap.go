@@ -290,7 +290,7 @@ func (k keyMap) helpGroups() []helpGroup {
 // dispatched at the same global handleKey checkpoint as Palette/Picker/
 // Quit -- dispatch POSITION and display BUCKET are two different axes (see
 // bt-t1uy's own T7 notes): FocusIn/FocusOut stay footer/view-local
-// (browseRepoLocalBindings/readyLocalBindings, now FIRST per Q06's
+// (roadmapRepoLocalBindings/readyLocalBindings, now FIRST per Q06's
 // ordering). Every other global-checkpoint key (Create/Status/TagAssign/
 // Assign/Blocking/Delete/Editor/Yank/Ready/Search/Filter/FilterClear/
 // Section) is the same -- reachable from anywhere, but shown per-view in

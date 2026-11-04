@@ -30,7 +30,7 @@ import (
 // TestBoxFormWheelOverDetailPaneScrolls' own (box_form_scroll_test.go).
 func boxFormWheelScroll(t *testing.T, m model, ticks int) model {
 	t.Helper()
-	head, localKeys := m.browseRepoChrome(m.width - 2)
+	head, localKeys := m.roadmapRepoChrome(m.width - 2)
 	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	msg := tea.MouseMsg{
 		Button: tea.MouseButtonWheelDown, Action: tea.MouseActionPress,
@@ -164,7 +164,7 @@ func TestBoxFormClickSameAfterWheelAndKeyboardScroll(t *testing.T) {
 		t.Fatalf("wheel offset %d != keyboard offset %d -- the two paths must reach the same viewport state", wheel.boxFormScroll, kb.boxFormScroll)
 	}
 
-	head, localKeys := base.browseRepoChrome(base.width - 2)
+	head, localKeys := base.roadmapRepoChrome(base.width - 2)
 	_, lw, rw, originX, originY := clickPaneGeometry(base.width, base.height, head, localKeys, base.statusLine(base.width-2), base.settings.Layout.TreeWidth, layoutFilterDetail)
 	originY += filterBarHeight
 

@@ -422,7 +422,7 @@ func boxFormPaneContentLeft(m model) int {
 	if m.view == viewReady {
 		head, localKeys = m.readyChrome(innerW)
 	} else {
-		head, localKeys = m.browseRepoChrome(innerW)
+		head, localKeys = m.roadmapRepoChrome(innerW)
 	}
 
 	_, lw, _, originX, _ := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
@@ -459,7 +459,7 @@ func boxFormPopupChromeFloor(m model) int {
 	if m.view == viewReady {
 		head, localKeys = m.readyChrome(innerW)
 	} else {
-		head, localKeys = m.browseRepoChrome(innerW)
+		head, localKeys = m.roadmapRepoChrome(innerW)
 	}
 
 	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
@@ -484,7 +484,7 @@ func boxFormFieldRect(m model, b *item.Item, field int) (x, y, w, h int, ok bool
 	if m.view == viewReady {
 		head, localKeys = m.readyChrome(innerW)
 	} else {
-		head, localKeys = m.browseRepoChrome(innerW)
+		head, localKeys = m.roadmapRepoChrome(innerW)
 	}
 
 	_, _, _, _, originY := clickPaneGeometry(ww, hh, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)

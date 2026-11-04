@@ -23,7 +23,7 @@ package tui
 //
 // toastGeometry/renderToast compose directly against m.width/m.height,
 // UNCHANGED vs. devd's own (already B01-fixed) source: beans-tui's View
-// functions (viewBrowseRepo/viewReady/viewLobby) each build their own full
+// functions (viewRoadmapRepo/viewReady/viewLobby) each build their own full
 // frame (w, h := m.width, m.height, outerBorder(..., true)) exactly like
 // devd's fully-composited View()/viewComposite() split does -- no separate
 // termWidth()-style inner-width helper exists here to mis-target against

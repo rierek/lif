@@ -9,7 +9,7 @@ package tui
 // The four hard acceptance criteria from the bean drive this file:
 //  1. typing filters the candidate list live (title OR ID substring)
 //  2. the chip strip's facets actually narrow the list
-//  3. the picker's filter state NEVER mutates the global Browse filter
+//  3. the picker's filter state NEVER mutates the global Roadmap filter
 //  4. plain letters stay TYPEABLE inside the search field (no action
 //     collision -- the bt-9ipw/D01 lesson: `x`/`s`/`t` must reach the input)
 //
@@ -279,7 +279,7 @@ func TestBlockingPickerPriorityFacetNarrows(t *testing.T) {
 // TestBlockingPickerDoesNotMutateGlobalFilter is the bean's explicit
 // "(Test!)" criterion: neither typing nor cycling every chip may touch the
 // four global m.filter* maps or m.searchQuery -- otherwise merely OPENING a
-// picker would silently re-filter the Browse view behind it.
+// picker would silently re-filter the Roadmap view behind it.
 func TestBlockingPickerDoesNotMutateGlobalFilter(t *testing.T) {
 	m := fixtureModel(t, filterBeansFixture())
 	m = focusBeanFull(m, "ms-1")

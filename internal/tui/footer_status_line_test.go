@@ -45,10 +45,10 @@ func longTreeModel(t *testing.T) model {
 	return m
 }
 
-// TestBrowseRepoFooterHasNoReservedBlankLine: the row directly above the
+// TestRoadmapRepoFooterHasNoReservedBlankLine: the row directly above the
 // outer bottom border must be the footer's own last line, not a blank
 // placeholder.
-func TestBrowseRepoFooterHasNoReservedBlankLine(t *testing.T) {
+func TestRoadmapRepoFooterHasNoReservedBlankLine(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
@@ -60,10 +60,10 @@ func TestBrowseRepoFooterHasNoReservedBlankLine(t *testing.T) {
 	}
 }
 
-// TestBrowseRepoWatchIndicatorKeepsItsOwnLine: the status line is not gone,
+// TestRoadmapRepoWatchIndicatorKeepsItsOwnLine: the status line is not gone,
 // only unreserved -- when the watcher fails it must still show up, and the
 // frame must still fill exactly the terminal height (Golden Rule #1).
-func TestBrowseRepoWatchIndicatorKeepsItsOwnLine(t *testing.T) {
+func TestRoadmapRepoWatchIndicatorKeepsItsOwnLine(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
@@ -78,11 +78,11 @@ func TestBrowseRepoWatchIndicatorKeepsItsOwnLine(t *testing.T) {
 	}
 }
 
-// TestBrowseRepoPanesGainTheFreedLine: removing the reservation must widen
+// TestRoadmapRepoPanesGainTheFreedLine: removing the reservation must widen
 // the pane budget by exactly one row, not shrink the frame.
-func TestBrowseRepoPanesGainTheFreedLine(t *testing.T) {
+func TestRoadmapRepoPanesGainTheFreedLine(t *testing.T) {
 	m := goldenTreeModel(t)
-	head, localKeys := m.browseRepoChrome(m.width - 2)
+	head, localKeys := m.roadmapRepoChrome(m.width - 2)
 
 	withStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "indicator", m.settings.Layout.TreeWidth, layoutFilterDetail)
 	withoutStatus, _, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, "", m.settings.Layout.TreeWidth, layoutFilterDetail)
@@ -108,7 +108,7 @@ func TestClickPaneGeometryBodyHMatchesRenderedPane(t *testing.T) {
 		m := goldenTreeModel(t)
 		m.watchUnavailable = watchDown
 
-		head, localKeys := m.browseRepoChrome(m.width - 2)
+		head, localKeys := m.roadmapRepoChrome(m.width - 2)
 		bodyH, _, _, _, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 		bodyH -= filterBarHeight // the filter bar is reclaimed from bodyH
 		originY += filterBarHeight
@@ -164,7 +164,7 @@ func TestTreeClickRowSurvivesStatusLineRemoval(t *testing.T) {
 		// Rows are matched inside the LEFT pane's own columns only -- the
 		// Detail pane repeats the selected bean's ID in its header, which
 		// would otherwise match on the wrong screen row.
-		head, localKeys := m.browseRepoChrome(m.width - 2)
+		head, localKeys := m.roadmapRepoChrome(m.width - 2)
 		_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, m.layout)
 
 		checked := 0

@@ -199,7 +199,7 @@ func (m model) applyParentPickerSelection() (tea.Model, tea.Cmd) {
 
 // parentPickerBox renders the floating Parent-Picker overlay -- D08 cursor
 // treatment (ansi.Strip + Accent-wrap) for the cursored row, same convention
-// as treeRows/readyRows (view_browse_repo.go/view_browse_ready.go)
+// as treeRows/readyRows (view_roadmap_repo.go/view_roadmap_ready.go)
 // rather than box_menu_value.go's/box_picker_tag.go's theme.Header.Render:
 // unlike those two overlays' PLAIN value/tag strings, a real row's prefix
 // here is ALREADY themed (relationRowPrefix -- status-icon/type-icon

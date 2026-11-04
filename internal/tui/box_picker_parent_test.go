@@ -27,7 +27,7 @@ import (
 // parent, so only CollectDescendants (not the type filter) can be excluding
 // it. Beans-legal per this app's own philosophy (hand-editable frontmatter,
 // tolerated the same way the roadmap tree tolerates odd hierarchies
-// (view_browse_repo.go setItems).
+// (view_roadmap_repo.go setItems).
 func fixtureBeansForParentPicker() []*item.Item {
 	return []*item.Item{
 		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},

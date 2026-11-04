@@ -10,6 +10,7 @@ package tui
 import (
 	"fmt"
 	"github.com/rierek/lif/pkg/item"
+	"github.com/rierek/lif/pkg/roadmap"
 	"strings"
 	"testing"
 
@@ -871,5 +872,40 @@ func TestRepoSwitchClearsToast(t *testing.T) {
 	}
 	if m2.toast != nil {
 		t.Fatalf("m.toast = %+v after a successful repo switch, want nil (even a sticky toast from the OLD repo must clear)", m2.toast)
+	}
+}
+
+// Not-on-roadmap nodes render nested, not flat.
+func TestFlattenTreeNestsNotOnRoadmap(t *testing.T) {
+	child := &roadmap.Node{Item: &item.Item{ID: "act-b"}}
+	top := &roadmap.Node{Item: &item.Item{ID: "top-a"}, Children: []*roadmap.Node{child}}
+	nodes := flattenTree(nil, nil, []*roadmap.Node{top}, map[string]bool{notOnRoadmapRootID: true, "top-a": true})
+	depth := map[string]int{}
+	for _, n := range nodes {
+		depth[n.id] = n.depth
+	}
+	if depth["top-a"] != 1 || depth["act-b"] != 2 {
+		t.Fatalf("want top-a depth 1, act-b depth 2; got %v", depth)
+	}
+}
+
+// Default (archive-hiding, filtered) view: unplaced child nests under its
+// unplaced parent, and treeParent lets expandAncestorsOf reveal it.
+func TestNotOnRoadmapNestsInDefaultView(t *testing.T) {
+	m := realModel(t, []*item.Item{
+		{ID: "top-a", Title: "Topic", Status: "todo", Type: "task", Priority: "normal", Parent: "ghost-x"},
+		{ID: "act-b", Title: "Activity", Status: "todo", Type: "task", Priority: "normal", Parent: "top-a"},
+	})
+	if m.treeParent["act-b"] != "top-a" || m.treeParent["top-a"] != notOnRoadmapRootID {
+		t.Fatalf("treeParent = %v", m.treeParent)
+	}
+	m.expanded[notOnRoadmapRootID] = true
+	m.expanded["top-a"] = true
+	depth := map[string]int{}
+	for _, n := range m.visibleNodes() {
+		depth[n.id] = n.depth
+	}
+	if depth["top-a"] != 1 || depth["act-b"] != 2 {
+		t.Fatalf("want top-a depth 1, act-b depth 2; got %v", depth)
 	}
 }

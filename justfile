@@ -9,11 +9,9 @@ export PATH := `bash scripts/go-path.sh`
 # in Eriks PATH gewinnt /opt/homebrew/bin, und dort liegt das aktive Binary.
 bin_dir := env_var_or_default("LIF_BIN_DIR", "/opt/homebrew/bin")
 
-# Remote to push release tags to. This workspace keeps `origin` on the
-# read-only hmans/beans upstream and `fork` on the writable rierek/lif;
-# a plain clone of the fork itself has no separate `fork` remote, so this
-# picks `fork` when present and falls back to `origin` otherwise.
-release_remote := env_var_or_default("LIF_RELEASE_REMOTE", `git remote get-url fork >/dev/null 2>&1 && echo fork || echo origin`)
+# Remote to push release tags to: `gh`, the writable rierek/lif on GitHub.
+# Override with LIF_RELEASE_REMOTE.
+release_remote := env_var_or_default("LIF_RELEASE_REMOTE", "gh")
 
 # GitHub repo (owner/name) the release recipes query via `gh -R`.
 release_repo := "rierek/lif"

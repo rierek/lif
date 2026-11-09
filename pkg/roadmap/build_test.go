@@ -952,6 +952,32 @@ func TestHiddenContainerAndItsSubtreeStayOutOfTheRoadmap(t *testing.T) {
 	}
 }
 
+// beans-teuf: showing open empty containers must not override roadmap:false.
+// An empty, open hidden bucket and an empty epic under it stay off the
+// roadmap, while an empty open milestone beside them shows.
+func TestEmptyHiddenContainerStaysHidden(t *testing.T) {
+	rank := 1
+	visible := false
+	cfg := &config.Config{Types: []config.TypeOverride{
+		{Name: "bucket", Rank: &rank, Roadmap: &visible},
+	}}
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Status: "todo", Title: "Empty open"},
+		{ID: "b1", Type: "bucket", Status: "todo", Title: "Parking lot"},
+		{ID: "e1", Type: "epic", Status: "todo", Title: "Empty epic", Parent: "b1"},
+	}
+
+	data := Build(cfg, items, false, nil, nil)
+
+	if len(data.Milestones) != 1 || data.Milestones[0].Milestone.ID != "m1" {
+		t.Errorf("milestones = %+v, want only m1", data.Milestones)
+	}
+	if data.Unscheduled != nil {
+		t.Errorf("unscheduled = %+v, want nil (empty epic under a hidden bucket stays hidden)", data.Unscheduled)
+	}
+}
+
 // TestHiddenContainerHidesEveryRankBeneathIt covers the full container depth
 // the rank scheme allows: a hidden rank-1 bucket with a rank-2 child that
 // itself has a rank-3 child with a leaf, plus a rank-3 child parented

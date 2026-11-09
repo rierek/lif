@@ -108,8 +108,10 @@ func Build(cfg *config.Config, allItems []*item.Item, includeDone bool, statusFi
 	var milestoneGroups []MilestoneGroup
 	for _, m := range milestones {
 		group := buildMilestoneGroup(cfg, m, children, includeDone, hidden)
-		// Only include milestones that have visible content
-		if len(group.Containers) > 0 || len(group.Other) > 0 {
+		// A milestone shows when it has visible content or is itself still
+		// open (beans-teuf): an empty open milestone is planned work and must
+		// not vanish. A finished empty milestone hides with --include-done off.
+		if len(group.Containers) > 0 || len(group.Other) > 0 || includeDone || !cfg.IsArchiveStatus(m.Status) {
 			milestoneGroups = append(milestoneGroups, group)
 		}
 	}
@@ -401,17 +403,24 @@ func buildMilestoneGroup(cfg *config.Config, m *item.Item, children map[string][
 		}
 	}
 
-	// Build epic groups
+	// Build epic groups. A leafless epic is not a container (beans-teuf,
+	// like beans-36fa and D01 for features): it folds into the flat leaf
+	// list below and goes through the same archive-status filter.
+	var leafEpics []*item.Item
 	for _, epic := range epics {
-		eg := buildEpicGroup(cfg, epic, children, includeDone, hidden)
-		if len(eg.Items) > 0 || len(eg.Features) > 0 {
-			group.Containers = append(group.Containers, Container{Epic: &eg})
+		eg, leaf := classifyEpicChild(cfg, epic, children, includeDone, hidden)
+		if eg != nil {
+			group.Containers = append(group.Containers, Container{Epic: eg})
+		}
+		if leaf != nil {
+			leafEpics = append(leafEpics, leaf)
 		}
 	}
 
 	// Split the milestone's non-epic direct children into leaf items and
 	// feature-typed children (which need their own recursive resolution).
 	other, featureChildren := splitByContainerType(cfg, rest)
+	other = append(other, leafEpics...)
 
 	for _, feature := range featureChildren {
 		fg, leaf := classifyFeatureChild(cfg, feature, children, includeDone, hidden)

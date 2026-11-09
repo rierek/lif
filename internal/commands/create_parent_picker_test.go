@@ -242,7 +242,7 @@ func TestParentPickerRowsFollowRoadmapOrder(t *testing.T) {
 			}
 		}
 	}
-	// Containers both show: the roadmap hides the empty milestone m2.
+	// Containers both show, including the empty open milestone m2.
 	var shared []string
 	for _, g := range got {
 		if inRoadmap[g] {

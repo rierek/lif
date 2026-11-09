@@ -40,7 +40,7 @@ const (
 
 // Synthetic root node IDs below the roadmap tree. "Unscheduled" holds the
 // roadmap's unscheduled containers and leaves; "Not on roadmap" holds every
-// item the roadmap places nowhere (childless milestones, types with
+// item the roadmap places nowhere (types with
 // `roadmap: false`, invalid parents, parent cycles) as flat rows -- dropped
 // items must never be silently invisible. The leading NUL byte guarantees
 // these can never collide with a real item ID.

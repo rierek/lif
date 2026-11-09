@@ -8,7 +8,7 @@ package roadmap
 // children are level 1.
 //
 // This runs on the finished Data rather than inside Build on
-// purpose: the builder drops milestones without visible content, so pruning
+// purpose: the builder drops finished milestones without visible content, so pruning
 // there would empty the whole roadmap at --depth 1. Working on the built
 // structure also means --json, the Markdown template and the TTY renderer
 // all see the same truncation.

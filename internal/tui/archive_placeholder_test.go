@@ -131,8 +131,7 @@ func TestFilteredBeanNodePlaceholderCases(t *testing.T) {
 
 	t.Run("epic without children unaffected", func(t *testing.T) {
 		m := fixtureModel(t, placeholderFixtureBeans())
-		// The roadmap places a childless epic under "Not on roadmap", not under its milestone.
-		m.expanded[notOnRoadmapRootID], m.expanded["ep-empty"] = true, true // expanding a leaf is legal state, must stay a no-op visually
+		m.expanded["ms-ph"], m.expanded["ep-empty"] = true, true // expanding a leaf is legal state, must stay a no-op visually
 
 		nodes := m.visibleNodes()
 		epic, ok := findNode(nodes, "ep-empty")

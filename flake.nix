@@ -7,7 +7,7 @@
 
   outputs = { self, nixpkgs }:
     let
-      version = "0.18.0";
+      version = "0.19.0";
 
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
@@ -26,7 +26,7 @@
             pnpmDeps = (pkgs.fetchPnpmDeps.override { pnpm = pkgs.pnpm_10; }) {
               inherit (finalAttrs) pname version src;
               fetcherVersion = 4;
-              hash = "sha256-idBTV03i8hsGLftIfU7Gfoh1MRSNImAl9b/uqaKAnnA=";
+              hash = "sha256-Ln9ZAazBjRl0vG/Ww9HfMwWBipss0l5Ji2NBWZXdAmM=";
             };
 
             nativeBuildInputs = [
@@ -55,7 +55,7 @@
 
             src = ./.;
 
-            vendorHash = "sha256-zB2K2JXnxOYKoklEG/Bf776x4+oJqVC+Bq4sqOGIap8=";
+            vendorHash = "sha256-ddhfs4qax+GzrFeodnHprURxCTwu1OKwLh+hiyfJSyk=";
 
             preBuild = ''
               rm -rf internal/web/dist

@@ -1142,7 +1142,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.view == viewWaves && !m.wavesPassthrough(msg) {
 		return m.keyWaves(msg)
 	}
-	// Yank sequences (yy/ym/yt): intercepted AHEAD of every bare key below
+	// Yank sequences (yy/ym/yt/yi/yl): intercepted AHEAD of every bare key below
 	// for the same reason as the fold keys (m, t would swallow the second key).
 	switch s := msg.String(); {
 	case yankPending:
@@ -1577,7 +1577,7 @@ func (m model) setExpanded(n treeNode, open bool) model {
 // foldPrefixKey starts the roadmap fold sequences (zo/zc/zR/zM, keys.ExpandNode ...).
 const foldPrefixKey = "z"
 
-// yankPrefixKey starts the yank sequences (yy/ym/yt, keys.YankFull ...).
+// yankPrefixKey starts the yank sequences (yy/ym/yt/yi/yl, keys.YankFull ...).
 const yankPrefixKey = "y"
 
 // siblingPos returns the index of the previous (dir<0) or next (dir>0) visible

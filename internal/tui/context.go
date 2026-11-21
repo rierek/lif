@@ -1,7 +1,7 @@
 package tui
 
 // context.go — Yank's clipboard text generator. `y` is a prefix (update.go
-// handleKey, yankPrefixKey); the second key picks one of three variants of
+// handleKey, yankPrefixKey); the second key picks one of five variants of
 // the focused item:
 //
 //	yy  full: the item file as on disk (front matter + body), plus a

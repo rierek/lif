@@ -56,7 +56,9 @@ func (m model) flatVisible() []*item.Item {
 	var out []*item.Item
 	for _, b := range m.idx.ByID {
 		if g := m.flatMatchGroup(t, b, grouped); g != groupNone {
-			groups[b.ID] = g
+			if grouped {
+				groups[b.ID] = g
+			}
 			out = append(out, b)
 		}
 	}

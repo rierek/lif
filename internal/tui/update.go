@@ -844,14 +844,14 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 			return true, m, nil
 		}
 		m.yankPrefix = true
-		nm, cmd := m.showToast(toastInfo, "Yank: y item · m meta · t meta+toc", "any other key cancels", nil, false)
+		nm, cmd := m.showToast(toastInfo, "Yank: i ID+title · l filtered children · y item · m meta · t meta+toc", "any other key cancels", nil, false)
 		return true, nm, cmd
 	}
 	return false, m, nil
 }
 
-// keyYank completes a yank sequence (yy/ym/yt) on m.focusedBean(). Any other
-// sequence cancels and drops the hint toast.
+// keyYank completes a yank sequence (yy/ym/yt/yi/yl) on m.focusedBean(). Any
+// other sequence cancels and drops the hint toast.
 func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 	var mode yankMode
 	switch {
@@ -861,6 +861,10 @@ func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 		mode = yankMeta
 	case bindHas(keys.YankTOC, seq):
 		mode = yankTOC
+	case bindHas(keys.YankItem, seq):
+		mode = yankItem
+	case bindHas(keys.YankList, seq):
+		mode = yankList
 	default:
 		return m.clearToastUnlessSticky(), nil
 	}
@@ -868,7 +872,11 @@ func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 	if b == nil {
 		return m.clearToastUnlessSticky(), nil
 	}
-	text, err := yankText(m.idx, b, mode)
+	var children []*item.Item
+	if mode == yankList {
+		children = m.yankChildren(b.ID)
+	}
+	text, err := yankText(m.idx, b, mode, children)
 	if err == nil {
 		err = clip.Copy(text)
 	}
@@ -1158,7 +1166,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.view == viewWaves && !m.wavesPassthrough(msg) {
 		return m.keyWaves(msg)
 	}
-	// Yank sequences (yy/ym/yt): intercepted AHEAD of every bare key below
+	// Yank sequences (yy/ym/yt/yi/yl): intercepted AHEAD of every bare key below
 	// for the same reason as the fold keys (m, t would swallow the second key).
 	switch s := msg.String(); {
 	case yankPending:
@@ -1593,7 +1601,7 @@ func (m model) setExpanded(n treeNode, open bool) model {
 // foldPrefixKey starts the roadmap fold sequences (zo/zc/zR/zM, keys.ExpandNode ...).
 const foldPrefixKey = "z"
 
-// yankPrefixKey starts the yank sequences (yy/ym/yt, keys.YankFull ...).
+// yankPrefixKey starts the yank sequences (yy/ym/yt/yi/yl, keys.YankFull ...).
 const yankPrefixKey = "y"
 
 // siblingPos returns the index of the previous (dir<0) or next (dir>0) visible

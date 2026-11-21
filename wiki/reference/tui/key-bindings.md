@@ -53,6 +53,8 @@ The Board view (`B`) is planned and not bound yet. `esc` in the flat list or Rea
 | `yy` | Copy the item file (front matter + body), plus a children table for a parent |
 | `ym` | Copy the full front matter, no body (same as piped `lif show --meta`) |
 | `yt` | Copy the full front matter plus the body's heading outline (`## TOC`) |
+| `yi` | Copy one line, `ID - Title`, for the focused item |
+| `yl` | Copy the `yi` line plus `  +-- ID - Title` per direct child that passes search, facets and archive |
 | `?` | Help ([search and scroll](#help)) |
 | `q` | Quit dialog |
 | `ctrl+c` | Quit at once from every state (lists, forms, menus, dialogs, lobby), no confirmation, no lobby |
@@ -79,7 +81,7 @@ The search matches the key, the description and the group name, ignoring case; a
 | `y` | Confirm (quit, create, delete, tag delete); `enter` confirms too |
 | `n` | Cancel; `esc` cancels too |
 
-In a dialog `y` confirms; everywhere else `y` starts a copy sequence (`yy`, `ym`, `yt`). A toast lists the choices; any other second key cancels.
+In a dialog `y` confirms; everywhere else `y` starts a copy sequence (`yy`, `ym`, `yt`, `yi`, `yl`). A toast lists the choices; any other second key cancels. `yl` ignores folds, scrolling and Ready membership: only the filters decide which direct children it lists.
 
 ## Item actions
 

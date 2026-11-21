@@ -37,8 +37,11 @@ var errNilStore = errors.New("lif tui: nil store (Run() must open a data.Store b
 // Run owns the store from here on: it closes whichever store is live when the
 // program ends (the initial one, or the latest repo switch's).
 //
+// initialItemID, when non-empty, is the canonical ID of the item whose detail
+// the first load opens. If that cannot happen, Run returns the startup error.
+//
 // AltScreen + mouse (wheel/click) are enabled from the start.
-func Run(store *data.Store, repoDir string, settings config.Settings) error {
+func Run(store *data.Store, repoDir string, settings config.Settings, initialItemID string) error {
 	configuredEditor = settings.Editor // design decision c: Settings > $VISUAL > $EDITOR > vi (editor.go)
 	configuredAccent = settings.Theme.Accent
 
@@ -49,6 +52,7 @@ func Run(store *data.Store, repoDir string, settings config.Settings) error {
 	applyRepoConfig(cfg) // theme, value lists and colours, before the first index is built
 	m := newModel(store, repoDir)
 	m.settings = settings
+	m.initialItemID = initialItemID
 	if store == nil {
 		// Lobby-first (design decision d): no repo resolved. repoList is
 		// primed here so the Lobby's very first frame already shows every
@@ -62,10 +66,14 @@ func Run(store *data.Store, repoDir string, settings config.Settings) error {
 	}
 
 	finalModel, runErr := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
-	if fm, ok := finalModel.(model); ok && fm.store != nil {
+	fm, ok := finalModel.(model)
+	if ok && fm.store != nil {
 		fm.store.Close()
 	}
-	return runErr
+	if runErr != nil || !ok {
+		return runErr
+	}
+	return fm.startupErr
 }
 
 // Init kicks off the initial async load and, with a store, the wait for its

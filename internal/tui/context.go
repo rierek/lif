@@ -1,7 +1,7 @@
 package tui
 
 // context.go — Yank's clipboard text generator. `y` is a prefix (update.go
-// handleKey, yankPrefixKey); the second key picks one of three variants of
+// handleKey, yankPrefixKey); the second key picks one of five variants of
 // the focused item:
 //
 //	yy  full: the item file as on disk (front matter + body), plus a
@@ -9,6 +9,9 @@ package tui
 //	ym  meta: the complete front matter, no body (same text as a piped
 //	    `lif show --meta`)
 //	yt  meta + toc: the front matter plus the body's heading outline
+//	yi  item: one "ID - Title" line
+//	yl  list: the yi line plus one "  +-- ID - Title" line per direct child
+//	    the active search/facets/archive visibility keep (yankChildren)
 //
 // The front matter comes from item.Render, never a hand-picked field list,
 // so every field the file carries (Extra, created/updated, order, ...) lands
@@ -29,13 +32,43 @@ const (
 	yankFull yankMode = iota
 	yankMeta
 	yankTOC
+	yankItem
+	yankList
 )
 
+// yankChildren returns the direct children of parentID that pass the same
+// membership test as the flat roadmap list (flatMatchGroup), in idx.Children
+// order. Folds, scroll position and Ready membership do not constrain it.
+func (m model) yankChildren(parentID string) []*item.Item {
+	if m.idx == nil {
+		return nil
+	}
+	grouped := strings.TrimSpace(m.searchPrefixRest) != ""
+	target := m.searchTarget()
+	var out []*item.Item
+	for _, c := range m.idx.Children[parentID] {
+		if m.flatMatchGroup(target, c, grouped) != groupNone {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // yankText renders b in the chosen mode. nil b returns "" (defensive --
-// callers already guard the orphan-root cursor).
-func yankText(idx *data.Index, b *item.Item, mode yankMode) (string, error) {
+// callers already guard the orphan-root cursor). children only feeds yankList.
+func yankText(idx *data.Index, b *item.Item, mode yankMode, children []*item.Item) (string, error) {
 	if b == nil {
 		return "", nil
+	}
+	if mode == yankItem || mode == yankList {
+		var out strings.Builder
+		out.WriteString(b.ID + " - " + b.Title + "\n")
+		if mode == yankList {
+			for _, c := range children {
+				out.WriteString("  +-- " + c.ID + " - " + c.Title + "\n")
+			}
+		}
+		return out.String(), nil
 	}
 	source := b
 	if mode != yankFull {

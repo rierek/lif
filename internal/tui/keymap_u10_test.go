@@ -11,19 +11,19 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// u10Browse is the shared start state: roadmap view, focused task, list layout.
-func u10Browse(t *testing.T) model {
+// u10Roadmap is the shared start state: roadmap view, focused task, list layout.
+func u10Roadmap(t *testing.T) model {
 	t.Helper()
 	m := fixtureModel(t, fixtureBeans())
 	m = focusBean(m, "tk-2")
 	return m.setLayout(layoutRoadmap)
 }
 
-func u10Flat(t *testing.T) model { m := u10Browse(t); m.flatView = true; return m }
+func u10Flat(t *testing.T) model { m := u10Roadmap(t); m.flatView = true; return m }
 
 // u10Ready is the Ready view over a model whose Ready set holds tk-1 and tk-2.
 func u10Ready(t *testing.T) model {
-	m := u10Browse(t)
+	m := u10Roadmap(t)
 	m.readyIDs = map[string]bool{"tk-1": true, "tk-2": true}
 	return step(t, m, runeMsg('R'))
 }
@@ -36,15 +36,15 @@ type viewState struct {
 func stateOf(m model) viewState { return viewState{m.view, m.flatView} }
 
 var (
-	stRoadmap = viewState{viewBrowseRepo, false}
-	stFlat    = viewState{viewBrowseRepo, true}
+	stRoadmap = viewState{viewRoadmapRepo, false}
+	stFlat    = viewState{viewRoadmapRepo, true}
 	stReady   = viewState{viewReady, false}
 )
 
 // SC-01, AC1-4: the view keys, from every view.
 func TestViewKeysSwitchFromEveryView(t *testing.T) {
 	t.Setenv("HOME", t.TempDir()) // P reloads the settings file
-	starts := map[string]func(*testing.T) model{"roadmap": u10Browse, "flat": u10Flat, "ready": u10Ready}
+	starts := map[string]func(*testing.T) model{"roadmap": u10Roadmap, "flat": u10Flat, "ready": u10Ready}
 	for name, start := range starts {
 		for key, want := range map[rune]viewState{'M': stRoadmap, 'L': stFlat, 'R': stReady} {
 			t.Run(name+"/"+string(key), func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestEscReturnsToRoadmap(t *testing.T) {
 			}
 		})
 	}
-	if got := stateOf(step(t, u10Browse(t), keyMsg(tea.KeyEsc))); got != stRoadmap {
+	if got := stateOf(step(t, u10Roadmap(t), keyMsg(tea.KeyEsc))); got != stRoadmap {
 		t.Fatalf("esc in roadmap changed the view to %+v", got)
 	}
 }
@@ -113,7 +113,7 @@ func TestItemKeysOpenTheirPickers(t *testing.T) {
 		'g': overlayTagPicker, 'a': overlayParentPicker, 'b': overlayBlockingPicker,
 		'd': overlayDeleteConfirm,
 	} {
-		for name, start := range map[string]func(*testing.T) model{"roadmap": u10Browse, "flat": u10Flat, "ready": u10Ready} {
+		for name, start := range map[string]func(*testing.T) model{"roadmap": u10Roadmap, "flat": u10Flat, "ready": u10Ready} {
 			t.Run(name+"/"+string(key), func(t *testing.T) {
 				m := step(t, start(t), runeMsg(key))
 				if m.overlay != want {
@@ -123,7 +123,7 @@ func TestItemKeysOpenTheirPickers(t *testing.T) {
 		}
 	}
 	for key, group := range map[rune]string{'t': "type", 'p': "priority", 's': "status"} {
-		if got := step(t, u10Browse(t), runeMsg(key)).valueMenuGroup(); got != group {
+		if got := step(t, u10Roadmap(t), runeMsg(key)).valueMenuGroup(); got != group {
 			t.Errorf("%c opens value menu %q, want %q", key, got, group)
 		}
 	}
@@ -142,7 +142,7 @@ func TestAssignAndBlockingLabels(t *testing.T) {
 // AC11: K and : open the Command Center.
 func TestPaletteKeys(t *testing.T) {
 	for _, k := range []rune{'K', ':'} {
-		if m := step(t, u10Browse(t), runeMsg(k)); !m.paletteOpen {
+		if m := step(t, u10Roadmap(t), runeMsg(k)); !m.paletteOpen {
 			t.Errorf("%c did not open the Command Center", k)
 		}
 	}
@@ -156,7 +156,7 @@ func TestRemovedKeysAreUnbound(t *testing.T) {
 		if bound[string(k)] {
 			t.Errorf("key %c is still bound", k)
 		}
-		for name, start := range map[string]func(*testing.T) model{"roadmap": u10Browse, "ready": u10Ready} {
+		for name, start := range map[string]func(*testing.T) model{"roadmap": u10Roadmap, "ready": u10Ready} {
 			m := start(t)
 			after := step(t, m, runeMsg(k))
 			if after.overlay != overlayNone || after.paletteOpen || stateOf(after) != stateOf(m) || after.View() != m.View() {
@@ -169,7 +169,7 @@ func TestRemovedKeysAreUnbound(t *testing.T) {
 // AC13: y confirms and n cancels in every confirm dialog.
 func TestConfirmDialogsAcceptYAndN(t *testing.T) {
 	deleteOpen := func(t *testing.T) model {
-		m := u10Browse(t)
+		m := u10Roadmap(t)
 		m.store = fixtureStore(t)
 		return step(t, m, runeMsg('d'))
 	}
@@ -187,7 +187,7 @@ func TestConfirmDialogsAcceptYAndN(t *testing.T) {
 		}
 	})
 	t.Run("quit y", func(t *testing.T) {
-		m := step(t, u10Browse(t), runeMsg('q'))
+		m := step(t, u10Roadmap(t), runeMsg('q'))
 		if !m.confirmQuit {
 			t.Fatal("q did not open the quit confirm")
 		}
@@ -198,7 +198,7 @@ func TestConfirmDialogsAcceptYAndN(t *testing.T) {
 		_ = cmd
 	})
 	t.Run("quit n", func(t *testing.T) {
-		m := step(t, step(t, u10Browse(t), runeMsg('q')), runeMsg('n'))
+		m := step(t, step(t, u10Roadmap(t), runeMsg('q')), runeMsg('n'))
 		if m.confirmQuit {
 			t.Fatal("n did not cancel the quit confirm")
 		}
@@ -207,7 +207,7 @@ func TestConfirmDialogsAcceptYAndN(t *testing.T) {
 
 // AC13: the tag-management delete confirm takes y as well.
 func TestTagManagementConfirmAcceptsY(t *testing.T) {
-	m := u10Browse(t)
+	m := u10Roadmap(t)
 	m.view = viewTagManagement
 	m.tagMgmtDeleteConfirm = true
 	m.tagMgmtDeleteTarget = "x"
@@ -220,7 +220,7 @@ func TestTagManagementConfirmAcceptsY(t *testing.T) {
 
 func lobbyModel(t *testing.T, live bool) model {
 	t.Helper()
-	m := u10Browse(t)
+	m := u10Roadmap(t)
 	if live {
 		m.store = fixtureStore(t)
 	}
@@ -237,7 +237,7 @@ func TestLobbyNeedsTwoEscToLeave(t *testing.T) {
 		t.Fatal("one esc already left the Lobby")
 	}
 	m = step(t, m, keyMsg(tea.KeyEsc))
-	if m.view != viewBrowseRepo {
+	if m.view != viewRoadmapRepo {
 		t.Fatalf("view after two esc = %v, want the live repo", m.view)
 	}
 
@@ -347,7 +347,7 @@ func mustHave(t *testing.T, got []string, key string, want bool) {
 // SC-03, AC16: every key the footer lists changes something when pressed.
 func TestFooterListsOnlyActingKeys(t *testing.T) {
 	states := map[string]func(*testing.T) model{
-		"roadmap": u10Browse, "flat": u10Flat, "ready": u10Ready,
+		"roadmap": u10Roadmap, "flat": u10Flat, "ready": u10Ready,
 	}
 	for name, start := range states {
 		for l := layoutRoadmap; l < layoutCount; l++ {
@@ -376,25 +376,25 @@ func layoutName(l layoutMode) string {
 
 // AC16: keys that only work in some layouts or views are listed only there.
 func TestFooterRespectsLayoutAndView(t *testing.T) {
-	detail := footerKeys(u10Browse(t).setLayout(layoutDetail))
+	detail := footerKeys(u10Roadmap(t).setLayout(layoutDetail))
 	mustHave(t, detail, "/", false) // U1 review finding: dead in layoutDetail
 	for _, k := range []string{"tab", "shift+tab"} {
 		mustHave(t, detail, k, true) // the detail fields are a ring of nine
 	}
 	mustHave(t, detail, "f", true) // U3: f jumps to the filter bar from every layout
-	filter := footerKeys(u10Browse(t).setLayout(layoutFilter))
+	filter := footerKeys(u10Roadmap(t).setLayout(layoutFilter))
 	mustHave(t, filter, "tab", true) // list + five filter fields
 	mustHave(t, filter, "shift+tab", true)
-	split := footerKeys(u10Browse(t).setLayout(layoutFilterDetail))
+	split := footerKeys(u10Roadmap(t).setLayout(layoutFilterDetail))
 	mustHave(t, split, "tab", true)
 	mustHave(t, split, "shift+tab", true)
 	mustHave(t, split, "/", true)
-	list := footerKeys(u10Browse(t).setLayout(layoutRoadmap))
+	list := footerKeys(u10Roadmap(t).setLayout(layoutRoadmap))
 	mustHave(t, list, "tab", false) // AC11: a ring of one has no tab
 	mustHave(t, list, "shift+tab", false)
 	mustHave(t, list, "/", true)
 
-	road := footerKeys(u10Browse(t))
+	road := footerKeys(u10Roadmap(t))
 	mustHave(t, road, "M", false)
 	mustHave(t, road, "L", true)
 	mustHave(t, road, "R", true)
@@ -404,7 +404,7 @@ func TestFooterRespectsLayoutAndView(t *testing.T) {
 	ready := footerKeys(u10Ready(t))
 	mustHave(t, ready, "M", true)
 	mustHave(t, ready, "R", false)
-	for _, k := range footerKeys(u10Browse(t)) {
+	for _, k := range footerKeys(u10Roadmap(t)) {
 		if strings.ContainsAny(k, "GDour") && len(k) == 1 {
 			t.Errorf("footer lists removed key %q", k)
 		}

@@ -149,7 +149,7 @@ func (m model) openValueMenu(group string) model {
 	// place all four trigger paths (keyboard s/o/u, field-cursor Enter, mouse
 	// click, Palette) funnel through (S6 grounding §4) -- so this is the only
 	// call site that needs touching, not four. Read by composeOverlays'
-	// placeValueMenuOverlay (view_browse_repo.go) ONLY.
+	// placeValueMenuOverlay (view_roadmap_repo.go) ONLY.
 	m.valueMenuAnchorField = boxFormFieldIndexForGroup(group)
 	m.overlay = overlayValueMenu
 	return m

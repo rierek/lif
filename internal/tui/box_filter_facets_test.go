@@ -597,7 +597,7 @@ func TestWideModalWidthNeverNarrowerThanOldFixedPicker(t *testing.T) {
 // below its (still-rendered) search/filter head row. The real assertion is
 // implicit: if View()/visibleNodes() panicked, this test would fail with a
 // stack trace rather than a plain t.Fatal. (PF-10, bean bt-uyzf: the Tree
-// pane no longer renders a "Tree" title line -- the Breadcrumb's "Browse"
+// pane no longer renders a "Tree" title line -- the Breadcrumb's "Roadmap"
 // title carries the view identity now, and the search head row is the
 // pane's own still-rendered signal that its frame survived.)
 func TestEmptyFacetMatchViewRendersWithoutPanic(t *testing.T) {

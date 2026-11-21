@@ -47,7 +47,7 @@ func TestHelpBoxRendersEveryGroup(t *testing.T) {
 
 // TestKeyHelpOpensFromAnyView guards design decision h (ctrl+k/Palette
 // precedent, E4 Task 1): `?` opens Help from ANY view, not just
-// viewBrowseRepo -- checked here against viewReady.
+// viewRoadmapRepo -- checked here against viewReady.
 func TestKeyHelpOpensFromAnyView(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m.view = viewReady

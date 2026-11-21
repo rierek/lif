@@ -7,7 +7,7 @@ import (
 	"github.com/rierek/lif/pkg/item"
 )
 
-// navFixture: ms-1 {ep-1a {tk-1}, ep-1b {tk-2}}, ms-2 {ep-2a {tk-3}} (the roadmap drops childless epics/milestones). All collapsed except
+// navFixture: ms-1 {ep-1a {tk-1}, ep-1b {tk-2}}, ms-2 {ep-2a {tk-3}}. All collapsed except
 // the synthetic roots (fixtureModel).
 func navFixture(t *testing.T) model {
 	t.Helper()
@@ -19,7 +19,7 @@ func navFixture(t *testing.T) model {
 		mk("ms-2", "milestone", ""), mk("ep-2a", "epic", "ms-2"), mk("tk-3", "task", "ep-2a"),
 	})
 	m.expanded = map[string]bool{}
-	m.view, m.flatView = viewBrowseRepo, false
+	m.view, m.flatView = viewRoadmapRepo, false
 	return m
 }
 

@@ -1,6 +1,6 @@
 package tui
 
-// roadmap_tree_test.go — the Browse tree is the roadmap (roadmap.Build) and
+// roadmap_tree_test.go — the Roadmap tree is the roadmap (roadmap.Build) and
 // the Ready view is `lif list --ready` (Store.Ready).
 
 import (
@@ -14,7 +14,8 @@ import (
 )
 
 // roadmapFixture: milestone M1 > epic E1 > tasks T1, T2; epic E2 without a
-// milestone holding task T3; milestone M2 without any child.
+// milestone holding task T3, which holds task T4 (a task under a task has no
+// roadmap place); milestone M2 without any child (still on the roadmap).
 func roadmapFixture() []*item.Item {
 	return []*item.Item{
 		{ID: "m1", Title: "M1", Status: "todo", Type: "milestone", Priority: "normal"},
@@ -23,6 +24,7 @@ func roadmapFixture() []*item.Item {
 		{ID: "t2", Title: "T2", Status: "draft", Type: "task", Priority: "normal", Parent: "e1"},
 		{ID: "e2", Title: "E2", Status: "todo", Type: "epic", Priority: "normal"},
 		{ID: "t3", Title: "T3", Status: "todo", Type: "task", Priority: "normal", Parent: "e2"},
+		{ID: "t4", Title: "T4", Status: "todo", Type: "task", Priority: "normal", Parent: "t3"},
 		{ID: "m2", Title: "M2", Status: "todo", Type: "milestone", Priority: "normal"},
 	}
 }
@@ -41,7 +43,7 @@ func TestRoadmapTreeStartsCollapsedAtMilestones(t *testing.T) {
 		t.Fatalf("expanded = %v, want empty at start", m.expanded)
 	}
 	nodes := m.visibleNodes()
-	want := []string{"m1", unscheduledRootID, notOnRoadmapRootID}
+	want := []string{"m1", "m2", unscheduledRootID, notOnRoadmapRootID}
 	if got := nodeIDs(nodes); !equalStrings(got, want) {
 		t.Fatalf("visibleNodes() = %q, want %q (milestone + synthetic roots, all collapsed)", got, want)
 	}
@@ -61,16 +63,16 @@ func TestItemWithoutRoadmapPlaceIsUnderNotOnRoadmap(t *testing.T) {
 
 	var depth = -1
 	for _, n := range m.visibleNodes() {
-		if n.id == "m2" {
+		if n.id == "t4" {
 			depth = n.depth
 		}
 	}
 	if depth != 1 {
-		t.Fatalf("childless milestone m2 depth = %d, want 1 (flat row under Not on roadmap)", depth)
+		t.Fatalf("t4 depth = %d, want 1 (flat row under Not on roadmap)", depth)
 	}
 	for _, n := range m.visibleNodes() {
-		if n.id == "m2" && n.hasKids {
-			t.Error("m2 must be a flat row without children")
+		if n.id == "t4" && n.hasKids {
+			t.Error("t4 must be a flat row without children")
 		}
 	}
 }
@@ -79,7 +81,7 @@ func TestUnscheduledRootHoldsEpicsWithoutMilestone(t *testing.T) {
 	m := realModel(t, roadmapFixture())
 	m.expanded = map[string]bool{unscheduledRootID: true, "e2": true, "m1": true, "e1": true}
 
-	want := []string{"m1", "e1", "t1", "t2", unscheduledRootID, "e2", "t3", notOnRoadmapRootID}
+	want := []string{"m1", "e1", "t1", "t2", "m2", unscheduledRootID, "e2", "t3", notOnRoadmapRootID}
 	if got := nodeIDs(m.visibleNodes()); !equalStrings(got, want) {
 		t.Fatalf("visibleNodes() = %q, want %q", got, want)
 	}
@@ -92,9 +94,9 @@ func TestExpandAncestorsOfWalksTreeParent(t *testing.T) {
 	if !got["e2"] || !got[unscheduledRootID] || got["t3"] {
 		t.Fatalf("expandAncestorsOf(t3) = %v, want e2 and the Unscheduled root expanded", got)
 	}
-	got = expandAncestorsOf(m.treeParent, m.expanded, "m2")
+	got = expandAncestorsOf(m.treeParent, m.expanded, "t4")
 	if !got[notOnRoadmapRootID] {
-		t.Fatalf("expandAncestorsOf(m2) = %v, want the Not on roadmap root expanded", got)
+		t.Fatalf("expandAncestorsOf(t4) = %v, want the Not on roadmap root expanded", got)
 	}
 }
 

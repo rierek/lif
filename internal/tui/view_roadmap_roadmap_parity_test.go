@@ -1,6 +1,6 @@
 package tui
 
-// view_browse_roadmap_parity_test.go — bean beans-6ccp (U4): the TUI roadmap
+// view_roadmap_roadmap_parity_test.go — bean beans-6ccp (U4): the TUI roadmap
 // list renders through the same row builder and row renderer as lif roadmap,
 // without a column header, and keeps the compact rows beside the detail pane.
 
@@ -18,7 +18,7 @@ import (
 // listPaneWidth is the cell width the list pane hands its rows (frame removed).
 func listPaneWidth(m model) int {
 	innerW := m.width - 2
-	head, localKeys := m.browseRepoChrome(innerW)
+	head, localKeys := m.roadmapRepoChrome(innerW)
 	_, lw, _, _, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	return lw - 2
 }

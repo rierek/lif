@@ -1,13 +1,13 @@
 package tui
 
-// view_browse_flat.go — jira-style-ui experiment, Slice 5 (S5): the Nested/
-// Flat Browse toggle (`G`, keymap.go). Additive to viewBrowseRepo
-// (view_browse_repo.go): when m.flatView is true, the Browse view's LEFT
+// view_roadmap_flat.go — jira-style-ui experiment, Slice 5 (S5): the Nested/
+// Flat Roadmap toggle (`G`, keymap.go). Additive to viewRoadmapRepo
+// (view_roadmap_repo.go): when m.flatView is true, the Roadmap view's LEFT
 // pane renders a FLAT, sorted list of beans (columns: status glyph / type
-// glyph / Key / Title) instead of the Tree, reusing view_browse_ready.go's
+// glyph / Key / Title) instead of the Tree, reusing view_roadmap_ready.go's
 // row-rendering primitive (readyRowText) and cursor/window mechanics
 // (windowAround) verbatim rather than inventing a second copy. UNLIKE the
-// full-screen Ready view (viewReady), this stays Browse: the Detail
+// full-screen Ready view (viewReady), this stays Roadmap: the Detail
 // pane (right) and the whole master-detail split are UNCHANGED, only the
 // left pane's content source switches.
 //
@@ -16,9 +16,9 @@ package tui
 // flatList (types.go) is its own minimal listState, index-based exactly like
 // readyList, kept SEPARATE from the Tree's own cursorID/expanded state so
 // toggling `G` back to nested resumes the Tree exactly where it was.
-// Default m.flatView is false, so viewBrowseRepo's existing (unbranched)
+// Default m.flatView is false, so viewRoadmapRepo's existing (unbranched)
 // Tree-render path is untouched -- tree.golden and every other pre-existing
-// Browse golden stay byte-identical.
+// Roadmap golden stay byte-identical.
 
 import (
 	"cmp"
@@ -34,9 +34,9 @@ import (
 
 // flatVisible returns every bean matching the SAME shared search+facet+
 // archive predicate the Tree uses (m.beanMatches, box_filter_facets.go --
-// identical to readyVisible()'s own predicate half, view_browse_ready.go),
+// identical to readyVisible()'s own predicate half, view_roadmap_ready.go),
 // but sourced from the WHOLE index (m.idx.ByID) rather than the Ready set's
-// parentless+ready subset -- a flat mode toggle for Browse must show every
+// parentless+ready subset -- a flat mode toggle for Roadmap must show every
 // bean the Tree would, not just the Ready's narrower set. Ordered via
 // data.SortBeans (Status -> Priority -> Type -> Title), the SAME canonical
 // order the roadmap tree and notOnRoadmap already use for the identical
@@ -55,17 +55,10 @@ func (m model) flatVisible() []*item.Item {
 	groups := map[string]searchGroup{}
 	var out []*item.Item
 	for _, b := range m.idx.ByID {
-		if !grouped {
-			if m.beanMatches(b) {
-				out = append(out, b)
+		if g := m.flatMatchGroup(t, b, grouped); g != groupNone {
+			if grouped {
+				groups[b.ID] = g
 			}
-			continue
-		}
-		if !m.beanMatchesSearchPrefixFacets(b) || !m.beanMatchesFacets(b) || !m.beanMatchesArchive(b) {
-			continue
-		}
-		if g := m.searchGroupOf(t, b); g != groupNone {
-			groups[b.ID] = g
 			out = append(out, b)
 		}
 	}
@@ -74,6 +67,23 @@ func (m model) flatVisible() []*item.Item {
 		slices.SortStableFunc(out, func(a, b *item.Item) int { return cmp.Compare(groups[a.ID], groups[b.ID]) })
 	}
 	return out
+}
+
+// flatMatchGroup is flatVisible's per-item membership decision: groupNone
+// when b is excluded. Ungrouped (no search text) it is beanMatches; grouped it
+// is the prefix/facet/archive gate plus searchGroupOf. target is
+// m.searchTarget(), passed in so callers look it up once per list.
+func (m model) flatMatchGroup(target, b *item.Item, grouped bool) searchGroup {
+	if !grouped {
+		if m.beanMatches(b) {
+			return groupItem
+		}
+		return groupNone
+	}
+	if !m.beanMatchesSearchPrefixFacets(b) || !m.beanMatchesFacets(b) || !m.beanMatchesArchive(b) {
+		return groupNone
+	}
+	return m.searchGroupOf(target, b)
 }
 
 // flatGroups returns each vis entry's section, or nil when the flat list is not grouped.
@@ -91,7 +101,7 @@ func (m model) flatGroups(vis []*item.Item) []searchGroup {
 
 // flatSelected returns the bean under flatList's cursor, or nil for an
 // empty/out-of-range list -- mirrors readySelected() exactly
-// (view_browse_ready.go), including its staleness tolerance: a cursor
+// (view_roadmap_ready.go), including its staleness tolerance: a cursor
 // left pointing past a since-narrowed vis (search/filter routes through the
 // SHARED keySearchInput/keyFilterMenu handlers, which know nothing about
 // flatList, same gap readyList's own doc comment documents) simply
@@ -106,7 +116,7 @@ func (m model) flatSelected() *item.Item {
 }
 
 // flatRows renders every visible flat row, mirroring readyRows' own D08
-// cursor treatment (view_browse_ready.go) verbatim: a leading `▌` bar plus
+// cursor treatment (view_roadmap_ready.go) verbatim: a leading `▌` bar plus
 // the whole row accent-tinted when focused, muted when the Detail pane has
 // focus instead, windowed around the cursor via the EXISTING windowAround
 // (E1 Task 8) -- no new fenestration mechanism. Row TEXT itself reuses
@@ -118,7 +128,7 @@ func (m model) flatRows(vis []*item.Item, focused bool, bodyH, width int) []stri
 	return rows
 }
 
-// flatBlocks is the flat list's treeBlocks (view_browse_repo.go): one
+// flatBlocks is the flat list's treeBlocks (view_roadmap_repo.go): one
 // variable-height line block per bean, shared by flatRows above and
 // flatClickRow below so the click resolves against the SAME window the
 // renderer produced (bean bt-f68z -- rows stopped being 1:1 with beans once
@@ -138,10 +148,10 @@ func (m model) flatBlocks(vis []*item.Item, focused bool, width int) [][]string 
 }
 
 // renderFlatDetailPane renders the Detail box-form for the flat list's
-// selected bean -- mirrors renderReadyDetailPane (view_browse_ready.go)
+// selected bean -- mirrors renderReadyDetailPane (view_roadmap_ready.go)
 // exactly, keying off flatList's index cursor into vis instead of a treeNode
 // slice, then handing off to the shared renderBeanDetailBox
-// (view_browse_repo.go) -- Browse's flat mode and the Ready can never
+// (view_roadmap_repo.go) -- Roadmap's flat mode and the Ready can never
 // drift out of sync on the Detail body, same rationale as the Tree/Ready
 // split that shared function already serves.
 func (m model) renderFlatDetailPane(vis []*item.Item, w, h int, focused bool) string {
@@ -153,19 +163,19 @@ func (m model) renderFlatDetailPane(vis []*item.Item, w, h int, focused bool) st
 	return m.renderBeanDetailBox(b, w, h, focused)
 }
 
-// keyFlat drives Browse's flat mode: up/down move flatList's cursor over
+// keyFlat drives Roadmap's flat mode: up/down move flatList's cursor over
 // flatVisible() (the selection half of "REUSE Ready's row-rendering +
 // selection logic" -- mirrors readyCursorMove's own resync-before-move
-// pattern, view_browse_ready.go). left/right/enter are handled no-ops --
+// pattern, view_roadmap_ready.go). left/right/enter are handled no-ops --
 // a flat list has no expand concept, same rationale as keyReady's own
-// enter no-op (view_browse_ready.go doc comment). Called from keyTree
+// enter no-op (view_roadmap_ready.go doc comment). Called from keyTree
 // (update.go) once m.flatView is true, AFTER the shared search/filter/
 // Ready/FilterClear/Back handling that switch already does -- so `/`, `f`,
 // `X`, `b`, esc all keep working identically in flat mode (same shared
 // state, filtered set narrows/widens exactly like the Tree's own).
 // flatClickRow maps a mouse click to a flat-list row index (S6, mouse.go's
-// mouseFlatClick) -- the flat-list analog of treeClickRow (view_browse_repo.go):
-// IDENTICAL geometry reconstruction (browseRepoChrome + clickPaneGeometry,
+// mouseFlatClick) -- the flat-list analog of treeClickRow (view_roadmap_repo.go):
+// IDENTICAL geometry reconstruction (roadmapRepoChrome + clickPaneGeometry,
 // Golden-Rule-Drift-Schutz), windowed via windowStart(len(vis), bodyH-1,
 // m.flatList.cursor) the SAME way flatRows itself windows (above) -- row 0 is
 // the search head line (treeSearchLine), never a row target, same PF-10
@@ -173,7 +183,7 @@ func (m model) renderFlatDetailPane(vis []*item.Item, w, h int, focused bool) st
 //
 // B6 (S6): the persistent filter bar (box_filter_bar.go) sits between the
 // header divider and this split -- flat mode is
-// only ever reached from viewBrowseRepo (the filter bar's one call site), so
+// only ever reached from viewRoadmapRepo (the filter bar's one call site), so
 // the correction below mirrors treeClickRow's own exactly.
 func flatClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool) {
 	w, h := m.width, m.height
@@ -184,7 +194,7 @@ func flatClickRow(m model, vis []*item.Item, msg tea.MouseMsg) (idx int, ok bool
 		h = 24
 	}
 	innerW := w - 2
-	head, localKeys := m.browseRepoChrome(innerW)
+	head, localKeys := m.roadmapRepoChrome(innerW)
 
 	bodyH, lw, _, originX, originY := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	// bt-vpvu: the bodyH half of the filter-bar correction was missing

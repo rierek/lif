@@ -40,9 +40,9 @@ func bindingKeys(bs []keybind.Binding) []string {
 // enforces it structurally instead of by hand.
 var boxFormInlineFooterKeys = []string{"s", "e", "g", "a"}
 
-func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
+func TestRoadmapRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 
-	got := bindingKeys(u10Browse(t).setLayout(layoutFilterDetail).footerBindings())
+	got := bindingKeys(u10Roadmap(t).setLayout(layoutFilterDetail).footerBindings())
 	for _, k := range boxFormInlineFooterKeys {
 		for _, have := range got {
 			if have == k {
@@ -67,10 +67,10 @@ func TestBrowseRepoLocalBindingsDropInlineKeysWhileBoxForm(t *testing.T) {
 	}
 }
 
-// TestReadyFooterFollowsBrowseRepo: the Ready renders the SAME box-form
+// TestReadyFooterFollowsRoadmapRepo: the Ready renders the SAME box-form
 // detail pane, so its footer drops the inline keys identically; only the
 // view keys differ (M and L instead of R).
-func TestReadyFooterFollowsBrowseRepo(t *testing.T) {
+func TestReadyFooterFollowsRoadmapRepo(t *testing.T) {
 	got := footerKeys(u10Ready(t).setLayout(layoutFilterDetail))
 	for _, k := range boxFormInlineFooterKeys {
 		mustHave(t, got, k, false)

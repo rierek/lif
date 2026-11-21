@@ -44,7 +44,7 @@ func boxFormLongBodyBeans() []*item.Item {
 }
 
 // boxFormScrollModel builds a fixtureModel with a 100x30
-// frame, and tk-2 (long body) focused (Browse/Tree view, ancestors
+// frame, and tk-2 (long body) focused (Roadmap/Tree view, ancestors
 // expanded via focusBean, box_menu_value_test.go) -- detailFocus is left
 // false (Tree-focused default); callers that need Detail focus set
 // m.detailFocus = true themselves, mirroring update_test.go's own pattern
@@ -190,7 +190,7 @@ func TestBoxFormWheelOverDetailPaneScrolls(t *testing.T) {
 	b := m.focusedBean()
 	requireOverflow(t, m, b)
 
-	head, localKeys := m.browseRepoChrome(m.width - 2)
+	head, localKeys := m.roadmapRepoChrome(m.width - 2)
 	_, lw, _, originX, originY := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 
 	detailMsg := tea.MouseMsg{

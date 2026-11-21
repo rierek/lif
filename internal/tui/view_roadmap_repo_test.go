@@ -1,7 +1,7 @@
 package tui
 
-// view_browse_repo_test.go — TDD coverage for viewBrowseRepo's own Chrome
-// (browseRepoChrome). Originally PF-11's Header/Footer-Keybinding-Split
+// view_roadmap_repo_test.go — TDD coverage for viewRoadmapRepo's own Chrome
+// (roadmapRepoChrome). Originally PF-11's Header/Footer-Keybinding-Split
 // (design-spec.md §15, epic-E7-plan.md Task 7, bean bt-m6at); D04/D06/Q06
 // (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc) SUPERSEDE that: the
 // Header now carries EXACTLY 4 globals (Palette/Picker/Help/Quit), the
@@ -22,69 +22,69 @@ import (
 	"github.com/rierek/lif/internal/tui/theme"
 )
 
-// TestBrowseRepoChromeHeaderShowsExactlyFourGlobals guards D04 (design-
+// TestRoadmapRepoChromeHeaderShowsExactlyFourGlobals guards D04 (design-
 // spec.md §15 PF-16, bean bt-ntoz/bt-d8kc, SUPERSEDES the previous 7-Globals
 // header): the Header now carries EXACTLY Palette/Picker/Help/Quit, no
 // colon (D06 optic) -- ctrl+r/esc/enter are gone.
-func TestBrowseRepoChromeHeaderShowsExactlyFourGlobals(t *testing.T) {
+func TestRoadmapRepoChromeHeaderShowsExactlyFourGlobals(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	head, _ := m.browseRepoChrome(200) // wide enough to never trigger breadcrumb's narrow-stack fallback
+	head, _ := m.roadmapRepoChrome(200) // wide enough to never trigger breadcrumb's narrow-stack fallback
 	plain := stripHint(head)
 	for _, want := range []string{"K/: commands", "P repos", "? help", "q quit"} {
 		if !strings.Contains(plain, want) {
-			t.Errorf("browseRepoChrome header = %q, want it to contain %q", plain, want)
+			t.Errorf("roadmapRepoChrome header = %q, want it to contain %q", plain, want)
 		}
 	}
 	for _, absent := range []string{"ctrl+r", "esc back", "enter open"} {
 		if strings.Contains(plain, absent) {
-			t.Errorf("browseRepoChrome header = %q, must NOT contain %q (D04 degrades it out of the header)", plain, absent)
+			t.Errorf("roadmapRepoChrome header = %q, must NOT contain %q (D04 degrades it out of the header)", plain, absent)
 		}
 	}
 }
 
-func TestBrowseRepoChromeFooterOmitsRefreshAndEnter(t *testing.T) {
+func TestRoadmapRepoChromeFooterOmitsRefreshAndEnter(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	_, localKeys := m.browseRepoChrome(200)
+	_, localKeys := m.roadmapRepoChrome(200)
 	plain := stripHint(localKeys)
 	if strings.Contains(plain, "ctrl+r") {
-		t.Errorf("browseRepoChrome footer = %q, must NOT contain ctrl+r (now header-only, D04)", plain)
+		t.Errorf("roadmapRepoChrome footer = %q, must NOT contain ctrl+r (now header-only, D04)", plain)
 	}
 	if strings.Contains(plain, "enter open") {
-		t.Errorf("browseRepoChrome footer = %q, must NOT contain enter open (now header-only, D04)", plain)
+		t.Errorf("roadmapRepoChrome footer = %q, must NOT contain enter open (now header-only, D04)", plain)
 	}
 }
 
-func TestBrowseRepoChromeFooterShowsFocusInFocusOut(t *testing.T) {
+func TestRoadmapRepoChromeFooterShowsFocusInFocusOut(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	_, localKeys := m.browseRepoChrome(200)
+	_, localKeys := m.roadmapRepoChrome(200)
 	plain := stripHint(localKeys)
 	if !strings.Contains(plain, "tab next focus") {
-		t.Errorf("browseRepoChrome footer = %q, want FocusIn's real hint (not a hand-typed suffix)", plain)
+		t.Errorf("roadmapRepoChrome footer = %q, want FocusIn's real hint (not a hand-typed suffix)", plain)
 	}
 	if !strings.Contains(plain, "shift+tab prev focus") {
-		t.Errorf("browseRepoChrome footer = %q, want shift+tab visible for the first time (PF-13)", plain)
+		t.Errorf("roadmapRepoChrome footer = %q, want shift+tab visible for the first time (PF-13)", plain)
 	}
 }
 
-// TestBrowseRepoChromeFooterMatchesQ06List guards Q06's finale, PO-verbatim
-// Footer-Liste (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc): browseRepoLocalBindings()
+// TestRoadmapRepoChromeFooterMatchesQ06List guards Q06's finale, PO-verbatim
+// Footer-Liste (design-spec.md §15 PF-16, bean bt-ntoz/bt-d8kc): roadmapRepoLocalBindings()
 // renders EXACTLY "tab next focus · shift+tab prev focus · / search · f Filter
 // · s Status · c Create · d Delete · e Edit · b Ready · t Tags · y Yank ·
 // a Parent · r Relations" -- Navigation-Keys (Up/Down/Left/Right) are
 // entirely gone.
-func TestBrowseRepoChromeFooterMatchesQ06List(t *testing.T) {
+func TestRoadmapRepoChromeFooterMatchesQ06List(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
-	_, localKeys := m.browseRepoChrome(500) // wide enough for the whole list on one line
+	_, localKeys := m.roadmapRepoChrome(500) // wide enough for the whole list on one line
 	plain := stripHint(localKeys)
 	want := "tab next focus · shift+tab prev focus · / search · f Filter · c Create · d Delete · L List · R Ready · y Yank · b Relations · v next layout · shift+v previous layout"
 	if plain != want {
-		t.Errorf("browseRepoChrome footer = %q, want exactly %q", plain, want)
+		t.Errorf("roadmapRepoChrome footer = %q, want exactly %q", plain, want)
 	}
 }
 
-// TestBrowseRepoLocalBindingsOmitsNavigation guards Q06's explicit removal
+// TestRoadmapRepoLocalBindingsOmitsNavigation guards Q06's explicit removal
 // of Up/Down/Left/Right ("intuitiv genug", PO-Begruendung) from the Footer.
-func TestBrowseRepoLocalBindingsOmitsNavigation(t *testing.T) {
+func TestRoadmapRepoLocalBindingsOmitsNavigation(t *testing.T) {
 	for _, nav := range []keybind.Binding{keys.Up, keys.Down, keys.Left, keys.Right} {
 		for _, b := range fixtureModel(t, fixtureBeans()).footerBindings() {
 			if strings.Join(b.Keys(), ",") == strings.Join(nav.Keys(), ",") {
@@ -94,24 +94,24 @@ func TestBrowseRepoLocalBindingsOmitsNavigation(t *testing.T) {
 	}
 }
 
-func TestBrowseRepoChromeFooterIsContextSensitiveOnFilterOpen(t *testing.T) {
+func TestRoadmapRepoChromeFooterIsContextSensitiveOnFilterOpen(t *testing.T) {
 	m := fixtureModel(t, fixtureBeans())
 	m = step(t, m, runeMsg('f'))
 	m = step(t, m, keyMsg(tea.KeyEnter)) // value menu of the Type field
-	_, localKeys := m.browseRepoChrome(200)
+	_, localKeys := m.roadmapRepoChrome(200)
 	plain := stripHint(localKeys)
 	if !strings.Contains(plain, "space/x Toggle facet") {
-		t.Errorf("browseRepoChrome footer while the filter menu is open = %q, want the Toggle hint (Q04)", plain)
+		t.Errorf("roadmapRepoChrome footer while the filter menu is open = %q, want the Toggle hint (Q04)", plain)
 	}
 	if strings.Contains(plain, "c Create") {
-		t.Errorf("browseRepoChrome footer while the filter menu is open = %q, must not leak the (now irrelevant) view-local Create hint", plain)
+		t.Errorf("roadmapRepoChrome footer while the filter menu is open = %q, must not leak the (now irrelevant) view-local Create hint", plain)
 	}
 }
 
 // --- treeSearchLine sortSuffix (D02, design-spec.md §15 PF-16, bean
 // bt-ntoz/bt-d8kc): the Ready-Sort-Indicator. treeSearchLine gained a
 // second `sortSuffix string` parameter -- Tree's own call site
-// (viewBrowseRepo) always passes "" (No-Op guarantee below), Ready's call
+// (viewRoadmapRepo) always passes "" (No-Op guarantee below), Ready's call
 // site (viewReady) passes "sort "+readySortDisplayLabel(m.readySort).
 
 // TestTreeSearchLineEmptySuffixUnchanged is the Tree-side No-Op guarantee:

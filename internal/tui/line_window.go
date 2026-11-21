@@ -5,7 +5,7 @@ package tui
 //
 // Before this file every list row in the app was exactly ONE terminal line, so
 // "row index" and "screen line" were the same number and windowStart/
-// windowAround (view_browse_repo.go) could window ELEMENTS directly. With
+// windowAround (view_roadmap_repo.go) could window ELEMENTS directly. With
 // hanging-indent title wrapping that identity is gone: one bean can occupy two
 // or three screen lines. Two things break silently when that happens, and both
 // have a precedent in this repo:

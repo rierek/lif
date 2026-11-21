@@ -87,7 +87,7 @@ func TestBuildRoadmap(t *testing.T) {
 				{ID: "t1", Type: "task", Title: "Done task", Status: "completed", Parent: "m1"},
 			},
 			includeDone:    false,
-			wantMilestones: 0, // milestone has no visible children
+			wantMilestones: 1, // open milestone stays, even with only archived children (beans-teuf)
 		},
 		{
 			name: "done items included when requested",
@@ -104,7 +104,7 @@ func TestBuildRoadmap(t *testing.T) {
 				{ID: "m1", Type: "milestone", Title: "v1.0", Status: "todo", CreatedAt: &now},
 				{ID: "t1", Type: "task", Title: "Orphan", Status: "todo"}, // no parent link
 			},
-			wantMilestones:       0, // milestone has no children
+			wantMilestones:       1, // open milestone stays, even without children (beans-teuf)
 			wantUnscheduledOther: 1, // orphan appears in unscheduled
 		},
 		{
@@ -580,6 +580,77 @@ func TestOrphanChildlessEpicAppearsAsFlatLeaf(t *testing.T) {
 	}
 }
 
+// beans-teuf: a leafless epic under a milestone folds into milestone.Other,
+// next to the epic that does have a leaf (which stays a container).
+func TestChildlessEpicUnderMilestoneAppearsInOther(t *testing.T) {
+	cfg := config.Default()
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Title: "v1.0", Status: "todo"},
+		{ID: "e1", Type: "epic", Title: "Empty", Status: "todo", Parent: "m1"},
+		{ID: "e2", Type: "epic", Title: "Full", Status: "todo", Parent: "m1"},
+		{ID: "t1", Type: "task", Title: "Work", Status: "todo", Parent: "e2"},
+	}
+
+	ms := Build(cfg, items, false, nil, nil).Milestones[0]
+
+	if eps := epicGroupsOf(ms.Containers); len(eps) != 1 || eps[0].Epic.ID != "e2" {
+		t.Errorf("epic containers = %+v, want only e2", eps)
+	}
+	if len(ms.Other) != 1 || ms.Other[0].ID != "e1" {
+		t.Errorf("milestone.Other = %v, want [e1]", ms.Other)
+	}
+}
+
+// beans-teuf: an open epic whose leaves are all archived (and hidden without
+// includeDone) still shows; a completed one is dropped like any archived leaf.
+func TestEpicWithOnlyArchivedLeavesUnderMilestone(t *testing.T) {
+	cfg := config.Default()
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Title: "v1.0", Status: "todo"},
+		{ID: "e1", Type: "epic", Title: "Open", Status: "todo", Parent: "m1"},
+		{ID: "t1", Type: "task", Title: "Done", Status: "completed", Parent: "e1"},
+		{ID: "e2", Type: "epic", Title: "Finished", Status: "completed", Parent: "m1"},
+		{ID: "t2", Type: "task", Title: "Done too", Status: "completed", Parent: "e2"},
+	}
+
+	ms := Build(cfg, items, false, nil, nil).Milestones[0]
+
+	if len(ms.Other) != 1 || ms.Other[0].ID != "e1" {
+		t.Errorf("milestone.Other = %v, want [e1]", ms.Other)
+	}
+}
+
+// beans-teuf: an open milestone shows even with no children or only archived
+// ones; a finished empty milestone hides unless includeDone is set.
+func TestEmptyMilestoneShowsWhileOpen(t *testing.T) {
+	cfg := config.Default()
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Title: "Empty open", Status: "todo"},
+		{ID: "m2", Type: "milestone", Title: "Only done kids", Status: "in-progress"},
+		{ID: "t1", Type: "task", Title: "Done", Status: "completed", Parent: "m2"},
+		{ID: "m3", Type: "milestone", Title: "Empty finished", Status: "completed"},
+	}
+
+	ids := func(d *Data) map[string]bool {
+		out := map[string]bool{}
+		for _, mg := range d.Milestones {
+			out[mg.Milestone.ID] = true
+		}
+		return out
+	}
+
+	got := ids(Build(cfg, items, false, nil, nil))
+	if !got["m1"] || !got["m2"] || got["m3"] {
+		t.Errorf("milestones without includeDone = %v, want m1 and m2 only", got)
+	}
+	if got := ids(Build(cfg, items, true, nil, nil)); !got["m3"] {
+		t.Errorf("milestones with includeDone = %v, want m3 included", got)
+	}
+}
+
 // TestRoadmapInterleavesEpicAndFeatureContainersByOrder is the case
 // beans-swy1 fixes: before the unified Containers list, a milestone's epic-
 // and feature-typed children rendered in two rank-segregated blocks, so a
@@ -878,6 +949,32 @@ func TestHiddenContainerAndItsSubtreeStayOutOfTheRoadmap(t *testing.T) {
 	}
 	if len(data.Milestones) != 1 || data.Milestones[0].Milestone.ID != "m1" {
 		t.Errorf("the visible milestone must still render")
+	}
+}
+
+// beans-teuf: showing open empty containers must not override roadmap:false.
+// An empty, open hidden bucket and an empty epic under it stay off the
+// roadmap, while an empty open milestone beside them shows.
+func TestEmptyHiddenContainerStaysHidden(t *testing.T) {
+	rank := 1
+	visible := false
+	cfg := &config.Config{Types: []config.TypeOverride{
+		{Name: "bucket", Rank: &rank, Roadmap: &visible},
+	}}
+
+	items := []*item.Item{
+		{ID: "m1", Type: "milestone", Status: "todo", Title: "Empty open"},
+		{ID: "b1", Type: "bucket", Status: "todo", Title: "Parking lot"},
+		{ID: "e1", Type: "epic", Status: "todo", Title: "Empty epic", Parent: "b1"},
+	}
+
+	data := Build(cfg, items, false, nil, nil)
+
+	if len(data.Milestones) != 1 || data.Milestones[0].Milestone.ID != "m1" {
+		t.Errorf("milestones = %+v, want only m1", data.Milestones)
+	}
+	if data.Unscheduled != nil {
+		t.Errorf("unscheduled = %+v, want nil (empty epic under a hidden bucket stays hidden)", data.Unscheduled)
 	}
 }
 

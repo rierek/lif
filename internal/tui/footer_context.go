@@ -4,7 +4,7 @@ package tui
 // Q04-Antwort, design-spec.md §15, epic-E7-plan.md Task 7, bean bt-m6at):
 // while a Filter-Menu/node-action-Overlay/Search/Command-Center/Help fully
 // captures input (handleKey's own capture-order precedent, update.go), the
-// view-local bindings underneath (browseRepoLocalBindings/
+// view-local bindings underneath (roadmapRepoLocalBindings/
 // readyLocalBindings) are non-functional -- showing them in the footer
 // would actively mislead. contextualLocalHint swaps the footer to the
 // ACTIVE capture state's own bindings instead.
@@ -295,8 +295,8 @@ func (m model) overlayLocalBindings() []keybind.Binding {
 }
 
 // contextualLocalHint is Footer Zone 3's single source for BOTH
-// Chrome-calling views (browseRepoChrome/view_browse_repo.go,
-// readyChrome/view_browse_ready.go): view-local (viewLocal) in the
+// Chrome-calling views (roadmapRepoChrome/view_roadmap_repo.go,
+// readyChrome/view_roadmap_ready.go): view-local (viewLocal) in the
 // normal state, but swaps to the active capture state's OWN bindings the
 // instant one fully captures input (Q04-Antwort, PO-Nachtrag 5). Priority
 // order (epic-E7-plan.md Task 7 Step 6): Overlay > Suche >
@@ -334,10 +334,10 @@ const roadmapNavMinGap = 3
 // roadmapNavHint is the right-aligned footer block of the roadmap tree: the
 // sibling and fold keys (beans-clfo). Keys come from the real bindings
 // (keys.PrevSibling ... keys.CollapseAll), only the short labels are local.
-// Empty outside the Browse tree (flat, Ready) and while any capture state
+// Empty outside the Roadmap tree (flat, Ready) and while any capture state
 // owns the left footer (same cases as contextualLocalHint).
 func (m model) roadmapNavHint() string {
-	if m.view != viewBrowseRepo || m.flatView || m.overlay != overlayNone ||
+	if m.view != viewRoadmapRepo || m.flatView || m.overlay != overlayNone ||
 		m.searchActive || m.paletteOpen || m.helpOpen || m.filterFocus {
 		return ""
 	}
@@ -354,7 +354,7 @@ func (m model) roadmapNavHint() string {
 
 // withRoadmapNavHint right-aligns roadmapNavHint on the LAST footer line (the
 // footer wraps when the left list is long). It only pads: footer height and
-// the left text stay as browseRepoChrome built them (clickPaneGeometry sees
+// the left text stay as roadmapRepoChrome built them (clickPaneGeometry sees
 // the same height). No room on that line: the block is dropped, never the
 // left list.
 func (m model) withRoadmapNavHint(localKeys string, innerW int) string {

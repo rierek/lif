@@ -2,7 +2,7 @@ package tui
 
 // messages.go — tea.Msg types + tea.Cmd producers ONLY (port convention from
 // devd messages.go: no dispatch/rendering lives here, see update.go/
-// view_browse_repo.go).
+// view_roadmap_repo.go).
 
 import (
 	"time"
@@ -35,10 +35,11 @@ func toastTimeout(seq int, kind toastKind) tea.Cmd {
 // rather than treating it as fatal. warn is the core's and the hooks' output
 // collected during the load; a non-empty warn shows as a sticky warning toast.
 type beansLoadedMsg struct {
-	beans []*item.Item
-	ready map[string]bool // IDs `lif list --ready` lists (Store.Ready)
-	warn  string
-	err   error
+	beans  []*item.Item
+	ready  map[string]bool // IDs `lif list --ready` lists (Store.Ready)
+	warn   string
+	err    error
+	source *data.Store // store the load ran against; nil only in synthetic messages
 }
 
 // storeEventsMsg signals that the store's watcher reported a change batch.
@@ -68,9 +69,9 @@ func loadCmd(s *data.Store) tea.Cmd {
 	return func() tea.Msg {
 		ready, err := s.Ready()
 		if err != nil {
-			return beansLoadedMsg{err: err}
+			return beansLoadedMsg{err: err, source: s}
 		}
-		return beansLoadedMsg{beans: s.Items(), ready: ready, warn: s.DrainWarnings()}
+		return beansLoadedMsg{beans: s.Items(), ready: ready, warn: s.DrainWarnings(), source: s}
 	}
 }
 
@@ -270,7 +271,7 @@ type searchBleveResultMsg struct {
 // searchCmd runs an async Bleve full-text search via data.Store.Search,
 // tagging the result with query (design-spec.md §6 V2: "-S-Bleve-Modus ab 3
 // Zeichen"). Only the resolved bean IDs are kept -- beanMatchesSearch
-// (view_browse_repo.go) only ever needs ID membership, not the full Bean.
+// (view_roadmap_repo.go) only ever needs ID membership, not the full Bean.
 func searchCmd(c *data.Store, query string) tea.Cmd {
 	return func() tea.Msg {
 		beans, err := c.Search(query)

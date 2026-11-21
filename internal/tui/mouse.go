@@ -5,11 +5,11 @@ package tui
 // ~/dev/DeveloperDashboard/apps/cli-go/internal/tui/update.go:
 // 459-524, mouseTreeClick/treeClickIdx:887-950) -- TWO deliberate deviations
 // vs. devd's own handleMouse, both consequences of design decision f
-// (view_browse_repo.go's own doc comment, "kein m.scroll-Feld existiert"):
+// (view_roadmap_repo.go's own doc comment, "kein m.scroll-Feld existiert"):
 //
 //  1. Wheel moves the active view's CURSOR (m.cursorID/m.readyList.cursor
-//     via the two *CursorMove helpers, view_browse_repo.go/
-//     view_browse_ready.go) instead of devd's `m.scroll -= 3`/`+= 3`
+//     via the two *CursorMove helpers, view_roadmap_repo.go/
+//     view_roadmap_ready.go) instead of devd's `m.scroll -= 3`/`+= 3`
 //     non-Tree branch -- beans-tui has no scroll-offset field to move;
 //     windowAround/windowStart already follow the cursor automatically on
 //     render. EXCEPTION (bean bt-ze10, epic bt-vy1q F1): a wheel tick
@@ -19,7 +19,7 @@ package tui
 //     deliberately scoped to that ONE pane so this doc comment's claim
 //     stays true everywhere else.
 //  2. Left-click dispatch is a SINGLE `switch m.view` over two sibling
-//     views (viewBrowseRepo/viewReady), not devd's Tree-vs-everything-else
+//     views (viewRoadmapRepo/viewReady), not devd's Tree-vs-everything-else
 //     split (devd's non-Tree views are all Chrome()-scrolled detail screens;
 //     beans-tui's two views are both master-detail panes with their own
 //     *ClickRow row-mapping, view_*.go).
@@ -80,8 +80,8 @@ func treeWidthFloor(configured int) int {
 }
 
 // clickPaneGeometry recomputes the numeric frame geometry every one of the
-// two View functions (viewBrowseRepo/viewReady, view_browse_repo.go/
-// view_browse_ready.go) build ahead of their own two-pane body -- bodyH/
+// two View functions (viewRoadmapRepo/viewReady, view_roadmap_repo.go/
+// view_roadmap_ready.go) build ahead of their own two-pane body -- bodyH/
 // lw/rw plus the screen origin (originX/originY) of the pane's FIRST
 // windowed content row (the search-or-summary head row already consumed --
 // PF-10, bean bt-uyzf, removed the pane's own title+separator lines, so
@@ -89,8 +89,8 @@ func treeWidthFloor(configured int) int {
 // themselves (each now calls this instead of an independently maintained
 // avail/bodyH/lw/rw copy) AND treeClickRow/readyClickRow (Golden-Rule-
 // Drift-Schutz, mirrors windowStart's own shared-geometry rationale,
-// view_browse_repo.go). head/localKeys are the caller's own EXACT
-// breadcrumb()/footer() strings (browseRepoChrome/readyChrome), so headH
+// view_roadmap_repo.go). head/localKeys are the caller's own EXACT
+// breadcrumb()/footer() strings (roadmapRepoChrome/readyChrome), so headH
 // always matches that view's real head height (narrow-terminal 2-line
 // breadcrumb wrap included). treeWidth is the caller's OWN
 // m.settings.Layout.TreeWidth (T6b, bean bt-pd22, T5-Review I01 -- BEFORE
@@ -210,14 +210,14 @@ func (m model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		// (the same "earliest wins" precedent as the Toast/
 		// overlay guards above), since a strip hit is never a Tree-or-
 		// Detail click. filterBarHit itself is a no-op unless
-		// m.view == viewBrowseRepo, so it is never true for every other
+		// m.view == viewRoadmapRepo, so it is never true for every other
 		// view -- the existing switch below is reached completely unchanged
 		// whenever the strip is not even rendered.
 		if facet, ok := filterBarHit(m, msg); ok {
 			return m.focusFilterField(facet).openFilterMenu(), nil
 		}
 		switch m.view {
-		case viewBrowseRepo:
+		case viewRoadmapRepo:
 			return m.mouseTreeClick(msg)
 		case viewReady:
 			return m.mouseReadyClick(msg)
@@ -242,12 +242,12 @@ func filterBarFieldAt(row, col, width int) (facet string, ok bool) {
 }
 
 // filterBarHit resolves msg against the persistent filter-chip strip, which
-// renders only in Browse and Ready layouts with hasFilter; any other layout
+// renders only in Roadmap and Ready layouts with hasFilter; any other layout
 // or view short-circuits false. The origin is the strip's top border row
 // (filterBarOrigin) -- the same geometry as treeClickRow, before its
 // `+= filterBarHeight` correction.
 func filterBarHit(m model, msg tea.MouseMsg) (facet string, ok bool) {
-	if !m.layout.hasFilter() || (m.view != viewBrowseRepo && m.view != viewReady) {
+	if !m.layout.hasFilter() || (m.view != viewRoadmapRepo && m.view != viewReady) {
 		return "", false
 	}
 	x, y, innerW := filterBarOrigin(m)
@@ -264,7 +264,7 @@ func filterBarOrigin(m model) (x, y, innerW int) {
 }
 
 // paneGeometry is the shared click/wheel preparation: it resolves the
-// fallback size (80x24), builds the view's chrome (Ready vs Browse) and
+// fallback size (80x24), builds the view's chrome (Ready vs Roadmap) and
 // returns clickPaneGeometry's values plus innerW. originY is the raw value,
 // before the B6 filterRows correction; callers apply it when they need it.
 func (m model) paneGeometry() (bodyH, lw, rw, originX, originY, innerW int) {
@@ -285,7 +285,7 @@ func (m model) paneGeometry() (bodyH, lw, rw, originX, originY, innerW int) {
 		head, localKeys = m.wavesChrome(innerW)
 		layout = layoutDetail
 	default:
-		head, localKeys = m.browseRepoChrome(innerW)
+		head, localKeys = m.roadmapRepoChrome(innerW)
 	}
 	bodyH, lw, rw, originX, originY = clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, layout)
 	return
@@ -308,7 +308,7 @@ func (m model) wheelMove(msg tea.MouseMsg, delta int) model {
 		return m.adjustBoxFormScroll(m.focusedBean(), delta)
 	}
 	switch m.view {
-	case viewBrowseRepo:
+	case viewRoadmapRepo:
 		return m.treeCursorMove(m.visibleNodes(), delta)
 	case viewReady:
 		return m.readyCursorMove(m.readyVisible(), delta)
@@ -317,7 +317,7 @@ func (m model) wheelMove(msg tea.MouseMsg, delta int) model {
 }
 
 // mouseTreeClick dispatches a Tree left-click (design decision f): resolves
-// the clicked row via treeClickRow (view_browse_repo.go, pure geometry, no
+// the clicked row via treeClickRow (view_roadmap_repo.go, pure geometry, no
 // side effect), sets the cursor, then applies devd-D03's Doppelklick
 // semantics (Port devd mouseTreeClick verbatim, update.go:922-950) -- a
 // SECOND click on the SAME node within doubleClickInterval collapses an
@@ -326,11 +326,11 @@ func (m model) wheelMove(msg tea.MouseMsg, delta int) model {
 // devd D03).
 func (m model) mouseTreeClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if m.flatView {
-		// S5/S6: the Nested/Flat Browse toggle (`G`, view_browse_flat.go)
+		// S5/S6: the Nested/Flat Roadmap toggle (`G`, view_roadmap_flat.go)
 		// swaps the LEFT pane's content source -- a click there must resolve
 		// against flatVisible()/flatList (flatClickRow), never the Tree's
 		// own nodes/cursorID, mirroring the SAME m.flatView branch
-		// viewBrowseRepo's own render already takes (view_browse_repo.go).
+		// viewRoadmapRepo's own render already takes (view_roadmap_repo.go).
 		return m.mouseFlatClick(msg)
 	}
 	nodes := m.visibleNodes()
@@ -394,8 +394,8 @@ func (m model) mouseTreeClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 // mouseFlatClick dispatches a Flat-list left-click (S6, S5's Nested/Flat
-// Browse toggle `G`, view_browse_flat.go) -- the flat-list analog of
-// mouseTreeClick: resolves the clicked row via flatClickRow (view_browse_flat.go,
+// Roadmap toggle `G`, view_roadmap_flat.go) -- the flat-list analog of
+// mouseTreeClick: resolves the clicked row via flatClickRow (view_roadmap_flat.go,
 // pure geometry, mirrors treeClickRow's own structure) then sets flatList's
 // index cursor. No Doppelklick semantics, same rationale as
 // mouseReadyClick just below (flat list, keyFlat's own doc comment: "kein
@@ -415,7 +415,7 @@ func (m model) mouseFlatClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 // mouseReadyClick dispatches a Ready left-click: resolves the clicked
-// row via readyClickRow (view_browse_ready.go) and sets the cursor --
+// row via readyClickRow (view_roadmap_ready.go) and sets the cursor --
 // no Doppelklick semantics (flat list, plan epic-E5-plan.md »Task 4« Step
 // 6: "kein Doppelklick-Bedarf bei Ready").
 func (m model) mouseReadyClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
@@ -486,7 +486,7 @@ func gridColAt(widths []int, col int) int {
 // last written (bean bt-ze10 Akzeptanz "Offset resets when the selected bean
 // changes") -- types.go's own boxFormScrollBean doc comment has the full
 // "derived reset, not N explicit reset call sites" rationale. Pure/read-
-// only: renderBeanDetailBox (view_browse_repo.go) calls this to get the
+// only: renderBeanDetailBox (view_roadmap_repo.go) calls this to get the
 // value it hands to renderDetailBox's own boxScroll param; it never
 // mutates model.boxFormScroll itself (adjustBoxFormScroll, below, is the
 // only writer).
@@ -504,8 +504,8 @@ func boxFormEffectiveScroll(m model, b *item.Item) int {
 // boxFormWheelHit (below) do (Golden-Rule-Drift-Schutz), with ONE correction
 // neither of those needs for their own purpose (a click/wheel Y bounds
 // check, not a content-height BUDGET): the persistent filter-chip row's
-// height is reclaimed from bodyH here, exactly as viewBrowseRepo's own
-// View() does before the split ever renders (view_browse_repo.go's "S3"
+// height is reclaimed from bodyH here, exactly as viewRoadmapRepo's own
+// View() does before the split ever renders (view_roadmap_repo.go's "S3"
 // comment) -- that SAME post-reclaim bodyH is what
 // ultimately reaches renderDetailBox as its `h` param at render time, so
 // this must match it or the stored offset and the actual render disagree.
@@ -588,7 +588,7 @@ func boxFormWheelHit(m model, msg tea.MouseMsg) bool {
 // detailBoxFormClickRow maps a Detail-Pane click to a box-form field target
 // (S6): reconstructs the SAME clickPaneGeometry geometry
 // corrected by the B6 filter-bar offset (this file's treeClickRow doc
-// comment, view_browse_repo.go), which m.filterRows is 0 for in layouts
+// comment, view_roadmap_repo.go), which m.filterRows is 0 for in layouts
 // without the bar. With the Detail pane hidden (rw == 0) no X coordinate
 // falls inside it, so every click is inert.
 //
@@ -633,7 +633,7 @@ func detailBoxFormClickRow(m model, msg tea.MouseMsg) (target string, ok bool) {
 	// [0, bodyH), so the inverse is contentRow = clickRow + off.
 	//
 	// The offset is read through boxFormEffectiveScroll -- NOT m.boxFormScroll
-	// directly -- for the same reason the render does (view_browse_repo.go's
+	// directly -- for the same reason the render does (view_roadmap_repo.go's
 	// renderBeanDetailBox): that helper applies bt-ze10's DERIVED per-bean
 	// reset (a stale offset belonging to a previously selected bean reads as 0
 	// rather than being nulled at N call sites). Reading the raw field here

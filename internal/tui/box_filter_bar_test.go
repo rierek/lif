@@ -4,8 +4,8 @@ package tui
 // D08): tests for filterBar, the persistent Type/Status/Priority/Tags chip
 // row built from S2e's gridRow (box_detail_form.go) + S1's dropdownBox
 // (box_dropdown.go). Structural only (width-agnostic content, ansi.Strip'd)
-// — no golden here, the Browse-view-level golden (box_form_golden_test.go's
-// TestBrowseBoxFormGolden, testdata/browse_boxform.golden) already covers
+// — no golden here, the Roadmap-view-level golden (box_form_golden_test.go's
+// TestRoadmapBoxFormGolden, testdata/roadmap_boxform.golden) already covers
 // filterBar composed into the real frame.
 
 import (

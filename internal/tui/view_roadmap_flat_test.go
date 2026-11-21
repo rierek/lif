@@ -1,8 +1,8 @@
 package tui
 
-// view_browse_flat_test.go — jira-style-ui experiment, Slice 5 (S5): update-
+// view_roadmap_flat_test.go — jira-style-ui experiment, Slice 5 (S5): update-
 // tests + golden coverage for the flat list view (`L`/`M`,
-// view_browse_flat.go). Mirrors tree_golden_test.go's/
+// view_roadmap_flat.go). Mirrors tree_golden_test.go's/
 // box_form_golden_test.go's fixture+harness pattern for the golden half.
 
 import (
@@ -107,11 +107,11 @@ func TestKeyFlatNavMovesCursorAndSelection(t *testing.T) {
 	}
 }
 
-// TestBrowseFlatGolden renders the SAME fixture TestTreeGolden uses, but
+// TestRoadmapFlatGolden renders the SAME fixture TestTreeGolden uses, but
 // with m.flatView toggled on, and compares it against
-// testdata/browse_flat.golden.
-// Regenerate with: go test ./internal/tui/ -run TestBrowseFlatGolden -update
-func TestBrowseFlatGolden(t *testing.T) {
+// testdata/roadmap_flat.golden.
+// Regenerate with: go test ./internal/tui/ -run TestRoadmapFlatGolden -update
+func TestRoadmapFlatGolden(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
@@ -120,7 +120,7 @@ func TestBrowseFlatGolden(t *testing.T) {
 	out := m.View()
 
 	if h := lipgloss.Height(out); h != 30 {
-		t.Errorf("browse flat view height=%d, want 30 (full terminal height)", h)
+		t.Errorf("roadmap flat view height=%d, want 30 (full terminal height)", h)
 	}
 	for i, ln := range strings.Split(out, "\n") {
 		if w := lipgloss.Width(ln); w > 100 {
@@ -128,7 +128,7 @@ func TestBrowseFlatGolden(t *testing.T) {
 		}
 	}
 
-	path := filepath.Join("testdata", "browse_flat.golden")
+	path := filepath.Join("testdata", "roadmap_flat.golden")
 	if *update {
 		if err := os.MkdirAll("testdata", 0o755); err != nil {
 			t.Fatal(err)
@@ -143,16 +143,16 @@ func TestBrowseFlatGolden(t *testing.T) {
 		t.Fatalf("golden missing (%s) — regenerate with -update: %v", path, err)
 	}
 	if out != string(want) {
-		t.Errorf("browse flat view output differs from golden %q (frame/width/truncation?).\n--- got ---\n%s\n--- want ---\n%s", path, out, string(want))
+		t.Errorf("roadmap flat view output differs from golden %q (frame/width/truncation?).\n--- got ---\n%s\n--- want ---\n%s", path, out, string(want))
 	}
 }
 
-// TestBrowseFlatDefaultOffMatchesTree guards flatView's OFF-by-default
+// TestRoadmapFlatDefaultOffMatchesTree guards flatView's OFF-by-default
 // contract at the golden level: WITHOUT toggling G, the exact same fixture
 // must still render byte-identically to tree.golden -- this new code path
 // is fully inert unless explicitly toggled on (mirrors
-// TestBrowseBoxFormDefaultOffMatchesTree, box_form_golden_test.go).
-func TestBrowseFlatDefaultOffMatchesTree(t *testing.T) {
+// TestRoadmapBoxFormDefaultOffMatchesTree, box_form_golden_test.go).
+func TestRoadmapFlatDefaultOffMatchesTree(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
@@ -167,7 +167,7 @@ func TestBrowseFlatDefaultOffMatchesTree(t *testing.T) {
 		t.Fatalf("tree.golden missing: %v", err)
 	}
 	if out != string(want) {
-		t.Errorf("default (flatView off) browse view diverged from tree.golden -- G toggle must be fully inert when off")
+		t.Errorf("default (flatView off) roadmap view diverged from tree.golden -- G toggle must be fully inert when off")
 	}
 }
 

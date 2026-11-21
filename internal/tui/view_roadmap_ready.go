@@ -1,6 +1,6 @@
 package tui
 
-// view_browse_ready.go — V3 Ready (design-spec.md §6, E2 Task 5, bean
+// view_roadmap_ready.go — V3 Ready (design-spec.md §6, E2 Task 5, bean
 // bt-gzu6): the Ready set (Store.Ready, same rule as `lif list --ready`), Master-Detail
 // reusing Task 1's Accordion (via focusedBean(), Task 2) and Task 3/4's
 // shared search+facet predicate (m.beanMatches) -- NOT a second, parallel
@@ -18,7 +18,7 @@ package tui
 // keyReady resyncs it (setLen) at the top of every key it handles, before
 // any up/down move, so staleness never survives past the next ready
 // keypress -- see TestKeyReadyResyncsStaleCursorBeforeMove
-// (view_browse_ready_test.go) for the regression guard.
+// (view_roadmap_ready_test.go) for the regression guard.
 //
 // CORRECTION (E2-T6 fast-follow, T5-review): the previous version of this
 // comment claimed staleness was "purely a keep future move() bounds correct
@@ -29,7 +29,7 @@ package tui
 // ALREADY-shrunk readyVisible(). readyRows only highlights row i==pos,
 // so a cursor left pointing past the new (shorter) vis highlights NOTHING
 // (the `▌` selection bar vanishes); renderBeanDetailBox's own
-// `pos < len(vis)` guard (view_browse_repo.go) then falls through to its
+// `pos < len(vis)` guard (view_roadmap_repo.go) then falls through to its
 // "(no selection)" placeholder even though a real selection exists the
 // instant the next keypress resyncs it. Both are cosmetic flicker, never a
 // panic or an out-of-bounds index (windowStart/windowAround still clamp the
@@ -165,12 +165,12 @@ func (m model) readySelected() *item.Item {
 
 // readyRowText renders one Ready row's plain content: status glyph +
 // type icon + ID (Sapphire) + title -- mirrors treeRowText's glyph order
-// (view_browse_repo.go) minus the indent/expand-marker (Ready is flat, no
+// (view_roadmap_repo.go) minus the indent/expand-marker (Ready is flat, no
 // hierarchy; devd's variable-height block windowing is deliberately NOT
 // ported here, see plan Port-Referenzen -- a beans title is short enough for
 // the existing single-line windowAround, `truncate` handles the rare overlong
 // case exactly like every other row in the app).
-// slug is the caller's m.beanIDPrefix() (view_browse_repo.go) -- the ID is
+// slug is the caller's m.beanIDPrefix() (view_roadmap_repo.go) -- the ID is
 // shortened by shortBeanID exactly like treeRowText does it (bean bt-pl5p):
 // Tree and Ready/Flat are TWO separate render paths, and only changing one
 // would let them drift apart visually.
@@ -180,7 +180,7 @@ func readyRowText(b *item.Item, slug string) string {
 }
 
 // readyRowParts splits a Ready/flat row into its fixed HEAD and its
-// variable TITLE -- treeRowParts' counterpart (view_browse_repo.go), for the
+// variable TITLE -- treeRowParts' counterpart (view_roadmap_repo.go), for the
 // same hanging-indent wrapping reason (bean bt-f68z, PO-Befund #13). The
 // doc-comment claim above that "a beans title is short enough for the existing
 // single-line windowAround" is what the PO's live test disproved.
@@ -196,7 +196,7 @@ func readyRowLines(b *item.Item, slug string, width int) []string {
 }
 
 // readyRows renders every visible Ready row, applying the same D08
-// cursor treatment as treeRows (view_browse_repo.go): a leading `▌` bar plus
+// cursor treatment as treeRows (view_roadmap_repo.go): a leading `▌` bar plus
 // the whole row accent-tinted when focused, muted when the Detail pane has
 // focus instead. Windowed around the cursor via the EXISTING windowAround
 // (E1 Task 8) -- no new fenestration mechanism (plan Port-Referenzen).
@@ -205,7 +205,7 @@ func (m model) readyRows(vis []*item.Item, focused bool, bodyH, width int) []str
 	return rows
 }
 
-// readyBlocks is the Ready's treeBlocks (view_browse_repo.go): one
+// readyBlocks is the Ready's treeBlocks (view_roadmap_repo.go): one
 // variable-height line block per bean, shared by readyRows above and
 // readyClickRow below (bean bt-f68z -- rows are no longer 1:1 with beans).
 func (m model) readyBlocks(vis []*item.Item, focused bool, width int) [][]string {
@@ -217,7 +217,7 @@ func (m model) readyBlocks(vis []*item.Item, focused bool, width int) [][]string
 	return blocks
 }
 
-// flatListBlocks renders the beans of a flat list (Ready, Browse-Flat) as one
+// flatListBlocks renders the beans of a flat list (Ready, Roadmap-Flat) as one
 // line block each, width being the budget WITHOUT the cursor column. Beside
 // the detail pane the rows stay compact (glyphs, readyRowLines); without it
 // they go through the roadmap's row renderer (ui.TreeBlocks) minus the tree
@@ -241,7 +241,7 @@ func (m model) flatListBlocks(vis []*item.Item, width int) [][]string {
 // renderReadyDetailPane renders the Detail box-form for the Ready's
 // selected bean -- keys off readyList's index cursor into vis instead of a
 // treeNode slice, then hands off to the shared renderBeanDetailBox
-// (view_browse_repo.go), so Tree and Ready can never drift out of sync on it.
+// (view_roadmap_repo.go), so Tree and Ready can never drift out of sync on it.
 func (m model) renderReadyDetailPane(vis []*item.Item, w, h int, focused bool) string {
 	pos := m.readyList.cursor
 	var b *item.Item
@@ -255,8 +255,8 @@ func (m model) renderReadyDetailPane(vis []*item.Item, w, h int, focused bool) s
 // out (E5 Task 4, bean bt-mne6) so readyClickRow (mouse.go) can
 // reconstruct this view's IDENTICAL geometry via clickPaneGeometry without a
 // second, independently maintained copy of this breadcrumb/footer
-// construction (Golden-Rule-Drift-Schutz, mirrors browseRepoChrome's own
-// rationale, view_browse_repo.go).
+// construction (Golden-Rule-Drift-Schutz, mirrors roadmapRepoChrome's own
+// rationale, view_roadmap_repo.go).
 func (m model) readyChrome(innerW int) (head, localKeys string) {
 	head = breadcrumb(m.repoLabel(), "Ready", renderBindings(globalBindings()), innerW)
 	localKeys = footer(m.contextualLocalHint(m.footerBindings()), innerW)
@@ -264,7 +264,7 @@ func (m model) readyChrome(innerW int) (head, localKeys string) {
 }
 
 // viewReady renders the two-pane master-detail Ready view -- mirrors
-// viewBrowseRepo's algebra exactly (view_browse_repo.go) so the frame always
+// viewRoadmapRepo's algebra exactly (view_roadmap_repo.go) so the frame always
 // fills width x height (Golden Rule #1: no Height() on a bordered style),
 // just with readyVisible() rows on the left instead of the Tree's
 // treeNode flattening.
@@ -291,8 +291,8 @@ func (m model) viewReady() string {
 	bodyH, lw, rw, _, _ := clickPaneGeometry(w, h, head, localKeys, m.statusLine(innerW), m.settings.Layout.TreeWidth, m.layout)
 	vis := m.readyVisible()
 
-	// Same filter-bar reclaim as viewBrowseRepo: the Ready list shares the
-	// Browse facet filter (readyVisible -> beanMatches), so the bar shows in
+	// Same filter-bar reclaim as viewRoadmapRepo: the Ready list shares the
+	// Roadmap facet filter (readyVisible -> beanMatches), so the bar shows in
 	// the filter layouts.
 	var filterBarRow string
 	if m.layout.hasFilter() {
@@ -411,7 +411,7 @@ func (m model) readyCursorMove(vis []*item.Item, delta int) model {
 
 // readyClickRow maps a mouse click to a row index into vis (E5 Task 4,
 // bean bt-mne6, design decision f; caller: mouse.go's mouseReadyClick) --
-// mirrors treeClickRow's own reconstruction (view_browse_repo.go) against
+// mirrors treeClickRow's own reconstruction (view_roadmap_repo.go) against
 // viewReady's OWN render formula (above, via readyChrome +
 // clickPaneGeometry): same bodyH/lw algebra, just this view's own head/
 // localKeys. Row 0 is the search/facet head line (m.treeSearchLine, shared

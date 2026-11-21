@@ -1,7 +1,7 @@
 package tui
 
 // box_filter_bar.go — the persistent jira-style filter row: five titled boxes
-// (Type/Status/Priority/Tags/Archive, filterFields) across the Browse view's
+// (Type/Status/Priority/Tags/Archive, filterFields) across the Roadmap view's
 // full inner width, reusing S1's dropdownBox via S2e's gridRow
 // (box_dropdown.go/box_detail_form.go) — the SAME widget the Detail-Pane's
 // scalar grid already uses. Each box is a focus target: `f` jumps to the

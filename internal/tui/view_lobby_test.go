@@ -182,8 +182,8 @@ func TestLobbySelectSwitchesRepoAndView(t *testing.T) {
 	t.Cleanup(func() { rs.store.Close() })
 
 	final := step(t, m, msg)
-	if final.view != viewBrowseRepo {
-		t.Fatalf("view after repoSwitchedMsg = %v, want viewBrowseRepo", final.view)
+	if final.view != viewRoadmapRepo {
+		t.Fatalf("view after repoSwitchedMsg = %v, want viewRoadmapRepo", final.view)
 	}
 	if final.store == nil {
 		t.Fatal("store is nil after a successful repo switch")
@@ -215,12 +215,12 @@ func TestPickerKeyOpensLobbyFromAnyView(t *testing.T) {
 		}
 	})
 
-	t.Run("from Browse", func(t *testing.T) {
+	t.Run("from Roadmap", func(t *testing.T) {
 		m := fixtureModel(t, beans)
-		m.view = viewBrowseRepo
+		m.view = viewRoadmapRepo
 		out := step(t, m, runeMsg('P'))
 		if out.view != viewLobby {
-			t.Fatalf("view after 'P' from Browse = %v, want viewLobby", out.view)
+			t.Fatalf("view after 'P' from Roadmap = %v, want viewLobby", out.view)
 		}
 	})
 }
@@ -259,12 +259,12 @@ func TestViewLobbyFrameMatchesWidthHeight(t *testing.T) {
 // Run()'s own `client == nil` branch (app.go), one layer above. A model
 // built with a REAL (non-nil) client -- the E1-E4 "already resolved a repo"
 // shape, regardless of how many repos Settings.Repos lists -- must stay on
-// viewBrowseRepo, exactly like every pre-Task-6 session.
+// viewRoadmapRepo, exactly like every pre-Task-6 session.
 func TestNoLobbyOnSingleRepoCwdMatch(t *testing.T) {
 	m := newModel(fixtureStore(t), "/tmp/bt-fixture-repo")
 	m.settings.Repos = []string{"/tmp/repo-a", "/tmp/repo-b", "/tmp/repo-c"} // >=2, would trigger Lobby at the cmd/tui.go layer if cwd had failed to resolve
-	if m.view != viewBrowseRepo {
-		t.Fatalf("newModel with a non-nil client started in view %v, want viewBrowseRepo -- newModel must never auto-derive the Lobby from Settings.Repos", m.view)
+	if m.view != viewRoadmapRepo {
+		t.Fatalf("newModel with a non-nil client started in view %v, want viewRoadmapRepo -- newModel must never auto-derive the Lobby from Settings.Repos", m.view)
 	}
 	cmd := m.Init()
 	if cmd == nil {
@@ -272,7 +272,7 @@ func TestNoLobbyOnSingleRepoCwdMatch(t *testing.T) {
 	}
 	msg := cmd()
 	if _, ok := msg.(beansLoadedMsg); !ok {
-		t.Fatalf("Init() with a non-nil client + view=viewBrowseRepo returned %T, want beansLoadedMsg (not the Lobby's repoMetricsMsg path)", msg)
+		t.Fatalf("Init() with a non-nil client + view=viewRoadmapRepo returned %T, want beansLoadedMsg (not the Lobby's repoMetricsMsg path)", msg)
 	}
 }
 
@@ -281,7 +281,7 @@ func TestNoLobbyOnSingleRepoCwdMatch(t *testing.T) {
 // that was reached AFTER a repo was already opened. This is the exact state
 // B01 (bt-1u0t Fix-Runde 1) found broken: with esc/q/ctrl+c handled
 // uniformly, a live client made stage 2 of the B08 quit cascade unreachable
-// (q always bounced back to Browse, ctrl+c did not even quit).
+// (q always bounced back to Roadmap, ctrl+c did not even quit).
 func lobbyFixtureModelWithClient(t *testing.T, repos []string) model {
 	t.Helper()
 	m := lobbyFixtureModel(t, repos)
@@ -292,7 +292,7 @@ func lobbyFixtureModelWithClient(t *testing.T, repos []string) model {
 // TestLobbyCtrlCQuitsImmediatelyWithLiveClient guards the B01 fix's second
 // half: ctrl+c in the Lobby quits IMMEDIATELY (no confirm), consistent with
 // ctrl+c everywhere else (bean bt-7jr8: the hard/immediate kill switch) --
-// the pre-fix "ctrl+c -> back to Browse" was part of the same hole.
+// the pre-fix "ctrl+c -> back to Roadmap" was part of the same hole.
 func TestLobbyCtrlCQuitsImmediatelyWithLiveClient(t *testing.T) {
 	m := lobbyFixtureModelWithClient(t, []string{"/tmp/repo-alpha"})
 

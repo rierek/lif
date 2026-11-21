@@ -1,6 +1,6 @@
 package tui
 
-// tree_golden_test.go — golden snapshot for the Browse Primat-View (T8,
+// tree_golden_test.go — golden snapshot for the Roadmap Primat-View (T8,
 // implementation-plan.md »E1 Task 8«). Mirrors chrome_test.go's pattern
 // (same package-level `update` flag, defined there). 100x30, TrueColor
 // forced for determinism.
@@ -42,7 +42,7 @@ func goldenTreeModel(t *testing.T) model {
 	return m
 }
 
-// TestTreeGolden renders a full 100x30 frame of the Browse view and compares
+// TestTreeGolden renders a full 100x30 frame of the Roadmap view and compares
 // it against testdata/tree.golden.
 // Regenerate with: go test ./internal/tui/ -run TestTreeGolden -update
 func TestTreeGolden(t *testing.T) {

@@ -69,7 +69,7 @@ func TestRoadmapNavHintAbsentWhereNotApplicable(t *testing.T) {
 
 func TestRoadmapNavHintDroppedWhenGapTooSmall(t *testing.T) {
 	m := navHintModel(t, 300)
-	_, left := m.browseRepoChrome(500)
+	_, left := m.roadmapRepoChrome(500)
 	lw := ansi.StringWidth(left)
 	rw := ansi.StringWidth(m.roadmapNavHint())
 	fit := m.withRoadmapNavHint(left, lw+rw+roadmapNavMinGap)
@@ -83,9 +83,9 @@ func TestRoadmapNavHintDroppedWhenGapTooSmall(t *testing.T) {
 
 func TestRoadmapNavHintKeepsChromeLeftAndHeight(t *testing.T) {
 	m := navHintModel(t, 300)
-	_, a := m.browseRepoChrome(298)
+	_, a := m.roadmapRepoChrome(298)
 	if strings.Contains(stripHint(a), "sibling") {
-		t.Error("browseRepoChrome must stay byte-equal (left only)")
+		t.Error("roadmapRepoChrome must stay byte-equal (left only)")
 	}
 	if strings.Count(m.withRoadmapNavHint(a, 298), "\n") != strings.Count(a, "\n") {
 		t.Error("footer height changed")
@@ -95,7 +95,7 @@ func TestRoadmapNavHintKeepsChromeLeftAndHeight(t *testing.T) {
 // A long left list wraps; the hint then sits on the last line, height equal.
 func TestRoadmapNavHintOnLastLineOfWrappedFooter(t *testing.T) {
 	m := navHintModel(t, 140)
-	_, left := m.browseRepoChrome(138)
+	_, left := m.roadmapRepoChrome(138)
 	if !strings.Contains(left, "\n") {
 		t.Fatal("fixture: left footer should wrap at 140")
 	}

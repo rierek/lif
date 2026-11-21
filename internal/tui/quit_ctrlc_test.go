@@ -27,7 +27,7 @@ func assertQuitsAtOnce(t *testing.T, m model) {
 
 func TestCtrlCQuitsFromEveryState(t *testing.T) {
 	states := map[string]func(m model) model{
-		"browse":      func(m model) model { return m },
+		"roadmap":     func(m model) model { return m },
 		"search":      func(m model) model { return step(t, m, runeMsg('/')) },
 		"filter":      func(m model) model { return step(t, m, runeMsg('f')) },
 		"palette":     func(m model) model { return step(t, m, runeMsg('K')) },

@@ -5,7 +5,7 @@ package tui
 //
 //  1. the REGRESSION half: the reported failure was a scrolled Tree whose
 //     hit-test windowed against a different height than the renderer did
-//     (the box-form's filter bar was reclaimed from bodyH by viewBrowseRepo but
+//     (the box-form's filter bar was reclaimed from bodyH by viewRoadmapRepo but
 //     not by treeClickRow). Both starts clamp to 0 at the top of an unscrolled
 //     list, which is why it presented as "sometimes works".
 //  2. the BEHAVIOUR half: single click selects only, double click toggles
@@ -98,7 +98,7 @@ func pad3(i int) string {
 }
 
 func renderedInLeftPane(m model, substr string) bool {
-	head, localKeys := m.browseRepoChrome(m.width - 2)
+	head, localKeys := m.roadmapRepoChrome(m.width - 2)
 	_, lw, _, originX, _ := clickPaneGeometry(m.width, m.height, head, localKeys, m.statusLine(m.width-2), m.settings.Layout.TreeWidth, layoutFilterDetail)
 	for _, l := range screenLines(m) {
 		i := strings.Index(l, substr)

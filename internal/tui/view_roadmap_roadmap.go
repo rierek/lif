@@ -1,6 +1,6 @@
 package tui
 
-// view_browse_roadmap.go — the roadmap list rendered by the same row builder
+// view_roadmap_roadmap.go — the roadmap list rendered by the same row builder
 // step (ui.RowsFromFlatItems) and row renderer (ui.TreeBlocks) as lif roadmap.
 // Beside the detail pane the list keeps the compact one-line rows
 // (treeRowLines).

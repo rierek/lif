@@ -116,7 +116,7 @@ func TestDetailBoxFormRendersCursoredFieldFocused(t *testing.T) {
 
 // TestDetailBoxFormNoCursorIsUnchanged guards the inert default: cursor -1
 // must render exactly what the pre-cursor code produced, i.e. every box with
-// focused=false -- the flag-on goldens (browse_boxform.golden) depend on it.
+// focused=false -- the flag-on goldens (roadmap_boxform.golden) depend on it.
 func TestDetailBoxFormNoCursorIsUnchanged(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(termenv.Ascii)
@@ -289,7 +289,7 @@ func TestBoxFormTabFromTreeEntersAtTheFirstField(t *testing.T) {
 // tab is a GLOBAL binding, so the Fokus-Modell must land identically in every
 // view that renders the box form -- the Ready shares the very same Detail
 // pane and routes through the same keyDetailFocus (handleKey's detailFocus
-// dispatch), so this pins that it really does, rather than only Browse.
+// dispatch), so this pins that it really does, rather than only Roadmap.
 func TestBoxFormDownWalksFieldsInTheReadyToo(t *testing.T) {
 	m := readyBeansModel(t)
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})

@@ -1,7 +1,7 @@
 package tui
 
 // update.go — the Update dispatcher (Elm architecture): routes tea.Msg to
-// state transitions only. No rendering here (view_browse_repo.go), no
+// state transitions only. No rendering here (view_roadmap_repo.go), no
 // Cmd-only definitions here (messages.go) -- port convention from devd
 // update.go.
 
@@ -47,6 +47,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case beansLoadedMsg:
+		if msg.source != nil && msg.source != m.store {
+			return m, nil // late snapshot of a store a repo switch already replaced
+		}
 		return m.applyLoaded(msg)
 
 	case storeEventsMsg:
@@ -202,13 +205,15 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 		return m, toastCmd
 	}
 
+	m.initialItemID, m.startupErr = "", nil // the startup request belonged to the old repo
+
 	m.store = msg.store
 	m.repoDir = msg.repoDir
 	m.storeEvents = msg.events
 	m.watchUnavailable = msg.events == nil // I04 precedent: degrade visibly, never silently
 	applyRepoConfig(msg.store.Config())    // the new repo's value lists, BEFORE its index is sorted
 	m = m.setItems(msg.beans, msg.ready)
-	m.view = viewBrowseRepo
+	m.view = viewRoadmapRepo
 	m.err = ""
 
 	// T6-Review Prelude I01 (T6b, bean bt-pd22): a Toast from the OLD repo
@@ -839,14 +844,14 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 			return true, m, nil
 		}
 		m.yankPrefix = true
-		nm, cmd := m.showToast(toastInfo, "Yank: y item · m meta · t meta+toc", "any other key cancels", nil, false)
+		nm, cmd := m.showToast(toastInfo, "Yank: i ID+title · l filtered children · y item · m meta · t meta+toc", "any other key cancels", nil, false)
 		return true, nm, cmd
 	}
 	return false, m, nil
 }
 
-// keyYank completes a yank sequence (yy/ym/yt) on m.focusedBean(). Any other
-// sequence cancels and drops the hint toast.
+// keyYank completes a yank sequence (yy/ym/yt/yi/yl) on m.focusedBean(). Any
+// other sequence cancels and drops the hint toast.
 func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 	var mode yankMode
 	switch {
@@ -856,6 +861,10 @@ func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 		mode = yankMeta
 	case bindHas(keys.YankTOC, seq):
 		mode = yankTOC
+	case bindHas(keys.YankItem, seq):
+		mode = yankItem
+	case bindHas(keys.YankList, seq):
+		mode = yankList
 	default:
 		return m.clearToastUnlessSticky(), nil
 	}
@@ -863,7 +872,11 @@ func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 	if b == nil {
 		return m.clearToastUnlessSticky(), nil
 	}
-	text, err := yankText(m.idx, b, mode)
+	var children []*item.Item
+	if mode == yankList {
+		children = m.yankChildren(b.ID)
+	}
+	text, err := yankText(m.idx, b, mode, children)
 	if err == nil {
 		err = clip.Copy(text)
 	}
@@ -938,6 +951,11 @@ func (m model) applyBleveResult(msg searchBleveResultMsg) (tea.Model, tea.Cmd) {
 // to the top (US-10: reload must never lose the PO's place arbitrarily).
 func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	if msg.err != nil {
+		if m.initialItemID != "" {
+			m.startupErr = fmt.Errorf("open initial item %q: %w", m.initialItemID, msg.err)
+			m.initialItemID = ""
+			return m, tea.Quit
+		}
 		m.err = msg.err.Error()
 		var toastCmd tea.Cmd
 		m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
@@ -973,7 +991,7 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	} else {
 		// B01 (bt-39cl Review R1): both restore paths must be placeholder-
 		// safe. (a) The id-match loop requires n.id != "" -- a placeholder's
-		// id IS "" (view_browse_repo.go treeNode doc), so a stale
+		// id IS "" (view_roadmap_repo.go treeNode doc), so a stale
 		// m.cursorID == "" (e.g. a previous empty load) would otherwise
 		// "find" the first placeholder and leave the cursor parked on a
 		// non-selectable row. (b) The positional oldPos fallback runs
@@ -992,6 +1010,20 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 			}
 			m.cursorID = nodes[skipPlaceholder(nodes, oldPos, 1)].id
 		}
+	}
+
+	if m.initialItemID != "" {
+		id := m.initialItemID
+		m.initialItemID = ""
+		target := m.idx.ByID[id]
+		if target == nil {
+			m.startupErr = fmt.Errorf("item not found at TUI startup: %s", id)
+			return m, tea.Quit
+		}
+		m.expanded = expandAncestorsOf(m.treeParent, m.expanded, id)
+		m.cursorID = id
+		m.showArchived = m.showArchived || !data.IsOpenStatus(target.Status)
+		m = m.setLayout(layoutDetail)
 	}
 
 	return m.showWarn(msg.warn)
@@ -1134,7 +1166,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.view == viewWaves && !m.wavesPassthrough(msg) {
 		return m.keyWaves(msg)
 	}
-	// Yank sequences (yy/ym/yt): intercepted AHEAD of every bare key below
+	// Yank sequences (yy/ym/yt/yi/yl): intercepted AHEAD of every bare key below
 	// for the same reason as the fold keys (m, t would swallow the second key).
 	switch s := msg.String(); {
 	case yankPending:
@@ -1146,7 +1178,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Roadmap fold keys (zo/zc/zR/zM): intercepted AHEAD of every bare key
 	// below, whose letters (c, R, M, ...) would otherwise swallow the second
 	// key of the sequence.
-	if m.view == viewBrowseRepo && !m.flatView && !m.detailFocus && !m.filterFocus {
+	if m.view == viewRoadmapRepo && !m.flatView && !m.detailFocus && !m.filterFocus {
 		switch s := msg.String(); {
 		case foldPending:
 			return m.keyFold(foldPrefixKey + s), nil
@@ -1199,7 +1231,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// f jumps to the filter bar's Type field (switching to a layout with a
 	// filter bar when needed); while the bar has focus it owns the keys.
-	if keybind.Matches(msg, keys.Filter) && (m.view == viewBrowseRepo || m.view == viewReady) {
+	if keybind.Matches(msg, keys.Filter) && (m.view == viewRoadmapRepo || m.view == viewReady) {
 		return m.focusFilter(), nil
 	}
 	if m.filterFocus {
@@ -1279,8 +1311,8 @@ func (m model) focusedBean() *item.Item {
 		return m.wavesFocusItem()
 	case viewReady: // E2 Task 5: the Ready list's own selection, NOT the (possibly stale/irrelevant) tree cursor
 		return m.readySelected()
-	default: // viewBrowseRepo (T8)
-		// S5 (jira-style-ui experiment, Nested/Flat Browse toggle): in flat
+	default: // viewRoadmapRepo (T8)
+		// S5 (jira-style-ui experiment, Nested/Flat Roadmap toggle): in flat
 		// mode the flat list's OWN cursor (flatList) is the selection, not
 		// the (frozen, untouched-while-flat) Tree cursorID -- mirrors the
 		// viewReady case just above (a view/mode-local cursor overrides
@@ -1360,7 +1392,7 @@ func expandAncestorsOf(treeParent map[string]string, expanded map[string]bool, i
 // bt-4ep2): pre-loads the input with the CURRENT query (re-opening a
 // committed search resumes editing it, mirrors devd's SetValue(m.treeQuery)).
 // Factored out of keyTree (E2 Task 5, bean bt-gzu6): keyReady
-// (view_browse_ready.go) shares this verbatim -- the search head/live
+// (view_roadmap_ready.go) shares this verbatim -- the search head/live
 // filter is ONE piece of shared model state, not a per-view concept.
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	m.searchActive = true
@@ -1379,7 +1411,7 @@ func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case keybind.Matches(msg, keys.Search):
-		// Port devd keyTree's Search case (view_browse_project.go:689-699),
+		// Port devd keyTree's Search case (view_roadmap_project.go:689-699),
 		// minus loadAllIssues -- beans-tui already holds the full Index in
 		// memory (no separate "load everything for search" step needed).
 		return m.openSearchInput()
@@ -1426,7 +1458,7 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch navKey(msg.String()) {
 	case "up":
 		// E5 Task 4 (bean bt-mne6): factored into treeCursorMove
-		// (view_browse_repo.go) so the keyboard AND the wheel dispatch
+		// (view_roadmap_repo.go) so the keyboard AND the wheel dispatch
 		// (mouse.go handleMouse) share the exact same clamp logic instead
 		// of two independent copies.
 		return m.treeCursorMove(nodes, -1), nil
@@ -1460,7 +1492,7 @@ func (m model) keyTree(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // keySearchInput drives the active search textinput (E2 Task 3, bean
-// bt-4ep2, port devd keyTreeSearch view_browse_project.go:1073-1097): every
+// bt-4ep2, port devd keyTreeSearch view_roadmap_project.go:1073-1097): every
 // keystroke updates m.searchQuery LIVE (immediate local filter, not just on
 // commit) and resets the cursor to the freshly filtered list's first row
 // (mirrors devd's unconditional treeCursor=0). enter commits (blurs the
@@ -1495,7 +1527,7 @@ func (m model) keySearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // resetCursorToFirstVisible parks the cursor on the (newly filtered) node
 // list's first row -- called on every search keystroke/clear, mirrors devd's
-// unconditional `m.treeCursor = 0` (view_browse_project.go:1073-1097): a
+// unconditional `m.treeCursor = 0` (view_roadmap_project.go:1073-1097): a
 // bean ID, not an index, is beans-tui's own cursor representation (T8), so
 // the equivalent reset is "first visible node's ID" rather than a bare 0.
 func (m model) resetCursorToFirstVisible() model {
@@ -1569,7 +1601,7 @@ func (m model) setExpanded(n treeNode, open bool) model {
 // foldPrefixKey starts the roadmap fold sequences (zo/zc/zR/zM, keys.ExpandNode ...).
 const foldPrefixKey = "z"
 
-// yankPrefixKey starts the yank sequences (yy/ym/yt, keys.YankFull ...).
+// yankPrefixKey starts the yank sequences (yy/ym/yt/yi/yl, keys.YankFull ...).
 const yankPrefixKey = "y"
 
 // siblingPos returns the index of the previous (dir<0) or next (dir>0) visible

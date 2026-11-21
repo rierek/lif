@@ -42,7 +42,7 @@ func screenLines(m model) []string {
 // title also shown in its own Meta section, or listed under a parent's
 // Beziehungen section) -- a plain "first match anywhere" search could
 // silently click the wrong pane. head/localKeys must be the SAME strings
-// the caller's own view renders with (browseRepoChrome/readyChrome), so
+// the caller's own view renders with (roadmapRepoChrome/readyChrome), so
 // the boundary matches the real render exactly.
 func leftPaneClickAt(t *testing.T, m model, head, localKeys, substr string) tea.MouseMsg {
 	t.Helper()
@@ -63,11 +63,11 @@ func leftPaneClickAt(t *testing.T, m model, head, localKeys, substr string) tea.
 	return tea.MouseMsg{}
 }
 
-// treeClickAt is leftPaneClickAt scoped to the Browse/Tree view's own
-// chrome (browseRepoChrome, view_browse_repo.go).
+// treeClickAt is leftPaneClickAt scoped to the Roadmap/Tree view's own
+// chrome (roadmapRepoChrome, view_roadmap_repo.go).
 func treeClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
-	head, localKeys := m.browseRepoChrome(m.width - 2)
+	head, localKeys := m.roadmapRepoChrome(m.width - 2)
 	return leftPaneClickAt(t, m, head, localKeys, substr)
 }
 
@@ -94,11 +94,11 @@ func rightPaneClickAt(t *testing.T, m model, head, localKeys, substr string) tea
 	return tea.MouseMsg{}
 }
 
-// detailClickAt is rightPaneClickAt scoped to the Browse/Tree view's own
-// chrome (browseRepoChrome).
+// detailClickAt is rightPaneClickAt scoped to the Roadmap/Tree view's own
+// chrome (roadmapRepoChrome).
 func detailClickAt(t *testing.T, m model, substr string) tea.MouseMsg {
 	t.Helper()
-	head, localKeys := m.browseRepoChrome(m.width - 2)
+	head, localKeys := m.roadmapRepoChrome(m.width - 2)
 	return rightPaneClickAt(t, m, head, localKeys, substr)
 }
 
@@ -450,7 +450,7 @@ func TestClickPaneGeometryOriginYExcludesTitleAndSeparator(t *testing.T) {
 }
 
 // TestClickPaneGeometryMultiLineFooterHeightPin (PRELUDE, T6-Review F01,
-// bean bt-13l7, 2026-07-16): D02 collapsed the Ready/Browse footer
+// bean bt-13l7, 2026-07-16): D02 collapsed the Ready/Roadmap footer
 // divergence that used to be the ONLY real render exercising clickPaneGeometry
 // with footH != 2 (TestDetailClickReadyFooterAt80Cols's own doc comment,
 // above) -- every OTHER clickPaneGeometry test in this file (and every real

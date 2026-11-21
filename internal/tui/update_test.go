@@ -8,6 +8,7 @@ package tui
 // visibility (B02), and tab focus-swap accenting (I05 #1).
 
 import (
+	"errors"
 	"fmt"
 	"github.com/rierek/lif/pkg/item"
 	"github.com/rierek/lif/pkg/roadmap"
@@ -907,5 +908,200 @@ func TestNotOnRoadmapNestsInDefaultView(t *testing.T) {
 	}
 	if depth["top-a"] != 1 || depth["act-b"] != 2 {
 		t.Fatalf("want top-a depth 1, act-b depth 2; got %v", depth)
+	}
+}
+
+// startupBeans: ms-1 > ep-1 > {tk-1, tk-2, tk-done}; ms-1 > dn-ep (completed)
+// > dn-open (open child below a completed ancestor); uni-1 has a long Unicode title.
+func startupBeans() []*item.Item {
+	return []*item.Item{
+		{ID: "ms-1", Title: "Milestone One", Status: "todo", Type: "milestone", Priority: "normal"},
+		{ID: "ep-1", Title: "Epic One", Status: "todo", Type: "epic", Priority: "normal", Parent: "ms-1"},
+		{ID: "tk-1", Title: "Task One", Status: "in-progress", Type: "task", Priority: "high", Parent: "ep-1"},
+		{ID: "tk-2", Title: "Task Two", Status: "todo", Type: "task", Priority: "normal", Parent: "ep-1"},
+		{ID: "tk-done", Title: "Task Done", Status: "completed", Type: "task", Priority: "normal", Parent: "ep-1"},
+		{ID: "dn-ep", Title: "Done Epic", Status: "completed", Type: "epic", Priority: "normal", Parent: "ms-1"},
+		{ID: "dn-open", Title: "Open below done", Status: "todo", Type: "task", Priority: "normal", Parent: "dn-ep"},
+		{ID: "uni-1", Title: "Überlänge 日本語 " + strings.Repeat("Ωmega ", 20), Status: "todo", Type: "task", Priority: "normal", Parent: "ms-1"},
+	}
+}
+
+// startupModel is a model started with --item id, after its first load.
+func startupModel(t *testing.T, id string) model {
+	t.Helper()
+	m := newModel(nil, "/tmp/bt-fixture-repo")
+	m.initialItemID = id
+	return step(t, m, beansLoadedMsg{beans: startupBeans()})
+}
+
+func TestStartupItemOpensFocusedDetail(t *testing.T) {
+	for _, tc := range []struct {
+		id       string
+		archived bool // completed target turns the archive view on
+		expanded []string
+	}{
+		{"tk-1", false, []string{"ms-1", "ep-1"}},
+		{"tk-done", true, []string{"ms-1", "ep-1"}},
+		{"dn-open", false, []string{"ms-1", "dn-ep"}},
+		{"dn-ep", true, []string{"ms-1"}},
+		{"uni-1", false, []string{"ms-1"}},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			m := startupModel(t, tc.id)
+			b := m.focusedBean()
+			if b == nil || b.ID != tc.id {
+				t.Fatalf("focusedBean = %v, want %s", b, tc.id)
+			}
+			if m.layout != layoutDetail || !m.detailFocus {
+				t.Fatalf("layout=%v detailFocus=%v, want layoutDetail/true", m.layout, m.detailFocus)
+			}
+			if m.initialItemID != "" || m.startupErr != nil {
+				t.Fatalf("initialItemID=%q startupErr=%v, want both cleared", m.initialItemID, m.startupErr)
+			}
+			if m.showArchived != tc.archived {
+				t.Fatalf("showArchived = %v, want %v", m.showArchived, tc.archived)
+			}
+			for _, id := range tc.expanded {
+				if !m.expanded[id] {
+					t.Errorf("ancestor %s not expanded: %v", id, m.expanded)
+				}
+			}
+		})
+	}
+}
+
+func TestStartupItemUnderUnscheduledRootExpandsSyntheticAncestor(t *testing.T) {
+	m := newModel(nil, "/tmp/bt-fixture-repo")
+	m.initialItemID = "act-b"
+	m = step(t, m, beansLoadedMsg{beans: []*item.Item{
+		{ID: "top-a", Title: "Topic", Status: "todo", Type: "task", Priority: "normal", Parent: "ghost-x"},
+		{ID: "act-b", Title: "Activity", Status: "todo", Type: "task", Priority: "normal", Parent: "top-a"},
+	}})
+	if b := m.focusedBean(); b == nil || b.ID != "act-b" {
+		t.Fatalf("focusedBean = %v, want act-b", b)
+	}
+	if !m.expanded[notOnRoadmapRootID] || !m.expanded["top-a"] {
+		t.Fatalf("expanded = %v, want synthetic root and top-a", m.expanded)
+	}
+}
+
+func TestNoStartupItemKeepsRoadmapWithoutDetail(t *testing.T) {
+	m := realModel(t, startupBeans())
+	if m.layout != layoutRoadmap || m.detailFocus || m.showArchived {
+		t.Fatalf("layout=%v detailFocus=%v showArchived=%v, want layoutRoadmap/false/false", m.layout, m.detailFocus, m.showArchived)
+	}
+}
+
+func TestStartupItemSurvivesNavigationAndReload(t *testing.T) {
+	m := startupModel(t, "tk-1")
+	m = step(t, m, runeMsg('V')) // layout back: list + detail
+	if m.layout != layoutFilterDetail {
+		t.Fatalf("layout = %v, want layoutFilterDetail", m.layout)
+	}
+	m = step(t, m, keyMsg(tea.KeyEsc)) // leave the Detail region
+	m = step(t, m, keyMsg(tea.KeyDown))
+	if b := m.focusedBean(); b == nil || b.ID != "tk-2" {
+		t.Fatalf("after down, focusedBean = %v, want tk-2", b)
+	}
+
+	reordered := startupBeans()
+	reordered[2], reordered[3] = reordered[3], reordered[2]
+	for i := 0; i < 2; i++ { // a second reload must not reopen tk-1 either
+		m = step(t, m, beansLoadedMsg{beans: reordered})
+		if b := m.focusedBean(); b == nil || b.ID != "tk-2" {
+			t.Fatalf("reload %d: focusedBean = %v, want tk-2", i, b)
+		}
+		if m.layout != layoutFilterDetail {
+			t.Fatalf("reload %d: layout = %v, want unchanged layoutFilterDetail", i, m.layout)
+		}
+	}
+}
+
+func isQuit(cmd tea.Cmd) bool {
+	if cmd == nil {
+		return false
+	}
+	_, ok := cmd().(tea.QuitMsg)
+	return ok
+}
+
+func TestStartupItemMissingInFirstSnapshotQuitsWithError(t *testing.T) {
+	m := newModel(nil, "/tmp/bt-fixture-repo")
+	m.initialItemID = "gone"
+	tm, cmd := m.Update(beansLoadedMsg{beans: startupBeans()})
+	m = tm.(model)
+	if !isQuit(cmd) {
+		t.Fatal("missing target must return tea.Quit")
+	}
+	if m.startupErr == nil || !strings.Contains(m.startupErr.Error(), "gone") || m.initialItemID != "" {
+		t.Fatalf("startupErr=%v initialItemID=%q, want error naming gone and cleared ID", m.startupErr, m.initialItemID)
+	}
+	if m.layout != layoutRoadmap {
+		t.Fatalf("layout = %v, no alternative item may open", m.layout)
+	}
+}
+
+func TestStartupItemLoadErrorQuitsButPlainLoadErrorToasts(t *testing.T) {
+	boom := errors.New("boom")
+
+	m := newModel(nil, "/tmp/bt-fixture-repo")
+	m.initialItemID = "tk-1"
+	tm, cmd := m.Update(beansLoadedMsg{err: boom})
+	m = tm.(model)
+	if !isQuit(cmd) || !errors.Is(m.startupErr, boom) || m.initialItemID != "" {
+		t.Fatalf("quit=%v startupErr=%v initialItemID=%q, want quit + wrapped boom + cleared", isQuit(cmd), m.startupErr, m.initialItemID)
+	}
+
+	plain := step(t, newModel(nil, "/tmp/bt-fixture-repo"), beansLoadedMsg{err: boom})
+	if plain.startupErr != nil || plain.err != "boom" || plain.toast == nil {
+		t.Fatalf("no-flag load error: startupErr=%v err=%q toast=%v, want the existing error toast", plain.startupErr, plain.err, plain.toast)
+	}
+}
+
+func TestLoadCmdTagsResultWithItsStore(t *testing.T) {
+	s := fixtureStore(t)
+	msg := loadCmd(s)().(beansLoadedMsg)
+	if msg.source != s || msg.err != nil {
+		t.Fatalf("source=%p err=%v, want %p/nil", msg.source, msg.err, s)
+	}
+}
+
+func TestRepoSwitchDropsStartupItemAndIgnoresLateOldStoreLoads(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	oldStore, newStore := fixtureStore(t), newTestStore(t)
+
+	m := newModel(oldStore, "/tmp/old")
+	m.initialItemID = "tk-1"
+	m.startupErr = errors.New("stale")
+	tm, _ := m.applyRepoSwitched(repoSwitchedMsg{store: newStore, repoDir: t.TempDir(), beans: []*item.Item{}})
+	m = tm.(model)
+	if m.initialItemID != "" || m.startupErr != nil {
+		t.Fatalf("initialItemID=%q startupErr=%v after switch, want both cleared", m.initialItemID, m.startupErr)
+	}
+
+	idx, layout := m.idx, m.layout
+	late := []beansLoadedMsg{
+		{beans: startupBeans(), source: oldStore},
+		{err: errors.New("late"), source: oldStore},
+	}
+	for _, msg := range late {
+		tm, cmd := m.Update(msg)
+		m = tm.(model)
+		if cmd != nil || m.idx != idx || m.layout != layout || m.err != "" || m.startupErr != nil {
+			t.Fatalf("late old-store %+v changed state: cmd=%v err=%q startupErr=%v", msg, cmd, m.err, m.startupErr)
+		}
+	}
+	m = step(t, m, beansLoadedMsg{beans: startupBeans(), source: newStore})
+	if m.idx == idx {
+		t.Fatal("a load from the live store must still apply")
+	}
+}
+
+func TestFailedRepoSwitchKeepsStartupItem(t *testing.T) {
+	m := newModel(fixtureStore(t), "/tmp/old")
+	m.initialItemID = "tk-1"
+	m = step(t, m, repoSwitchedMsg{repoDir: "/nowhere", err: errors.New("cannot open")})
+	if m.initialItemID != "tk-1" {
+		t.Fatalf("initialItemID = %q, want preserved after a failed switch", m.initialItemID)
 	}
 }

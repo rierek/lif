@@ -8,13 +8,26 @@ description: "Start lif tui and choose the repository to work in."
 ## Starting the TUI
 
 ```sh
-lif tui [repo-path]
+lif tui [repo-path] [--item <id>]
 ```
 
-- At most one argument: the repository path. The command has no flags of its own; it honors the global flags `--config` and `--lif-path`.
+- At most one argument: the repository path. Besides `--item` below, it honors the global flags `--config` and `--lif-path`.
 - The former separate `lif-tui` binary no longer exists.
 - `lif tui` finds the repository, opens its store and reads its `.lif.yml`. With the Lobby first, no store is open until you pick a repository.
 - The global flag `--lif-path` sets the store, and `--config` sets the `.lif.yml`, of the repository opened at start. They do not apply to a repository you switch to later in the Lobby; that one resolves its own store and config.
+
+## Open one item at start
+
+```sh
+lif tui [repo-path] --item <id>
+```
+
+- `--item` opens the detail of that item, full width with the detail focused, once, after the first load. Nested and completed items work; a completed item turns on the archive view.
+- The ID is an exact full ID, or the complete short ID without the configured prefix. If both exist, the full ID wins. Partial IDs do not match.
+- The item must exist in the repository chosen as in [Which repository opens](#which-repository-opens). With `--item`, the repository picker never opens: with no repository found, you get the usual discovery error.
+- An unknown ID, an empty value (`--item=""`) or a whitespace-only value fails before the terminal UI starts. The error goes to stderr, the exit status is 1, and no other item opens.
+- Later reloads (`ctrl+r`, file changes) keep your navigation and never reopen the item. Switching repository before the first load drops the request.
+- Without `--item`, the TUI starts as before.
 
 ## Which repository opens
 

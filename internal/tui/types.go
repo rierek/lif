@@ -126,6 +126,12 @@ type model struct {
 	store   *data.Store
 	repoDir string
 
+	// initialItemID is the canonical ID `lif tui --item` asked to open; the
+	// first successful load consumes it (applyLoaded). startupErr is the
+	// fatal outcome of that request; Run returns it after the program ends.
+	initialItemID string
+	startupErr    error
+
 	idx *data.Index
 	err string // rendered in the status line; "" = no error to show
 

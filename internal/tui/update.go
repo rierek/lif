@@ -47,6 +47,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case beansLoadedMsg:
+		if msg.source != nil && msg.source != m.store {
+			return m, nil // late snapshot of a store a repo switch already replaced
+		}
 		return m.applyLoaded(msg)
 
 	case storeEventsMsg:
@@ -201,6 +204,8 @@ func (m model) applyRepoSwitched(msg repoSwitchedMsg) (tea.Model, tea.Cmd) {
 		m, toastCmd = m.showToast(toastError, "Repo switch failed: "+msg.err.Error(), "", nil, false)
 		return m, toastCmd
 	}
+
+	m.initialItemID, m.startupErr = "", nil // the startup request belonged to the old repo
 
 	m.store = msg.store
 	m.repoDir = msg.repoDir
@@ -938,6 +943,11 @@ func (m model) applyBleveResult(msg searchBleveResultMsg) (tea.Model, tea.Cmd) {
 // to the top (US-10: reload must never lose the PO's place arbitrarily).
 func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 	if msg.err != nil {
+		if m.initialItemID != "" {
+			m.startupErr = fmt.Errorf("open initial item %q: %w", m.initialItemID, msg.err)
+			m.initialItemID = ""
+			return m, tea.Quit
+		}
 		m.err = msg.err.Error()
 		var toastCmd tea.Cmd
 		m, toastCmd = m.showToast(toastError, m.err, "", nil, false)
@@ -992,6 +1002,20 @@ func (m model) applyLoaded(msg beansLoadedMsg) (model, tea.Cmd) {
 			}
 			m.cursorID = nodes[skipPlaceholder(nodes, oldPos, 1)].id
 		}
+	}
+
+	if m.initialItemID != "" {
+		id := m.initialItemID
+		m.initialItemID = ""
+		target := m.idx.ByID[id]
+		if target == nil {
+			m.startupErr = fmt.Errorf("item not found at TUI startup: %s", id)
+			return m, tea.Quit
+		}
+		m.expanded = expandAncestorsOf(m.treeParent, m.expanded, id)
+		m.cursorID = id
+		m.showArchived = m.showArchived || !data.IsOpenStatus(target.Status)
+		m = m.setLayout(layoutDetail)
 	}
 
 	return m.showWarn(msg.warn)

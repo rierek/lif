@@ -72,6 +72,8 @@ type keyMap struct {
 	YankFull keybind.Binding // yy — copy item file + children table
 	YankMeta keybind.Binding // ym — copy full front matter
 	YankTOC  keybind.Binding // yt — copy front matter + body heading outline
+	YankItem keybind.Binding // yi — copy "ID - Title"
+	YankList keybind.Binding // yl — copy "ID - Title" plus filtered direct children
 	Refresh  keybind.Binding // ctrl+r — manual data reload
 
 	FilterClear keybind.Binding // X — reset filters
@@ -208,6 +210,8 @@ func newKeyMap() keyMap {
 		YankFull: keybind.NewBinding(keybind.WithKeys("yy"), keybind.WithHelp("yy", "copy item + children")),
 		YankMeta: keybind.NewBinding(keybind.WithKeys("ym"), keybind.WithHelp("ym", "copy front matter")),
 		YankTOC:  keybind.NewBinding(keybind.WithKeys("yt"), keybind.WithHelp("yt", "copy front matter + TOC")),
+		YankItem: keybind.NewBinding(keybind.WithKeys("yi"), keybind.WithHelp("yi", "copy ID + title")),
+		YankList: keybind.NewBinding(keybind.WithKeys("yl"), keybind.WithHelp("yl", "copy ID + title + filtered children")),
 		Refresh:  keybind.NewBinding(keybind.WithKeys("ctrl+r"), keybind.WithHelp("ctrl+r", "reload")),
 
 		FilterClear: keybind.NewBinding(keybind.WithKeys("X"), keybind.WithHelp("X", "Clear filters")),
@@ -262,7 +266,7 @@ func (k keyMap) helpGroups() []helpGroup {
 		{"Navigation", []keybind.Binding{k.Up, k.Down, k.Left, k.Right, k.PrevSibling, k.NextSibling, k.ExpandNode, k.CollapseNode, k.ExpandAll, k.CollapseAll, k.PageUp, k.PageDown, k.Enter, k.Back, k.FocusIn, k.FocusOut}},
 		{"Dialogs", []keybind.Binding{k.Confirm, k.Cancel}},
 		{"Views & Global", []keybind.Binding{k.Roadmap, k.FlatList, k.Ready, k.Waves, k.Picker, k.LayoutNext, k.LayoutPrev, k.Search, k.Filter, k.FilterClear, k.Refresh, k.Palette, k.Help, k.Quit, k.QuitNow}},
-		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.YankFull, k.YankMeta, k.YankTOC, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
+		{"Actions", []keybind.Binding{k.Status, k.Type, k.Priority, k.Assign, k.TagAssign, k.Blocking, k.Create, k.Delete, k.Editor, k.Yank, k.YankFull, k.YankMeta, k.YankTOC, k.YankItem, k.YankList, k.Toggle, k.TagToggle, k.Sort, k.NewTag, k.RenameTag}},
 		// bean bt-a3a8: the Blocking-/Parent-Picker's own chip-strip cycles.
 		// Their own group rather than an append to "Actions" -- they are
 		// overlay-local controls that only exist while a picker is open, and

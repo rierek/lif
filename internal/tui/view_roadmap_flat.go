@@ -55,16 +55,7 @@ func (m model) flatVisible() []*item.Item {
 	groups := map[string]searchGroup{}
 	var out []*item.Item
 	for _, b := range m.idx.ByID {
-		if !grouped {
-			if m.beanMatches(b) {
-				out = append(out, b)
-			}
-			continue
-		}
-		if !m.beanMatchesSearchPrefixFacets(b) || !m.beanMatchesFacets(b) || !m.beanMatchesArchive(b) {
-			continue
-		}
-		if g := m.searchGroupOf(t, b); g != groupNone {
+		if g := m.flatMatchGroup(t, b, grouped); g != groupNone {
 			groups[b.ID] = g
 			out = append(out, b)
 		}
@@ -74,6 +65,23 @@ func (m model) flatVisible() []*item.Item {
 		slices.SortStableFunc(out, func(a, b *item.Item) int { return cmp.Compare(groups[a.ID], groups[b.ID]) })
 	}
 	return out
+}
+
+// flatMatchGroup is flatVisible's per-item membership decision: groupNone
+// when b is excluded. Ungrouped (no search text) it is beanMatches; grouped it
+// is the prefix/facet/archive gate plus searchGroupOf. target is
+// m.searchTarget(), passed in so callers look it up once per list.
+func (m model) flatMatchGroup(target, b *item.Item, grouped bool) searchGroup {
+	if !grouped {
+		if m.beanMatches(b) {
+			return groupItem
+		}
+		return groupNone
+	}
+	if !m.beanMatchesSearchPrefixFacets(b) || !m.beanMatchesFacets(b) || !m.beanMatchesArchive(b) {
+		return groupNone
+	}
+	return m.searchGroupOf(target, b)
 }
 
 // flatGroups returns each vis entry's section, or nil when the flat list is not grouped.

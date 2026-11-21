@@ -839,14 +839,14 @@ func (m model) keyNodeAction(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 			return true, m, nil
 		}
 		m.yankPrefix = true
-		nm, cmd := m.showToast(toastInfo, "Yank: y item · m meta · t meta+toc", "any other key cancels", nil, false)
+		nm, cmd := m.showToast(toastInfo, "Yank: i ID+title · l filtered children · y item · m meta · t meta+toc", "any other key cancels", nil, false)
 		return true, nm, cmd
 	}
 	return false, m, nil
 }
 
-// keyYank completes a yank sequence (yy/ym/yt) on m.focusedBean(). Any other
-// sequence cancels and drops the hint toast.
+// keyYank completes a yank sequence (yy/ym/yt/yi/yl) on m.focusedBean(). Any
+// other sequence cancels and drops the hint toast.
 func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 	var mode yankMode
 	switch {
@@ -856,6 +856,10 @@ func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 		mode = yankMeta
 	case bindHas(keys.YankTOC, seq):
 		mode = yankTOC
+	case bindHas(keys.YankItem, seq):
+		mode = yankItem
+	case bindHas(keys.YankList, seq):
+		mode = yankList
 	default:
 		return m.clearToastUnlessSticky(), nil
 	}
@@ -863,7 +867,11 @@ func (m model) keyYank(seq string) (tea.Model, tea.Cmd) {
 	if b == nil {
 		return m.clearToastUnlessSticky(), nil
 	}
-	text, err := yankText(m.idx, b, mode)
+	var children []*item.Item
+	if mode == yankList {
+		children = m.yankChildren(b.ID)
+	}
+	text, err := yankText(m.idx, b, mode, children)
 	if err == nil {
 		err = clip.Copy(text)
 	}
